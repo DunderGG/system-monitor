@@ -1,0 +1,31 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Source code — always LF in the repo, native on checkout
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.cmake text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.txt text eol=lf
+*.in text eol=lf
+*.qrc text eol=lf
+*.ui text eol=lf
+
+# Windows-specific files that must keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.manifest text eol=crlf
+*.rc text eol=crlf
+
+# Binary files
+*.png binary
+*.ico binary
+*.svg binary
+*.ttf binary
+*.otf binary
+

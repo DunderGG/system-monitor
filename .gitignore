@@ -1,0 +1,53 @@
+# Build output
+build/
+out/
+cmake-build-*/
+
+# vcpkg
+vcpkg_installed/
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf
+*.opendb
+*.db
+*.ipch
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+
+# Compiled objects
+*.obj
+*.o
+*.pch
+*.pdb
+*.ilk
+*.lib
+*.dll
+*.exe
+*.exp
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Logs
+*.log
+
+# User-specific settings
+CMakeUserPresets.json
+
