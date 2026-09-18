@@ -67,8 +67,21 @@ shared `CMakePresets.json`.
 
 ## Required local setup
 
-Install vcpkg and set `VCPKG_ROOT` to its installation directory. For the
-current default preset, Ninja must also be available on `PATH`. The MSVC
+The recommended setup is the repository bootstrap script:
+
+```powershell
+.\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
+```
+
+It detects Git, CMake, Ninja, and the MSVC C++ workload. With
+`-InstallMissing`, it uses WinGet to install missing tools, clones and
+bootstraps vcpkg in `%LOCALAPPDATA%\vcpkg`, creates a binary cache in
+`%LOCALAPPDATA%\vcpkg-cache`, and verifies the result. Installation of Build
+Tools may require elevation. By default, the script only reports missing tools;
+the `-InstallMissing` switch is an explicit opt-in. The `-PersistEnvironment`
+switch saves the vcpkg environment variables for future terminals.
+
+For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well: use a Developer PowerShell/Command
 Prompt, or let VS Code's CMake Tools extension select an MSVC kit.
 

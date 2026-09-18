@@ -15,6 +15,12 @@ You do **not** need to install Qt separately. All dependencies, including Qt 6, 
 
 For an overview of how CMake, presets, vcpkg, and CI work together, see [the build system guide](docs/build_system.md).
 
+To check prerequisites and configure vcpkg automatically, run the bootstrap script from PowerShell. Add `-InstallMissing` to allow it to install missing tools through WinGet, and `-PersistEnvironment` to save the vcpkg environment variables for future terminals.
+
+```powershell
+.\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
+```
+
 ### Option A: Visual Studio (full IDE)
 
 Install [Visual Studio 2022](https://visualstudio.microsoft.com/) (Community edition is free) with the **"Desktop development with C++"** workload. This includes the MSVC compiler, Windows SDK, and CMake.

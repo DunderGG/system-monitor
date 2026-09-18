@@ -230,4 +230,4 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Add export actions to the UI (file dialog).
 
 ### DevEnv
-- [ ] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.
+- [x] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.
