@@ -14,23 +14,22 @@ jobs:
     name: Build and Test
     runs-on: windows-latest
 
-    env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup vcpkg binary cache directory
-        run: New-Item -ItemType Directory -Force -Path "$env:VCPKG_DEFAULT_BINARY_CACHE"
-
-      - name: Restore vcpkg binary cache
-        uses: actions/cache@v4
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          path: ${{ github.workspace }}\vcpkg-cache
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
-          restore-keys: |
-            vcpkg-${{ runner.os }}-
+          arch: amd64
+
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+          vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
+          runVcpkgInstall: false
+          doNotCache: false
 
       - name: Configure
         run: cmake --preset default
@@ -40,4 +39,3 @@ jobs:
 
       - name: Test
         run: ctest --preset default --output-on-failure
-

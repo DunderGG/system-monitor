@@ -103,7 +103,8 @@ with the `default` preset, then build or test with the matching preset. CMake
 Tools supplies the compiler environment; adding only `cl.exe` to `PATH` is not
 enough because MSVC also needs its include and library environment variables.
 
-The GitHub Actions workflow runs the same three preset commands. It sets a
-vcpkg binary-cache location and restores it between runs. The checked-in
+The GitHub Actions workflow runs the same three preset commands. It initializes
+the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
+by this repository, with GitHub Actions-backed binary caching. The checked-in
 presets, manifest, and baseline therefore keep developer and CI dependency
 resolution aligned.

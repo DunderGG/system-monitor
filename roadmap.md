@@ -12,7 +12,7 @@ Set up the build system, dependencies, CI, and a runnable application shell befo
 - [x] Create `CMakePresets.json` with a `default` configure preset pointing to the vcpkg toolchain file.
 - [x] Create `vcpkg.json` manifest with `qtbase` (widgets, gui, network), `nlohmann-json`, `gtest`, and `spdlog`. Disable default Qt features to reduce build time.
 - [x] Create `vcpkg-configuration.json` pinning a vcpkg baseline for reproducible builds.
-- [ ] Add a GitHub Actions CI workflow that builds and runs tests on push and pull request.
+- [x] Add a GitHub Actions CI workflow that builds and runs tests on push and pull request.
 - [ ] Create the `src/` module directory structure: `app/`, `domain/`, `monitoring/`, `platform/windows/`, `persistence/`, `ui/`, `ui/charts/`.
 - [ ] Create the `tests/` directory structure: `unit/`, `integration/`.
 - [ ] Implement a minimal `main.cpp` in `src/app/` that creates a `QApplication`, shows an empty `QMainWindow`, and exits cleanly.
