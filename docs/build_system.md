@@ -85,6 +85,23 @@ For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well: use a Developer PowerShell/Command
 Prompt, or let VS Code's CMake Tools extension select an MSVC kit.
 
+## Why these prerequisites
+
+| Tool | Why this project uses it |
+| --- | --- |
+| MSVC Build Tools and Windows SDK | Build the Windows desktop application and provide the supported C++ compiler, linker, and Windows headers. The full Visual Studio IDE is optional. |
+| CMake | Translates the portable target definitions in `CMakeLists.txt` into build files for the selected compiler and coordinates vcpkg during configuration. |
+| Ninja | Executes the generated build graph quickly and consistently. The checked-in `default` preset explicitly selects Ninja, so local, VS Code, and CI builds use the same backend. |
+| vcpkg | Downloads, builds, and exposes the declared C++ dependencies from `vcpkg.json`; it removes the need to install Qt, spdlog, GoogleTest, or nlohmann-json by hand. |
+| Git | Obtains this repository and lets the bootstrap script clone vcpkg at the reproducible baseline. |
+| VS Code CMake Tools (optional) | Reads `CMakePresets.json`, selects the MSVC environment, and provides configure/build/test commands within VS Code. |
+| VS Code C/C++ extension (optional) | Adds C++ language services such as IntelliSense, navigation, and debugging support. It does not replace the compiler or build system. |
+
+Ninja is deliberately separate from CMake: CMake generates build instructions,
+while Ninja performs the compilation. A Visual Studio generator could remove the
+Ninja prerequisite, but it would make command-line and CI behavior less uniform
+than the current single-generator setup.
+
 For example, after installing vcpkg to `C:\vcpkg`:
 
 ```powershell
