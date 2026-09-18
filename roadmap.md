@@ -9,7 +9,7 @@ This roadmap expands the scope and milestones from [architecture.md](architectur
 Set up the build system, dependencies, CI, and a runnable application shell before writing any monitoring logic.
 
 - [x] Create root `CMakeLists.txt` with C++20 standard, project-wide compiler warnings, and module subdirectories.
-- [ ] Create `CMakePresets.json` with a `default` configure preset pointing to the vcpkg toolchain file.
+- [x] Create `CMakePresets.json` with a `default` configure preset pointing to the vcpkg toolchain file.
 - [ ] Create `vcpkg.json` manifest with `qtbase` (widgets, gui, network), `nlohmann-json`, `gtest`, and `spdlog`. Disable default Qt features to reduce build time.
 - [ ] Create `vcpkg-configuration.json` pinning a vcpkg baseline for reproducible builds.
 - [ ] Add a GitHub Actions CI workflow that builds and runs tests on push and pull request.
@@ -228,3 +228,6 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 
 - [ ] Export current snapshot or ring buffer history as CSV or JSON.
 - [ ] Add export actions to the UI (file dialog).
+
+### DevEnv
+- [ ] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.

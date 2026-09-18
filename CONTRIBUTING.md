@@ -7,9 +7,13 @@ Thank you for your interest in contributing! This guide will help you get set up
 - **Windows 10** (version 2004 or later) or **Windows 11**
 - **MSVC compiler and Windows SDK** (see options below)
 - **CMake 3.25+**
+- **Ninja** (the default CMake preset generator)
+- **vcpkg**, with the `VCPKG_ROOT` environment variable set to its installation directory
 - **Git**
 
 You do **not** need to install Qt separately. All dependencies, including Qt 6, are managed through vcpkg and will be downloaded and built automatically on first configure.
+
+For an overview of how CMake, presets, vcpkg, and CI work together, see [the build system guide](docs/build_system.md).
 
 ### Option A: Visual Studio (full IDE)
 
@@ -185,4 +189,3 @@ ctest --preset default -R "RingBufferTest"
 ## Getting help
 
 If you have questions about the codebase or architecture, open a discussion on GitHub or comment on the relevant issue. We're happy to help new contributors get oriented.
-
