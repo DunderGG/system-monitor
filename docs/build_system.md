@@ -48,10 +48,12 @@ cmake --build --preset default
 ctest --preset default
 ```
 
-`vcpkg.json` will be the dependency manifest. It lists the packages the project
-needs, such as Qt, spdlog, GoogleTest, and nlohmann-json. When CMake loads the
-vcpkg toolchain during configuration, vcpkg reads this manifest, obtains the
-declared packages, and makes them available to CMake's `find_package()` calls.
+`vcpkg.json` is the dependency manifest. It lists the packages the project
+needs, including Qt, spdlog, GoogleTest, and nlohmann-json. It disables Qt's
+default features and requests only Qt GUI, Network, and Widgets support to keep
+the dependency build focused. When CMake loads the vcpkg toolchain during
+configuration, vcpkg reads this manifest, obtains the declared packages, and
+makes them available to CMake's `find_package()` calls.
 
 `vcpkg-configuration.json` will define the vcpkg registry baseline. The
 baseline fixes the exact vcpkg ports snapshot used to resolve `vcpkg.json`, so a
