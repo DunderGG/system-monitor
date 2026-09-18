@@ -11,7 +11,7 @@ Set up the build system, dependencies, CI, and a runnable application shell befo
 - [x] Create root `CMakeLists.txt` with C++20 standard, project-wide compiler warnings, and module subdirectories.
 - [x] Create `CMakePresets.json` with a `default` configure preset pointing to the vcpkg toolchain file.
 - [x] Create `vcpkg.json` manifest with `qtbase` (widgets, gui, network), `nlohmann-json`, `gtest`, and `spdlog`. Disable default Qt features to reduce build time.
-- [ ] Create `vcpkg-configuration.json` pinning a vcpkg baseline for reproducible builds.
+- [x] Create `vcpkg-configuration.json` pinning a vcpkg baseline for reproducible builds.
 - [ ] Add a GitHub Actions CI workflow that builds and runs tests on push and pull request.
 - [ ] Create the `src/` module directory structure: `app/`, `domain/`, `monitoring/`, `platform/windows/`, `persistence/`, `ui/`, `ui/charts/`.
 - [ ] Create the `tests/` directory structure: `unit/`, `integration/`.

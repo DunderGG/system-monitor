@@ -55,10 +55,10 @@ the dependency build focused. When CMake loads the vcpkg toolchain during
 configuration, vcpkg reads this manifest, obtains the declared packages, and
 makes them available to CMake's `find_package()` calls.
 
-`vcpkg-configuration.json` will define the vcpkg registry baseline. The
-baseline fixes the exact vcpkg ports snapshot used to resolve `vcpkg.json`, so a
-fresh build later uses compatible package definitions instead of silently moving
-to newer ones.
+`vcpkg-configuration.json` defines the vcpkg registry baseline. The baseline
+fixes the exact vcpkg ports snapshot used to resolve `vcpkg.json`, so a fresh
+build uses compatible package definitions instead of silently moving to newer
+ones.
 
 `CMakeUserPresets.json` is an optional, local-only companion file. It is ignored
 by Git and can inherit from `default` to set machine-specific values, such as a
