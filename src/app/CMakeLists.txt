@@ -1,12 +1,16 @@
+find_package(spdlog CONFIG REQUIRED)
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
 
 qt_add_executable(system_monitor
+    app_logging.cpp
+    app_logging.h
     main.cpp
 )
 
 target_link_libraries(system_monitor
     PRIVATE
         Qt6::Widgets
+        spdlog::spdlog
 )
 
 if(WIN32)

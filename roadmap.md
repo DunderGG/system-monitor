@@ -13,11 +13,11 @@ Set up the build system, dependencies, CI, and a runnable application shell befo
 - [x] Create `vcpkg.json` manifest with `qtbase` (widgets, gui, network), `nlohmann-json`, `gtest`, and `spdlog`. Disable default Qt features to reduce build time.
 - [x] Create `vcpkg-configuration.json` pinning a vcpkg baseline for reproducible builds.
 - [x] Add a GitHub Actions CI workflow that builds and runs tests on push and pull request.
-- [ ] Create the `src/` module directory structure: `app/`, `domain/`, `monitoring/`, `platform/windows/`, `persistence/`, `ui/`, `ui/charts/`.
-- [ ] Create the `tests/` directory structure: `unit/`, `integration/`.
-- [ ] Implement a minimal `main.cpp` in `src/app/` that creates a `QApplication`, shows an empty `QMainWindow`, and exits cleanly.
-- [ ] Configure spdlog in `src/app/` with console and rotating file sinks. Make log level configurable via command-line argument for development.
-- [ ] Add a placeholder GoogleTest target with a single passing test to verify the test pipeline.
+- [x] Create the `src/` module directory structure: `app/`, `domain/`, `monitoring/`, `platform/windows/`, `persistence/`, `ui/`, `ui/charts/`.
+- [x] Create the `tests/` directory structure: `unit/`, `integration/`.
+- [x] Implement a minimal `main.cpp` in `src/app/` that creates a `QApplication`, shows an empty `QMainWindow`, and exits cleanly.
+- [x] Configure spdlog in `src/app/` with console and rotating file sinks. Make log level configurable via command-line argument for development.
+- [x] Add a placeholder GoogleTest target with a single passing test to verify the test pipeline.
 - [ ] Verify the full clone → configure → build → test → run cycle works on a clean Windows machine.
 
 ---
