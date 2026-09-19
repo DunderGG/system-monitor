@@ -74,8 +74,10 @@ The recommended setup is the repository bootstrap script:
 ```
 
 It detects Git, CMake, Ninja, and the MSVC C++ workload. With
-`-InstallMissing`, it uses WinGet to install missing tools, clones and
-bootstraps vcpkg in `%LOCALAPPDATA%\vcpkg`, creates a binary cache in
+`-InstallMissing`, it uses WinGet to install missing tools, automatically detects
+an existing vcpkg installation (such as Visual Studio's bundled vcpkg,
+`vcpkg.path.txt`, or `VCPKG_ROOT`) or clones and bootstraps a fresh checkout in
+`%LOCALAPPDATA%\vcpkg-root`, creates a binary cache in
 `%LOCALAPPDATA%\vcpkg-cache`, and verifies the result. Installation of Build
 Tools may require elevation. By default, the script only reports missing tools;
 the `-InstallMissing` switch is an explicit opt-in. The `-PersistEnvironment`
@@ -85,10 +87,11 @@ For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well. `scripts/build.ps1` does this
 automatically (via `Enter-VsDevShell`), so it works from any terminal,
 including VS Code's built-in one. If you invoke `cmake`/`ctest` directly
-instead of going through `build.ps1`, use a Developer PowerShell/Command
-Prompt, or let VS Code's CMake Tools extension select an MSVC kit. The
-`default` preset pins `x64`, so CMake fails with a clear error instead of
-silently falling back to the x86 toolset if the wrong environment is active.
+instead of going through `build.ps1`, use the **Developer PowerShell for VS 2022**
+or **x64 Native Tools Command Prompt**, or let VS Code's CMake Tools extension select
+an MSVC kit. The `default` preset pins `x64` and explicitly sets `CMAKE_CXX_COMPILER`
+to `cl`, ensuring that CMake never silently falls back to an incompatible compiler
+(such as MinGW GCC) if found on `PATH`.
 
 ## Why these prerequisites
 

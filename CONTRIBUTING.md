@@ -4,79 +4,179 @@ Thank you for your interest in contributing! This guide will help you get set up
 
 ## Prerequisites
 
-- **Windows 10** (version 2004 or later) or **Windows 11**
-- **MSVC compiler and Windows SDK** (see options below)
-- **CMake 3.25+**
-- **Ninja** (the default CMake preset generator)
-- **vcpkg**, with the `VCPKG_ROOT` environment variable set to its installation directory
-- **Git**
+System Monitor is built for Windows 10 (version 2004+) or Windows 11 using the **MSVC x64 compiler** (C++20), **CMake**, **Ninja**, and **vcpkg**.
 
-You do **not** need to install Qt separately. All dependencies, including Qt 6, are managed through vcpkg and will be downloaded and built automatically on first configure.
+| Prerequisite | Purpose | WinGet package ID |
+| --- | --- | --- |
+| **Windows 10/11** | Supported target platform | — |
+| **MSVC C++ Build Tools & Windows SDK** | Compiler (`cl.exe`), linker, and Windows headers | `Microsoft.VisualStudio.2022.BuildTools` (or Visual Studio IDE) |
+| **CMake 3.25+** | Build configuration and build preset driver | `Kitware.CMake` |
+| **Ninja** | Fast build generator used by CMake presets | `Ninja-build.Ninja` |
+| **Git** | Repository clone and vcpkg baseline checkout | `Git.Git` |
+| **vcpkg** | Manages C++ dependencies (Qt 6, spdlog, GoogleTest, nlohmann/json) | Bundled with Visual Studio or standalone |
+
+> You do **not** need to install Qt separately. All dependencies, including Qt 6, are declared in `vcpkg.json` and compiled/cached automatically by vcpkg during the first build.
 
 For an overview of how CMake, presets, vcpkg, and CI work together, see [the build system guide](docs/build_system.md).
 
-To check prerequisites and configure vcpkg automatically, run the bootstrap script from PowerShell. Add `-InstallMissing` to allow it to install missing tools through WinGet, and `-PersistEnvironment` to save the vcpkg environment variables for future terminals.
+---
 
+## Setup and Building
+
+You can set up and build the project using either **automated scripts** or **manual CLI steps**.
+
+### Option 1: Automated setup (Recommended)
+
+The repository provides PowerShell scripts that automate tool detection, installation, vcpkg configuration, and MSVC environment initialization:
+
+1. **Clone the repository:**
+   ```powershell
+   git clone https://github.com/DunderGG/system-monitor.git
+   cd system-monitor
+   ```
+
+2. **Run the bootstrap script:**
+   ```powershell
+   .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
+   ```
+   - Checks for Git, CMake, Ninja, and MSVC C++ Build Tools (installs any missing tools via WinGet with `-InstallMissing`).
+   - Detects an existing vcpkg installation (such as Visual Studio's bundled `VC\vcpkg` or `vcpkg.path.txt`) or clones and bootstraps a fresh copy in `%LOCALAPPDATA%\vcpkg-root`.
+   - Persists `VCPKG_ROOT` and `VCPKG_DEFAULT_BINARY_CACHE` to your User environment (`-PersistEnvironment`).
+
+3. **Build from any terminal:**
+   ```powershell
+   # Build without launching the GUI
+   .\scripts\build.ps1 -NoRun
+
+   # Or build and launch the application
+   .\scripts\build.ps1
+   ```
+   `scripts/build.ps1` automatically detects and activates the x64 MSVC developer environment into the running PowerShell process, so it works from any terminal (PowerShell, Windows Terminal, VS Code) without manual environment setup.
+
+4. **Run tests:**
+   ```powershell
+   ctest --preset default --output-on-failure
+   ```
+
+---
+
+### Option 2: Manual setup and build
+
+If you prefer to configure your machine and invoke CMake manually without using the helper scripts:
+
+#### Step 1: Install prerequisites
+Install the required tools via WinGet:
 ```powershell
-.\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
+winget install --exact Git.Git Kitware.CMake Ninja-build.Ninja
+winget install --exact Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+*(Alternatively, install the [Visual Studio 2022 Community IDE](https://visualstudio.microsoft.com/) and check the "Desktop development with C++" workload).*
+
+#### Step 2: Set up vcpkg
+The project uses vcpkg to resolve dependencies declared in `vcpkg.json`. CMake expects the `VCPKG_ROOT` environment variable to point to your vcpkg installation:
+
+- **If you have Visual Studio installed:** Visual Studio already bundles a complete copy of vcpkg:
+  - Build Tools: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\vcpkg`
+  - Community: `C:\Program Files\Microsoft Visual Studio\2022\Community\VC\vcpkg` (or your custom VS install directory)
+- **If installing standalone:** Clone vcpkg to a dedicated directory (e.g. `C:\vcpkg` or `$env:LOCALAPPDATA\vcpkg-root`; do **not** clone into `%LOCALAPPDATA%\vcpkg` as that directory is reserved for vcpkg's internal user metadata):
+  ```powershell
+  git clone --depth 1 https://github.com/microsoft/vcpkg.git "$env:LOCALAPPDATA\vcpkg-root"
+  & "$env:LOCALAPPDATA\vcpkg-root\bootstrap-vcpkg.bat" -disableMetrics
+  ```
+
+Set the environment variables for your terminal:
+```powershell
+# Set in the current terminal session:
+$env:VCPKG_ROOT = "$env:LOCALAPPDATA\vcpkg-root"   # Or path to your VC\vcpkg
+$env:VCPKG_DEFAULT_BINARY_CACHE = "$env:LOCALAPPDATA\vcpkg-cache"
+
+# (Recommended) Persist to User environment variables for all future terminals:
+[Environment]::SetEnvironmentVariable("VCPKG_ROOT", $env:VCPKG_ROOT, "User")
+[Environment]::SetEnvironmentVariable("VCPKG_DEFAULT_BINARY_CACHE", $env:VCPKG_DEFAULT_BINARY_CACHE, "User")
 ```
 
-### Option A: Visual Studio (full IDE)
+#### Step 3: Open an x64 MSVC Developer Terminal
+The project requires MSVC (`cl.exe`). A standard PowerShell or Command Prompt window does **not** have MSVC on `PATH`.
 
-Install [Visual Studio 2022](https://visualstudio.microsoft.com/) (Community edition is free) with the **"Desktop development with C++"** workload. This includes the MSVC compiler, Windows SDK, and CMake.
+Open one of the following from your Windows Start Menu:
+- **Developer PowerShell for VS 2022** (or Build Tools)
+- **x64 Native Tools Command Prompt for VS 2022** (or Build Tools)
 
-### Option B: VS Code + Build Tools (lightweight)
+*(You can verify that MSVC is active by running `cl.exe`. It should output `Microsoft (R) C/C++ Optimizing Compiler Version ... for x64`).*
 
-1. Install [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) and select the **"Desktop development with C++"** workload. This installs only the MSVC compiler and Windows SDK without the full IDE (~3–5 GB).
-2. Install [CMake](https://cmake.org/download/) (3.25 or later).
-3. Install [VS Code](https://code.visualstudio.com/) with the following extensions:
-   - [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) (Microsoft)
-   - [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools) (Microsoft)
-4. `scripts/build.ps1` initializes the x64 MSVC environment itself, so it works from any terminal, including VS Code's built-in one. If you invoke `cmake`/`ctest` directly instead, use the **Developer Command Prompt** or **Developer PowerShell** (installed by Build Tools) so that the compiler is on your PATH. In VS Code, the CMake Tools extension detects the Build Tools installation automatically.
-
-## Getting started
-
-### 1. Clone the repository
-
+#### Step 4: Configure, build, and test
+From the project root inside the Developer terminal:
 ```powershell
-git clone https://github.com/DunderGG/system-monitor.git
-cd system-monitor
-```
-
-### 2. Configure and build
-
-The project uses CMake presets for a consistent build environment. The first build will take longer (30–90 minutes) as vcpkg compiles Qt and other dependencies from source. Subsequent builds reuse cached binaries.
-
-```powershell
-# Configure (downloads and builds dependencies on first run)
+# 1. Configure (downloads and compiles dependencies on first run; takes 30-90 minutes)
 cmake --preset default
 
-# Build
+# 2. Build the application and test targets
 cmake --build --preset default
 
-# Run tests
-ctest --preset default
+# 3. Run all tests
+ctest --preset default --output-on-failure
 ```
 
-### 3. Speed up rebuilds with binary caching
+---
 
-To avoid recompiling dependencies on clean builds, set up a local vcpkg binary cache:
+### Option 3: VS Code workflow
 
-```powershell
-# Create a cache directory (run once)
-mkdir C:\vcpkg-cache
+1. Install [VS Code](https://code.visualstudio.com/) with extensions:
+   - **C/C++** (`ms-vscode.cpptools`)
+   - **CMake Tools** (`ms-vscode.cmake-tools`)
+2. Open the project folder in VS Code.
+3. CMake Tools automatically detects `CMakePresets.json`:
+   - Set the configure preset to **`default`** (Debug).
+   - Set the build preset to **`default`**.
+   - Set the test preset to **`default`**.
+4. In the status bar or command palette (`Ctrl+Shift+P`), select **CMake: Configure**, then **CMake: Build**.
 
-# Set the environment variable (add to your shell profile for persistence)
-$env:VCPKG_DEFAULT_BINARY_CACHE = "C:\vcpkg-cache"
-```
+---
 
-### 4. Optional: use a local Qt installation
+### Optional: use a local Qt installation
 
 If you already have Qt 6 installed via the official installer, you can skip the vcpkg Qt build by setting `CMAKE_PREFIX_PATH` to your Qt installation in a custom CMake preset or as a command-line argument:
 
 ```powershell
 cmake --preset default -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64"
 ```
+
+---
+
+## Troubleshooting & Common Pitfalls
+
+### 1. `CMake Error: CMAKE_CXX_COMPILER could not be found: cl`
+- **Cause:** Running `cmake --preset default` in a standard PowerShell or Command Prompt where MSVC (`cl.exe`) is not on `PATH`.
+- **Fix:** Either run `.\scripts\build.ps1 -NoRun` (which initializes the MSVC environment automatically), or run from a **Developer PowerShell for VS 2022** / **x64 Native Tools Command Prompt**.
+
+### 2. `undefined reference to 'testing::Test::Test()'` or MinGW/GCC linker errors
+- **Cause:** If MinGW or MSYS2 (`c++.exe`) is on your system `PATH` and you ran `cmake` outside of an MSVC developer environment, CMake may have previously configured the project with GCC. GCC cannot link against MSVC-compiled dependencies from vcpkg.
+- **Fix:**
+  1. Clear the stale build cache:
+     ```powershell
+     Remove-Item -Path "build/default/CMakeCache.txt", "build/default/build.ninja" -Force
+     Remove-Item -Recurse -Path "build/default/CMakeFiles" -Force
+     ```
+  2. Rebuild using `.\scripts\build.ps1 -NoRun` or from an x64 Developer PowerShell session.
+
+### 3. `VCPKG_ROOT is not set` / Toolchain file not found
+- **Cause:** The `default` preset relies on `$env{VCPKG_ROOT}` to locate vcpkg's CMake toolchain (`$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`).
+- **Fix:** Set `$env:VCPKG_ROOT = "<path-to-vcpkg>"` in your session, or run `.\scripts\bootstrap.ps1 -PersistEnvironment` to set it permanently.
+
+### 4. `File ... cannot be loaded because running scripts is disabled on this system`
+- **Cause:** Windows PowerShell default `ExecutionPolicy Restricted`.
+- **Fix:** Run the script with bypass:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
+  ```
+  Or allow scripts for your current session:
+  ```powershell
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  ```
+
+### 5. `throw "'...' is not a valid vcpkg checkout. Use a different -VcpkgRoot path."`
+- **Cause:** Using `%LOCALAPPDATA%\vcpkg` as the vcpkg checkout root. On Windows, `%LOCALAPPDATA%\vcpkg` is used by vcpkg to store user-level configuration and registration files (`vcpkg.path.txt`), so it is not a Git repository checkout.
+- **Fix:** Use an existing vcpkg installation (such as Visual Studio's `VC\vcpkg`), or clone to `%LOCALAPPDATA%\vcpkg-root` or `C:\vcpkg`.
 
 ## Project structure
 

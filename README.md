@@ -23,27 +23,44 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 - **Windows 10** (version 2004+) or **Windows 11**
 - **Visual Studio 2022** with the "Desktop development with C++" workload, **or** the standalone [Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) (for VS Code users)
 - **CMake 3.25+**
+- **Ninja**
+- **vcpkg** (bundled with Visual Studio or standalone) with `VCPKG_ROOT` set
 - **Git**
 
-All dependencies (Qt 6, spdlog, GoogleTest, nlohmann/json) are managed by vcpkg and downloaded automatically.
+All dependencies (Qt 6, spdlog, GoogleTest, nlohmann/json) are managed by vcpkg and downloaded automatically during project configuration.
 
-### Build
+### Quick start (Automated)
 
-```powershell
-git clone https://github.com/DunderGG/system-monitor.git
-cd system-monitor
-
-cmake --preset default
-cmake --build --preset default
-```
-
-The first build can be slow while Qt compiles from source. Set up [vcpkg binary caching](https://learn.microsoft.com/en-us/vcpkg/users/binarycaching) to speed up subsequent clean builds.
-
-### Run tests
+The fastest way to get started is using the repository scripts. From PowerShell:
 
 ```powershell
+# Check or install missing tools, locate/bootstrap vcpkg, and persist environment variables:
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
+
+# Build from any terminal (automatically initializes the x64 MSVC environment):
+.\scripts\build.ps1 -NoRun
+
+# Run tests:
 ctest --preset default
 ```
+
+### Manual build
+
+If you prefer building manually without scripts:
+
+1. Open the **Developer PowerShell for VS 2022** or **x64 Native Tools Command Prompt for VS 2022** (so `cl.exe` is active on `PATH`).
+2. Ensure `VCPKG_ROOT` is set in your session (e.g. `$env:VCPKG_ROOT = "C:\vcpkg"` or to Visual Studio's `VC\vcpkg`).
+3. Run:
+
+```powershell
+cmake --preset default
+cmake --build --preset default
+ctest --preset default
+```
+
+The first build will compile dependencies (including Qt 6) from source. Set up [vcpkg binary caching](https://learn.microsoft.com/en-us/vcpkg/users/binarycaching) to speed up subsequent clean builds.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full manual setup details, IDE configuration, and troubleshooting.
 
 ## How it works
 

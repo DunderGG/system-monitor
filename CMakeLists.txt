@@ -16,6 +16,10 @@ if(MSVC)
         /permissive-
         /Zc:__cplusplus
     )
+elseif(WIN32)
+    message(FATAL_ERROR "System Monitor requires the MSVC compiler on Windows. "
+                        "Please run from a Developer PowerShell / Developer Command Prompt, "
+                        "or use '.\\scripts\\build.ps1' which initializes the MSVC environment automatically.")
 else()
     add_compile_options(
         -Wall

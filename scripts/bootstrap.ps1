@@ -18,7 +18,8 @@ Allows WinGet and Git to install missing prerequisites and vcpkg.
 Saves VCPKG_ROOT and VCPKG_DEFAULT_BINARY_CACHE for future terminals.
 
 .PARAMETER VcpkgRoot
-Directory in which vcpkg is installed. Defaults to %LOCALAPPDATA%\vcpkg.
+Directory in which vcpkg is installed. Automatically detects existing installations
+(Visual Studio, vcpkg.path.txt, or VCPKG_ROOT), or defaults to %LOCALAPPDATA%\vcpkg-root.
 
 .PARAMETER BinaryCache
 Directory used for vcpkg binary caching. Defaults to %LOCALAPPDATA%\vcpkg-cache.
@@ -30,7 +31,7 @@ Directory used for vcpkg binary caching. Defaults to %LOCALAPPDATA%\vcpkg-cache.
 param(
     [switch]$InstallMissing,
     [switch]$PersistEnvironment,
-    [string]$VcpkgRoot = (Join-Path $env:LOCALAPPDATA "vcpkg"),
+    [string]$VcpkgRoot,
     [string]$BinaryCache = (Join-Path $env:LOCALAPPDATA "vcpkg-cache")
 )
 
@@ -60,6 +61,91 @@ function Update-ProcessPath
         ForEach-Object { $_ -split ";" } |
         Select-Object -Unique
     $env:Path = $pathEntries -join ";"
+}
+
+# Refresh PATH immediately so any tools previously installed by WinGet are available.
+Update-ProcessPath
+
+function Test-ValidVcpkgRoot
+{
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path))
+    {
+        return $false
+    }
+
+    $toolchain = Join-Path $Path "scripts\buildsystems\vcpkg.cmake"
+    $hasToolchain = Test-Path -LiteralPath $toolchain
+    $hasExe = Test-Path -LiteralPath (Join-Path $Path "vcpkg.exe")
+    $hasBootstrap = Test-Path -LiteralPath (Join-Path $Path "bootstrap-vcpkg.bat")
+
+    return $hasToolchain -and ($hasExe -or $hasBootstrap)
+}
+
+function Find-ExistingVcpkgRoot
+{
+    param(
+        [string]$VsInstallPath
+    )
+
+    # 1. Active environment variable
+    if (-not [string]::IsNullOrWhiteSpace($env:VCPKG_ROOT) -and (Test-ValidVcpkgRoot $env:VCPKG_ROOT))
+    {
+        return $env:VCPKG_ROOT
+    }
+
+    # 2. Persisted User or Machine environment variables
+    $userVcpkg = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
+    if (-not [string]::IsNullOrWhiteSpace($userVcpkg) -and (Test-ValidVcpkgRoot $userVcpkg))
+    {
+        return $userVcpkg
+    }
+    $machineVcpkg = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "Machine")
+    if (-not [string]::IsNullOrWhiteSpace($machineVcpkg) -and (Test-ValidVcpkgRoot $machineVcpkg))
+    {
+        return $machineVcpkg
+    }
+
+    # 3. Registered vcpkg path from %LOCALAPPDATA%\vcpkg\vcpkg.path.txt
+    $vcpkgPathFile = Join-Path $env:LOCALAPPDATA "vcpkg\vcpkg.path.txt"
+    if (Test-Path -LiteralPath $vcpkgPathFile)
+    {
+        $registeredPath = (Get-Content -LiteralPath $vcpkgPathFile -Raw -ErrorAction SilentlyContinue)
+        if (-not [string]::IsNullOrWhiteSpace($registeredPath))
+        {
+            $registeredPath = $registeredPath.Trim()
+            if (Test-ValidVcpkgRoot $registeredPath)
+            {
+                return $registeredPath
+            }
+        }
+    }
+
+    # 4. Visual Studio bundled vcpkg
+    if (-not [string]::IsNullOrWhiteSpace($VsInstallPath))
+    {
+        $vsVcpkg = Join-Path $VsInstallPath "VC\vcpkg"
+        if (Test-ValidVcpkgRoot $vsVcpkg)
+        {
+            return $vsVcpkg
+        }
+    }
+
+    # 5. vcpkg executable on PATH
+    $vcpkgCmd = Get-Command "vcpkg" -ErrorAction SilentlyContinue
+    if ($null -ne $vcpkgCmd)
+    {
+        $vcpkgDir = Split-Path -Parent $vcpkgCmd.Source
+        if (Test-ValidVcpkgRoot $vcpkgDir)
+        {
+            return $vcpkgDir
+        }
+    }
+
+    return $null
 }
 
 function Find-VsInstallPath
@@ -174,8 +260,25 @@ if ($null -eq $vsInstallPath)
 
 Write-Host "Found MSVC Build Tools at $vsInstallPath."
 
-# vcpkg is kept outside the repository because it is a reusable dependency
-# manager. Its location is later exposed through VCPKG_ROOT for CMake.
+# Locate an existing vcpkg installation or choose a non-conflicting default
+# checkout directory outside the repository.
+if ([string]::IsNullOrWhiteSpace($VcpkgRoot))
+{
+    $existingVcpkg = Find-ExistingVcpkgRoot -VsInstallPath $vsInstallPath
+    if ($null -ne $existingVcpkg)
+    {
+        $VcpkgRoot = $existingVcpkg
+        Write-Host "Found existing vcpkg at $VcpkgRoot."
+    }
+    else
+    {
+        # Default checkout directory when no existing vcpkg installation is found.
+        # Note: We use vcpkg-root rather than %LOCALAPPDATA%\vcpkg because the latter
+        # is reserved by vcpkg for user-level caches, registries, and configuration.
+        $VcpkgRoot = Join-Path $env:LOCALAPPDATA "vcpkg-root"
+    }
+}
+
 if (-not (Test-Path -LiteralPath $VcpkgRoot))
 {
     if (-not $InstallMissing)

@@ -32,8 +32,27 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $applicationPath = Join-Path $projectRoot "build\default\src\app\system_monitor.exe"
 
+# Refresh process PATH from User and Machine values so that any tools installed
+# by bootstrap.ps1 (such as ninja) are visible in the current session.
+$machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$pathEntries = @($env:Path, $machinePath, $userPath) |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    ForEach-Object { $_ -split ";" } |
+    Select-Object -Unique
+$env:Path = $pathEntries -join ";"
+
 # The default CMake preset reads this variable to locate vcpkg's CMake toolchain.
-# Failing early makes a missing bootstrap step easier to diagnose.
+# Check user/machine environment variables if not yet set in the current process.
+if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
+{
+    $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
+    if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
+    {
+        $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "Machine")
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
 {
     throw "VCPKG_ROOT is not set. Run .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment, then open a new PowerShell window."
