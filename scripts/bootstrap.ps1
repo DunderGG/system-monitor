@@ -227,5 +227,5 @@ if ($PersistEnvironment)
 Write-Host "Bootstrap completed successfully."
 Write-Host "VCPKG_ROOT=$VcpkgRoot"
 Write-Host "VCPKG_DEFAULT_BINARY_CACHE=$BinaryCache"
-Write-Host "For command-line builds, use a Developer PowerShell or Developer Command Prompt."
-Write-Host "Then run: cmake --preset default"
+Write-Host "Run: .\scripts\build.ps1"
+Write-Host "It initializes the x64 MSVC environment automatically, so any terminal works."

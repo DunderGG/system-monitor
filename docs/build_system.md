@@ -82,8 +82,13 @@ the `-InstallMissing` switch is an explicit opt-in. The `-PersistEnvironment`
 switch saves the vcpkg environment variables for future terminals.
 
 For the current default preset, Ninja must be available on `PATH`. The MSVC
-environment must be initialized as well: use a Developer PowerShell/Command
-Prompt, or let VS Code's CMake Tools extension select an MSVC kit.
+environment must be initialized as well. `scripts/build.ps1` does this
+automatically (via `Enter-VsDevShell`), so it works from any terminal,
+including VS Code's built-in one. If you invoke `cmake`/`ctest` directly
+instead of going through `build.ps1`, use a Developer PowerShell/Command
+Prompt, or let VS Code's CMake Tools extension select an MSVC kit. The
+`default` preset pins `x64`, so CMake fails with a clear error instead of
+silently falling back to the x86 toolset if the wrong environment is active.
 
 ## Why these prerequisites
 

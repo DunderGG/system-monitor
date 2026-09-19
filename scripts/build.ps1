@@ -39,6 +39,46 @@ if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
     throw "VCPKG_ROOT is not set. Run .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment, then open a new PowerShell window."
 }
 
+# Without an initialized x64 MSVC environment, CMake silently falls back to the
+# x86 toolset. vcpkg then targets x86-windows and the build can fail later with
+# confusing linker errors (e.g. LNK1104) instead of a clear message here. Import
+# it into this process so the script works from any terminal, including VS
+# Code's built-in one, without requiring a separate Developer Prompt.
+function Import-X64DevShell
+{
+    if ($env:VSCMD_ARG_TGT_ARCH -eq "x64")
+    {
+        return
+    }
+
+    $vswherePath = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path -LiteralPath $vswherePath))
+    {
+        throw "vswhere.exe was not found. Install Visual Studio Build Tools with the C++ workload (see scripts\bootstrap.ps1)."
+    }
+
+    $vsInstallPath = & $vswherePath -latest -products * `
+        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+        -property installationPath
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($vsInstallPath))
+    {
+        throw "No Visual Studio installation with the C++ workload was found. Run .\scripts\bootstrap.ps1 -InstallMissing."
+    }
+    $vsInstallPath = $vsInstallPath.Trim()
+
+    $devShellModule = Join-Path $vsInstallPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    Import-Module $devShellModule
+    Enter-VsDevShell -VsInstallPath $vsInstallPath -SkipAutomaticLocation `
+        -DevCmdArguments "-arch=x64 -host_arch=x64 -no_logo"
+
+    if ($env:VSCMD_ARG_TGT_ARCH -ne "x64")
+    {
+        throw "Failed to initialize an x64 MSVC developer environment."
+    }
+}
+
+Import-X64DevShell
+
 Push-Location $projectRoot
 try
 {

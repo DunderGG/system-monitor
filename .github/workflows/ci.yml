@@ -26,6 +26,9 @@ jobs:
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
+          # Keep vcpkgGitCommitId in sync with the "default-registry.baseline"
+          # commit in vcpkg-configuration.json; a mismatch can resolve
+          # different port versions locally than in CI.
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
           vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
           runVcpkgInstall: false

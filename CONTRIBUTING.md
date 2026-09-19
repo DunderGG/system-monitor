@@ -32,7 +32,7 @@ Install [Visual Studio 2022](https://visualstudio.microsoft.com/) (Community edi
 3. Install [VS Code](https://code.visualstudio.com/) with the following extensions:
    - [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) (Microsoft)
    - [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools) (Microsoft)
-4. When building from the command line, use the **Developer Command Prompt** or **Developer PowerShell** (installed by Build Tools) so that the compiler is on your PATH. In VS Code, the CMake Tools extension detects the Build Tools installation automatically.
+4. `scripts/build.ps1` initializes the x64 MSVC environment itself, so it works from any terminal, including VS Code's built-in one. If you invoke `cmake`/`ctest` directly instead, use the **Developer Command Prompt** or **Developer PowerShell** (installed by Build Tools) so that the compiler is on your PATH. In VS Code, the CMake Tools extension detects the Build Tools installation automatically.
 
 ## Getting started
 
