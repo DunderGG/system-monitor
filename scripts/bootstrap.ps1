@@ -1,12 +1,15 @@
 <#
 .SYNOPSIS
-Checks or installs the Windows build prerequisites for System Monitor.
+Prepares a Windows development environment for building System Monitor.
 
 .DESCRIPTION
-By default, the script checks for the required tools. With -InstallMissing, it
-uses WinGet to install missing tools, installs vcpkg in the selected directory,
-and creates a vcpkg binary cache. It never installs project dependencies
-directly; CMake and the vcpkg manifest do that during configuration.
+Checks whether the required command-line tools, Visual C++ Build Tools, and
+vcpkg are present. With -InstallMissing, it uses WinGet to install missing
+prerequisites, clones and bootstraps vcpkg, and creates a local binary cache.
+
+The script intentionally does not install this project's dependencies directly.
+CMake installs the versions declared in vcpkg.json during project configuration.
+Run this script once before using scripts/build.ps1 or invoking CMake manually.
 
 .PARAMETER InstallMissing
 Allows WinGet and Git to install missing prerequisites and vcpkg.
@@ -34,6 +37,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Returns whether a command can be resolved from the current PowerShell PATH.
 function Test-CommandAvailable
 {
     param(
@@ -46,6 +50,9 @@ function Test-CommandAvailable
 
 function Update-ProcessPath
 {
+    # Refresh PATH after WinGet installs a tool so it can be used immediately
+    # in this PowerShell process. The persisted user and machine values remain
+    # unchanged by this function.
     $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     $pathEntries = @($env:Path, $machinePath, $userPath) |
@@ -57,6 +64,8 @@ function Update-ProcessPath
 
 function Find-VsInstallPath
 {
+    # Locate a Visual Studio installation that includes the MSVC x64/x86 tools.
+    # vswhere ships with Visual Studio and Build Tools installations.
     $vswherePaths = @(
         (Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"),
         (Join-Path $env:ProgramFiles "Microsoft Visual Studio\Installer\vswhere.exe")
@@ -81,6 +90,8 @@ function Find-VsInstallPath
 
 function Install-WingetPackage
 {
+    # Install a prerequisite non-interactively while accepting WinGet's package
+    # and source agreements. Callers verify the resulting command afterward.
     param(
         [Parameter(Mandatory)]
         [string]$Id,
@@ -96,6 +107,8 @@ function Install-WingetPackage
 
 function Require-Tool
 {
+    # Ensure a command-line prerequisite exists. Installation is opt-in so a
+    # default invocation remains a safe diagnostic check.
     param(
         [Parameter(Mandatory)]
         [string]$Command,
@@ -132,6 +145,8 @@ Require-Tool -Command "git" -WingetId "Git.Git"
 Require-Tool -Command "cmake" -WingetId "Kitware.CMake"
 Require-Tool -Command "ninja" -WingetId "Ninja-build.Ninja"
 
+# CMake's default preset uses Ninja and requires MSVC to compile the C++
+# application and its dependencies.
 $vsInstallPath = Find-VsInstallPath
 if ($null -eq $vsInstallPath)
 {
@@ -159,6 +174,8 @@ if ($null -eq $vsInstallPath)
 
 Write-Host "Found MSVC Build Tools at $vsInstallPath."
 
+# vcpkg is kept outside the repository because it is a reusable dependency
+# manager. Its location is later exposed through VCPKG_ROOT for CMake.
 if (-not (Test-Path -LiteralPath $VcpkgRoot))
 {
     if (-not $InstallMissing)
@@ -177,6 +194,7 @@ if (-not (Test-Path -LiteralPath $VcpkgRoot))
 $vcpkgExecutable = Join-Path $VcpkgRoot "vcpkg.exe"
 if (-not (Test-Path -LiteralPath $vcpkgExecutable))
 {
+    # A source checkout needs a one-time bootstrap step to build vcpkg.exe.
     $bootstrapScript = Join-Path $VcpkgRoot "bootstrap-vcpkg.bat"
     if (-not (Test-Path -LiteralPath $bootstrapScript))
     {
@@ -191,12 +209,16 @@ if (-not (Test-Path -LiteralPath $vcpkgExecutable))
     }
 }
 
+# Binary caching avoids rebuilding already-compiled vcpkg packages on later
+# configurations. These assignments make the cache available immediately.
 New-Item -ItemType Directory -Force -Path $BinaryCache | Out-Null
 $env:VCPKG_ROOT = $VcpkgRoot
 $env:VCPKG_DEFAULT_BINARY_CACHE = $BinaryCache
 
 if ($PersistEnvironment)
 {
+    # Persist the locations for new PowerShell windows. The current process was
+    # already configured above, so it can continue without being restarted.
     [Environment]::SetEnvironmentVariable("VCPKG_ROOT", $VcpkgRoot, "User")
     [Environment]::SetEnvironmentVariable("VCPKG_DEFAULT_BINARY_CACHE", $BinaryCache, "User")
     Write-Host "Persisted VCPKG_ROOT and VCPKG_DEFAULT_BINARY_CACHE for future terminals."
