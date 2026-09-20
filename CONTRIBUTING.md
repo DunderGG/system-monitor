@@ -203,7 +203,7 @@ system-monitor/
 
 ## Architecture overview
 
-Read [architecture.md](architecture.md) for the full technical design. Key principles:
+Read [architecture.md](docs/architecture.md) for the full technical design. Key principles:
 
 - **Layered separation**: UI → view models → monitoring facade → collectors → platform wrappers. The `ui` module never calls Windows APIs directly.
 - **Immutable snapshots**: Collectors produce data on background threads; the UI receives immutable `SystemSnapshot` values via Qt queued signals.

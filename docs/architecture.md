@@ -168,59 +168,23 @@ Key threading rules:
 
 ## Windows API choices
 
-### Core metrics — direct Win32 APIs
+| Metric / function | API used |
+| --- | --- |
+| Total CPU | `GetSystemTimes` |
+| Per-core CPU | `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` |
+| Physical memory | `GlobalMemoryStatusEx` |
+| Disk space | `GetDiskFreeSpaceExW` |
+| Network throughput | `GetIfTable2` (64-bit counters; release with `FreeMibTable`) |
+| Network addresses | `GetAdaptersAddresses` |
+| Connectivity status | `GetNetworkConnectivityHint` / `NotifyNetworkConnectivityHintChange` |
+| Process list + metrics | `NtQuerySystemInformation(SystemProcessInformation)` |
+| Executable paths | `QueryFullProcessImageNameW` (lazy, cached by PID + creation time) |
+| Command lines | `NtQueryInformationProcess(ProcessCommandLineInformation)` (lazy, cached) |
+| Network profile names | `INetworkListManager` (COM, lazy, on change events only) |
+| Hardware inventory | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
+| Per-disk I/O rates | PDH (only where no direct Win32 alternative exists) |
 
-Use direct Win32 APIs for all core metrics. These are fast, locale-independent, and immune to the registry corruption issues that affect PDH.
-
-| Metric | API | Notes |
-| --- | --- | --- |
-| Total CPU | `GetSystemTimes` | Returns idle, kernel, and user times. Ultra-fast kernel call with zero registry dependency. |
-| Per-core CPU | `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` | Returns idle, kernel, user, DPC, and interrupt times per core. Supports processor groups (>64 cores). |
-| Physical memory | `GlobalMemoryStatusEx` | Total, available, commit limit, and memory load percentage. |
-| Disk space | `GetDiskFreeSpaceExW` | Free and total bytes per volume. |
-| Network throughput | `GetIfTable2` | 64-bit byte counters (`InOctets`, `OutOctets`), link speed, operational status, media connect state. Always release with `FreeMibTable`. Filter out `IF_TYPE_SOFTWARE_LOOPBACK`. |
-| Network addresses | `GetAdaptersAddresses` | Per-adapter IP addresses, DNS servers, and adapter type. |
-| Connectivity status | `GetNetworkConnectivityHint` | Returns `ConnectivityLevel` (None, LocalAccess, ConstrainedInternetAccess, InternetAccess), `ConnectivityCost` (metered vs unmetered), and roaming state. C-style API, no COM overhead. Use `NotifyNetworkConnectivityHintChange` for async change notifications. Requires Windows 10 2004 or later. |
-
-### Process enumeration — `NtQuerySystemInformation`
-
-Use `NtQuerySystemInformation(SystemProcessInformation)` for the process list. This is the API used by Task Manager, Process Explorer, and System Informer.
-
-**Why not Tool Help?** `CreateToolhelp32Snapshot` internally calls `NtQuerySystemInformation`, strips away CPU, memory, and I/O metrics, and forces the caller to make hundreds of supplementary `OpenProcess` calls to reconstruct data the kernel already provided.
-
-| Characteristic | Tool Help | `NtQuerySystemInformation` |
-| --- | --- | --- |
-| Kernel transitions | 1 snapshot + 300+ `OpenProcess` calls | 1 single call |
-| Data returned | PID, parent PID, thread count, exe name only | PID, parent PID, thread/handle counts, exe name, CPU user/kernel times, working set, commit, page faults, I/O read/write bytes |
-| Protected/elevated processes (unelevated caller) | `ERROR_ACCESS_DENIED` on 30–50% of processes | Returns complete metrics for all processes |
-| Execution time (~300 processes) | 15–45 ms | 0.5–1.5 ms |
-
-`NtQuerySystemInformation` is declared in `<winternl.h>` and has been ABI-stable since Windows 2000. Resolve `NtQuerySystemInformation` dynamically from `ntdll.dll` via `GetProcAddress` and use the resizing-buffer loop pattern to handle variable result sizes.
-
-**Executable paths and command lines** are not included in the `NtQuerySystemInformation` result. Retrieve them lazily and cache them:
-
-1. When a new process is detected (new PID + creation time pair), call `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid)`.
-2. Query the full image path via `QueryFullProcessImageNameW`.
-3. Query the command line via `NtQueryInformationProcess(ProcessCommandLineInformation)` (supported since Windows 8.1, requires only `PROCESS_QUERY_LIMITED_INFORMATION`).
-4. Cache the result keyed by `(PID, creation time)`. Do not re-query on subsequent refresh ticks.
-
-### PDH — use sparingly
-
-Reserve PDH for advanced per-instance counters (e.g. per-physical-disk I/O rates) where no direct Win32 alternative exists. Always use `PdhAddEnglishCounterW` to avoid localized counter name issues. Handle `PDH_CSTATUS_NO_OBJECT` and `PDH_CSTATUS_NO_COUNTER` errors gracefully as these occur on systems with corrupted performance counter registries.
-
-Do not use PDH for per-process monitoring. PDH assigns index suffixes to processes sharing a name (`chrome#0`, `chrome#1`) and silently re-indexes when one terminates. Any open query handle will read data from a different process after re-indexing.
-
-### Network profile names — NLM, lazy and cached
-
-Use the COM-based Network List Manager (`INetworkListManager`) only when displaying a friendly network name (e.g. "Home-Wi-Fi"). Initialize COM on the calling thread. Query at most once per network change event, not on every refresh tick. All other connectivity and throughput data comes from the IP Helper APIs above.
-
-### WMI — startup only
-
-Use WMI (`Win32_ComputerSystem`, `Win32_Processor`, `Win32_BaseBoard`) at most once at application startup for static hardware inventory (CPU model, total cores, motherboard). Never poll WMI for real-time metrics. WMI calls are out-of-process COM calls to `WmiPrvSE.exe` with 50–500 ms latency and high CPU cost. WMI repository corruption is common on long-lived installations.
-
-### ETW — future feature only
-
-Exclude ETW from the MVP. ETW requires administrator privileges for kernel trace sessions, Windows enforces a system-wide limit of 64 concurrent ETW sessions (shared with EDR products and system loggers), and buffer tuning is complex. Add ETW only when per-process network bandwidth or event-level diagnostics justify the complexity.
+See [`design_decisions.md`](design_decisions.md) for the rationale behind each choice, including why `NtQuerySystemInformation` is preferred over Tool Help, why PDH is avoided for core metrics, and why ETW and WMI are restricted.
 
 ## Domain design guidelines
 
@@ -329,30 +293,3 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Qt event loop starvation | Keep snapshot emission at 1 Hz. Batch model updates. Profile early. |
 | ETW session exhaustion (future) | System has a hard 64-session limit shared with EDR. Defer ETW to post-MVP and handle `ERROR_NO_SYSTEM_RESOURCES` from `StartTrace`. |
 | 32-bit network counter rollover | Use `GetIfTable2` which provides 64-bit counters. Never use legacy `GetIfTable`. |
-
-## Initial repository layout
-
-```text
-system-monitor/
-  CMakeLists.txt
-  CMakePresets.json
-  vcpkg.json
-  vcpkg-configuration.json
-  src/
-    app/
-    domain/
-    monitoring/
-    platform/windows/
-    persistence/
-    ui/
-      charts/          # Custom sparkline QWidget subclasses
-  tests/
-    unit/
-    integration/
-  resources/
-  docs/
-```
-
-## Recommended next implementation step
-
-Create a minimal CMake/vcpkg application shell with Qt 6 Widgets, GoogleTest, spdlog, and `nlohmann/json`. Implement a synthetic collector that produces fake CPU/memory data, wire it through the scheduler and snapshot pipeline to a sparkline chart widget. This validates the threading model, signal/slot snapshot delivery, ring buffer operation, chart rendering, and tests — all without coupling early work to Windows-specific data collection.

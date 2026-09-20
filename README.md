@@ -75,7 +75,7 @@ System Monitor uses direct Windows APIs for accurate, low-overhead data collecti
 | Network throughput | `GetIfTable2` (64-bit counters) |
 | Connectivity | `GetNetworkConnectivityHint` |
 
-Metrics are collected on background threads and delivered to the UI as immutable snapshots, keeping the interface responsive. See [architecture.md](architecture.md) for the full technical design.
+Metrics are collected on background threads and delivered to the UI as immutable snapshots, keeping the interface responsive. See [architecture.md](docs/architecture.md) for the full technical design.
 
 ## Roadmap
 

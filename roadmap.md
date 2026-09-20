@@ -1,6 +1,6 @@
 # System Monitor — Roadmap
 
-This roadmap expands the scope and milestones from [architecture.md](architecture.md) into actionable implementation tasks. Each phase builds on the previous one. Tasks within a phase can often be worked on in parallel.
+This roadmap expands the scope and milestones from [architecture.md](docs/architecture.md) into actionable implementation tasks. Each phase builds on the previous one. Tasks within a phase can often be worked on in parallel.
 
 ---
 

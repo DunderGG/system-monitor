@@ -1,7 +1,7 @@
 # GitHub Copilot Instructions — System Monitor
 
 This is a Windows desktop system monitor built with C++20 and Qt 6 Widgets.
-The rules below are self-contained. For deeper context, see `architecture.md`, `docs/coding_guidelines.md`, or `AGENTS.md`.
+The rules below are self-contained. For deeper context, see `docs/architecture.md`, `docs/coding_guidelines.md`, or `AGENTS.md`.
 
 ## Build & test commands
 
