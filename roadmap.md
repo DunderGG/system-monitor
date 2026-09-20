@@ -227,5 +227,15 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Export current snapshot or ring buffer history as CSV or JSON.
 - [ ] Add export actions to the UI (file dialog).
 
+### Architecture diagrams (PlantUML)
+
+- [ ] Add `docs/diagrams/` directory with a shared PlantUML skin/style file for visual consistency.
+- [ ] Class diagrams covering the key module boundaries: `domain` types, `monitoring` interfaces and scheduler, `platform/windows` adapters, `ui` view models.
+- [ ] Sequence diagram for the main data-flow path: scheduler tick → fast collectors → snapshot assembly → Qt queued signal → view model update.
+- [ ] Sequence diagram for slow-collector integration: process enumeration thread → mutex-protected merge → snapshot assembly.
+- [ ] Sequence diagram for application startup and shutdown (thread lifecycle, `std::stop_token` cancellation).
+- [ ] Generate SVG output from `.puml` sources and embed the rendered diagrams in `docs/architecture.md`.
+- [ ] Add a CI step that runs PlantUML on every `.puml` file and fails the build if the generated SVGs are out of date.
+
 ### DevEnv
 - [x] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.
