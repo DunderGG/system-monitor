@@ -18,7 +18,6 @@ Set up the build system, dependencies, CI, and a runnable application shell befo
 - [x] Implement a minimal `main.cpp` in `src/app/` that creates a `QApplication`, shows an empty `QMainWindow`, and exits cleanly.
 - [x] Configure spdlog in `src/app/` with console and rotating file sinks. Make log level configurable via command-line argument for development.
 - [x] Add a placeholder GoogleTest target with a single passing test to verify the test pipeline.
-- [ ] Verify the full clone → configure → build → test → run cycle works on a clean Windows machine.
 
 ---
 
@@ -28,15 +27,14 @@ Define the core data types and prove the end-to-end data flow (scheduler → sna
 
 ### Domain types (`src/domain/`)
 
-- [ ] Define `CpuSample`: total usage percent, per-core usage percentages, core count.
-- [ ] Define `MemorySample`: total bytes, available bytes, usage percent, commit limit, commit current.
-- [ ] Define `DiskSample`: per-volume total bytes, free bytes, usage percent.
-- [ ] Define `NetworkSample`: per-adapter in/out bytes (cumulative), link speed, operational status, adapter name.
-- [ ] Define `ConnectivityStatus`: connectivity level enum (None, LocalAccess, ConstrainedInternetAccess, InternetAccess), metered flag.
-- [ ] Define `ProcessInfo`: PID, creation time, parent PID, image name, image path (optional), command line (optional), CPU user/kernel times, working set, private bytes, I/O read/write bytes, thread count, handle count, access-denied flag.
-- [ ] Define `SystemSnapshot`: timestamp (`steady_clock`), `CpuSample`, `MemorySample`, `vector<DiskSample>`, `vector<NetworkSample>`, `ConnectivityStatus`, `vector<ProcessInfo>`.
-- [ ] Define error/access types: represent missing or inaccessible data explicitly using `std::optional` or error variants.
-- [ ] Write unit tests for all domain types (construction, equality, serialization where needed).
+- [x] Define `CpuSample`: total usage percent, per-core usage percentages, core count.
+- [x] Define `MemorySample`: total bytes, available bytes, usage percent, commit limit, commit current.
+- [x] Define `DiskSample`: per-volume total bytes, free bytes, usage percent.
+- [x] Define `NetworkSample`: per-adapter in/out bytes (cumulative), link speed, operational status, adapter name.
+- [x] Define `ConnectivityStatus`: connectivity level enum (None, LocalAccess, ConstrainedInternetAccess, InternetAccess), metered flag.
+- [x] Define `ProcessInfo`: PID, creation time, parent PID, image name, image path (optional), command line (optional), CPU user/kernel times, working set, private bytes, I/O read/write bytes, thread count, handle count, access-denied flag.
+- [x] Define error/access types: represent missing or inaccessible data explicitly using `std::optional` or error variants.
+- [x] Write unit tests for all domain types (construction, equality, serialization where needed).
 
 ### Monitoring infrastructure (`src/monitoring/`)
 
