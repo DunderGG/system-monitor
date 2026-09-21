@@ -38,11 +38,11 @@ Define the core data types and prove the end-to-end data flow (scheduler → sna
 
 ### Monitoring infrastructure (`src/monitoring/`)
 
-- [ ] Define `ICollector` interface (or concept) with a `collect()` method returning a typed result.
-- [ ] Implement `RingBuffer<T>` — fixed-capacity circular buffer for time-series samples. Unit test capacity limits, overwrite behavior, and iteration.
-- [ ] Implement `SamplingScheduler` — owns a `std::jthread`, ticks at a configured interval, calls registered collectors, assembles `SystemSnapshot`, emits via Qt signal. Uses `std::stop_token` for clean shutdown.
-- [ ] Implement a `SyntheticCpuCollector` and `SyntheticMemoryCollector` that return fake data with realistic variation (e.g., sine wave CPU usage). These are for validating the pipeline and remain useful for testing and demos.
-- [ ] Wire the scheduler to the synthetic collectors. Write tests verifying snapshot assembly, timing, and shutdown.
+- [x] Define `ICollector` interface (or concept) with a `collect()` method returning a typed result.
+- [x] Implement `RingBuffer<T>` — fixed-capacity circular buffer for time-series samples. Unit test capacity limits, overwrite behavior, and iteration.
+- [x] Implement `SamplingScheduler` — owns a `std::jthread`, ticks at a configured interval, calls registered collectors, assembles `SystemSnapshot`, emits via Qt signal. Uses `std::stop_token` for clean shutdown.
+- [x] Implement a `SyntheticCpuCollector` and `SyntheticMemoryCollector` that return fake data with realistic variation (e.g., sine wave CPU usage). These are for validating the pipeline and remain useful for testing and demos.
+- [x] Wire the scheduler to the synthetic collectors. Write tests verifying snapshot assembly, timing, and shutdown.
 
 ### Basic UI shell (`src/ui/`)
 

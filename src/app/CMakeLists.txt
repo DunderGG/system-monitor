@@ -11,6 +11,7 @@ target_link_libraries(system_monitor
     PRIVATE
         Qt6::Widgets
         spdlog::spdlog
+        sysmon_monitoring
 )
 
 if(WIN32)
