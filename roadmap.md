@@ -18,6 +18,7 @@ Set up the build system, dependencies, CI, and a runnable application shell befo
 - [x] Implement a minimal `main.cpp` in `src/app/` that creates a `QApplication`, shows an empty `QMainWindow`, and exits cleanly.
 - [x] Configure spdlog in `src/app/` with console and rotating file sinks. Make log level configurable via command-line argument for development.
 - [x] Add a placeholder GoogleTest target with a single passing test to verify the test pipeline.
+- [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
@@ -50,6 +51,7 @@ Define the core data types and prove the end-to-end data flow (scheduler → sna
 - [ ] Create placeholder `QWidget` subclasses for each tab.
 - [ ] Wire the `SystemSnapshot` signal from the scheduler to the main window via `Qt::QueuedConnection`. Verify the snapshot arrives on the UI thread.
 - [ ] Display raw synthetic values (CPU %, memory %) as text labels on the dashboard placeholder to prove the pipeline works.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
@@ -85,6 +87,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Display system uptime using `GetTickCount64`.
 - [ ] Display basic health status derived from resource thresholds (e.g., memory >90% → warning).
 - [ ] Connect real collector data through the snapshot pipeline to the dashboard widgets.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
@@ -107,6 +110,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Show detailed numeric readouts alongside each chart (e.g., speed, processes, uptime, handles for CPU; total, cached, paged pool for memory).
 - [ ] Use a left sidebar or selector to switch between CPU, memory, disk, and network detail views.
 - [ ] Verify smooth 1 Hz updates with 5–30 minutes of history.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
@@ -139,6 +143,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Show a confirmation dialog before termination with the process name, PID, and a warning.
 - [ ] Handle failure gracefully (process already exited, access denied) with a user-facing message.
 - [ ] Do not attempt to terminate elevated or system processes in the MVP.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
@@ -150,6 +155,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming.
 - [ ] Optionally display friendly network name from NLM (lazy, cached query).
 - [ ] Update connectivity status reactively via `NotifyNetworkConnectivityHintChange` rather than polling.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
@@ -163,6 +169,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Implement sleep/resume detection (`WM_POWERBROADCAST`) — discard first sample and reset rate baselines on resume.
 - [ ] Profile CPU and memory usage of the monitor itself on a lower-end system. Optimize if needed.
 - [ ] Add an application manifest setting `requestedExecutionLevel` to `asInvoker`.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
