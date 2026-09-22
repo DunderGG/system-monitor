@@ -51,7 +51,7 @@ Define the core data types and prove the end-to-end data flow (scheduler → sna
 - [x] Create placeholder `QWidget` subclasses for each tab.
 - [x] Wire the `SystemSnapshot` signal from the scheduler to the main window via `Qt::QueuedConnection`. Verify the snapshot arrives on the UI thread.
 - [x] Display raw synthetic values (CPU %, memory %) as text labels on the dashboard placeholder to prove the pipeline works.
-- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
+- [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
 
