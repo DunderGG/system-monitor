@@ -145,3 +145,22 @@ Each entry links to the relevant roadmap phase and source files.
 
 **Rationale:** `SamplingScheduler` must store heterogeneous collectors (CPU, memory, disk, etc.) whose concrete implementations can be swapped between synthetic implementations (for testing and early phases) and real Windows collectors (in later phases). Making `SamplingScheduler` an un-templated `QObject` holding `std::unique_ptr<ICollector<T>>` keeps Qt signal/slot metadata clean and avoids template bloat. Meanwhile, the `Collector<C, T>` concept enables compile-time verification in tests and non-virtual template contexts, ensuring consistency across static and dynamic collection code.
 
+---
+
+## Phase 1 — Basic UI shell (`src/ui/`)
+
+### UI module dependency isolation and composition root in `src/app/`
+
+**Decision:** The `ui` module depends exclusively on `Qt6::Widgets` and `sysmon_domain`, with zero dependencies on `sysmon_monitoring` or Windows headers. Wiring between `SamplingScheduler` signals and `MainWindow` slots is handled strictly in `src/app/main.cpp` (the application composition root).
+
+**Rationale:** Maintaining a one-way dependency flow prevents cyclic references and tight coupling. The UI layer only knows about domain values (`SystemSnapshot`). It does not know how or when data is collected, nor what thread model is used. By placing the signal/slot `Qt::QueuedConnection` wiring in `main.cpp`, `MainWindow` can be tested in isolation with mock snapshots, and collectors can be altered or replaced without recompiling any UI translation units.
+
+---
+
+### `test_main.cpp`: Test discovery without `QApplication` instantiation
+
+**Decision:** In the test runner (`tests/test_main.cpp`), `QApplication` instantiation is bypassed when `--gtest_list_tests` is passed during CMake's `gtest_discover_tests` step.
+
+**Rationale:** When CMake invokes the test binary with `--gtest_list_tests` at build time to discover tests, initializing `QApplication` would attempt to load platform plugins before they are fully deployed or in headless environments without an active display session, risking modal error dialogues or timeouts. Bypassing `QApplication` for list-only execution allows instantaneous and reliable test discovery, while full test execution creates `QApplication` and leverages the deployed platform plugin.
+
+

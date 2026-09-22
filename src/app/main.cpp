@@ -2,15 +2,19 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
-#include <QMainWindow>
 #include <QStandardPaths>
-
 #include <spdlog/spdlog.h>
+
+#include "monitoring/sampling_scheduler.h"
+#include "monitoring/synthetic_cpu_collector.h"
+#include "monitoring/synthetic_memory_collector.h"
+#include "ui/main_window.h"
 
 int main(int argc, char *argv[])
 {
@@ -43,10 +47,24 @@ int main(int argc, char *argv[])
     sysmon::app::configureLogging(logFilePath, *logLevel);
     spdlog::info("Application started with log level '{}'", logLevelValue);
 
-    QMainWindow mainWindow;
+    sysmon::monitoring::SamplingScheduler scheduler;
+    scheduler.setCpuCollector(std::make_unique<sysmon::monitoring::SyntheticCpuCollector>());
+    scheduler.setMemoryCollector(std::make_unique<sysmon::monitoring::SyntheticMemoryCollector>());
+
+    sysmon::ui::MainWindow mainWindow;
+
+    QObject::connect(
+        &scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady,
+        &mainWindow, &sysmon::ui::MainWindow::onSnapshotReady,
+        Qt::QueuedConnection);
+
+    scheduler.start();
     mainWindow.show();
 
     const int exitCode = application.exec();
+
+    scheduler.stop();
+
     spdlog::info("Application exited with code {}", exitCode);
     spdlog::shutdown();
     return exitCode;

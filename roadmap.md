@@ -47,10 +47,10 @@ Define the core data types and prove the end-to-end data flow (scheduler → sna
 
 ### Basic UI shell (`src/ui/`)
 
-- [ ] Create a `QMainWindow` subclass with a tabbed layout (`QTabWidget`) for Dashboard, Performance, Processes, and Network views.
-- [ ] Create placeholder `QWidget` subclasses for each tab.
-- [ ] Wire the `SystemSnapshot` signal from the scheduler to the main window via `Qt::QueuedConnection`. Verify the snapshot arrives on the UI thread.
-- [ ] Display raw synthetic values (CPU %, memory %) as text labels on the dashboard placeholder to prove the pipeline works.
+- [x] Create a `QMainWindow` subclass with a tabbed layout (`QTabWidget`) for Dashboard, Performance, Processes, and Network views.
+- [x] Create placeholder `QWidget` subclasses for each tab.
+- [x] Wire the `SystemSnapshot` signal from the scheduler to the main window via `Qt::QueuedConnection`. Verify the snapshot arrives on the UI thread.
+- [x] Display raw synthetic values (CPU %, memory %) as text labels on the dashboard placeholder to prove the pipeline works.
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
