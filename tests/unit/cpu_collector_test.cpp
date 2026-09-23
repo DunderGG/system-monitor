@@ -298,3 +298,145 @@ TEST(CpuCollector, Collect_IndividualCoreJitter_ClampedToZero)
     EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
 }
 
+TEST(CpuCollector, Collect_MultiGroup128Cores_MonitorsAllCores)
+{
+    // 128 cores (e.g. 2 processor groups of 64 cores each)
+    std::vector<SystemTimesData> simulatedCoreTimes;
+    simulatedCoreTimes.reserve(128);
+    for (int i = 0; i < 128; ++i) {
+        simulatedCoreTimes.push_back(SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500});
+    }
+
+    SystemTimesData simulatedTimes{.idleTime = 1000 * 128, .kernelTime = 2000 * 128, .userTime = 500 * 128};
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 128);
+    const auto initialSample = collector.collect();
+    (void)initialSample;
+
+    clock += std::chrono::milliseconds{1000};
+    for (int i = 0; i < 128; ++i) {
+        // Each core has 25% busy (deltaTotal = 100, deltaBusy = 25)
+        simulatedCoreTimes[static_cast<std::size_t>(i)].idleTime += 75;
+        simulatedCoreTimes[static_cast<std::size_t>(i)].kernelTime += 85;
+        simulatedCoreTimes[static_cast<std::size_t>(i)].userTime += 15;
+    }
+
+    const auto sample = collector.collect();
+    EXPECT_EQ(sample.coreCount, 128);
+    ASSERT_EQ(sample.coreUsagePercents.size(), 128u);
+    for (int i = 0; i < 128; ++i) {
+        EXPECT_NEAR(sample.coreUsagePercents[static_cast<std::size_t>(i)], 25.0f, 0.1f);
+    }
+    EXPECT_NEAR(sample.totalUsagePercent, 25.0f, 0.1f);
+}
+
+TEST(CpuCollector, Collect_MultiGroupWorkloadInSecondaryGroup_ReflectsInTotalUsage)
+{
+    // 128 cores: Group 0 (0..63) is 0% busy, Group 1 (64..127) is 100% busy
+    std::vector<SystemTimesData> simulatedCoreTimes;
+    simulatedCoreTimes.reserve(128);
+    for (int i = 0; i < 128; ++i) {
+        simulatedCoreTimes.push_back(SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500});
+    }
+
+    // Single-group GetSystemTimes only sees Group 0 (idle)
+    SystemTimesData simulatedTimes{.idleTime = 1000 * 64, .kernelTime = 2000 * 64, .userTime = 500 * 64};
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 128);
+    const auto initialSample = collector.collect();
+    (void)initialSample;
+
+    clock += std::chrono::milliseconds{1000};
+
+    // Group 0: 100% idle
+    for (int i = 0; i < 64; ++i) {
+        simulatedCoreTimes[static_cast<std::size_t>(i)].idleTime += 100;
+        simulatedCoreTimes[static_cast<std::size_t>(i)].kernelTime += 100;
+    }
+    // Group 1: 100% busy in user mode
+    for (int i = 64; i < 128; ++i) {
+        simulatedCoreTimes[static_cast<std::size_t>(i)].userTime += 100;
+    }
+
+    // GetSystemTimes for Group 0 reports 0% busy
+    simulatedTimes.idleTime += 100 * 64;
+    simulatedTimes.kernelTime += 100 * 64;
+
+    const auto sample = collector.collect();
+    EXPECT_EQ(sample.coreCount, 128);
+    ASSERT_EQ(sample.coreUsagePercents.size(), 128u);
+
+    // Group 0 cores: 0%
+    for (int i = 0; i < 64; ++i) {
+        EXPECT_FLOAT_EQ(sample.coreUsagePercents[static_cast<std::size_t>(i)], 0.0f);
+    }
+    // Group 1 cores: 100%
+    for (int i = 64; i < 128; ++i) {
+        EXPECT_FLOAT_EQ(sample.coreUsagePercents[static_cast<std::size_t>(i)], 100.0f);
+    }
+
+    // Crucially: Total CPU must be 50.0% (aggregating all 128 cores), NOT 0% from GetSystemTimes!
+    EXPECT_NEAR(sample.totalUsagePercent, 50.0f, 0.1f);
+}
+
+TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
+{
+    std::vector<SystemTimesData> simulatedCoreTimes = {
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+    };
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [](SystemTimesData &) {
+        return false; // GetSystemTimes fails
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 2);
+    const auto initialSample = collector.collect();
+    EXPECT_FLOAT_EQ(initialSample.totalUsagePercent, 0.0f);
+
+    clock += std::chrono::milliseconds{1000};
+    // 50% busy on both cores
+    for (auto &core : simulatedCoreTimes) {
+        core.idleTime += 50;
+        core.kernelTime += 75;
+        core.userTime += 25;
+    }
+
+    const auto sample = collector.collect();
+    EXPECT_EQ(sample.coreCount, 2);
+    ASSERT_EQ(sample.coreUsagePercents.size(), 2u);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[0], 50.0f);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
+    // Total usage is correctly derived from aggregated core times
+    EXPECT_FLOAT_EQ(sample.totalUsagePercent, 50.0f);
+}
+
+
