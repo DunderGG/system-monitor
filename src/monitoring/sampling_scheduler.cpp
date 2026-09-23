@@ -162,7 +162,10 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
 
 void SamplingScheduler::run(std::stop_token stopToken)
 {
-    spdlog::info("SamplingScheduler background thread started (interval: {}ms)", m_interval.count());
+    {
+        std::lock_guard lock(m_sleepMutex);
+        spdlog::info("SamplingScheduler background thread started (interval: {}ms)", m_interval.count());
+    }
 
     while (!stopToken.stop_requested()) {
         const auto tickStart = std::chrono::steady_clock::now();

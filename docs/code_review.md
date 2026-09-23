@@ -315,6 +315,8 @@ void SamplingScheduler::run(std::stop_token stopToken)
 
 **Recommendation:** Fix with the simpler lock approach. Minimal effort, eliminates a potential TSAN report.
 
+**Status:** Resolved (2026-09-23) — Wrapped the startup log line in `SamplingScheduler::run()` inside a `std::lock_guard lock(m_sleepMutex)` scope to ensure thread-safe access to `m_interval`.
+
 ---
 
 ### F-6: Domain string types use `std::string` — encoding decision undocumented
