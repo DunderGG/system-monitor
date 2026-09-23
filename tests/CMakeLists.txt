@@ -4,7 +4,6 @@ include(GoogleTest)
 
 add_executable(system_monitor_tests
     test_main.cpp
-    unit/placeholder_test.cpp
     unit/domain_types_test.cpp
     unit/ring_buffer_test.cpp
     unit/synthetic_collectors_test.cpp

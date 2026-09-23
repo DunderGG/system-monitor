@@ -459,6 +459,8 @@ There are now 25+ real tests across four test files. The placeholder no longer s
 
 **Recommendation:** Remove when convenient. Trivial change.
 
+**Status:** Resolved (2026-09-23) — Deleted `tests/unit/placeholder_test.cpp` and removed its entry from `tests/CMakeLists.txt`.
+
 ---
 
 ## Items Verified — No Issues Found
