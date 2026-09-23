@@ -121,6 +121,14 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
+### Domain string encoding: UTF-8 (`std::string`) over wide strings (`std::wstring`)
+
+**Decision:** All string fields in domain types use `std::string` with UTF-8 encoding. Wide-to-UTF-8 conversion happens at the `platform/windows` boundary.
+
+**Rationale:** The domain layer must be platform-independent. `std::wstring` is a Windows-specific convention (16-bit code units); using it would leak a platform assumption into `src/domain/`. UTF-8 is the de facto standard encoding for cross-platform C++ and is natively supported by Qt (`QString::fromUtf8`), spdlog, and nlohmann/json. The Windows API wrapper functions in `platform/windows/` convert from `WCHAR*` / `std::wstring` to UTF-8 `std::string` using `WideCharToMultiByte(CP_UTF8, ...)` or equivalent. Supplementary-plane characters (e.g., emoji in filenames) round-trip correctly through UTF-8.
+
+---
+
 ## Phase 1 — Monitoring infrastructure (`src/monitoring/`)
 
 ### `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`

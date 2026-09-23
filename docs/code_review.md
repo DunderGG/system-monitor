@@ -360,6 +360,8 @@ from `WCHAR*` / `std::wstring` to UTF-8 `std::string` using
 
 **Recommendation:** Add the design decision entry. No code change.
 
+**Status:** Resolved (2026-09-23) — Added design decision entry to `docs/design_decisions.md` under Phase 1 Domain types documenting the choice of UTF-8 `std::string` and boundary conversion.
+
 ---
 
 ### F-7: No `.clang-format` configuration file
