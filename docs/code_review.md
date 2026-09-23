@@ -192,6 +192,8 @@ TEST(MemorySample, DesignatedInit_FieldsRoundTrip) { ... }
 
 **Recommendation:** Fix when convenient. Low priority.
 
+**Status:** Resolved (2026-09-23) — Refactored all 17 tests in `tests/unit/domain_types_test.cpp` to use the type name as the GTest test suite (`TEST(TypeName, Scenario_ExpectedResult)`), matching the project testing guidelines and other test files.
+
 ---
 
 ### F-4: `MainWindow::onSnapshotReady` only updates `DashboardView`

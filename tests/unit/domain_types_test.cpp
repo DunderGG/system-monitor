@@ -16,7 +16,7 @@ using namespace sysmon::domain;
 // CpuSample
 // ---------------------------------------------------------------------------
 
-TEST(CpuSample_DefaultConstruction_ZeroValues, DefaultValues)
+TEST(CpuSample, DefaultConstruction_ZeroValues)
 {
     CpuSample s;
     EXPECT_FLOAT_EQ(s.totalUsagePercent, 0.0f);
@@ -24,7 +24,7 @@ TEST(CpuSample_DefaultConstruction_ZeroValues, DefaultValues)
     EXPECT_EQ(s.coreCount, 0);
 }
 
-TEST(CpuSample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
+TEST(CpuSample, DesignatedInit_FieldsRoundTrip)
 {
     CpuSample s{
         .totalUsagePercent = 42.5f,
@@ -42,7 +42,7 @@ TEST(CpuSample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
 // MemorySample
 // ---------------------------------------------------------------------------
 
-TEST(MemorySample_DefaultConstruction_ZeroValues, DefaultValues)
+TEST(MemorySample, DefaultConstruction_ZeroValues)
 {
     MemorySample s;
     EXPECT_EQ(s.totalBytes, 0u);
@@ -52,7 +52,7 @@ TEST(MemorySample_DefaultConstruction_ZeroValues, DefaultValues)
     EXPECT_EQ(s.commitCurrent, 0u);
 }
 
-TEST(MemorySample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
+TEST(MemorySample, DesignatedInit_FieldsRoundTrip)
 {
     MemorySample s{
         .totalBytes     = 16'000'000'000ULL,
@@ -72,7 +72,7 @@ TEST(MemorySample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
 // DiskSample
 // ---------------------------------------------------------------------------
 
-TEST(DiskSample_DefaultConstruction_ZeroValues, DefaultValues)
+TEST(DiskSample, DefaultConstruction_ZeroValues)
 {
     DiskSample s;
     EXPECT_TRUE(s.volumeName.empty());
@@ -81,7 +81,7 @@ TEST(DiskSample_DefaultConstruction_ZeroValues, DefaultValues)
     EXPECT_FLOAT_EQ(s.usagePercent, 0.0f);
 }
 
-TEST(DiskSample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
+TEST(DiskSample, DesignatedInit_FieldsRoundTrip)
 {
     DiskSample s{
         .volumeName   = "C:\\",
@@ -99,7 +99,7 @@ TEST(DiskSample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
 // NetworkSample
 // ---------------------------------------------------------------------------
 
-TEST(NetworkSample_DefaultConstruction_UnknownStatus, DefaultValues)
+TEST(NetworkSample, DefaultConstruction_UnknownStatus)
 {
     NetworkSample s;
     EXPECT_TRUE(s.adapterName.empty());
@@ -109,7 +109,7 @@ TEST(NetworkSample_DefaultConstruction_UnknownStatus, DefaultValues)
     EXPECT_EQ(s.operationalStatus, OperationalStatus::Unknown);
 }
 
-TEST(NetworkSample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
+TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
 {
     NetworkSample s{
         .adapterName       = "Ethernet",
@@ -125,7 +125,7 @@ TEST(NetworkSample_DesignatedInit_FieldsRoundTrip, DesignatedInit)
     EXPECT_EQ(s.operationalStatus, OperationalStatus::Up);
 }
 
-TEST(OperationalStatus_EnumValues_AreDistinct, EnumDistinctness)
+TEST(OperationalStatus, EnumValues_AreDistinct)
 {
     EXPECT_NE(OperationalStatus::Up,            OperationalStatus::Down);
     EXPECT_NE(OperationalStatus::Down,          OperationalStatus::Testing);
@@ -139,14 +139,14 @@ TEST(OperationalStatus_EnumValues_AreDistinct, EnumDistinctness)
 // ConnectivityStatus
 // ---------------------------------------------------------------------------
 
-TEST(ConnectivityStatus_DefaultConstruction_NoneNotMetered, DefaultValues)
+TEST(ConnectivityStatus, DefaultConstruction_NoneNotMetered)
 {
     ConnectivityStatus s;
     EXPECT_EQ(s.level, ConnectivityLevel::None);
     EXPECT_FALSE(s.isMetered);
 }
 
-TEST(ConnectivityStatus_DesignatedInit_FieldsRoundTrip, DesignatedInit)
+TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
 {
     ConnectivityStatus s{
         .level     = ConnectivityLevel::InternetAccess,
@@ -156,7 +156,7 @@ TEST(ConnectivityStatus_DesignatedInit_FieldsRoundTrip, DesignatedInit)
     EXPECT_TRUE(s.isMetered);
 }
 
-TEST(ConnectivityLevel_EnumValues_AreDistinct, EnumDistinctness)
+TEST(ConnectivityLevel, EnumValues_AreDistinct)
 {
     EXPECT_NE(ConnectivityLevel::None,
               ConnectivityLevel::LocalAccess);
@@ -170,7 +170,7 @@ TEST(ConnectivityLevel_EnumValues_AreDistinct, EnumDistinctness)
 // ProcessInfo
 // ---------------------------------------------------------------------------
 
-TEST(ProcessInfo_DefaultConstruction_ZeroAndFalse, DefaultValues)
+TEST(ProcessInfo, DefaultConstruction_ZeroAndFalse)
 {
     ProcessInfo p;
     EXPECT_EQ(p.pid, 0u);
@@ -189,7 +189,7 @@ TEST(ProcessInfo_DefaultConstruction_ZeroAndFalse, DefaultValues)
     EXPECT_FALSE(p.accessDenied);
 }
 
-TEST(ProcessInfo_DesignatedInit_FieldsRoundTrip, DesignatedInit)
+TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
 {
     using namespace std::chrono;
     const auto now = system_clock::now();
@@ -233,7 +233,7 @@ TEST(ProcessInfo_DesignatedInit_FieldsRoundTrip, DesignatedInit)
 // Two ProcessInfo values with the same PID but different creation times are
 // distinct identities. The test encodes the design decision: callers must
 // never use PID alone as a stable key.
-TEST(ProcessInfo_SamePidDifferentCreationTime_DifferentIdentity, PidReuse)
+TEST(ProcessInfo, SamePidDifferentCreationTime_DifferentIdentity)
 {
     using namespace std::chrono;
     const auto t1 = system_clock::time_point{seconds{1000}};
@@ -252,7 +252,7 @@ TEST(ProcessInfo_SamePidDifferentCreationTime_DifferentIdentity, PidReuse)
 // SystemSnapshot
 // ---------------------------------------------------------------------------
 
-TEST(SystemSnapshot_DefaultConstruction_EmptyCollections, DefaultValues)
+TEST(SystemSnapshot, DefaultConstruction_EmptyCollections)
 {
     SystemSnapshot snap;
     EXPECT_TRUE(snap.disks.empty());
@@ -261,7 +261,7 @@ TEST(SystemSnapshot_DefaultConstruction_EmptyCollections, DefaultValues)
     EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::None);
 }
 
-TEST(SystemSnapshot_DesignatedInit_SubSamplesStoredCorrectly, DesignatedInit)
+TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
 {
     using namespace std::chrono;
     const auto ts = steady_clock::now();
