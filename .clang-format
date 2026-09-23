@@ -1,0 +1,43 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 120
+AccessModifierOffset: -4
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterEnum: true
+  AfterControlStatement: Never
+  BeforeElse: false
+  BeforeCatch: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<[a-z_]+>'        # Standard library
+    Priority: 1
+  - Regex: '^<Q'               # Qt
+    Priority: 2
+  - Regex: '^<spdlog/'         # spdlog
+    Priority: 2
+  - Regex: '^<nlohmann/'       # nlohmann
+    Priority: 2
+  - Regex: '^<gtest/'          # GoogleTest
+    Priority: 2
+  - Regex: '^"'                # Project headers
+    Priority: 3
+
+SortIncludes: CaseInsensitive
+InsertBraces: true
+SpaceBeforeParens: ControlStatements

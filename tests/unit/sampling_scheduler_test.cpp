@@ -2,9 +2,9 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <QObject>
 #include <thread>
 
-#include <QObject>
 #include <gtest/gtest.h>
 
 #include "domain/system_snapshot.h"
@@ -76,12 +76,11 @@ TEST(SamplingScheduler, EmitsSnapshotReadySignal_ReceivedViaQtConnection)
     SystemSnapshot lastSnapshot;
     std::mutex snapMutex;
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-        [&](const SystemSnapshot& snapshot) {
-            std::lock_guard lock(snapMutex);
-            lastSnapshot = snapshot;
-            ++snapshotCount;
-        });
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot &snapshot) {
+        std::lock_guard lock(snapMutex);
+        lastSnapshot = snapshot;
+        ++snapshotCount;
+    });
 
     scheduler.start();
 
@@ -110,8 +109,8 @@ TEST(SamplingScheduler, FastShutdown_RespondsImmediatelyToStop)
 
     const auto stopStart = std::chrono::steady_clock::now();
     scheduler.stop();
-    const auto stopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - stopStart);
+    const auto stopDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - stopStart);
 
     EXPECT_FALSE(scheduler.isRunning());
     // Stop should complete rapidly, not wait out the 5000ms tick interval
@@ -124,10 +123,7 @@ namespace
 class MutexReentryProbeCollector : public sysmon::monitoring::ICpuCollector
 {
 public:
-    explicit MutexReentryProbeCollector(SamplingScheduler& scheduler)
-        : m_scheduler(scheduler)
-    {
-    }
+    explicit MutexReentryProbeCollector(SamplingScheduler &scheduler) : m_scheduler(scheduler) {}
 
     [[nodiscard]] sysmon::domain::CpuSample collect() override
     {
@@ -147,8 +143,8 @@ public:
     }
 
 private:
-    SamplingScheduler& m_scheduler;
-    bool               m_called{false};
+    SamplingScheduler &m_scheduler;
+    bool m_called{false};
 };
 
 } // namespace
@@ -157,7 +153,7 @@ TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
 {
     SamplingScheduler scheduler;
     auto probe = std::make_unique<MutexReentryProbeCollector>(scheduler);
-    const auto* probePtr = probe.get();
+    const auto *probePtr = probe.get();
     scheduler.setCpuCollector(std::move(probe));
 
     const SystemSnapshot snapshot = scheduler.sampleOnce();
@@ -165,5 +161,3 @@ TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
     EXPECT_TRUE(probePtr->wasCalled());
     EXPECT_EQ(snapshot.cpu.coreCount, 8);
 }
-
-

@@ -5,10 +5,9 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <QObject>
 #include <stop_token>
 #include <thread>
-
-#include <QObject>
 
 #include "domain/system_snapshot.h"
 #include "monitoring/collector.h"
@@ -33,15 +32,14 @@ class SamplingScheduler : public QObject
     Q_OBJECT
 
 public:
-    explicit SamplingScheduler(
-        std::chrono::milliseconds interval = std::chrono::milliseconds{1000},
-        QObject*                   parent = nullptr);
+    explicit SamplingScheduler(std::chrono::milliseconds interval = std::chrono::milliseconds{1000},
+                               QObject *parent = nullptr);
     ~SamplingScheduler() override;
 
-    SamplingScheduler(const SamplingScheduler&) = delete;
-    SamplingScheduler& operator=(const SamplingScheduler&) = delete;
-    SamplingScheduler(SamplingScheduler&&) = delete;
-    SamplingScheduler& operator=(SamplingScheduler&&) = delete;
+    SamplingScheduler(const SamplingScheduler &) = delete;
+    SamplingScheduler &operator=(const SamplingScheduler &) = delete;
+    SamplingScheduler(SamplingScheduler &&) = delete;
+    SamplingScheduler &operator=(SamplingScheduler &&) = delete;
 
     /** Starts the background sampling thread. */
     void start();
@@ -79,27 +77,26 @@ public:
 
 signals:
     /** Emitted on each sampling tick with the newly assembled snapshot. */
-    void snapshotReady(const sysmon::domain::SystemSnapshot& snapshot);
+    void snapshotReady(const sysmon::domain::SystemSnapshot &snapshot);
 
 private:
     void run(std::stop_token stopToken);
 
     std::chrono::milliseconds m_interval{1000};
-    std::atomic<bool>          m_isRunning{false};
+    std::atomic<bool> m_isRunning{false};
 
-    mutable std::mutex         m_sleepMutex;
+    mutable std::mutex m_sleepMutex;
     std::condition_variable_any m_sleepCv;
 
-    std::jthread               m_thread;
+    std::jthread m_thread;
 
-    mutable std::mutex         m_collectorMutex;
-    std::unique_ptr<ICpuCollector>          m_cpuCollector;
-    std::unique_ptr<IMemoryCollector>       m_memoryCollector;
-    std::unique_ptr<IDiskCollector>         m_diskCollector;
-    std::unique_ptr<INetworkCollector>      m_networkCollector;
+    mutable std::mutex m_collectorMutex;
+    std::unique_ptr<ICpuCollector> m_cpuCollector;
+    std::unique_ptr<IMemoryCollector> m_memoryCollector;
+    std::unique_ptr<IDiskCollector> m_diskCollector;
+    std::unique_ptr<INetworkCollector> m_networkCollector;
     std::unique_ptr<IConnectivityCollector> m_connectivityCollector;
-    std::unique_ptr<IProcessCollector>      m_processCollector;
+    std::unique_ptr<IProcessCollector> m_processCollector;
 };
 
 } // namespace sysmon::monitoring
-

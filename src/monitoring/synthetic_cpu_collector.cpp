@@ -9,17 +9,13 @@ namespace sysmon::monitoring
 {
 
 SyntheticCpuCollector::SyntheticCpuCollector(int coreCount, float baseUsagePercent)
-    : m_coreCount(std::max(1, coreCount))
-    , m_baseUsagePercent(std::clamp(baseUsagePercent, 0.0f, 100.0f))
-{
-}
+    : m_coreCount(std::max(1, coreCount)), m_baseUsagePercent(std::clamp(baseUsagePercent, 0.0f, 100.0f))
+{}
 
 domain::CpuSample SyntheticCpuCollector::collect()
 {
     const float radians = static_cast<float>(m_step) * 0.1f;
-    const float rawTotal = m_baseUsagePercent
-        + 20.0f * std::sin(radians)
-        + 5.0f * std::sin(radians * 2.3f);
+    const float rawTotal = m_baseUsagePercent + 20.0f * std::sin(radians) + 5.0f * std::sin(radians * 2.3f);
     const float totalUsage = std::clamp(rawTotal, 0.0f, 100.0f);
 
     std::vector<float> coreUsages;
@@ -72,4 +68,3 @@ std::size_t SyntheticCpuCollector::step() const
 }
 
 } // namespace sysmon::monitoring
-

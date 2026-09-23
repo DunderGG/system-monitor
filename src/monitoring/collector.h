@@ -21,8 +21,7 @@ namespace sysmon::monitoring
  *
  * @tparam T The sample type produced by this collector.
  */
-template<typename T>
-class ICollector
+template <typename T> class ICollector
 {
 public:
     virtual ~ICollector() = default;
@@ -36,9 +35,8 @@ public:
 /**
  * Concept constraining types that can act as a typed sample collector.
  */
-template<typename C, typename T>
-concept Collector = requires(C collector)
-{
+template <typename C, typename T>
+concept Collector = requires(C collector) {
     { collector.collect() } -> std::convertible_to<T>;
 };
 
@@ -50,4 +48,3 @@ using IConnectivityCollector = ICollector<domain::ConnectivityStatus>;
 using IProcessCollector = ICollector<std::vector<domain::ProcessInfo>>;
 
 } // namespace sysmon::monitoring
-

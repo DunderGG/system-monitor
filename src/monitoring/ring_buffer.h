@@ -21,16 +21,14 @@ namespace sysmon::monitoring
  *
  * @tparam T The sample type. Must be default-constructible and copyable.
  */
-template<typename T>
-class RingBuffer
+template <typename T> class RingBuffer
 {
 public:
     /**
      * Constructs a ring buffer with the given capacity.
      * @param capacity Maximum number of samples. Must be > 0.
      */
-    explicit RingBuffer(std::size_t capacity)
-        : m_capacity(capacity)
+    explicit RingBuffer(std::size_t capacity) : m_capacity(capacity)
     {
         assert(capacity > 0 && "RingBuffer capacity must be greater than zero");
         m_storage.resize(capacity * 2);
@@ -40,7 +38,7 @@ public:
      * Pushes a sample to the back of the buffer.
      * If the buffer is full, the oldest sample is overwritten.
      */
-    void push(const T& sample)
+    void push(const T &sample)
     {
         const std::size_t pos = m_head;
         m_storage[pos] = sample;
@@ -55,7 +53,7 @@ public:
      * Pushes a sample to the back of the buffer using move semantics.
      * If the buffer is full, the oldest sample is overwritten.
      */
-    void push(T&& sample)
+    void push(T &&sample)
     {
         const std::size_t pos = m_head;
         // Copy into primary slot, then move into mirror. Both slots must hold
@@ -110,37 +108,48 @@ public:
     }
 
     /** Returns the sample at the specified chronological index (0 = oldest). */
-    [[nodiscard]] const T& operator[](std::size_t index) const
+    [[nodiscard]] const T &operator[](std::size_t index) const
     {
         assert(index < m_size && "Index out of bounds");
         return samples()[index];
     }
 
     /** Returns the oldest sample in the buffer. */
-    [[nodiscard]] const T& front() const
+    [[nodiscard]] const T &front() const
     {
         assert(m_size > 0 && "RingBuffer is empty");
         return samples().front();
     }
 
     /** Returns the newest sample in the buffer. */
-    [[nodiscard]] const T& back() const
+    [[nodiscard]] const T &back() const
     {
         assert(m_size > 0 && "RingBuffer is empty");
         return samples().back();
     }
 
-    [[nodiscard]] auto begin() const { return samples().begin(); }
-    [[nodiscard]] auto end() const { return samples().end(); }
-    [[nodiscard]] auto cbegin() const { return samples().cbegin(); }
-    [[nodiscard]] auto cend() const { return samples().cend(); }
+    [[nodiscard]] auto begin() const
+    {
+        return samples().begin();
+    }
+    [[nodiscard]] auto end() const
+    {
+        return samples().end();
+    }
+    [[nodiscard]] auto cbegin() const
+    {
+        return samples().cbegin();
+    }
+    [[nodiscard]] auto cend() const
+    {
+        return samples().cend();
+    }
 
 private:
-    std::size_t    m_capacity{0};
-    std::size_t    m_size{0};
-    std::size_t    m_head{0};
+    std::size_t m_capacity{0};
+    std::size_t m_size{0};
+    std::size_t m_head{0};
     std::vector<T> m_storage;
 };
 
 } // namespace sysmon::monitoring
-

@@ -35,10 +35,9 @@ public:
     [[nodiscard]] std::size_t step() const;
 
 private:
-    int         m_coreCount{8};
-    float       m_baseUsagePercent{35.0f};
+    int m_coreCount{8};
+    float m_baseUsagePercent{35.0f};
     std::size_t m_step{0};
 };
 
 } // namespace sysmon::monitoring
-

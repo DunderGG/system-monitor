@@ -10,10 +10,9 @@ namespace sysmon::domain
 // coreUsagePercents has one entry per logical core, in processor index order.
 struct CpuSample
 {
-    float             totalUsagePercent{0.0f};
+    float totalUsagePercent{0.0f};
     std::vector<float> coreUsagePercents;
-    int               coreCount{0};
+    int coreCount{0};
 };
 
 } // namespace sysmon::domain
-

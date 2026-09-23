@@ -430,6 +430,8 @@ SpaceBeforeParens: ControlStatements
 
 **Recommendation:** Add a `.clang-format` file. Validate it against the existing codebase with `clang-format --dry-run` before committing to ensure it doesn't reformat existing code unexpectedly. This can be done independently of any phase.
 
+**Status:** Resolved (2026-09-23) — Created `.clang-format` in the project root encoding the mixed Allman/K&R brace style, 4-space indentation, 120-column limit, and 3-tier include regrouping (standard, third-party including Qt/spdlog/nlohmann/gtest, and project headers).
+
 ---
 
 ### F-8: `placeholder_test.cpp` can be removed

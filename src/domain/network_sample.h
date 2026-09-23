@@ -29,12 +29,11 @@ enum class OperationalStatus
 // linkSpeedBps is the negotiated link speed in bits per second.
 struct NetworkSample
 {
-    std::string       adapterName;
-    uint64_t          inBytesTotal{0};
-    uint64_t          outBytesTotal{0};
-    uint64_t          linkSpeedBps{0};
+    std::string adapterName;
+    uint64_t inBytesTotal{0};
+    uint64_t outBytesTotal{0};
+    uint64_t linkSpeedBps{0};
     OperationalStatus operationalStatus{OperationalStatus::Unknown};
 };
 
 } // namespace sysmon::domain
-

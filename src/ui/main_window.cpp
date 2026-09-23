@@ -10,8 +10,7 @@
 namespace sysmon::ui
 {
 
-MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent)
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     setWindowTitle("System Monitor");
     resize(800, 600);
@@ -31,32 +30,32 @@ MainWindow::MainWindow(QWidget* parent)
     setCentralWidget(m_tabWidget);
 }
 
-QTabWidget* MainWindow::tabWidget() const
+QTabWidget *MainWindow::tabWidget() const
 {
     return m_tabWidget;
 }
 
-DashboardView* MainWindow::dashboardView() const
+DashboardView *MainWindow::dashboardView() const
 {
     return m_dashboardView;
 }
 
-PerformanceView* MainWindow::performanceView() const
+PerformanceView *MainWindow::performanceView() const
 {
     return m_performanceView;
 }
 
-ProcessesView* MainWindow::processesView() const
+ProcessesView *MainWindow::processesView() const
 {
     return m_processesView;
 }
 
-NetworkView* MainWindow::networkView() const
+NetworkView *MainWindow::networkView() const
 {
     return m_networkView;
 }
 
-void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
+void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot &snapshot)
 {
     if (m_dashboardView != nullptr) {
         m_dashboardView->updateSnapshot(snapshot);
@@ -64,4 +63,3 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
 }
 
 } // namespace sysmon::ui
-

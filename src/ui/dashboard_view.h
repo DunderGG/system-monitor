@@ -17,11 +17,11 @@ class DashboardView : public QWidget
     Q_OBJECT
 
 public:
-    explicit DashboardView(QWidget* parent = nullptr);
+    explicit DashboardView(QWidget *parent = nullptr);
     ~DashboardView() override = default;
 
     /** Updates the displayed metric values from a newly received system snapshot. */
-    void updateSnapshot(const domain::SystemSnapshot& snapshot);
+    void updateSnapshot(const domain::SystemSnapshot &snapshot);
 
     /** Returns the current text displayed on the CPU label. */
     [[nodiscard]] QString cpuText() const;
@@ -30,9 +30,8 @@ public:
     [[nodiscard]] QString memoryText() const;
 
 private:
-    QLabel* m_cpuLabel{nullptr};
-    QLabel* m_memoryLabel{nullptr};
+    QLabel *m_cpuLabel{nullptr};
+    QLabel *m_memoryLabel{nullptr};
 };
 
 } // namespace sysmon::ui
-

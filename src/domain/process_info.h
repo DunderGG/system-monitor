@@ -27,22 +27,21 @@ namespace sysmon::domain
 // name with a clear indicator rather than silently omitting it.
 struct ProcessInfo
 {
-    uint32_t                                  pid{0};
-    std::chrono::system_clock::time_point     creationTime;
-    uint32_t                                  parentPid{0};
-    std::string                               imageName;
-    std::optional<std::string>                imagePath;
-    std::optional<std::string>                commandLine;
-    uint64_t                                  cpuUserTimeMs{0};
-    uint64_t                                  cpuKernelTimeMs{0};
-    uint64_t                                  workingSetBytes{0};
-    uint64_t                                  privateBytes{0};
-    uint64_t                                  ioReadBytes{0};
-    uint64_t                                  ioWriteBytes{0};
-    uint32_t                                  threadCount{0};
-    uint32_t                                  handleCount{0};
-    bool                                      accessDenied{false};
+    uint32_t pid{0};
+    std::chrono::system_clock::time_point creationTime;
+    uint32_t parentPid{0};
+    std::string imageName;
+    std::optional<std::string> imagePath;
+    std::optional<std::string> commandLine;
+    uint64_t cpuUserTimeMs{0};
+    uint64_t cpuKernelTimeMs{0};
+    uint64_t workingSetBytes{0};
+    uint64_t privateBytes{0};
+    uint64_t ioReadBytes{0};
+    uint64_t ioWriteBytes{0};
+    uint32_t threadCount{0};
+    uint32_t handleCount{0};
+    bool accessDenied{false};
 };
 
 } // namespace sysmon::domain
-

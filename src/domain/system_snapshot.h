@@ -27,13 +27,12 @@ namespace sysmon::domain
 struct SystemSnapshot
 {
     std::chrono::steady_clock::time_point timestamp;
-    CpuSample                             cpu;
-    MemorySample                          memory;
-    std::vector<DiskSample>               disks;
-    std::vector<NetworkSample>            networks;
-    ConnectivityStatus                    connectivity;
-    std::vector<ProcessInfo>              processes;
+    CpuSample cpu;
+    MemorySample memory;
+    std::vector<DiskSample> disks;
+    std::vector<NetworkSample> networks;
+    ConnectivityStatus connectivity;
+    std::vector<ProcessInfo> processes;
 };
 
 } // namespace sysmon::domain
-

@@ -15,9 +15,9 @@ using sysmon::monitoring::SyntheticCpuCollector;
 using sysmon::monitoring::SyntheticMemoryCollector;
 
 static_assert(Collector<SyntheticCpuCollector, sysmon::domain::CpuSample>,
-    "SyntheticCpuCollector must satisfy Collector concept");
+              "SyntheticCpuCollector must satisfy Collector concept");
 static_assert(Collector<SyntheticMemoryCollector, sysmon::domain::MemorySample>,
-    "SyntheticMemoryCollector must satisfy Collector concept");
+              "SyntheticMemoryCollector must satisfy Collector concept");
 
 TEST(SyntheticCpuCollector, Collect_ReturnsValidUsageAndCores)
 {
@@ -93,4 +93,3 @@ TEST(SyntheticMemoryCollector, ConsecutiveCollects_VaryWithinBounds)
     EXPECT_GE(sample2.usagePercent, 0.0f);
     EXPECT_LE(sample2.usagePercent, 100.0f);
 }
-

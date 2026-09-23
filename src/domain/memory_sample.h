@@ -14,10 +14,9 @@ struct MemorySample
 {
     uint64_t totalBytes{0};
     uint64_t availableBytes{0};
-    float    usagePercent{0.0f};
+    float usagePercent{0.0f};
     uint64_t commitLimit{0};
     uint64_t commitCurrent{0};
 };
 
 } // namespace sysmon::domain
-

@@ -3,19 +3,16 @@
 #include <cassert>
 #include <chrono>
 #include <mutex>
+#include <QMetaType>
 #include <utility>
 
-#include <QMetaType>
 #include <spdlog/spdlog.h>
 
 namespace sysmon::monitoring
 {
 
-SamplingScheduler::SamplingScheduler(
-    std::chrono::milliseconds interval,
-    QObject*                   parent)
-    : QObject(parent)
-    , m_interval(interval)
+SamplingScheduler::SamplingScheduler(std::chrono::milliseconds interval, QObject *parent)
+    : QObject(parent), m_interval(interval)
 {
     qRegisterMetaType<sysmon::domain::SystemSnapshot>();
 }
@@ -32,9 +29,7 @@ void SamplingScheduler::start()
     }
 
     m_isRunning = true;
-    m_thread = std::jthread([this](std::stop_token stopToken) {
-        run(stopToken);
-    });
+    m_thread = std::jthread([this](std::stop_token stopToken) { run(stopToken); });
 }
 
 void SamplingScheduler::stop()
@@ -121,12 +116,12 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     domain::SystemSnapshot snapshot;
     snapshot.timestamp = std::chrono::steady_clock::now();
 
-    ICpuCollector* cpu = nullptr;
-    IMemoryCollector* memory = nullptr;
-    IDiskCollector* disk = nullptr;
-    INetworkCollector* network = nullptr;
-    IConnectivityCollector* connectivity = nullptr;
-    IProcessCollector* process = nullptr;
+    ICpuCollector *cpu = nullptr;
+    IMemoryCollector *memory = nullptr;
+    IDiskCollector *disk = nullptr;
+    INetworkCollector *network = nullptr;
+    IConnectivityCollector *connectivity = nullptr;
+    IProcessCollector *process = nullptr;
 
     {
         std::lock_guard lock(m_collectorMutex);
@@ -175,13 +170,10 @@ void SamplingScheduler::run(std::stop_token stopToken)
 
         std::unique_lock lock(m_sleepMutex);
         const auto nextTick = tickStart + m_interval;
-        m_sleepCv.wait_until(lock, stopToken, nextTick, [&stopToken] {
-            return stopToken.stop_requested();
-        });
+        m_sleepCv.wait_until(lock, stopToken, nextTick, [&stopToken] { return stopToken.stop_requested(); });
     }
 
     spdlog::info("SamplingScheduler background thread stopped");
 }
 
 } // namespace sysmon::monitoring
-

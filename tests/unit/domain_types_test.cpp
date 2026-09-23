@@ -1,3 +1,7 @@
+#include <chrono>
+
+#include <gtest/gtest.h>
+
 #include "domain/connectivity_status.h"
 #include "domain/cpu_sample.h"
 #include "domain/disk_sample.h"
@@ -5,10 +9,6 @@
 #include "domain/network_sample.h"
 #include "domain/process_info.h"
 #include "domain/system_snapshot.h"
-
-#include <gtest/gtest.h>
-
-#include <chrono>
 
 using namespace sysmon::domain;
 
@@ -29,7 +29,7 @@ TEST(CpuSample, DesignatedInit_FieldsRoundTrip)
     CpuSample s{
         .totalUsagePercent = 42.5f,
         .coreUsagePercents = {30.0f, 55.0f},
-        .coreCount         = 2,
+        .coreCount = 2,
     };
     EXPECT_FLOAT_EQ(s.totalUsagePercent, 42.5f);
     ASSERT_EQ(static_cast<int>(s.coreUsagePercents.size()), 2);
@@ -55,11 +55,11 @@ TEST(MemorySample, DefaultConstruction_ZeroValues)
 TEST(MemorySample, DesignatedInit_FieldsRoundTrip)
 {
     MemorySample s{
-        .totalBytes     = 16'000'000'000ULL,
-        .availableBytes =  4'000'000'000ULL,
-        .usagePercent   = 75.0f,
-        .commitLimit    = 20'000'000'000ULL,
-        .commitCurrent  =  8'000'000'000ULL,
+        .totalBytes = 16'000'000'000ULL,
+        .availableBytes = 4'000'000'000ULL,
+        .usagePercent = 75.0f,
+        .commitLimit = 20'000'000'000ULL,
+        .commitCurrent = 8'000'000'000ULL,
     };
     EXPECT_EQ(s.totalBytes, 16'000'000'000ULL);
     EXPECT_EQ(s.availableBytes, 4'000'000'000ULL);
@@ -84,9 +84,9 @@ TEST(DiskSample, DefaultConstruction_ZeroValues)
 TEST(DiskSample, DesignatedInit_FieldsRoundTrip)
 {
     DiskSample s{
-        .volumeName   = "C:\\",
-        .totalBytes   = 500'000'000'000ULL,
-        .freeBytes    = 200'000'000'000ULL,
+        .volumeName = "C:\\",
+        .totalBytes = 500'000'000'000ULL,
+        .freeBytes = 200'000'000'000ULL,
         .usagePercent = 60.0f,
     };
     EXPECT_EQ(s.volumeName, "C:\\");
@@ -112,10 +112,10 @@ TEST(NetworkSample, DefaultConstruction_UnknownStatus)
 TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
 {
     NetworkSample s{
-        .adapterName       = "Ethernet",
-        .inBytesTotal      = 1'000'000ULL,
-        .outBytesTotal     = 500'000ULL,
-        .linkSpeedBps      = 1'000'000'000ULL,
+        .adapterName = "Ethernet",
+        .inBytesTotal = 1'000'000ULL,
+        .outBytesTotal = 500'000ULL,
+        .linkSpeedBps = 1'000'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
     };
     EXPECT_EQ(s.adapterName, "Ethernet");
@@ -127,12 +127,12 @@ TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
 
 TEST(OperationalStatus, EnumValues_AreDistinct)
 {
-    EXPECT_NE(OperationalStatus::Up,            OperationalStatus::Down);
-    EXPECT_NE(OperationalStatus::Down,          OperationalStatus::Testing);
-    EXPECT_NE(OperationalStatus::Testing,       OperationalStatus::Unknown);
-    EXPECT_NE(OperationalStatus::Unknown,       OperationalStatus::Dormant);
-    EXPECT_NE(OperationalStatus::Dormant,       OperationalStatus::NotPresent);
-    EXPECT_NE(OperationalStatus::NotPresent,    OperationalStatus::LowerLayerDown);
+    EXPECT_NE(OperationalStatus::Up, OperationalStatus::Down);
+    EXPECT_NE(OperationalStatus::Down, OperationalStatus::Testing);
+    EXPECT_NE(OperationalStatus::Testing, OperationalStatus::Unknown);
+    EXPECT_NE(OperationalStatus::Unknown, OperationalStatus::Dormant);
+    EXPECT_NE(OperationalStatus::Dormant, OperationalStatus::NotPresent);
+    EXPECT_NE(OperationalStatus::NotPresent, OperationalStatus::LowerLayerDown);
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ TEST(ConnectivityStatus, DefaultConstruction_NoneNotMetered)
 TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
 {
     ConnectivityStatus s{
-        .level     = ConnectivityLevel::InternetAccess,
+        .level = ConnectivityLevel::InternetAccess,
         .isMetered = true,
     };
     EXPECT_EQ(s.level, ConnectivityLevel::InternetAccess);
@@ -158,12 +158,9 @@ TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
 
 TEST(ConnectivityLevel, EnumValues_AreDistinct)
 {
-    EXPECT_NE(ConnectivityLevel::None,
-              ConnectivityLevel::LocalAccess);
-    EXPECT_NE(ConnectivityLevel::LocalAccess,
-              ConnectivityLevel::ConstrainedInternetAccess);
-    EXPECT_NE(ConnectivityLevel::ConstrainedInternetAccess,
-              ConnectivityLevel::InternetAccess);
+    EXPECT_NE(ConnectivityLevel::None, ConnectivityLevel::LocalAccess);
+    EXPECT_NE(ConnectivityLevel::LocalAccess, ConnectivityLevel::ConstrainedInternetAccess);
+    EXPECT_NE(ConnectivityLevel::ConstrainedInternetAccess, ConnectivityLevel::InternetAccess);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,21 +192,21 @@ TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
     const auto now = system_clock::now();
 
     ProcessInfo p{
-        .pid            = 1234,
-        .creationTime   = now,
-        .parentPid      = 1,
-        .imageName      = "explorer.exe",
-        .imagePath      = "C:\\Windows\\explorer.exe",
-        .commandLine    = std::nullopt,
-        .cpuUserTimeMs  = 100,
+        .pid = 1234,
+        .creationTime = now,
+        .parentPid = 1,
+        .imageName = "explorer.exe",
+        .imagePath = "C:\\Windows\\explorer.exe",
+        .commandLine = std::nullopt,
+        .cpuUserTimeMs = 100,
         .cpuKernelTimeMs = 50,
         .workingSetBytes = 64'000'000,
-        .privateBytes    = 32'000'000,
-        .ioReadBytes     = 1'000,
-        .ioWriteBytes    = 500,
-        .threadCount     = 24,
-        .handleCount     = 512,
-        .accessDenied    = false,
+        .privateBytes = 32'000'000,
+        .ioReadBytes = 1'000,
+        .ioWriteBytes = 500,
+        .threadCount = 24,
+        .handleCount = 512,
+        .accessDenied = false,
     };
 
     EXPECT_EQ(p.pid, 1234u);
@@ -267,14 +264,13 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
     const auto ts = steady_clock::now();
 
     SystemSnapshot snap{
-        .timestamp    = ts,
-        .cpu          = {.totalUsagePercent = 10.0f, .coreCount = 4},
-        .memory       = {.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
-        .disks        = {DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
-        .networks     = {NetworkSample{.adapterName = "Wi-Fi",
-                                       .operationalStatus = OperationalStatus::Up}},
+        .timestamp = ts,
+        .cpu = {.totalUsagePercent = 10.0f, .coreCount = 4},
+        .memory = {.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
+        .disks = {DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
+        .networks = {NetworkSample{.adapterName = "Wi-Fi", .operationalStatus = OperationalStatus::Up}},
         .connectivity = {.level = ConnectivityLevel::InternetAccess},
-        .processes    = {ProcessInfo{.pid = 4, .imageName = "System"}},
+        .processes = {ProcessInfo{.pid = 4, .imageName = "System"}},
     };
 
     EXPECT_EQ(snap.timestamp, ts);
@@ -289,4 +285,3 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
     ASSERT_EQ(snap.processes.size(), 1u);
     EXPECT_EQ(snap.processes[0].pid, 4u);
 }
-

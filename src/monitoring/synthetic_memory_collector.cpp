@@ -6,30 +6,23 @@
 namespace sysmon::monitoring
 {
 
-SyntheticMemoryCollector::SyntheticMemoryCollector(
-    uint64_t totalBytes,
-    uint64_t commitLimit,
-    float    baseUsagePercent)
-    : m_totalBytes(totalBytes)
-    , m_commitLimit(commitLimit)
-    , m_baseUsagePercent(std::clamp(baseUsagePercent, 0.0f, 100.0f))
-{
-}
+SyntheticMemoryCollector::SyntheticMemoryCollector(uint64_t totalBytes, uint64_t commitLimit, float baseUsagePercent)
+    : m_totalBytes(totalBytes), m_commitLimit(commitLimit),
+      m_baseUsagePercent(std::clamp(baseUsagePercent, 0.0f, 100.0f))
+{}
 
 domain::MemorySample SyntheticMemoryCollector::collect()
 {
     const float radians = static_cast<float>(m_step) * 0.05f;
-    const float rawUsage = m_baseUsagePercent
-        + 15.0f * std::sin(radians)
-        + 3.0f * std::cos(radians * 1.7f);
+    const float rawUsage = m_baseUsagePercent + 15.0f * std::sin(radians) + 3.0f * std::cos(radians * 1.7f);
     const float usagePercent = std::clamp(rawUsage, 1.0f, 99.0f);
 
-    const auto usedBytes = static_cast<uint64_t>(
-        static_cast<double>(m_totalBytes) * (static_cast<double>(usagePercent) / 100.0));
+    const auto usedBytes =
+        static_cast<uint64_t>(static_cast<double>(m_totalBytes) * (static_cast<double>(usagePercent) / 100.0));
     const uint64_t availableBytes = (m_totalBytes > usedBytes) ? (m_totalBytes - usedBytes) : 0ULL;
 
-    const auto commitCurrent = static_cast<uint64_t>(
-        static_cast<double>(m_commitLimit) * (static_cast<double>(usagePercent * 0.85f) / 100.0));
+    const auto commitCurrent =
+        static_cast<uint64_t>(static_cast<double>(m_commitLimit) * (static_cast<double>(usagePercent * 0.85f) / 100.0));
 
     ++m_step;
 
@@ -83,4 +76,3 @@ std::size_t SyntheticMemoryCollector::step() const
 }
 
 } // namespace sysmon::monitoring
-

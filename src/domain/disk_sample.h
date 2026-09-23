@@ -12,10 +12,9 @@ namespace sysmon::domain
 struct DiskSample
 {
     std::string volumeName;
-    uint64_t    totalBytes{0};
-    uint64_t    freeBytes{0};
-    float       usagePercent{0.0f};
+    uint64_t totalBytes{0};
+    uint64_t freeBytes{0};
+    float usagePercent{0.0f};
 };
 
 } // namespace sysmon::domain
-

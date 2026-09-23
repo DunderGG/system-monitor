@@ -1,9 +1,9 @@
 #include <chrono>
 #include <memory>
-#include <thread>
-
 #include <QCoreApplication>
 #include <QTabWidget>
+#include <thread>
+
 #include <gtest/gtest.h>
 
 #include "domain/system_snapshot.h"
@@ -68,10 +68,8 @@ TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
 
     MainWindow mainWindow;
 
-    QObject::connect(
-        &scheduler, &SamplingScheduler::snapshotReady,
-        &mainWindow, &MainWindow::onSnapshotReady,
-        Qt::QueuedConnection);
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, &mainWindow, &MainWindow::onSnapshotReady,
+                     Qt::QueuedConnection);
 
     scheduler.start();
 
@@ -87,4 +85,3 @@ TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
     EXPECT_TRUE(mainWindow.dashboardView()->cpuText().contains("4 cores"));
     EXPECT_FALSE(mainWindow.dashboardView()->memoryText().contains("--"));
 }
-

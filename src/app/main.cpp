@@ -1,16 +1,15 @@
-#include "app_logging.h"
-
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
-#include <string>
-
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QStandardPaths>
+#include <string>
+
 #include <spdlog/spdlog.h>
 
+#include "app_logging.h"
 #include "monitoring/sampling_scheduler.h"
 #include "monitoring/synthetic_cpu_collector.h"
 #include "monitoring/synthetic_memory_collector.h"
@@ -40,8 +39,7 @@ int main(int argc, char *argv[])
         commandLineParser.showHelp(EXIT_FAILURE);
     }
 
-    const QString logDirectory = QStandardPaths::writableLocation(
-        QStandardPaths::AppLocalDataLocation);
+    const QString logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     QDir().mkpath(logDirectory);
     const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "system_monitor.log";
     sysmon::app::configureLogging(logFilePath, *logLevel);
@@ -53,10 +51,8 @@ int main(int argc, char *argv[])
 
     sysmon::ui::MainWindow mainWindow;
 
-    QObject::connect(
-        &scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady,
-        &mainWindow, &sysmon::ui::MainWindow::onSnapshotReady,
-        Qt::QueuedConnection);
+    QObject::connect(&scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
+                     &sysmon::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);
 
     scheduler.start();
     mainWindow.show();

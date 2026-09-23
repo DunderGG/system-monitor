@@ -163,4 +163,3 @@ TEST(RingBuffer, CapacityOne_OverwritesCorrectly)
     EXPECT_EQ(buffer.front(), 200);
     EXPECT_EQ(buffer.back(), 200);
 }
-

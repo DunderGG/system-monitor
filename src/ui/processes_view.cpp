@@ -7,13 +7,12 @@
 namespace sysmon::ui
 {
 
-ProcessesView::ProcessesView(QWidget* parent)
-    : QWidget(parent)
+ProcessesView::ProcessesView(QWidget *parent) : QWidget(parent)
 {
-    auto* layout = new QVBoxLayout(this);
+    auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(16, 16, 16, 16);
 
-    auto* label = new QLabel("Processes view placeholder (Phase 4)", this);
+    auto *label = new QLabel("Processes view placeholder (Phase 4)", this);
     QFont font = label->font();
     font.setPointSize(12);
     label->setFont(font);
@@ -23,4 +22,3 @@ ProcessesView::ProcessesView(QWidget* parent)
 }
 
 } // namespace sysmon::ui
-

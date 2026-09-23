@@ -24,8 +24,7 @@ enum class ConnectivityLevel
 struct ConnectivityStatus
 {
     ConnectivityLevel level{ConnectivityLevel::None};
-    bool              isMetered{false};
+    bool isMetered{false};
 };
 
 } // namespace sysmon::domain
-

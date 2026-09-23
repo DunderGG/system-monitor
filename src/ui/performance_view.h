@@ -14,9 +14,8 @@ class PerformanceView : public QWidget
     Q_OBJECT
 
 public:
-    explicit PerformanceView(QWidget* parent = nullptr);
+    explicit PerformanceView(QWidget *parent = nullptr);
     ~PerformanceView() override = default;
 };
 
 } // namespace sysmon::ui
-

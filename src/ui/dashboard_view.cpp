@@ -7,14 +7,13 @@
 namespace sysmon::ui
 {
 
-DashboardView::DashboardView(QWidget* parent)
-    : QWidget(parent)
+DashboardView::DashboardView(QWidget *parent) : QWidget(parent)
 {
-    auto* layout = new QVBoxLayout(this);
+    auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(12);
 
-    auto* titleLabel = new QLabel("Dashboard", this);
+    auto *titleLabel = new QLabel("Dashboard", this);
     QFont titleFont = titleLabel->font();
     titleFont.setPointSize(16);
     titleFont.setBold(true);
@@ -34,25 +33,23 @@ DashboardView::DashboardView(QWidget* parent)
     layout->addStretch();
 }
 
-void DashboardView::updateSnapshot(const domain::SystemSnapshot& snapshot)
+void DashboardView::updateSnapshot(const domain::SystemSnapshot &snapshot)
 {
-    m_cpuLabel->setText(
-        QString("CPU: %1% (%2 cores)")
-            .arg(static_cast<double>(snapshot.cpu.totalUsagePercent), 0, 'f', 1)
-            .arg(snapshot.cpu.coreCount));
+    m_cpuLabel->setText(QString("CPU: %1% (%2 cores)")
+                            .arg(static_cast<double>(snapshot.cpu.totalUsagePercent), 0, 'f', 1)
+                            .arg(snapshot.cpu.coreCount));
 
     constexpr double kBytesPerGiB = 1024.0 * 1024.0 * 1024.0;
     const double totalGiB = static_cast<double>(snapshot.memory.totalBytes) / kBytesPerGiB;
     const uint64_t usedBytes = (snapshot.memory.totalBytes > snapshot.memory.availableBytes)
-        ? (snapshot.memory.totalBytes - snapshot.memory.availableBytes)
-        : 0ULL;
+                                   ? (snapshot.memory.totalBytes - snapshot.memory.availableBytes)
+                                   : 0ULL;
     const double usedGiB = static_cast<double>(usedBytes) / kBytesPerGiB;
 
-    m_memoryLabel->setText(
-        QString("Memory: %1% (%2 / %3 GiB)")
-            .arg(static_cast<double>(snapshot.memory.usagePercent), 0, 'f', 1)
-            .arg(usedGiB, 0, 'f', 1)
-            .arg(totalGiB, 0, 'f', 1));
+    m_memoryLabel->setText(QString("Memory: %1% (%2 / %3 GiB)")
+                               .arg(static_cast<double>(snapshot.memory.usagePercent), 0, 'f', 1)
+                               .arg(usedGiB, 0, 'f', 1)
+                               .arg(totalGiB, 0, 'f', 1));
 }
 
 QString DashboardView::cpuText() const
@@ -66,4 +63,3 @@ QString DashboardView::memoryText() const
 }
 
 } // namespace sysmon::ui
-

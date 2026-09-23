@@ -9,11 +9,8 @@
 namespace sysmon::app
 {
 
-[[nodiscard]] std::optional<spdlog::level::level_enum> parseLogLevel(
-    std::string_view value);
+[[nodiscard]] std::optional<spdlog::level::level_enum> parseLogLevel(std::string_view value);
 
-void configureLogging(
-    const std::filesystem::path& logFilePath,
-    spdlog::level::level_enum logLevel);
+void configureLogging(const std::filesystem::path &logFilePath, spdlog::level::level_enum logLevel);
 
 } // namespace sysmon::app
