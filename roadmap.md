@@ -86,7 +86,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Each card shows current value, a mini sparkline, and a brief status label.
 - [ ] Display system uptime using `GetTickCount64`.
 - [ ] Display basic health status derived from resource thresholds (e.g., memory >90% → warning).
-- [ ] Connect real collector data through the snapshot pipeline to the dashboard widgets.
+- [ ] Connect real collector data through the snapshot pipeline to the dashboard widgets (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) for snapshot distribution across views and visible-tab update optimization).
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
