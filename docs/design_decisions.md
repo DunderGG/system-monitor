@@ -221,6 +221,15 @@ Each entry links to the relevant roadmap phase and source files.
 
 **Rationale:** On 64-bit Windows, processor affinities are limited to 64 bits per group, so high-core machines (>64 logical processors) are partitioned into multiple processor groups. On such machines, `GetSystemTimes` and legacy `NtQuerySystemInformation` only report statistics for the primary group of the calling thread, rendering workloads in secondary groups invisible. Calling `NtQuerySystemInformationEx` with `USHORT group` in the input buffer retrieves each group's cores sequentially, guaranteeing that `CpuSample::coreUsagePercents` captures all logical cores in continuous processor index order. Furthermore, aggregating all cores' counter deltas to compute `totalUsagePercent` on multi-group systems ensures accurate system-wide utilization metrics regardless of how the OS scheduler distributes threads across groups.
 
+---
+
+### CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
+
+**Decision:** Design host integration tests around system and mathematical invariants ($0.0 \le \text{usage} \le 100.0$, topology matching `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)`, non-NaN/Inf) and synthetic workload sensitivity rather than asserting fixed utilization values.
+
+**Rationale:** Unlike deterministic unit tests with injected data, host integration tests execute against live Windows kernel APIs where background OS services, indexing, and power-saving C-states cause continuous utilization fluctuations. Asserting fixed numbers produces flaky tests. Verifying invariants across multiple consecutive real-time samples, observing load increases during controlled multi-threaded synthetic loops, and validating live signal delivery through `SamplingScheduler` proves the collector operates correctly on real hardware under variable load without false positives.
+
+
 
 
 
