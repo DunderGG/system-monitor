@@ -58,6 +58,8 @@ public:
     void push(T&& sample)
     {
         const std::size_t pos = m_head;
+        // Copy into primary slot, then move into mirror. Both slots must hold
+        // the value for the contiguous-span trick, so we cannot avoid one copy.
         m_storage[pos] = sample;
         m_storage[pos + m_capacity] = std::move(sample);
         m_head = (m_head + 1) % m_capacity;

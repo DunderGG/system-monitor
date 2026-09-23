@@ -149,6 +149,8 @@ void push(T&& sample)
 
 **Recommendation:** Add the clarifying comment. No functional change required.
 
+**Status:** Resolved (2026-09-23) — Added clarifying comment to `push(T&&)` in `src/monitoring/ring_buffer.h` explaining the unavoidable 1-copy + 1-move trade-off inherent to mirrored storage for zero-copy contiguous span access.
+
 ---
 
 ### F-3: Test naming uses non-standard suite/test name pattern
