@@ -12,6 +12,7 @@ target_link_libraries(system_monitor
         Qt6::Widgets
         spdlog::spdlog
         sysmon_monitoring
+        sysmon_platform_windows
         sysmon_ui
 )
 

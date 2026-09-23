@@ -9,6 +9,8 @@ add_executable(system_monitor_tests
     unit/synthetic_collectors_test.cpp
     unit/sampling_scheduler_test.cpp
     unit/main_window_test.cpp
+    unit/cpu_collector_test.cpp
+    integration/cpu_collector_test.cpp
 )
 
 set_target_properties(system_monitor_tests PROPERTIES
@@ -20,6 +22,7 @@ target_link_libraries(system_monitor_tests
         GTest::gtest
         sysmon_domain
         sysmon_monitoring
+        sysmon_platform_windows
         sysmon_ui
         Qt6::Core
         Qt6::Widgets

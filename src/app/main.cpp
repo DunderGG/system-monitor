@@ -11,8 +11,8 @@
 
 #include "app_logging.h"
 #include "monitoring/sampling_scheduler.h"
-#include "monitoring/synthetic_cpu_collector.h"
 #include "monitoring/synthetic_memory_collector.h"
+#include "platform/windows/cpu_collector.h"
 #include "ui/main_window.h"
 
 int main(int argc, char *argv[])
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     spdlog::info("Application started with log level '{}'", logLevelValue);
 
     sysmon::monitoring::SamplingScheduler scheduler;
-    scheduler.setCpuCollector(std::make_unique<sysmon::monitoring::SyntheticCpuCollector>());
+    scheduler.setCpuCollector(std::make_unique<sysmon::platform::CpuCollector>());
     scheduler.setMemoryCollector(std::make_unique<sysmon::monitoring::SyntheticMemoryCollector>());
 
     sysmon::ui::MainWindow mainWindow;

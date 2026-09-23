@@ -179,4 +179,31 @@ Each entry links to the relevant roadmap phase and source files.
 
 **Rationale:** When CMake invokes the test binary with `--gtest_list_tests` at build time to discover tests, initializing `QApplication` would attempt to load platform plugins before they are fully deployed or in headless environments without an active display session, risking modal error dialogues or timeouts. Bypassing `QApplication` for list-only execution allows instantaneous and reliable test discovery, while full test execution creates `QApplication` and leverages the deployed platform plugin.
 
+---
+
+## Phase 2 — Real Windows collectors and dashboard (`src/platform/windows/`)
+
+### Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
+
+**Decision:** Calculate total CPU utilization by subtracting `deltaIdle` from `(deltaKernel + deltaUser)` and dividing by `(deltaKernel + deltaUser)` over monotonic elapsed time.
+
+**Rationale:** Windows `GetSystemTimes` returns cumulative idle, kernel, and user times in 100 ns `FILETIME` ticks across all logical processors. A key characteristic of Windows kernel accounting is that `lpKernelTime` already includes the execution time of the idle thread. Thus, total system capacity elapsed across all processors is `deltaKernel + deltaUser`, and active busy time is `(deltaKernel + deltaUser) - deltaIdle`. This ratio is mathematically invariant to CPU frequency scaling (Intel SpeedStep / AMD Cool'n'Quiet), processor group topologies, and core count. We guard against multi-core non-atomic counter jitter and counter underflow by clamping usage to $[0.0\%, 100.0\%]$ and checking that elapsed monotonic time is positive.
+
+---
+
+### Encapsulation of Windows SDK headers strictly inside translation units
+
+**Decision:** `cpu_collector.h` contains no `<Windows.h>` or Windows SDK types. All Windows types (`FILETIME`, `DWORD`, etc.) are converted to standard fixed-width integer types (`uint64_t`) in `cpu_collector.cpp`.
+
+**Rationale:** Including `<Windows.h>` in a header exposes macros like `min`, `max`, `near`, `far`, and thousands of global symbols transitively to any module that includes it, violating the project rule that only `platform/windows` interacts with the Windows SDK. By confining `<Windows.h>` strictly to `.cpp` files, headers remain clean, lightweight standard C++20.
+
+---
+
+### Deterministic unit testing via injected time and clock readers
+
+**Decision:** `CpuCollector` provides a dependency-injected constructor accepting custom `SystemTimesReader` and `SteadyClockReader` lambdas alongside its default Windows constructor, paired with a pure `calculateCpuUsage` function.
+
+**Rationale:** Unit tests must be fast, deterministic, and free of OS dependencies per project rules. The injected constructor allows simulating edge cases such as exact idle/user/kernel ratios, zero elapsed intervals, clock jitter where idle temporarily appears greater than kernel, and API query failures without invoking the Windows kernel or relying on sleep timers. Real host integration tests in `tests/integration/` verify live `GetSystemTimes` execution separately.
+
+
 

@@ -61,7 +61,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### CPU collector (`src/platform/windows/`)
 
-- [ ] Implement total CPU usage using `GetSystemTimes`. Calculate usage percent from idle/kernel/user time deltas over monotonic elapsed time.
+- [x] Implement total CPU usage using `GetSystemTimes`. Calculate usage percent from idle/kernel/user time deltas over monotonic elapsed time.
 - [ ] Implement per-core CPU usage using `NtQuerySystemInformation(SystemProcessorPerformanceInformation)`. Resolve the function pointer dynamically from `ntdll.dll`.
 - [ ] Handle multi-processor-group systems (>64 logical cores) correctly.
 - [ ] Write integration tests that run on the host and tolerate variable load.
