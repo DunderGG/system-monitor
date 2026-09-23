@@ -58,7 +58,12 @@ public:
     /** Returns the current sampling interval. */
     [[nodiscard]] std::chrono::milliseconds interval() const;
 
-    // Collector registration
+    /**
+     * Collector registration.
+     * Invariant: These methods must only be called while the scheduler is stopped
+     * (before start() or after stop()). Hot-swapping collectors while the background
+     * sampling thread is running is not supported.
+     */
     void setCpuCollector(std::unique_ptr<ICpuCollector> collector);
     void setMemoryCollector(std::unique_ptr<IMemoryCollector> collector);
     void setDiskCollector(std::unique_ptr<IDiskCollector> collector);

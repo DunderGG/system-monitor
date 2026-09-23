@@ -118,3 +118,52 @@ TEST(SamplingScheduler, FastShutdown_RespondsImmediatelyToStop)
     EXPECT_LT(stopDuration.count(), 1000);
 }
 
+namespace
+{
+
+class MutexReentryProbeCollector : public sysmon::monitoring::ICpuCollector
+{
+public:
+    explicit MutexReentryProbeCollector(SamplingScheduler& scheduler)
+        : m_scheduler(scheduler)
+    {
+    }
+
+    [[nodiscard]] sysmon::domain::CpuSample collect() override
+    {
+        // Calling setDiskCollector acquires m_collectorMutex.
+        // If sampleOnce() held m_collectorMutex during collect(), this non-recursive mutex would deadlock.
+        m_scheduler.setDiskCollector(nullptr);
+        m_called = true;
+
+        sysmon::domain::CpuSample sample;
+        sample.coreCount = 8;
+        return sample;
+    }
+
+    [[nodiscard]] bool wasCalled() const
+    {
+        return m_called;
+    }
+
+private:
+    SamplingScheduler& m_scheduler;
+    bool               m_called{false};
+};
+
+} // namespace
+
+TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
+{
+    SamplingScheduler scheduler;
+    auto probe = std::make_unique<MutexReentryProbeCollector>(scheduler);
+    const auto* probePtr = probe.get();
+    scheduler.setCpuCollector(std::move(probe));
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_TRUE(probePtr->wasCalled());
+    EXPECT_EQ(snapshot.cpu.coreCount, 8);
+}
+
+

@@ -104,6 +104,8 @@ This relies on the invariant that collectors are only swapped while the schedule
 
 **Recommendation:** Defer this change until Phase 2 when real collectors are introduced. Document the invariant that `set*Collector()` should only be called before `start()` or after `stop()`.
 
+**Status:** Resolved (2026-09-23) — Implemented pointer snapshotting under `m_collectorMutex` in `sampleOnce()`, documented stopped-state registration invariant in `sampling_scheduler.h`, and added `assert(!m_isRunning.load())` in setters. Tested via `SampleOnce_ReleasesCollectorMutexBeforeCollection`.
+
 ---
 
 ### F-2: `RingBuffer` move-push copies before moving

@@ -1,5 +1,6 @@
 #include "monitoring/sampling_scheduler.h"
 
+#include <cassert>
 #include <chrono>
 #include <mutex>
 #include <utility>
@@ -75,36 +76,42 @@ std::chrono::milliseconds SamplingScheduler::interval() const
 
 void SamplingScheduler::setCpuCollector(std::unique_ptr<ICpuCollector> collector)
 {
+    assert(!m_isRunning.load() && "setCpuCollector must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
     m_cpuCollector = std::move(collector);
 }
 
 void SamplingScheduler::setMemoryCollector(std::unique_ptr<IMemoryCollector> collector)
 {
+    assert(!m_isRunning.load() && "setMemoryCollector must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
     m_memoryCollector = std::move(collector);
 }
 
 void SamplingScheduler::setDiskCollector(std::unique_ptr<IDiskCollector> collector)
 {
+    assert(!m_isRunning.load() && "setDiskCollector must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
     m_diskCollector = std::move(collector);
 }
 
 void SamplingScheduler::setNetworkCollector(std::unique_ptr<INetworkCollector> collector)
 {
+    assert(!m_isRunning.load() && "setNetworkCollector must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
     m_networkCollector = std::move(collector);
 }
 
 void SamplingScheduler::setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector)
 {
+    assert(!m_isRunning.load() && "setConnectivityCollector must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
     m_connectivityCollector = std::move(collector);
 }
 
 void SamplingScheduler::setProcessCollector(std::unique_ptr<IProcessCollector> collector)
 {
+    assert(!m_isRunning.load() && "setProcessCollector must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
     m_processCollector = std::move(collector);
 }
@@ -114,24 +121,40 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     domain::SystemSnapshot snapshot;
     snapshot.timestamp = std::chrono::steady_clock::now();
 
-    std::lock_guard lock(m_collectorMutex);
-    if (m_cpuCollector) {
-        snapshot.cpu = m_cpuCollector->collect();
+    ICpuCollector* cpu = nullptr;
+    IMemoryCollector* memory = nullptr;
+    IDiskCollector* disk = nullptr;
+    INetworkCollector* network = nullptr;
+    IConnectivityCollector* connectivity = nullptr;
+    IProcessCollector* process = nullptr;
+
+    {
+        std::lock_guard lock(m_collectorMutex);
+        cpu = m_cpuCollector.get();
+        memory = m_memoryCollector.get();
+        disk = m_diskCollector.get();
+        network = m_networkCollector.get();
+        connectivity = m_connectivityCollector.get();
+        process = m_processCollector.get();
     }
-    if (m_memoryCollector) {
-        snapshot.memory = m_memoryCollector->collect();
+
+    if (cpu) {
+        snapshot.cpu = cpu->collect();
     }
-    if (m_diskCollector) {
-        snapshot.disks = m_diskCollector->collect();
+    if (memory) {
+        snapshot.memory = memory->collect();
     }
-    if (m_networkCollector) {
-        snapshot.networks = m_networkCollector->collect();
+    if (disk) {
+        snapshot.disks = disk->collect();
     }
-    if (m_connectivityCollector) {
-        snapshot.connectivity = m_connectivityCollector->collect();
+    if (network) {
+        snapshot.networks = network->collect();
     }
-    if (m_processCollector) {
-        snapshot.processes = m_processCollector->collect();
+    if (connectivity) {
+        snapshot.connectivity = connectivity->collect();
+    }
+    if (process) {
+        snapshot.processes = process->collect();
     }
 
     return snapshot;
