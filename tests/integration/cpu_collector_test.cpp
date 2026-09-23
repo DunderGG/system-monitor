@@ -21,7 +21,10 @@ TEST(CpuCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
 
     EXPECT_GE(sample.coreCount, 1);
     EXPECT_GE(sample.totalUsagePercent, 0.0f);
-    EXPECT_LE(sample.totalUsagePercent, 100.0f);
-    EXPECT_TRUE(sample.coreUsagePercents.empty());
+    EXPECT_EQ(sample.coreUsagePercents.size(), static_cast<std::size_t>(sample.coreCount));
+    for (float coreUsage : sample.coreUsagePercents) {
+        EXPECT_GE(coreUsage, 0.0f);
+        EXPECT_LE(coreUsage, 100.0f);
+    }
 }
 

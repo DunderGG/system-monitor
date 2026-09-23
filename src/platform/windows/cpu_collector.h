@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <vector>
 
 #include "domain/cpu_sample.h"
 #include "monitoring/collector.h"
@@ -32,19 +33,26 @@ struct SystemTimesData
     std::chrono::nanoseconds monotonicElapsed);
 
 /**
- * Total CPU usage collector for Windows using GetSystemTimes.
+ * Total and per-core CPU usage collector for Windows using GetSystemTimes
+ * and NtQuerySystemInformation(SystemProcessorPerformanceInformation).
  *
  * Samples idle, kernel, and user times across all logical processors
- * and computes utilization percentage over monotonic elapsed time.
+ * and computes utilization percentages over monotonic elapsed time.
  */
 class CpuCollector : public monitoring::ICpuCollector
 {
 public:
     using SystemTimesReader = std::function<bool(SystemTimesData &)>;
+    using CorePerformanceReader = std::function<bool(std::vector<SystemTimesData> &)>;
     using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>;
 
     explicit CpuCollector();
     CpuCollector(SystemTimesReader timesReader, SteadyClockReader clockReader, int coreCount);
+    CpuCollector(
+        SystemTimesReader timesReader,
+        CorePerformanceReader coreReader,
+        SteadyClockReader clockReader,
+        int coreCount);
     ~CpuCollector() override = default;
 
     [[nodiscard]] domain::CpuSample collect() override;
@@ -53,13 +61,14 @@ public:
 
 private:
     SystemTimesReader m_timesReader;
+    CorePerformanceReader m_coreReader;
     SteadyClockReader m_clockReader;
     int m_coreCount{1};
 
     SystemTimesData m_previousTimes{};
+    std::vector<SystemTimesData> m_previousCoreTimes{};
     std::chrono::steady_clock::time_point m_previousTimestamp{};
     bool m_hasBaseline{false};
 };
 
 } // namespace sysmon::platform
-

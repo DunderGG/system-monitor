@@ -163,3 +163,138 @@ TEST(CpuCollector, Collect_ReaderFails_ReturnsZeroUsageGracefully)
     EXPECT_FLOAT_EQ(sample.totalUsagePercent, 0.0f);
     EXPECT_EQ(sample.coreCount, 4);
 }
+
+TEST(CpuCollector, Collect_PopulatesCoreUsagePercents_UsingInjectedCoreReader)
+{
+    SystemTimesData simulatedTimes{.idleTime = 10'000, .kernelTime = 20'000, .userTime = 5'000};
+    std::vector<SystemTimesData> simulatedCoreTimes = {
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+    };
+    std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() {
+        return simulatedNow;
+    };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 4);
+
+    // Initial collection immediately after construction
+    const auto initialSample = collector.collect();
+    EXPECT_FLOAT_EQ(initialSample.totalUsagePercent, 0.0f);
+    ASSERT_EQ(initialSample.coreUsagePercents.size(), 4u);
+    for (float usage : initialSample.coreUsagePercents) {
+        EXPECT_FLOAT_EQ(usage, 0.0f);
+    }
+
+    // Advance by 1 second with different load per core
+    simulatedNow += std::chrono::milliseconds{1000};
+    simulatedTimes.idleTime += 200;
+    simulatedTimes.kernelTime += 300;
+    simulatedTimes.userTime += 100;
+
+    // Core 0: 0% busy (100% idle)
+    simulatedCoreTimes[0].idleTime += 100;
+    simulatedCoreTimes[0].kernelTime += 100;
+
+    // Core 1: 50% busy (deltaTotal = 100, deltaBusy = 50)
+    simulatedCoreTimes[1].idleTime += 50;
+    simulatedCoreTimes[1].kernelTime += 75;
+    simulatedCoreTimes[1].userTime += 25;
+
+    // Core 2: 100% busy user (deltaTotal = 100, deltaBusy = 100)
+    simulatedCoreTimes[2].userTime += 100;
+
+    // Core 3: 100% busy kernel (deltaTotal = 100, deltaBusy = 100)
+    simulatedCoreTimes[3].kernelTime += 100;
+
+    const auto sample = collector.collect();
+    ASSERT_EQ(sample.coreUsagePercents.size(), 4u);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[0], 0.0f);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[2], 100.0f);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[3], 100.0f);
+}
+
+TEST(CpuCollector, Collect_CoreReaderFails_GracefullyRetainsEmptyCoreUsages)
+{
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [](std::vector<SystemTimesData> &) {
+        return false;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 4);
+
+    const auto sample1 = collector.collect();
+    EXPECT_FLOAT_EQ(sample1.totalUsagePercent, 0.0f);
+    EXPECT_TRUE(sample1.coreUsagePercents.empty());
+
+    // Advance time and times
+    clock += std::chrono::milliseconds{1000};
+    simulatedTimes.idleTime += 500;
+    simulatedTimes.kernelTime += 750;
+    simulatedTimes.userTime += 250;
+
+    const auto sample2 = collector.collect();
+    EXPECT_FLOAT_EQ(sample2.totalUsagePercent, 50.0f);
+    EXPECT_TRUE(sample2.coreUsagePercents.empty());
+}
+
+TEST(CpuCollector, Collect_IndividualCoreJitter_ClampedToZero)
+{
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
+    std::vector<SystemTimesData> simulatedCoreTimes = {
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+    };
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 2);
+    const auto initialSample = collector.collect();
+    (void)initialSample;
+
+    clock += std::chrono::milliseconds{1000};
+    simulatedTimes.kernelTime += 100;
+
+    // Core 0 has jitter where deltaIdle > deltaTotal
+    simulatedCoreTimes[0].idleTime += 120;
+    simulatedCoreTimes[0].kernelTime += 100;
+
+    // Core 1 has normal 50%
+    simulatedCoreTimes[1].idleTime += 50;
+    simulatedCoreTimes[1].kernelTime += 75;
+    simulatedCoreTimes[1].userTime += 25;
+
+    const auto sample = collector.collect();
+    ASSERT_EQ(sample.coreUsagePercents.size(), 2u);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[0], 0.0f);
+    EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
+}
+
