@@ -253,6 +253,31 @@ Each entry links to the relevant roadmap phase and source files.
 
 **Rationale:** In accordance with project rules, unit tests must be fast, deterministic, and free of OS dependencies. Injected readers allow testing boundary conditions — such as zero total memory/disk space, free space exceeding total due to quota configurations, 100% capacity, API query failures, and multi-drive volume sets — without altering host configuration or creating synthetic drive partitions. Integration tests in `tests/integration/` independently verify live Windows API queries on real host hardware.
 
+---
+
+### Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
+
+**Decision:** Use `GetIfTable2` to read 64-bit cumulative byte counters (`InOctets`, `OutOctets`), negotiated link speed, and operational status. Wrap allocated `MIB_IF_TABLE2` memory in a custom RAII deleter calling `FreeMibTable`. Compute instantaneous throughput rates (`inBytesPerSec`, `outBytesPerSec`) from counter deltas divided by elapsed monotonic time (`std::chrono::steady_clock`).
+
+**Rationale:** `GetIfTable2` is the modern Windows IP Helper interface that returns 64-bit octet counters without registry or PDH dependencies. Unlike legacy 32-bit `GetIfTable`, 64-bit counters will not roll over under modern gigabit and 10 GbE traffic within days. RAII wrapping via `std::unique_ptr<MIB_IF_TABLE2, MibTableDeleter>` guarantees memory is safely released on all return paths. Throughput rates are computed per adapter baseline over measured monotonic durations, handling counter resets (e.g. interface reconnects) gracefully without negative rates or integer underflow.
+
+---
+
+### Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
+
+**Decision:** Query `GetAdaptersAddresses` (with `AF_UNSPEC` and `GAA_FLAG_INCLUDE_PREFIX`) to retrieve friendly names, device descriptions, IPv4/IPv6 addresses, and DNS servers, correlating them with `GetIfTable2` rows using `NET_LUID::Value` (falling back to `IfIndex`). Filter out loopback interfaces (`IF_TYPE_SOFTWARE_LOOPBACK`).
+
+**Rationale:** While `GetIfTable2` provides high-precision counters and link state, it lacks network addresses and DNS configuration. `GetAdaptersAddresses` provides comprehensive address and DNS information. Correlating both APIs via the 64-bit `InterfaceLuid.Value` ensures exact, collision-free pairing between interface counters and IP addresses across all physical, virtual, and Wi-Fi adapters. Filtering `IF_TYPE_SOFTWARE_LOOPBACK` removes local pseudo-interfaces (`127.0.0.1` / `::1`) from user-facing monitor tables.
+
+---
+
+### Deterministic testing of network collection via reader injection
+
+**Decision:** Inject `NetworkAdaptersReader` and `SteadyClockReader` lambdas into `NetworkCollector`, supported by a pure `calculateNetworkSamples` function managing historical baselines and purging disconnected adapters.
+
+**Rationale:** Simulating multiple network interfaces, varying link speeds, counter rollovers, IP/DNS configurations, loopback filters, and baseline eviction across elapsed intervals requires deterministic control over input data and monotonic timestamps. Injected readers allow comprehensive unit testing without network privileges or hardware manipulation, while host integration tests verify real Windows IP Helper API calls.
+
+
 
 
 

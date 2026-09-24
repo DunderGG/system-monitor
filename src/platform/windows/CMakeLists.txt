@@ -7,6 +7,8 @@ add_library(sysmon_platform_windows STATIC
     disk_collector.h
     memory_collector.cpp
     memory_collector.h
+    network_collector.cpp
+    network_collector.h
 )
 
 target_include_directories(sysmon_platform_windows
@@ -19,5 +21,7 @@ target_link_libraries(sysmon_platform_windows
         sysmon_domain
     PRIVATE
         spdlog::spdlog
+        iphlpapi
+        ws2_32
 )
 

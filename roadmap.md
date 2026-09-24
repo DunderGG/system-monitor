@@ -74,10 +74,10 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Network collector (`src/platform/windows/`)
 
-- [ ] Implement adapter throughput using `GetIfTable2`. Use 64-bit counters. Filter loopback. Calculate bytes/sec from deltas.
-- [ ] Implement adapter addresses and DNS servers using `GetAdaptersAddresses`.
+- [x] Implement adapter throughput using `GetIfTable2`. Use 64-bit counters. Filter loopback. Calculate bytes/sec from deltas.
+- [x] Implement adapter addresses and DNS servers using `GetAdaptersAddresses`.
 - [ ] Implement connectivity status using `GetNetworkConnectivityHint`. Set up `NotifyNetworkConnectivityHintChange` for event-driven updates.
-- [ ] Free resources correctly (`FreeMibTable`).
+- [x] Free resources correctly (`FreeMibTable`).
 - [ ] Write integration tests tolerant of varying network environments.
 
 ### Dashboard view (`src/ui/`)

@@ -103,26 +103,48 @@ TEST(NetworkSample, DefaultConstruction_UnknownStatus)
 {
     NetworkSample s;
     EXPECT_TRUE(s.adapterName.empty());
+    EXPECT_TRUE(s.friendlyName.empty());
+    EXPECT_TRUE(s.description.empty());
     EXPECT_EQ(s.inBytesTotal, 0u);
     EXPECT_EQ(s.outBytesTotal, 0u);
+    EXPECT_EQ(s.inBytesPerSec, 0u);
+    EXPECT_EQ(s.outBytesPerSec, 0u);
     EXPECT_EQ(s.linkSpeedBps, 0u);
     EXPECT_EQ(s.operationalStatus, OperationalStatus::Unknown);
+    EXPECT_TRUE(s.ipAddresses.empty());
+    EXPECT_TRUE(s.dnsServers.empty());
 }
 
 TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
 {
     NetworkSample s{
         .adapterName = "Ethernet",
+        .friendlyName = "Ethernet",
+        .description = "Intel(R) Ethernet Connection I219-V",
         .inBytesTotal = 1'000'000ULL,
         .outBytesTotal = 500'000ULL,
+        .inBytesPerSec = 50'000ULL,
+        .outBytesPerSec = 25'000ULL,
         .linkSpeedBps = 1'000'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
+        .ipAddresses = {"192.168.1.100", "fe80::1"},
+        .dnsServers = {"1.1.1.1", "1.0.0.1"},
     };
     EXPECT_EQ(s.adapterName, "Ethernet");
+    EXPECT_EQ(s.friendlyName, "Ethernet");
+    EXPECT_EQ(s.description, "Intel(R) Ethernet Connection I219-V");
     EXPECT_EQ(s.inBytesTotal, 1'000'000ULL);
     EXPECT_EQ(s.outBytesTotal, 500'000ULL);
+    EXPECT_EQ(s.inBytesPerSec, 50'000ULL);
+    EXPECT_EQ(s.outBytesPerSec, 25'000ULL);
     EXPECT_EQ(s.linkSpeedBps, 1'000'000'000ULL);
     EXPECT_EQ(s.operationalStatus, OperationalStatus::Up);
+    ASSERT_EQ(s.ipAddresses.size(), 2u);
+    EXPECT_EQ(s.ipAddresses[0], "192.168.1.100");
+    EXPECT_EQ(s.ipAddresses[1], "fe80::1");
+    ASSERT_EQ(s.dnsServers.size(), 2u);
+    EXPECT_EQ(s.dnsServers[0], "1.1.1.1");
+    EXPECT_EQ(s.dnsServers[1], "1.0.0.1");
 }
 
 TEST(OperationalStatus, EnumValues_AreDistinct)
