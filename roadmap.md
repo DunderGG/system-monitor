@@ -68,9 +68,9 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Memory and disk collector (`src/platform/windows/`)
 
-- [ ] Implement memory sampling using `GlobalMemoryStatusEx`.
-- [ ] Implement disk space sampling using `GetDiskFreeSpaceExW` for all fixed drives.
-- [ ] Write integration tests.
+- [x] Implement memory sampling using `GlobalMemoryStatusEx`.
+- [x] Implement disk space sampling using `GetDiskFreeSpaceExW` for all fixed drives.
+- [x] Write integration tests.
 
 ### Network collector (`src/platform/windows/`)
 

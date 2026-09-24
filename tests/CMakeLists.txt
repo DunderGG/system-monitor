@@ -10,7 +10,11 @@ add_executable(system_monitor_tests
     unit/sampling_scheduler_test.cpp
     unit/main_window_test.cpp
     unit/cpu_collector_test.cpp
+    unit/memory_collector_test.cpp
+    unit/disk_collector_test.cpp
     integration/cpu_collector_test.cpp
+    integration/memory_collector_test.cpp
+    integration/disk_collector_test.cpp
 )
 
 set_target_properties(system_monitor_tests PROPERTIES

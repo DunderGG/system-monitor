@@ -11,8 +11,9 @@
 
 #include "app_logging.h"
 #include "monitoring/sampling_scheduler.h"
-#include "monitoring/synthetic_memory_collector.h"
 #include "platform/windows/cpu_collector.h"
+#include "platform/windows/disk_collector.h"
+#include "platform/windows/memory_collector.h"
 #include "ui/main_window.h"
 
 int main(int argc, char *argv[])
@@ -47,7 +48,8 @@ int main(int argc, char *argv[])
 
     sysmon::monitoring::SamplingScheduler scheduler;
     scheduler.setCpuCollector(std::make_unique<sysmon::platform::CpuCollector>());
-    scheduler.setMemoryCollector(std::make_unique<sysmon::monitoring::SyntheticMemoryCollector>());
+    scheduler.setMemoryCollector(std::make_unique<sysmon::platform::MemoryCollector>());
+    scheduler.setDiskCollector(std::make_unique<sysmon::platform::DiskCollector>());
 
     sysmon::ui::MainWindow mainWindow;
 
