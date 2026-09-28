@@ -42,6 +42,10 @@ struct SystemTimesData
  * Samples idle, kernel, and user times across all logical processors
  * and computes utilization percentages over monotonic elapsed time.
  *
+ * On a system with more than one processor group, GetSystemTimes reports only
+ * the calling thread's group, so the total is computed by summing every core's
+ * times instead. The same happens whenever GetSystemTimes fails.
+ *
  * collect() returns std::nullopt when both queries fail or when no rate can be
  * computed yet (the first sample only establishes a baseline). Per-core values
  * are omitted (empty) rather than zero-filled when they cannot be computed.
@@ -59,7 +63,8 @@ public:
         SystemTimesReader timesReader,
         CorePerformanceReader coreReader,
         SteadyClockReader clockReader,
-        int coreCount);
+        int coreCount,
+        int processorGroupCount = 1);
     ~CpuCollector() override = default;
 
     [[nodiscard]] std::optional<domain::CpuSample> collect() override;
@@ -67,10 +72,23 @@ public:
     [[nodiscard]] int coreCount() const;
 
 private:
+    // Reads both sources once and stores them as the baseline for the first rate.
+    void establishBaseline();
+
+    // Returns the times the total is computed from: GetSystemTimes on a
+    // single-group system, otherwise the sum of all cores. std::nullopt when
+    // neither source covers the whole machine this tick.
+    [[nodiscard]] std::optional<SystemTimesData> totalTimes(
+        bool hasTimes,
+        const SystemTimesData &times,
+        bool hasCoreTimes,
+        const std::vector<SystemTimesData> &coreTimes) const;
+
     SystemTimesReader m_timesReader;
     CorePerformanceReader m_coreReader;
     SteadyClockReader m_clockReader;
     int m_coreCount{1};
+    bool m_isMultiGroup{false};
 
     SystemTimesData m_previousTimes{};
     std::vector<SystemTimesData> m_previousCoreTimes{};

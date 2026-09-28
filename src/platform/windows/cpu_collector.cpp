@@ -348,7 +348,8 @@ CpuCollector::CpuCollector()
           return true;
       }),
       m_clockReader([] { return std::chrono::steady_clock::now(); }),
-      m_coreCount(detectLogicalCoreCount())
+      m_coreCount(detectLogicalCoreCount()),
+      m_isMultiGroup(::GetActiveProcessorGroupCount() > 1)
 {
     const auto funcs = resolveNtdllProcessorFunctions();
     const int initialCores = m_coreCount;
@@ -357,16 +358,7 @@ CpuCollector::CpuCollector()
         return queryAllProcessorPerformance(funcs, coreTimes, initialCores, failureLogs);
     };
 
-    if (m_timesReader(m_previousTimes)) {
-        if (m_coreReader) {
-            m_coreReader(m_previousCoreTimes);
-            if (m_previousCoreTimes.size() > 64) {
-                m_previousTimes = aggregateCoreTimes(m_previousCoreTimes);
-            }
-        }
-        m_previousTimestamp = m_clockReader();
-        m_hasBaseline = true;
-    }
+    establishBaseline();
 }
 
 CpuCollector::CpuCollector(SystemTimesReader timesReader, SteadyClockReader clockReader, int coreCount)
@@ -377,42 +369,70 @@ CpuCollector::CpuCollector(
     SystemTimesReader timesReader,
     CorePerformanceReader coreReader,
     SteadyClockReader clockReader,
-    int coreCount)
+    int coreCount,
+    int processorGroupCount)
     : m_timesReader(std::move(timesReader)),
       m_coreReader(std::move(coreReader)),
       m_clockReader(std::move(clockReader)),
-      m_coreCount(std::max(1, coreCount))
+      m_coreCount(std::max(1, coreCount)),
+      m_isMultiGroup(processorGroupCount > 1)
 {
-    if (m_timesReader && m_clockReader && m_timesReader(m_previousTimes)) {
-        if (m_coreReader) {
-            m_coreReader(m_previousCoreTimes);
-            if (m_previousCoreTimes.size() > 64) {
-                m_previousTimes = aggregateCoreTimes(m_previousCoreTimes);
-            }
-        }
+    if (m_clockReader) {
+        establishBaseline();
+    }
+}
+
+void CpuCollector::establishBaseline()
+{
+    SystemTimesData times{};
+    std::vector<SystemTimesData> coreTimes;
+    const bool hasTimes = m_timesReader && m_timesReader(times);
+    const bool hasCoreTimes = m_coreReader && m_coreReader(coreTimes);
+
+    if (const auto total = totalTimes(hasTimes, times, hasCoreTimes, coreTimes)) {
+        m_previousTimes = *total;
+        m_previousCoreTimes = std::move(coreTimes);
         m_previousTimestamp = m_clockReader();
         m_hasBaseline = true;
     }
 }
 
+std::optional<SystemTimesData> CpuCollector::totalTimes(
+    bool hasTimes,
+    const SystemTimesData &times,
+    bool hasCoreTimes,
+    const std::vector<SystemTimesData> &coreTimes) const
+{
+    // GetSystemTimes covers only the calling thread's processor group, so on a
+    // multi-group system the total must come from all cores. With a single
+    // group, the per-core sum is also the fallback when GetSystemTimes fails.
+    if (hasCoreTimes && (m_isMultiGroup || !hasTimes)) {
+        return aggregateCoreTimes(coreTimes);
+    }
+    // On a multi-group system GetSystemTimes alone would present one group as
+    // the whole machine, so no total is reported.
+    if (hasTimes && !m_isMultiGroup) {
+        return times;
+    }
+    return std::nullopt;
+}
+
 std::optional<domain::CpuSample> CpuCollector::collect()
 {
-    SystemTimesData currentTimes{};
+    SystemTimesData times{};
     std::vector<SystemTimesData> currentCoreTimes;
     const auto now = m_clockReader ? m_clockReader() : std::chrono::steady_clock::now();
 
-    const bool hasTimes = m_timesReader && m_timesReader(currentTimes);
+    const bool hasTimes = m_timesReader && m_timesReader(times);
     const bool hasCoreTimes = m_coreReader && m_coreReader(currentCoreTimes);
 
-    if (!hasTimes && !hasCoreTimes) {
+    // No usable total this tick: keep the previous baseline, so the next
+    // successful tick measures over the longer interval.
+    const auto total = totalTimes(hasTimes, times, hasCoreTimes, currentCoreTimes);
+    if (!total) {
         return std::nullopt;
     }
-
-    // For multi-group systems (>64 cores) or if GetSystemTimes failed,
-    // aggregate all cores to ensure all processor groups are included in total CPU.
-    if (hasCoreTimes && (currentCoreTimes.size() > 64 || !hasTimes)) {
-        currentTimes = aggregateCoreTimes(currentCoreTimes);
-    }
+    const SystemTimesData &currentTimes = *total;
 
     if (!m_hasBaseline) {
         // A usage rate needs two samples; this one only establishes the baseline.

@@ -57,7 +57,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Resolved |
 | [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Resolved |
 | [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Resolved |
-| [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Open |
+| [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Resolved |
 | [F-16](#f-16-resourcecardsetstatus-restyles-every-tick) | `ResourceCard::setStatus` restyles every tick | Low | Open |
 | [F-17](#f-17-clang-format-is-not-enforced) | `.clang-format` is not enforced | Low | Open |
 | [F-18](#f-18-style-and-consistency-items) | Style and consistency items | Cosmetic | Open |
@@ -318,7 +318,7 @@ Decide by group count. For example, the default constructor records `GetActivePr
 
 **Recommendation:** Fix when convenient. It is hard to hit on desktop hardware, but it is a small change.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). `CpuCollector` stores `m_isMultiGroup`, taken from `GetActiveProcessorGroupCount() > 1` or from a new `processorGroupCount` parameter (default 1) on the injected constructor. A new `totalTimes()` helper picks the total's source for both the baseline and `collect()`, replacing three copies of the `> 64` check. It also closes a related gap: on a multi-group system where the per-core query fails, the collector used to fall back to `GetSystemTimes` and report one group as the whole machine; it now skips that tick. New tests: two groups of 8 cores (fails under the old rule) and a per-core failure on a multi-group system. Updated the design decision.
 
 ---
 

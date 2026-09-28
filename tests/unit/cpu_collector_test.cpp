@@ -388,7 +388,7 @@ TEST(CpuCollector, Collect_MultiGroup128Cores_MonitorsAllCores)
     };
     auto clockReader = [&]() { return clock; };
 
-    CpuCollector collector(timesReader, coreReader, clockReader, 128);
+    CpuCollector collector(timesReader, coreReader, clockReader, 128, 2);
     const auto baselineSample = collector.collect();
     EXPECT_FALSE(baselineSample.has_value());
 
@@ -433,7 +433,7 @@ TEST(CpuCollector, Collect_MultiGroupWorkloadInSecondaryGroup_ReflectsInTotalUsa
     };
     auto clockReader = [&]() { return clock; };
 
-    CpuCollector collector(timesReader, coreReader, clockReader, 128);
+    CpuCollector collector(timesReader, coreReader, clockReader, 128, 2);
     const auto baselineSample = collector.collect();
     EXPECT_FALSE(baselineSample.has_value());
 
@@ -511,3 +511,66 @@ TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
 }
 
 
+
+TEST(CpuCollector, Collect_TwoGroupsWithFewerThan64Cores_AggregatesAllCores)
+{
+    // 16 cores in two processor groups of 8 (e.g. one group per NUMA node).
+    // GetSystemTimes sees only group 0, which stays idle; group 1 is fully busy.
+    std::vector<SystemTimesData> simulatedCoreTimes(16, SystemTimesData{.idleTime = 1000, .kernelTime = 2000});
+    SystemTimesData simulatedTimes{.idleTime = 1000 * 8, .kernelTime = 2000 * 8};
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 16, 2);
+
+    clock += std::chrono::milliseconds{1000};
+    for (std::size_t i = 0; i < 8; ++i) {
+        simulatedCoreTimes[i].idleTime += 100;
+        simulatedCoreTimes[i].kernelTime += 100;
+    }
+    for (std::size_t i = 8; i < 16; ++i) {
+        simulatedCoreTimes[i].userTime += 100;
+    }
+    simulatedTimes.idleTime += 100 * 8;
+    simulatedTimes.kernelTime += 100 * 8;
+
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_NEAR(sample->totalUsagePercent, 50.0f, 0.1f);
+}
+
+TEST(CpuCollector, Collect_MultiGroupCoreQueryFails_ReturnsNulloptNotOneGroup)
+{
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000};
+    auto clock = std::chrono::steady_clock::now();
+    bool isCoreQueryWorking = true;
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = std::vector<SystemTimesData>(16, SystemTimesData{.idleTime = 1000, .kernelTime = 2000});
+        return isCoreQueryWorking;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 16, 2);
+    clock += std::chrono::milliseconds{1000};
+    simulatedTimes.idleTime += 50;
+    simulatedTimes.kernelTime += 100;
+    isCoreQueryWorking = false;
+
+    // GetSystemTimes alone covers only one group, so no total is reported.
+    EXPECT_FALSE(collector.collect().has_value());
+}
