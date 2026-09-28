@@ -352,3 +352,16 @@ Each entry links to the relevant roadmap phase and source files.
 - A UI-only `std::deque` history would duplicate `RingBuffer` with a less efficient design.
 - Carrying history inside every `SystemSnapshot` is cheap for the dashboard but grows with Phase 3's longer, per-core histories.
 - A new header-only `src/common/` module is semantically cleaner, since `domain` otherwise holds data types. It is deferred until a second shared utility justifies a new module; see the "Code organization" item in the roadmap.
+
+---
+
+### Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
+
+**Decision:** Build a minimal single-series `SparklineWidget` in `src/ui/charts/` (its own `sysmon_ui_charts` library, linked by `sysmon_ui`) for the Phase 2 dashboard, rather than deferring mini sparklines to Phase 3. It has these properties:
+- **Geometry:** a pure `sparklineSegments()` function maps samples to polyline segments and is unit tested without painting. The newest sample sits at the right edge, so a partial history grows in from the right.
+- **Missing data:** samples are `std::optional<float>`, and a missing sample breaks the line (a visible gap) instead of plotting zero.
+- **Y range:** fixed (0–100% for CPU, memory, and disk) or auto-scaled to the data with 10% headroom (network).
+- **Ownership:** the caller owns the history. `DashboardView` keeps a 60-sample `domain::RingBuffer<std::optional<float>>` per card (one minute at 1 Hz) and passes a view of it with `setSamples()` each tick. The network sparkline charts combined in + out throughput.
+- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour.
+
+**Rationale:** Roadmap item "each card shows a mini sparkline" belongs to Phase 2. The minimal widget covers exactly what the dashboard needs, and Phase 3 extends it (grid, multiple series, axis labels, annotations) rather than replacing it. Rendering from a caller-supplied view keeps the widget reusable for the Performance view's longer histories. Gaps follow the project rule against representing missing data as zero. Copying 60 samples per chart per tick is negligible.

@@ -41,7 +41,10 @@ public:
     /** Returns the displayed health level, or std::nullopt when the status label is hidden. */
     [[nodiscard]] std::optional<domain::HealthLevel> status() const;
 
-    /** Empty container reserved for the card's mini sparkline chart. */
+    /** Places chart in the sparkline slot; the card takes ownership through Qt parenting. */
+    void setChart(QWidget *chart);
+
+    /** Container for the card's mini sparkline chart (see setChart). */
     [[nodiscard]] QWidget *sparklineSlot() const;
 
 private:

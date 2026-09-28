@@ -123,6 +123,11 @@ std::optional<domain::HealthLevel> ResourceCard::status() const
     return m_status;
 }
 
+void ResourceCard::setChart(QWidget *chart)
+{
+    m_sparklineSlot->layout()->addWidget(chart);
+}
+
 QWidget *ResourceCard::sparklineSlot() const
 {
     return m_sparklineSlot;

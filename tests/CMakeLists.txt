@@ -11,6 +11,7 @@ add_executable(system_monitor_tests
     unit/main_window_test.cpp
     unit/dashboard_view_test.cpp
     unit/dashboard_formatting_test.cpp
+    unit/sparkline_widget_test.cpp
     unit/cpu_collector_test.cpp
     unit/memory_collector_test.cpp
     unit/disk_collector_test.cpp

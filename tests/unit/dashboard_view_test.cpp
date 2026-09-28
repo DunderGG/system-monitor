@@ -1,10 +1,12 @@
 #include <chrono>
+#include <cstddef>
 #include <optional>
 
 #include <gtest/gtest.h>
 
 #include "domain/health_status.h"
 #include "domain/system_snapshot.h"
+#include "ui/charts/sparkline_widget.h"
 #include "ui/dashboard_view.h"
 #include "ui/resource_card.h"
 
@@ -146,4 +148,55 @@ TEST(DashboardView, UpdateSnapshot_ThroughputNotYetAvailable_ShowsNotAvailable)
 
     EXPECT_EQ(dashboard.networkCard()->valueText(), "N/A");
     EXPECT_EQ(dashboard.networkCard()->detailText(), "Internet access");
+}
+
+TEST(DashboardView, UpdateSnapshot_RecordsSamplesInSparklines)
+{
+    DashboardView dashboard;
+
+    dashboard.updateSnapshot(populatedSnapshot());
+
+    ASSERT_EQ(dashboard.cpuSparkline()->samples().size(), 1u);
+    EXPECT_EQ(dashboard.cpuSparkline()->samples()[0], 42.5f);
+    EXPECT_EQ(dashboard.memorySparkline()->samples()[0], 50.0f);
+    EXPECT_EQ(dashboard.diskSparkline()->samples()[0], 75.0f);
+    EXPECT_EQ(dashboard.networkSparkline()->samples()[0], 3072.0f); // 2048 in + 1024 out
+}
+
+TEST(DashboardView, UpdateSnapshot_MissingData_RecordsGapNotZero)
+{
+    DashboardView dashboard;
+
+    dashboard.updateSnapshot(populatedSnapshot());
+    dashboard.updateSnapshot(SystemSnapshot{});
+
+    const auto cpuSamples = dashboard.cpuSparkline()->samples();
+    ASSERT_EQ(cpuSamples.size(), 2u);
+    EXPECT_TRUE(cpuSamples[0].has_value());
+    EXPECT_FALSE(cpuSamples[1].has_value());
+    EXPECT_FALSE(dashboard.networkSparkline()->samples()[1].has_value());
+}
+
+TEST(DashboardView, UpdateSnapshot_HistoryCappedAtCapacity)
+{
+    DashboardView dashboard;
+    auto snapshot = populatedSnapshot();
+
+    for (std::size_t i = 0; i < DashboardView::kHistoryCapacity + 10; ++i) {
+        snapshot.cpu->totalUsagePercent = static_cast<float>(i);
+        dashboard.updateSnapshot(snapshot);
+    }
+
+    const auto samples = dashboard.cpuSparkline()->samples();
+    ASSERT_EQ(samples.size(), DashboardView::kHistoryCapacity);
+    EXPECT_EQ(samples.back(), static_cast<float>(DashboardView::kHistoryCapacity + 9));
+}
+
+TEST(DashboardView, Sparklines_PercentFixedRangeNetworkAutoRange)
+{
+    DashboardView dashboard;
+
+    EXPECT_FALSE(dashboard.cpuSparkline()->isAutoRange());
+    EXPECT_FLOAT_EQ(dashboard.cpuSparkline()->effectiveRange().max, 100.0f);
+    EXPECT_TRUE(dashboard.networkSparkline()->isAutoRange());
 }

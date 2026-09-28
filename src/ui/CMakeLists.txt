@@ -30,5 +30,6 @@ target_link_libraries(sysmon_ui
     PUBLIC
         Qt6::Widgets
         sysmon_domain
+        sysmon_ui_charts
 )
 

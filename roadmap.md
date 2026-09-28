@@ -83,7 +83,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 ### Dashboard view (`src/ui/`)
 
 - [x] Design a dashboard layout with resource cards: CPU, memory, disk, network, uptime.
-- [ ] Each card shows current value, a mini sparkline, and a brief status label. Value and status label are done; each card reserves a slot for the mini sparkline, which comes with a minimal `SparklineWidget`.
+- [x] Each card shows current value, a mini sparkline, and a brief status label.
 - [x] Display system uptime using `GetTickCount64`.
 - [x] Display basic health status derived from resource thresholds (e.g., memory >90% → warning).
 - [x] Connect real collector data through the snapshot pipeline to the dashboard widgets (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) for snapshot distribution across views and visible-tab update optimization).
@@ -95,14 +95,14 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Custom sparkline widget (`src/ui/charts/`)
 
-- [ ] Implement `SparklineWidget` as a `QWidget` subclass overriding `paintEvent`.
-- [ ] Draw a `QPainterPath` polyline from ring buffer data.
-- [ ] Fill below the line with a `QLinearGradient`.
+- [x] Implement `SparklineWidget` as a `QWidget` subclass overriding `paintEvent`. (Minimal single-series version built early for the Phase 2 dashboard.)
+- [x] Draw a `QPainterPath` polyline from ring buffer data.
+- [x] Fill below the line with a `QLinearGradient`.
 - [ ] Draw a scrolling grid background offset by the sample index.
-- [ ] Support configurable Y-axis range (0–100% for CPU/memory, auto-scale for network throughput).
+- [x] Support configurable Y-axis range (0–100% for CPU/memory, auto-scale for network throughput).
 - [ ] Support multiple series on one chart (e.g., per-core CPU).
 - [ ] Display axis labels, current value, and min/max annotations.
-- [ ] Test with synthetic data at various buffer sizes (60, 300, 1800 samples).
+- [x] Test with synthetic data at various buffer sizes (60, 300, 1800 samples).
 
 ### Performance tab (`src/ui/`)
 
