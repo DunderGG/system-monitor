@@ -161,3 +161,44 @@ TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
     EXPECT_TRUE(probePtr->wasCalled());
     EXPECT_EQ(snapshot.cpu.coreCount, 8);
 }
+
+namespace
+{
+
+class FakeUptimeCollector : public sysmon::monitoring::IUptimeCollector
+{
+public:
+    explicit FakeUptimeCollector(std::chrono::milliseconds uptime)
+        : m_uptime(uptime)
+    {
+    }
+
+    [[nodiscard]] std::chrono::milliseconds collect() override
+    {
+        return m_uptime;
+    }
+
+private:
+    std::chrono::milliseconds m_uptime;
+};
+
+} // namespace
+
+TEST(SamplingScheduler, SampleOnce_UptimeCollectorRegistered_SetsUptime)
+{
+    SamplingScheduler scheduler;
+    scheduler.setUptimeCollector(std::make_unique<FakeUptimeCollector>(std::chrono::milliseconds{90'000}));
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_EQ(snapshot.uptime, std::chrono::milliseconds{90'000});
+}
+
+TEST(SamplingScheduler, SampleOnce_NoUptimeCollector_UptimeIsNullopt)
+{
+    SamplingScheduler scheduler;
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_FALSE(snapshot.uptime.has_value());
+}

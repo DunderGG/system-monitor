@@ -279,6 +279,7 @@ TEST(SystemSnapshot, DefaultConstruction_EmptyCollections)
     EXPECT_TRUE(snap.networks.empty());
     EXPECT_TRUE(snap.processes.empty());
     EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::Unknown);
+    EXPECT_FALSE(snap.uptime.has_value());
 }
 
 TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <concepts>
 #include <vector>
 
@@ -45,6 +46,7 @@ using IMemoryCollector = ICollector<domain::MemorySample>;
 using IDiskCollector = ICollector<std::vector<domain::DiskSample>>;
 using INetworkCollector = ICollector<std::vector<domain::NetworkSample>>;
 using IConnectivityCollector = ICollector<domain::ConnectivityStatus>;
+using IUptimeCollector = ICollector<std::chrono::milliseconds>;
 using IProcessCollector = ICollector<std::vector<domain::ProcessInfo>>;
 
 } // namespace sysmon::monitoring

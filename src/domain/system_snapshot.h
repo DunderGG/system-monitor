@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <optional>
 #include <vector>
 
 #include "connectivity_status.h"
@@ -24,6 +25,9 @@ namespace sysmon::domain
 // queued signal/slot mechanism. It must remain copyable. Collectors on the
 // scheduler thread build a new snapshot each tick; the UI thread receives it
 // and discards the previous one. No shared mutable state persists between ticks.
+//
+// uptime is the time since the system booted, including time spent in sleep or
+// hibernation. It is std::nullopt when no uptime collector is registered.
 struct SystemSnapshot
 {
     std::chrono::steady_clock::time_point timestamp;
@@ -32,6 +36,7 @@ struct SystemSnapshot
     std::vector<DiskSample> disks;
     std::vector<NetworkSample> networks;
     ConnectivityStatus connectivity;
+    std::optional<std::chrono::milliseconds> uptime;
     std::vector<ProcessInfo> processes;
 };
 

@@ -16,6 +16,7 @@
 #include "platform/windows/disk_collector.h"
 #include "platform/windows/memory_collector.h"
 #include "platform/windows/network_collector.h"
+#include "platform/windows/uptime_collector.h"
 #include "ui/main_window.h"
 
 int main(int argc, char *argv[])
@@ -54,6 +55,7 @@ int main(int argc, char *argv[])
     scheduler.setDiskCollector(std::make_unique<sysmon::platform::DiskCollector>());
     scheduler.setNetworkCollector(std::make_unique<sysmon::platform::NetworkCollector>());
     scheduler.setConnectivityCollector(std::make_unique<sysmon::platform::ConnectivityCollector>());
+    scheduler.setUptimeCollector(std::make_unique<sysmon::platform::UptimeCollector>());
 
     sysmon::ui::MainWindow mainWindow;
 

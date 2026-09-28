@@ -15,11 +15,13 @@ add_executable(system_monitor_tests
     unit/network_collector_test.cpp
     unit/connectivity_collector_test.cpp
     unit/connectivity_hint_mapping_test.cpp
+    unit/uptime_collector_test.cpp
     integration/cpu_collector_test.cpp
     integration/memory_collector_test.cpp
     integration/disk_collector_test.cpp
     integration/network_collector_test.cpp
     integration/connectivity_collector_test.cpp
+    integration/uptime_collector_test.cpp
 )
 
 set_target_properties(system_monitor_tests PROPERTIES

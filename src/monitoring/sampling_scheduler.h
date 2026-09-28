@@ -67,6 +67,7 @@ public:
     void setDiskCollector(std::unique_ptr<IDiskCollector> collector);
     void setNetworkCollector(std::unique_ptr<INetworkCollector> collector);
     void setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector);
+    void setUptimeCollector(std::unique_ptr<IUptimeCollector> collector);
     void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
 
     /**
@@ -96,6 +97,7 @@ private:
     std::unique_ptr<IDiskCollector> m_diskCollector;
     std::unique_ptr<INetworkCollector> m_networkCollector;
     std::unique_ptr<IConnectivityCollector> m_connectivityCollector;
+    std::unique_ptr<IUptimeCollector> m_uptimeCollector;
     std::unique_ptr<IProcessCollector> m_processCollector;
 };
 

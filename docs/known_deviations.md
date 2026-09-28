@@ -12,6 +12,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Open — needs guideline decision |
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
 | [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Open |
+| [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Open |
 
 ---
 
@@ -53,7 +54,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 ### D-4: A unit test includes Windows SDK headers
 
-**Rule:** All Windows API calls must be isolated in `src/platform/windows/`; no other module includes Windows headers. Unit tests must have no OS dependencies. ([coding_guidelines.md — Windows API wrapping](coding_guidelines.md#windows-api-wrapping), [AGENTS.md — Testing rules](../AGENTS.md#testing-rules))
+**Rule:** All Windows API calls must be isolated in `src/platform/windows/`; no other module includes Windows headers. Unit tests must have no OS dependencies. ([coding_guidelines.md — Windows API wrapping](coding_guidelines.md#windows-api-wrapping), [AGENTS.md — Testing rules](../AGENTS.md#testing-rules), [platform/windows/AGENTS.md](../src/platform/windows/AGENTS.md): "Never expose Windows types outside this module")
 
 **Current state:** `tests/unit/connectivity_hint_mapping_test.cpp` includes `platform/windows/connectivity_hint_mapping.h`, which exposes Windows SDK types (`NL_NETWORK_CONNECTIVITY_HINT`) so the Windows-to-domain mapping can be tested directly. The test makes no OS calls, so this is a compile-time dependency only.
 
@@ -84,3 +85,15 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/platform/windows/network_collector.cpp` — `calculateNetworkSamples()`, `src/domain/network_sample.h`
 
 **Plan:** Make the rate fields `std::optional<uint64_t>` (or add a validity flag), and check the CPU collector's first-sample behaviour for the same issue during the Phase 2 code review.
+
+---
+
+### D-7: Memory and CPU data report zeros when missing
+
+**Rule:** Represent missing or inaccessible data with `std::optional` or error variants, never as zero or a default value. ([domain/AGENTS.md](../src/domain/AGENTS.md), [coding_guidelines.md — Error handling](coding_guidelines.md#error-handling))
+
+**Current state:** `SystemSnapshot::cpu` and `SystemSnapshot::memory` are not optional, so when no CPU or memory collector is registered the snapshot carries all-zero samples (asserted by the `SampleOnce_MissingCollectorsProduceDefaults` scheduler test). `MemoryCollector::collect()` also returns a default, all-zero `MemorySample` when `GlobalMemoryStatusEx` fails. The UI cannot distinguish either case from real readings. Whether `CpuCollector` does the same on failure has not been audited.
+
+**Files:** `src/domain/system_snapshot.h`, `src/platform/windows/memory_collector.cpp` — `collect()`, `tests/unit/sampling_scheduler_test.cpp`
+
+**Plan:** Make the `cpu` and `memory` snapshot fields `std::optional` (as `uptime` already is) and return `std::nullopt` on collector failure. Audit `CpuCollector` at the same time. Best done before the dashboard cards consume these fields.

@@ -104,6 +104,13 @@ void SamplingScheduler::setConnectivityCollector(std::unique_ptr<IConnectivityCo
     m_connectivityCollector = std::move(collector);
 }
 
+void SamplingScheduler::setUptimeCollector(std::unique_ptr<IUptimeCollector> collector)
+{
+    assert(!m_isRunning.load() && "setUptimeCollector must only be called when scheduler is stopped");
+    std::lock_guard lock(m_collectorMutex);
+    m_uptimeCollector = std::move(collector);
+}
+
 void SamplingScheduler::setProcessCollector(std::unique_ptr<IProcessCollector> collector)
 {
     assert(!m_isRunning.load() && "setProcessCollector must only be called when scheduler is stopped");
@@ -123,6 +130,7 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     IDiskCollector *disk = nullptr;
     INetworkCollector *network = nullptr;
     IConnectivityCollector *connectivity = nullptr;
+    IUptimeCollector *uptime = nullptr;
     IProcessCollector *process = nullptr;
 
     {
@@ -132,6 +140,7 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
         disk = m_diskCollector.get();
         network = m_networkCollector.get();
         connectivity = m_connectivityCollector.get();
+        uptime = m_uptimeCollector.get();
         process = m_processCollector.get();
     }
 
@@ -149,6 +158,9 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     }
     if (connectivity) {
         snapshot.connectivity = connectivity->collect();
+    }
+    if (uptime) {
+        snapshot.uptime = uptime->collect();
     }
     if (process) {
         snapshot.processes = process->collect();

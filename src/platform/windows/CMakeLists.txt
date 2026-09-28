@@ -13,6 +13,8 @@ add_library(sysmon_platform_windows STATIC
     memory_collector.h
     network_collector.cpp
     network_collector.h
+    uptime_collector.cpp
+    uptime_collector.h
 )
 
 target_include_directories(sysmon_platform_windows
