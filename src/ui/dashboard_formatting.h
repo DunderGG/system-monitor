@@ -40,7 +40,7 @@ namespace sysmon::ui
 /** Describes connectivity in words, with ", metered" appended when the connection is known to be metered. */
 [[nodiscard]] QString connectivityText(const domain::ConnectivityStatus &status);
 
-/** Total inbound and outbound throughput across active adapters, in bytes/sec. */
+/** Total inbound and outbound throughput across active hardware adapters, in bytes/sec. */
 struct ThroughputTotals
 {
     uint64_t inBytesPerSec{0};
@@ -48,13 +48,15 @@ struct ThroughputTotals
 };
 
 /**
- * Sums throughput over adapters whose operational status is Up. Returns
- * std::nullopt when there is no Up adapter or any Up adapter has no rate yet,
+ * Sums throughput over hardware adapters whose operational status is Up.
+ * Virtual adapters (VPN tunnels, virtual switches) are left out because their
+ * traffic also crosses a hardware adapter and would be counted twice. Returns
+ * std::nullopt when there is no such adapter or any of them has no rate yet,
  * because a partial sum would understate the real throughput.
  */
 [[nodiscard]] std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::NetworkSample> &networks);
 
-/** Returns true if any adapter's operational status is Up. */
+/** Returns true if any hardware adapter's operational status is Up. */
 [[nodiscard]] bool hasActiveAdapter(const std::vector<domain::NetworkSample> &networks);
 
 /** Returns the volume with the highest usage percent, or nullptr when there are none. */

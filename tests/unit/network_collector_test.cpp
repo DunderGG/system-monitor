@@ -115,6 +115,54 @@ TEST(NetworkCollector, CalculateNetworkSamples_LoopbackAdapter_FilteredOut)
     EXPECT_TRUE(baselines.contains(2));
 }
 
+TEST(NetworkCollector, CalculateNetworkSamples_FilterInterface_FilteredOut)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    // GetIfTable2 reports each NDIS filter bound to an adapter as its own Up
+    // row with the same counters as the adapter.
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{
+            .luid = 1,
+            .adapterName = "Ethernet",
+            .inBytesTotal = 5'000,
+            .operationalStatus = OperationalStatus::Up,
+            .isHardwareInterface = true,
+        },
+        RawNetworkAdapter{
+            .luid = 2,
+            .adapterName = "Ethernet-WFP Native MAC Layer LightWeight Filter-0000",
+            .inBytesTotal = 5'000,
+            .operationalStatus = OperationalStatus::Up,
+            .isFilterInterface = true,
+        },
+    };
+
+    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 1u);
+    EXPECT_EQ(samples[0].adapterName, "Ethernet");
+    EXPECT_FALSE(baselines.contains(2));
+}
+
+TEST(NetworkCollector, CalculateNetworkSamples_HardwareFlag_PreservedInSample)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{.luid = 1, .adapterName = "Ethernet", .isHardwareInterface = true},
+        RawNetworkAdapter{.luid = 2, .adapterName = "VPN Tunnel", .isHardwareInterface = false},
+    };
+
+    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_TRUE(samples[0].isHardwareInterface);
+    EXPECT_FALSE(samples[1].isHardwareInterface);
+}
+
 TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesUnavailable)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;

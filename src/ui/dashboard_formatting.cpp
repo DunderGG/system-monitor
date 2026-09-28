@@ -96,13 +96,23 @@ QString connectivityText(const domain::ConnectivityStatus &status)
     return text;
 }
 
+namespace
+{
+
+bool isActiveHardwareAdapter(const domain::NetworkSample &adapter)
+{
+    return adapter.isHardwareInterface && adapter.operationalStatus == domain::OperationalStatus::Up;
+}
+
+} // namespace
+
 std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::NetworkSample> &networks)
 {
     ThroughputTotals totals;
     bool hasActive = false;
 
     for (const auto &adapter : networks) {
-        if (adapter.operationalStatus != domain::OperationalStatus::Up) {
+        if (!isActiveHardwareAdapter(adapter)) {
             continue;
         }
         if (!adapter.inBytesPerSec || !adapter.outBytesPerSec) {
@@ -121,9 +131,7 @@ std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::Ne
 
 bool hasActiveAdapter(const std::vector<domain::NetworkSample> &networks)
 {
-    return std::ranges::any_of(networks, [](const domain::NetworkSample &adapter) {
-        return adapter.operationalStatus == domain::OperationalStatus::Up;
-    });
+    return std::ranges::any_of(networks, isActiveHardwareAdapter);
 }
 
 const domain::DiskSample *fullestVolume(const std::vector<domain::DiskSample> &disks)

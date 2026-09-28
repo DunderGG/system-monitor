@@ -33,6 +33,11 @@ struct RawNetworkAdapter
     std::vector<std::string> ipAddresses;
     std::vector<std::string> dnsServers;
     bool isLoopback{false};
+    // An NDIS filter layer (e.g. WFP or QoS Packet Scheduler) bound to another
+    // interface. Its counters repeat that interface's traffic.
+    bool isFilterInterface{false};
+    // A physical adapter rather than a tunnel, VPN, or other virtual interface.
+    bool isHardwareInterface{false};
 };
 
 /**
@@ -55,7 +60,8 @@ using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>
  * - GetIfTable2 (releasing table with FreeMibTable) for 64-bit traffic counters and link speed.
  * - GetAdaptersAddresses for friendly names, device descriptions, IP addresses, and DNS servers.
  *
- * Filters out loopback interfaces (IF_TYPE_SOFTWARE_LOOPBACK).
+ * Filters out loopback interfaces (IF_TYPE_SOFTWARE_LOOPBACK) and NDIS filter
+ * interfaces, whose counters repeat the traffic of the interface they are bound to.
  * Computes instantaneous throughput (bytes/sec) from counter deltas across steady_clock ticks.
  * A rate is std::nullopt (never 0) when it cannot be computed: first sample for an
  * adapter, zero elapsed time, or a counter reset.

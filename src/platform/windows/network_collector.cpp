@@ -168,6 +168,8 @@ std::optional<std::vector<RawNetworkAdapter>> queryWindowsAdapters()
         raw.luid = row.InterfaceLuid.Value;
         raw.ifIndex = row.InterfaceIndex;
         raw.isLoopback = (row.Type == IF_TYPE_SOFTWARE_LOOPBACK);
+        raw.isFilterInterface = row.InterfaceAndOperStatusFlags.FilterInterface != FALSE;
+        raw.isHardwareInterface = row.InterfaceAndOperStatusFlags.HardwareInterface != FALSE;
         raw.inBytesTotal = row.InOctets;
         raw.outBytesTotal = row.OutOctets;
         raw.linkSpeedBps = (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
@@ -267,7 +269,9 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
     std::unordered_set<uint64_t> activeKeys;
 
     for (const auto &adapter : adapters) {
-        if (adapter.isLoopback) {
+        // Filter interfaces (WFP, QoS Packet Scheduler, ...) mirror the counters of the
+        // adapter they are bound to; reporting them would count its traffic again.
+        if (adapter.isLoopback || adapter.isFilterInterface) {
             continue;
         }
 
@@ -306,6 +310,7 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
             .operationalStatus = adapter.operationalStatus,
             .ipAddresses = adapter.ipAddresses,
             .dnsServers = adapter.dnsServers,
+            .isHardwareInterface = adapter.isHardwareInterface,
         };
 
         samples.push_back(std::move(sample));

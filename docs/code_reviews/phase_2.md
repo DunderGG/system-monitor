@@ -51,7 +51,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
-| [F-9](#f-9-network-throughput-total-counts-the-same-traffic-several-times) | Network throughput total counts the same traffic several times | High | Open |
+| [F-9](#f-9-network-throughput-total-counts-the-same-traffic-several-times) | Network throughput total counts the same traffic several times | High | Resolved |
 | [F-10](#f-10-getadaptersaddresses-runs-on-every-scheduler-tick) | `GetAdaptersAddresses` runs on every scheduler tick | Medium | Open |
 | [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Open |
 | [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Open |
@@ -117,7 +117,7 @@ The unit tests did not catch this because `RawNetworkAdapter` has no field for "
 
 **Recommendation:** Fix before starting Phase 3. The dashboard number is wrong on every Windows machine, and the Phase 3 Performance view will reuse the same data.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). `RawNetworkAdapter` carries `isFilterInterface` and `isHardwareInterface` from `InterfaceAndOperStatusFlags`. `calculateNetworkSamples()` drops filter interfaces next to loopback, and `NetworkSample::isHardwareInterface` is new. `sumActiveThroughput()` and `hasActiveAdapter()` consider only hardware adapters that are Up. New unit tests cover a filter row, the hardware flag, a VPN tunnel not being counted twice, a virtual adapter without a rate, and "only a virtual adapter is Up". Both design-decision entries are updated. On the review machine, the total now comes from the Ethernet row alone instead of 14 rows.
 
 ---
 

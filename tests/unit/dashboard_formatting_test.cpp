@@ -16,13 +16,17 @@ using namespace sysmon::ui;
 namespace
 {
 
-NetworkSample adapter(OperationalStatus status, std::optional<uint64_t> in, std::optional<uint64_t> out)
+NetworkSample adapter(OperationalStatus status,
+                      std::optional<uint64_t> in,
+                      std::optional<uint64_t> out,
+                      bool isHardwareInterface = true)
 {
     return NetworkSample{
         .adapterName = "adapter",
         .inBytesPerSec = in,
         .outBytesPerSec = out,
         .operationalStatus = status,
+        .isHardwareInterface = isHardwareInterface,
     };
 }
 
@@ -126,6 +130,42 @@ TEST(DashboardFormatting, SumActiveThroughput_NoUpAdapters_ReturnsNullopt)
 
     EXPECT_FALSE(sumActiveThroughput(networks).has_value());
     EXPECT_FALSE(hasActiveAdapter(networks));
+}
+
+TEST(DashboardFormatting, SumActiveThroughput_VirtualAdapter_NotCountedTwice)
+{
+    // A VPN tunnel's traffic also crosses the physical adapter it runs over.
+    const std::vector<NetworkSample> networks = {
+        adapter(OperationalStatus::Up, 1'000, 100),
+        adapter(OperationalStatus::Up, 900, 90, false),
+    };
+
+    const auto totals = sumActiveThroughput(networks);
+
+    ASSERT_TRUE(totals.has_value());
+    EXPECT_EQ(totals->inBytesPerSec, 1'000u);
+    EXPECT_EQ(totals->outBytesPerSec, 100u);
+}
+
+TEST(DashboardFormatting, SumActiveThroughput_VirtualAdapterWithoutRate_Ignored)
+{
+    const std::vector<NetworkSample> networks = {
+        adapter(OperationalStatus::Up, 1'000, 100),
+        adapter(OperationalStatus::Up, std::nullopt, std::nullopt, false),
+    };
+
+    EXPECT_TRUE(sumActiveThroughput(networks).has_value());
+}
+
+TEST(DashboardFormatting, HasActiveAdapter_OnlyVirtualAdapterUp_ReturnsFalse)
+{
+    const std::vector<NetworkSample> networks = {
+        adapter(OperationalStatus::Down, 0, 0),
+        adapter(OperationalStatus::Up, 0, 0, false),
+    };
+
+    EXPECT_FALSE(hasActiveAdapter(networks));
+    EXPECT_FALSE(sumActiveThroughput(networks).has_value());
 }
 
 TEST(DashboardFormatting, FullestVolume_ReturnsHighestUsage)

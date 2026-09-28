@@ -33,6 +33,11 @@ enum class OperationalStatus
 // A genuinely idle link reports 0.
 //
 // linkSpeedBps is the negotiated link speed in bits per second.
+//
+// isHardwareInterface is true for a physical adapter and false for tunnels,
+// VPNs, and other virtual interfaces. Traffic through a virtual interface
+// usually also crosses a physical one, so a total across adapters should sum
+// hardware interfaces only.
 struct NetworkSample
 {
     std::string adapterName;
@@ -46,6 +51,7 @@ struct NetworkSample
     OperationalStatus operationalStatus{OperationalStatus::Unknown};
     std::vector<std::string> ipAddresses;
     std::vector<std::string> dnsServers;
+    bool isHardwareInterface{false};
 };
 
 } // namespace sysmon::domain

@@ -35,6 +35,7 @@ SystemSnapshot populatedSnapshot()
         .inBytesPerSec = 2048,
         .outBytesPerSec = 1024,
         .operationalStatus = OperationalStatus::Up,
+        .isHardwareInterface = true,
     }};
     snapshot.connectivity = {.level = ConnectivityLevel::InternetAccess, .isMetered = false};
     snapshot.uptime = std::chrono::hours{4} + std::chrono::minutes{12};
