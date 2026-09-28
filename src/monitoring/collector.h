@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <concepts>
+#include <optional>
 #include <vector>
 
 #include "domain/connectivity_status.h"
@@ -41,8 +42,10 @@ concept Collector = requires(C collector) {
     { collector.collect() } -> std::convertible_to<T>;
 };
 
-using ICpuCollector = ICollector<domain::CpuSample>;
-using IMemoryCollector = ICollector<domain::MemorySample>;
+// CPU and memory collectors return std::nullopt when no valid sample is available
+// (query failure, or no baseline yet for rate-based metrics).
+using ICpuCollector = ICollector<std::optional<domain::CpuSample>>;
+using IMemoryCollector = ICollector<std::optional<domain::MemorySample>>;
 using IDiskCollector = ICollector<std::vector<domain::DiskSample>>;
 using INetworkCollector = ICollector<std::vector<domain::NetworkSample>>;
 using IConnectivityCollector = ICollector<domain::ConnectivityStatus>;

@@ -272,13 +272,15 @@ TEST(ProcessInfo, SamePidDifferentCreationTime_DifferentIdentity)
 // SystemSnapshot
 // ---------------------------------------------------------------------------
 
-TEST(SystemSnapshot, DefaultConstruction_EmptyCollections)
+TEST(SystemSnapshot, DefaultConstruction_EmptyCollectionsAndNoOptionalData)
 {
     SystemSnapshot snap;
     EXPECT_TRUE(snap.disks.empty());
     EXPECT_TRUE(snap.networks.empty());
     EXPECT_TRUE(snap.processes.empty());
     EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::Unknown);
+    EXPECT_FALSE(snap.cpu.has_value());
+    EXPECT_FALSE(snap.memory.has_value());
     EXPECT_FALSE(snap.uptime.has_value());
 }
 
@@ -289,8 +291,8 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
 
     SystemSnapshot snap{
         .timestamp = ts,
-        .cpu = {.totalUsagePercent = 10.0f, .coreCount = 4},
-        .memory = {.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
+        .cpu = CpuSample{.totalUsagePercent = 10.0f, .coreCount = 4},
+        .memory = MemorySample{.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
         .disks = {DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
         .networks = {NetworkSample{.adapterName = "Wi-Fi", .operationalStatus = OperationalStatus::Up}},
         .connectivity = {.level = ConnectivityLevel::InternetAccess},
@@ -298,9 +300,11 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
     };
 
     EXPECT_EQ(snap.timestamp, ts);
-    EXPECT_FLOAT_EQ(snap.cpu.totalUsagePercent, 10.0f);
-    EXPECT_EQ(snap.cpu.coreCount, 4);
-    EXPECT_EQ(snap.memory.totalBytes, 8'000'000'000ULL);
+    ASSERT_TRUE(snap.cpu.has_value());
+    EXPECT_FLOAT_EQ(snap.cpu->totalUsagePercent, 10.0f);
+    EXPECT_EQ(snap.cpu->coreCount, 4);
+    ASSERT_TRUE(snap.memory.has_value());
+    EXPECT_EQ(snap.memory->totalBytes, 8'000'000'000ULL);
     ASSERT_EQ(snap.disks.size(), 1u);
     EXPECT_EQ(snap.disks[0].volumeName, "C:\\");
     ASSERT_EQ(snap.networks.size(), 1u);

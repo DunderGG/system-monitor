@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <vector>
 
 #include "domain/cpu_sample.h"
@@ -25,9 +26,11 @@ struct SystemTimesData
  * Calculates CPU utilization percentage from previous and current system time snapshots.
  *
  * Total system capacity is (deltaKernel + deltaUser) because Windows kernel time includes idle time.
+ * Returns std::nullopt when no rate can be computed: non-positive elapsed time, a counter that
+ * went backwards (reset), or no CPU time elapsed at all.
  * Pure function with no OS dependencies for deterministic testing.
  */
-[[nodiscard]] float calculateCpuUsage(
+[[nodiscard]] std::optional<float> calculateCpuUsage(
     const SystemTimesData &previous,
     const SystemTimesData &current,
     std::chrono::nanoseconds monotonicElapsed);
@@ -38,6 +41,10 @@ struct SystemTimesData
  *
  * Samples idle, kernel, and user times across all logical processors
  * and computes utilization percentages over monotonic elapsed time.
+ *
+ * collect() returns std::nullopt when both queries fail or when no rate can be
+ * computed yet (the first sample only establishes a baseline). Per-core values
+ * are omitted (empty) rather than zero-filled when they cannot be computed.
  */
 class CpuCollector : public monitoring::ICpuCollector
 {
@@ -55,7 +62,7 @@ public:
         int coreCount);
     ~CpuCollector() override = default;
 
-    [[nodiscard]] domain::CpuSample collect() override;
+    [[nodiscard]] std::optional<domain::CpuSample> collect() override;
 
     [[nodiscard]] int coreCount() const;
 

@@ -21,21 +21,22 @@ TEST(MemoryCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
 {
     MemoryCollector collector;
     const auto sample = collector.collect();
+    ASSERT_TRUE(sample.has_value());
 
     // Physical RAM must be greater than zero on any functioning PC
-    EXPECT_GT(sample.totalBytes, 0u);
-    EXPECT_GT(sample.availableBytes, 0u);
-    EXPECT_LE(sample.availableBytes, sample.totalBytes);
+    EXPECT_GT(sample->totalBytes, 0u);
+    EXPECT_GT(sample->availableBytes, 0u);
+    EXPECT_LE(sample->availableBytes, sample->totalBytes);
 
-    EXPECT_FALSE(std::isnan(sample.usagePercent));
-    EXPECT_FALSE(std::isinf(sample.usagePercent));
-    EXPECT_GE(sample.usagePercent, 0.0f);
-    EXPECT_LE(sample.usagePercent, 100.0f);
+    EXPECT_FALSE(std::isnan(sample->usagePercent));
+    EXPECT_FALSE(std::isinf(sample->usagePercent));
+    EXPECT_GE(sample->usagePercent, 0.0f);
+    EXPECT_LE(sample->usagePercent, 100.0f);
 
     // Commit charge invariants
-    EXPECT_GT(sample.commitLimit, 0u);
-    EXPECT_GT(sample.commitCurrent, 0u);
-    EXPECT_LE(sample.commitCurrent, sample.commitLimit);
+    EXPECT_GT(sample->commitLimit, 0u);
+    EXPECT_GT(sample->commitCurrent, 0u);
+    EXPECT_LE(sample->commitCurrent, sample->commitLimit);
 }
 
 TEST(MemoryCollectorIntegration, ConsecutiveSamples_RemainStable)
@@ -46,13 +47,14 @@ TEST(MemoryCollectorIntegration, ConsecutiveSamples_RemainStable)
     for (int i = 0; i < kSampleCount; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
         const auto sample = collector.collect();
+        ASSERT_TRUE(sample.has_value());
 
-        EXPECT_GT(sample.totalBytes, 0u);
-        EXPECT_GT(sample.availableBytes, 0u);
-        EXPECT_LE(sample.availableBytes, sample.totalBytes);
-        EXPECT_GE(sample.usagePercent, 0.0f);
-        EXPECT_LE(sample.usagePercent, 100.0f);
-        EXPECT_FALSE(std::isnan(sample.usagePercent));
+        EXPECT_GT(sample->totalBytes, 0u);
+        EXPECT_GT(sample->availableBytes, 0u);
+        EXPECT_LE(sample->availableBytes, sample->totalBytes);
+        EXPECT_GE(sample->usagePercent, 0.0f);
+        EXPECT_LE(sample->usagePercent, 100.0f);
+        EXPECT_FALSE(std::isnan(sample->usagePercent));
     }
 }
 
@@ -85,10 +87,11 @@ TEST(MemoryCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics
     EXPECT_GE(snapshotCount.load(), 1);
     {
         std::lock_guard lock(snapshotMutex);
-        EXPECT_GT(lastSnapshot.memory.totalBytes, 0u);
-        EXPECT_GT(lastSnapshot.memory.availableBytes, 0u);
-        EXPECT_GE(lastSnapshot.memory.usagePercent, 0.0f);
-        EXPECT_LE(lastSnapshot.memory.usagePercent, 100.0f);
+        ASSERT_TRUE(lastSnapshot.memory.has_value());
+        EXPECT_GT(lastSnapshot.memory->totalBytes, 0u);
+        EXPECT_GT(lastSnapshot.memory->availableBytes, 0u);
+        EXPECT_GE(lastSnapshot.memory->usagePercent, 0.0f);
+        EXPECT_LE(lastSnapshot.memory->usagePercent, 100.0f);
     }
 }
 

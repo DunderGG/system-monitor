@@ -22,15 +22,16 @@ TEST(MemoryCollector, CalculateMemorySample_NormalValues_CalculatesUsageAndCommi
     };
 
     const auto sample = calculateMemorySample(data);
+    ASSERT_TRUE(sample.has_value());
 
-    EXPECT_EQ(sample.totalBytes, k16GiB);
-    EXPECT_EQ(sample.availableBytes, k4GiB);
-    EXPECT_FLOAT_EQ(sample.usagePercent, 75.0f);
-    EXPECT_EQ(sample.commitLimit, k24GiB);
-    EXPECT_EQ(sample.commitCurrent, 16ULL * 1024 * 1024 * 1024);
+    EXPECT_EQ(sample->totalBytes, k16GiB);
+    EXPECT_EQ(sample->availableBytes, k4GiB);
+    EXPECT_FLOAT_EQ(sample->usagePercent, 75.0f);
+    EXPECT_EQ(sample->commitLimit, k24GiB);
+    EXPECT_EQ(sample->commitCurrent, 16ULL * 1024 * 1024 * 1024);
 }
 
-TEST(MemoryCollector, CalculateMemorySample_ZeroTotal_ReturnsZeroPercent)
+TEST(MemoryCollector, CalculateMemorySample_ZeroTotal_ReturnsNullopt)
 {
     const MemoryStatusData data{
         .totalPhys = 0,
@@ -41,11 +42,7 @@ TEST(MemoryCollector, CalculateMemorySample_ZeroTotal_ReturnsZeroPercent)
 
     const auto sample = calculateMemorySample(data);
 
-    EXPECT_EQ(sample.totalBytes, 0u);
-    EXPECT_EQ(sample.availableBytes, 0u);
-    EXPECT_FLOAT_EQ(sample.usagePercent, 0.0f);
-    EXPECT_EQ(sample.commitLimit, 0u);
-    EXPECT_EQ(sample.commitCurrent, 0u);
+    EXPECT_FALSE(sample.has_value());
 }
 
 TEST(MemoryCollector, CalculateMemorySample_AvailExceedsTotal_ClampsUsageToZero)
@@ -61,11 +58,12 @@ TEST(MemoryCollector, CalculateMemorySample_AvailExceedsTotal_ClampsUsageToZero)
     };
 
     const auto sample = calculateMemorySample(data);
+    ASSERT_TRUE(sample.has_value());
 
-    EXPECT_EQ(sample.totalBytes, k16GiB);
-    EXPECT_EQ(sample.availableBytes, k16GiB);
-    EXPECT_FLOAT_EQ(sample.usagePercent, 0.0f);
-    EXPECT_EQ(sample.commitCurrent, 0u);
+    EXPECT_EQ(sample->totalBytes, k16GiB);
+    EXPECT_EQ(sample->availableBytes, k16GiB);
+    EXPECT_FLOAT_EQ(sample->usagePercent, 0.0f);
+    EXPECT_EQ(sample->commitCurrent, 0u);
 }
 
 TEST(MemoryCollector, CalculateMemorySample_FullyUsed_Returns100Percent)
@@ -80,11 +78,12 @@ TEST(MemoryCollector, CalculateMemorySample_FullyUsed_Returns100Percent)
     };
 
     const auto sample = calculateMemorySample(data);
+    ASSERT_TRUE(sample.has_value());
 
-    EXPECT_EQ(sample.totalBytes, k16GiB);
-    EXPECT_EQ(sample.availableBytes, 0u);
-    EXPECT_FLOAT_EQ(sample.usagePercent, 100.0f);
-    EXPECT_EQ(sample.commitCurrent, k16GiB);
+    EXPECT_EQ(sample->totalBytes, k16GiB);
+    EXPECT_EQ(sample->availableBytes, 0u);
+    EXPECT_FLOAT_EQ(sample->usagePercent, 100.0f);
+    EXPECT_EQ(sample->commitCurrent, k16GiB);
 }
 
 TEST(MemoryCollector, Collect_InjectedReader_ReturnsCalculatedSample)
@@ -102,13 +101,14 @@ TEST(MemoryCollector, Collect_InjectedReader_ReturnsCalculatedSample)
 
     MemoryCollector collector(reader);
     const auto sample = collector.collect();
+    ASSERT_TRUE(sample.has_value());
 
-    EXPECT_EQ(sample.totalBytes, k32GiB);
-    EXPECT_EQ(sample.availableBytes, k16GiB);
-    EXPECT_FLOAT_EQ(sample.usagePercent, 50.0f);
+    EXPECT_EQ(sample->totalBytes, k32GiB);
+    EXPECT_EQ(sample->availableBytes, k16GiB);
+    EXPECT_FLOAT_EQ(sample->usagePercent, 50.0f);
 }
 
-TEST(MemoryCollector, Collect_ReaderFails_ReturnsDefaultSample)
+TEST(MemoryCollector, Collect_ReaderFails_ReturnsNullopt)
 {
     auto reader = [](MemoryStatusData &) {
         return false;
@@ -117,8 +117,6 @@ TEST(MemoryCollector, Collect_ReaderFails_ReturnsDefaultSample)
     MemoryCollector collector(reader);
     const auto sample = collector.collect();
 
-    EXPECT_EQ(sample.totalBytes, 0u);
-    EXPECT_EQ(sample.availableBytes, 0u);
-    EXPECT_FLOAT_EQ(sample.usagePercent, 0.0f);
+    EXPECT_FALSE(sample.has_value());
 }
 

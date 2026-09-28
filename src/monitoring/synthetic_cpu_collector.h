@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 
 #include "domain/cpu_sample.h"
 #include "monitoring/collector.h"
@@ -23,7 +24,7 @@ public:
     explicit SyntheticCpuCollector(int coreCount = 8, float baseUsagePercent = 35.0f);
     ~SyntheticCpuCollector() override = default;
 
-    [[nodiscard]] domain::CpuSample collect() override;
+    [[nodiscard]] std::optional<domain::CpuSample> collect() override;
 
     void setCoreCount(int coreCount);
     [[nodiscard]] int coreCount() const;

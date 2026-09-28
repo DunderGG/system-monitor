@@ -1,6 +1,7 @@
 #include "platform/windows/memory_collector.h"
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 #include <spdlog/spdlog.h>
@@ -10,14 +11,16 @@
 namespace sysmon::platform
 {
 
-domain::MemorySample calculateMemorySample(const MemoryStatusData &data)
+std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData &data)
 {
+    if (data.totalPhys == 0) {
+        return std::nullopt;
+    }
+
     const uint64_t total = data.totalPhys;
     const uint64_t available = std::min(data.availPhys, total);
     const uint64_t used = total - available;
-    const float usagePercent = total > 0
-        ? std::clamp(static_cast<float>(used) * 100.0f / static_cast<float>(total), 0.0f, 100.0f)
-        : 0.0f;
+    const float usagePercent = std::clamp(static_cast<float>(used) * 100.0f / static_cast<float>(total), 0.0f, 100.0f);
 
     const uint64_t commitLimit = data.totalPageFile;
     const uint64_t commitAvail = std::min(data.availPageFile, commitLimit);
@@ -53,11 +56,11 @@ MemoryCollector::MemoryCollector(MemoryStatusReader reader)
     : m_reader(std::move(reader))
 {}
 
-domain::MemorySample MemoryCollector::collect()
+std::optional<domain::MemorySample> MemoryCollector::collect()
 {
     MemoryStatusData data{};
     if (!m_reader || !m_reader(data)) {
-        return domain::MemorySample{};
+        return std::nullopt;
     }
     return calculateMemorySample(data);
 }

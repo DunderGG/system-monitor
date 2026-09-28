@@ -8,25 +8,21 @@
 
 using namespace sysmon::platform;
 
-TEST(CpuCollector, CalculateCpuUsage_ZeroElapsed_ReturnsZero)
+TEST(CpuCollector, CalculateCpuUsage_ZeroOrNegativeElapsed_ReturnsNullopt)
 {
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1100, .kernelTime = 2200, .userTime = 600};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::nanoseconds{0});
-    EXPECT_FLOAT_EQ(usage, 0.0f);
-
-    const float negativeUsage = calculateCpuUsage(previous, current, std::chrono::nanoseconds{-100});
-    EXPECT_FLOAT_EQ(negativeUsage, 0.0f);
+    EXPECT_FALSE(calculateCpuUsage(previous, current, std::chrono::nanoseconds{0}).has_value());
+    EXPECT_FALSE(calculateCpuUsage(previous, current, std::chrono::nanoseconds{-100}).has_value());
 }
 
-TEST(CpuCollector, CalculateCpuUsage_ZeroDeltaTotal_ReturnsZero)
+TEST(CpuCollector, CalculateCpuUsage_ZeroDeltaTotal_ReturnsNullopt)
 {
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 0.0f);
+    EXPECT_FALSE(calculateCpuUsage(previous, current, std::chrono::milliseconds{1000}).has_value());
 }
 
 TEST(CpuCollector, CalculateCpuUsage_FullyIdle_ReturnsZero)
@@ -36,8 +32,9 @@ TEST(CpuCollector, CalculateCpuUsage_FullyIdle_ReturnsZero)
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1100, .kernelTime = 2100, .userTime = 500};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 0.0f);
+    const auto usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
+    ASSERT_TRUE(usage.has_value());
+    EXPECT_FLOAT_EQ(*usage, 0.0f);
 }
 
 TEST(CpuCollector, CalculateCpuUsage_FullyBusyUser_Returns100)
@@ -46,8 +43,9 @@ TEST(CpuCollector, CalculateCpuUsage_FullyBusyUser_Returns100)
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1000, .kernelTime = 2000, .userTime = 600};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 100.0f);
+    const auto usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
+    ASSERT_TRUE(usage.has_value());
+    EXPECT_FLOAT_EQ(*usage, 100.0f);
 }
 
 TEST(CpuCollector, CalculateCpuUsage_FullyBusyKernel_Returns100)
@@ -56,8 +54,9 @@ TEST(CpuCollector, CalculateCpuUsage_FullyBusyKernel_Returns100)
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1000, .kernelTime = 2100, .userTime = 500};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 100.0f);
+    const auto usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
+    ASSERT_TRUE(usage.has_value());
+    EXPECT_FLOAT_EQ(*usage, 100.0f);
 }
 
 TEST(CpuCollector, CalculateCpuUsage_FiftyPercentBusy_Returns50)
@@ -67,8 +66,9 @@ TEST(CpuCollector, CalculateCpuUsage_FiftyPercentBusy_Returns50)
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1050, .kernelTime = 2075, .userTime = 525};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 50.0f);
+    const auto usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
+    ASSERT_TRUE(usage.has_value());
+    EXPECT_FLOAT_EQ(*usage, 50.0f);
 }
 
 TEST(CpuCollector, CalculateCpuUsage_IdleExceedsKernelDueToJitter_ClampsToZero)
@@ -77,18 +77,27 @@ TEST(CpuCollector, CalculateCpuUsage_IdleExceedsKernelDueToJitter_ClampsToZero)
     const SystemTimesData previous{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     const SystemTimesData current{.idleTime = 1110, .kernelTime = 2100, .userTime = 500};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 0.0f);
+    const auto usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
+    ASSERT_TRUE(usage.has_value());
+    EXPECT_FLOAT_EQ(*usage, 0.0f);
 }
 
-TEST(CpuCollector, CalculateCpuUsage_CounterRolloverOrUnderflow_HandledGracefully)
+TEST(CpuCollector, CalculateCpuUsage_CounterRolloverOrUnderflow_ReturnsNullopt)
 {
-    // Current times smaller than previous (e.g. system reset): should safely produce 0.0f.
+    // Current times smaller than previous (e.g. counter reset): no meaningful rate exists.
     const SystemTimesData previous{.idleTime = 5000, .kernelTime = 8000, .userTime = 3000};
     const SystemTimesData current{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
 
-    const float usage = calculateCpuUsage(previous, current, std::chrono::milliseconds{1000});
-    EXPECT_FLOAT_EQ(usage, 0.0f);
+    EXPECT_FALSE(calculateCpuUsage(previous, current, std::chrono::milliseconds{1000}).has_value());
+}
+
+TEST(CpuCollector, CalculateCpuUsage_SingleCounterWentBackwards_ReturnsNullopt)
+{
+    // Only kernel time reset while user time advanced: previously this yielded a bogus 100%.
+    const SystemTimesData previous{.idleTime = 1000, .kernelTime = 8000, .userTime = 500};
+    const SystemTimesData current{.idleTime = 1000, .kernelTime = 2000, .userTime = 600};
+
+    EXPECT_FALSE(calculateCpuUsage(previous, current, std::chrono::milliseconds{1000}).has_value());
 }
 
 TEST(CpuCollector, Collect_InjectedReaders_CalculatesUsageAcrossTicks)
@@ -107,11 +116,9 @@ TEST(CpuCollector, Collect_InjectedReaders_CalculatesUsageAcrossTicks)
     CpuCollector collector(timesReader, clockReader, 8);
     EXPECT_EQ(collector.coreCount(), 8);
 
-    // Initial collection immediately after construction with 0 elapsed time
+    // Initial collection immediately after construction: no time has elapsed, so no rate exists.
     const auto initialSample = collector.collect();
-    EXPECT_FLOAT_EQ(initialSample.totalUsagePercent, 0.0f);
-    EXPECT_EQ(initialSample.coreCount, 8);
-    EXPECT_TRUE(initialSample.coreUsagePercents.empty());
+    EXPECT_FALSE(initialSample.has_value());
 
     // Advance by 1 second: 50% busy
     // deltaKernel = 750, deltaIdle = 500, deltaUser = 250 -> Total = 1000, Busy = 500
@@ -121,8 +128,10 @@ TEST(CpuCollector, Collect_InjectedReaders_CalculatesUsageAcrossTicks)
     simulatedTimes.userTime += 250;
 
     const auto sample1 = collector.collect();
-    EXPECT_FLOAT_EQ(sample1.totalUsagePercent, 50.0f);
-    EXPECT_EQ(sample1.coreCount, 8);
+    ASSERT_TRUE(sample1.has_value());
+    EXPECT_FLOAT_EQ(sample1->totalUsagePercent, 50.0f);
+    EXPECT_EQ(sample1->coreCount, 8);
+    EXPECT_TRUE(sample1->coreUsagePercents.empty());
 
     // Advance by another second: 100% busy in user mode
     // deltaKernel = 0, deltaIdle = 0, deltaUser = 1000
@@ -130,11 +139,44 @@ TEST(CpuCollector, Collect_InjectedReaders_CalculatesUsageAcrossTicks)
     simulatedTimes.userTime += 1000;
 
     const auto sample2 = collector.collect();
-    EXPECT_FLOAT_EQ(sample2.totalUsagePercent, 100.0f);
-    EXPECT_EQ(sample2.coreCount, 8);
+    ASSERT_TRUE(sample2.has_value());
+    EXPECT_FLOAT_EQ(sample2->totalUsagePercent, 100.0f);
+    EXPECT_EQ(sample2->coreCount, 8);
 }
 
-TEST(CpuCollector, Collect_ReaderFails_ReturnsZeroUsageGracefully)
+TEST(CpuCollector, Collect_BaselineFailsAtConstruction_FirstSuccessfulCollectReturnsNullopt)
+{
+    int callCount = 0;
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
+    std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
+
+    auto timesReader = [&](SystemTimesData &out) {
+        ++callCount;
+        if (callCount == 1) {
+            return false; // Baseline read in the constructor fails.
+        }
+        out = simulatedTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return simulatedNow; };
+
+    CpuCollector collector(timesReader, clockReader, 4);
+
+    simulatedNow += std::chrono::milliseconds{1000};
+    const auto baselineSample = collector.collect();
+
+    simulatedNow += std::chrono::milliseconds{1000};
+    simulatedTimes.idleTime += 50;
+    simulatedTimes.kernelTime += 75;
+    simulatedTimes.userTime += 25;
+    const auto sample = collector.collect();
+
+    EXPECT_FALSE(baselineSample.has_value());
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FLOAT_EQ(sample->totalUsagePercent, 50.0f);
+}
+
+TEST(CpuCollector, Collect_ReaderFails_ReturnsNullopt)
 {
     bool shouldSucceed = true;
     SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
@@ -151,17 +193,12 @@ TEST(CpuCollector, Collect_ReaderFails_ReturnsZeroUsageGracefully)
 
     CpuCollector collector(timesReader, clockReader, 4);
 
-    // Initial collect succeeds
-    const auto initialSample = collector.collect();
-    EXPECT_FLOAT_EQ(initialSample.totalUsagePercent, 0.0f);
-
-    // Reader fails on next tick
+    // Reader fails on the next tick
     shouldSucceed = false;
     clock += std::chrono::milliseconds{1000};
     const auto sample = collector.collect();
 
-    EXPECT_FLOAT_EQ(sample.totalUsagePercent, 0.0f);
-    EXPECT_EQ(sample.coreCount, 4);
+    EXPECT_FALSE(sample.has_value());
 }
 
 TEST(CpuCollector, Collect_PopulatesCoreUsagePercents_UsingInjectedCoreReader)
@@ -189,13 +226,9 @@ TEST(CpuCollector, Collect_PopulatesCoreUsagePercents_UsingInjectedCoreReader)
 
     CpuCollector collector(timesReader, coreReader, clockReader, 4);
 
-    // Initial collection immediately after construction
+    // Initial collection immediately after construction: no rate yet, and no zero-filled cores.
     const auto initialSample = collector.collect();
-    EXPECT_FLOAT_EQ(initialSample.totalUsagePercent, 0.0f);
-    ASSERT_EQ(initialSample.coreUsagePercents.size(), 4u);
-    for (float usage : initialSample.coreUsagePercents) {
-        EXPECT_FLOAT_EQ(usage, 0.0f);
-    }
+    EXPECT_FALSE(initialSample.has_value());
 
     // Advance by 1 second with different load per core
     simulatedNow += std::chrono::milliseconds{1000};
@@ -219,11 +252,12 @@ TEST(CpuCollector, Collect_PopulatesCoreUsagePercents_UsingInjectedCoreReader)
     simulatedCoreTimes[3].kernelTime += 100;
 
     const auto sample = collector.collect();
-    ASSERT_EQ(sample.coreUsagePercents.size(), 4u);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[0], 0.0f);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[2], 100.0f);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[3], 100.0f);
+    ASSERT_TRUE(sample.has_value());
+    ASSERT_EQ(sample->coreUsagePercents.size(), 4u);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[0], 0.0f);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[1], 50.0f);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[2], 100.0f);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[3], 100.0f);
 }
 
 TEST(CpuCollector, Collect_CoreReaderFails_GracefullyRetainsEmptyCoreUsages)
@@ -242,19 +276,52 @@ TEST(CpuCollector, Collect_CoreReaderFails_GracefullyRetainsEmptyCoreUsages)
 
     CpuCollector collector(timesReader, coreReader, clockReader, 4);
 
-    const auto sample1 = collector.collect();
-    EXPECT_FLOAT_EQ(sample1.totalUsagePercent, 0.0f);
-    EXPECT_TRUE(sample1.coreUsagePercents.empty());
-
     // Advance time and times
     clock += std::chrono::milliseconds{1000};
     simulatedTimes.idleTime += 500;
     simulatedTimes.kernelTime += 750;
     simulatedTimes.userTime += 250;
 
-    const auto sample2 = collector.collect();
-    EXPECT_FLOAT_EQ(sample2.totalUsagePercent, 50.0f);
-    EXPECT_TRUE(sample2.coreUsagePercents.empty());
+    const auto sample = collector.collect();
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FLOAT_EQ(sample->totalUsagePercent, 50.0f);
+    EXPECT_TRUE(sample->coreUsagePercents.empty());
+}
+
+TEST(CpuCollector, Collect_CoreCountChanges_OmitsPerCoreValuesInsteadOfZeroFilling)
+{
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
+    std::vector<SystemTimesData> simulatedCoreTimes = {
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+        SystemTimesData{.idleTime = 1000, .kernelTime = 2000, .userTime = 500},
+    };
+    auto clock = std::chrono::steady_clock::now();
+
+    auto timesReader = [&](SystemTimesData &out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return clock; };
+
+    CpuCollector collector(timesReader, coreReader, clockReader, 2);
+
+    // A third core comes online (e.g. hot-add); per-core deltas no longer line up.
+    clock += std::chrono::milliseconds{1000};
+    simulatedTimes.idleTime += 50;
+    simulatedTimes.kernelTime += 75;
+    simulatedTimes.userTime += 25;
+    simulatedCoreTimes.push_back(SystemTimesData{.idleTime = 0, .kernelTime = 0, .userTime = 0});
+
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FLOAT_EQ(sample->totalUsagePercent, 50.0f);
+    EXPECT_EQ(sample->coreCount, 3);
+    EXPECT_TRUE(sample->coreUsagePercents.empty());
 }
 
 TEST(CpuCollector, Collect_IndividualCoreJitter_ClampedToZero)
@@ -277,8 +344,8 @@ TEST(CpuCollector, Collect_IndividualCoreJitter_ClampedToZero)
     auto clockReader = [&]() { return clock; };
 
     CpuCollector collector(timesReader, coreReader, clockReader, 2);
-    const auto initialSample = collector.collect();
-    (void)initialSample;
+    const auto baselineSample = collector.collect();
+    EXPECT_FALSE(baselineSample.has_value());
 
     clock += std::chrono::milliseconds{1000};
     simulatedTimes.kernelTime += 100;
@@ -293,9 +360,10 @@ TEST(CpuCollector, Collect_IndividualCoreJitter_ClampedToZero)
     simulatedCoreTimes[1].userTime += 25;
 
     const auto sample = collector.collect();
-    ASSERT_EQ(sample.coreUsagePercents.size(), 2u);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[0], 0.0f);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
+    ASSERT_TRUE(sample.has_value());
+    ASSERT_EQ(sample->coreUsagePercents.size(), 2u);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[0], 0.0f);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[1], 50.0f);
 }
 
 TEST(CpuCollector, Collect_MultiGroup128Cores_MonitorsAllCores)
@@ -321,8 +389,8 @@ TEST(CpuCollector, Collect_MultiGroup128Cores_MonitorsAllCores)
     auto clockReader = [&]() { return clock; };
 
     CpuCollector collector(timesReader, coreReader, clockReader, 128);
-    const auto initialSample = collector.collect();
-    (void)initialSample;
+    const auto baselineSample = collector.collect();
+    EXPECT_FALSE(baselineSample.has_value());
 
     clock += std::chrono::milliseconds{1000};
     for (int i = 0; i < 128; ++i) {
@@ -333,12 +401,13 @@ TEST(CpuCollector, Collect_MultiGroup128Cores_MonitorsAllCores)
     }
 
     const auto sample = collector.collect();
-    EXPECT_EQ(sample.coreCount, 128);
-    ASSERT_EQ(sample.coreUsagePercents.size(), 128u);
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_EQ(sample->coreCount, 128);
+    ASSERT_EQ(sample->coreUsagePercents.size(), 128u);
     for (int i = 0; i < 128; ++i) {
-        EXPECT_NEAR(sample.coreUsagePercents[static_cast<std::size_t>(i)], 25.0f, 0.1f);
+        EXPECT_NEAR(sample->coreUsagePercents[static_cast<std::size_t>(i)], 25.0f, 0.1f);
     }
-    EXPECT_NEAR(sample.totalUsagePercent, 25.0f, 0.1f);
+    EXPECT_NEAR(sample->totalUsagePercent, 25.0f, 0.1f);
 }
 
 TEST(CpuCollector, Collect_MultiGroupWorkloadInSecondaryGroup_ReflectsInTotalUsage)
@@ -365,8 +434,8 @@ TEST(CpuCollector, Collect_MultiGroupWorkloadInSecondaryGroup_ReflectsInTotalUsa
     auto clockReader = [&]() { return clock; };
 
     CpuCollector collector(timesReader, coreReader, clockReader, 128);
-    const auto initialSample = collector.collect();
-    (void)initialSample;
+    const auto baselineSample = collector.collect();
+    EXPECT_FALSE(baselineSample.has_value());
 
     clock += std::chrono::milliseconds{1000};
 
@@ -385,20 +454,21 @@ TEST(CpuCollector, Collect_MultiGroupWorkloadInSecondaryGroup_ReflectsInTotalUsa
     simulatedTimes.kernelTime += 100 * 64;
 
     const auto sample = collector.collect();
-    EXPECT_EQ(sample.coreCount, 128);
-    ASSERT_EQ(sample.coreUsagePercents.size(), 128u);
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_EQ(sample->coreCount, 128);
+    ASSERT_EQ(sample->coreUsagePercents.size(), 128u);
 
     // Group 0 cores: 0%
     for (int i = 0; i < 64; ++i) {
-        EXPECT_FLOAT_EQ(sample.coreUsagePercents[static_cast<std::size_t>(i)], 0.0f);
+        EXPECT_FLOAT_EQ(sample->coreUsagePercents[static_cast<std::size_t>(i)], 0.0f);
     }
     // Group 1 cores: 100%
     for (int i = 64; i < 128; ++i) {
-        EXPECT_FLOAT_EQ(sample.coreUsagePercents[static_cast<std::size_t>(i)], 100.0f);
+        EXPECT_FLOAT_EQ(sample->coreUsagePercents[static_cast<std::size_t>(i)], 100.0f);
     }
 
     // Crucially: Total CPU must be 50.0% (aggregating all 128 cores), NOT 0% from GetSystemTimes!
-    EXPECT_NEAR(sample.totalUsagePercent, 50.0f, 0.1f);
+    EXPECT_NEAR(sample->totalUsagePercent, 50.0f, 0.1f);
 }
 
 TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
@@ -419,8 +489,8 @@ TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
     auto clockReader = [&]() { return clock; };
 
     CpuCollector collector(timesReader, coreReader, clockReader, 2);
-    const auto initialSample = collector.collect();
-    EXPECT_FLOAT_EQ(initialSample.totalUsagePercent, 0.0f);
+    const auto baselineSample = collector.collect();
+    EXPECT_FALSE(baselineSample.has_value());
 
     clock += std::chrono::milliseconds{1000};
     // 50% busy on both cores
@@ -431,12 +501,13 @@ TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
     }
 
     const auto sample = collector.collect();
-    EXPECT_EQ(sample.coreCount, 2);
-    ASSERT_EQ(sample.coreUsagePercents.size(), 2u);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[0], 50.0f);
-    EXPECT_FLOAT_EQ(sample.coreUsagePercents[1], 50.0f);
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_EQ(sample->coreCount, 2);
+    ASSERT_EQ(sample->coreUsagePercents.size(), 2u);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[0], 50.0f);
+    EXPECT_FLOAT_EQ(sample->coreUsagePercents[1], 50.0f);
     // Total usage is correctly derived from aggregated core times
-    EXPECT_FLOAT_EQ(sample.totalUsagePercent, 50.0f);
+    EXPECT_FLOAT_EQ(sample->totalUsagePercent, 50.0f);
 }
 
 

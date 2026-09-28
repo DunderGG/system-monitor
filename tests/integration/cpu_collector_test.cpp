@@ -34,15 +34,16 @@ TEST(CpuCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
     std::this_thread::sleep_for(std::chrono::milliseconds{50});
 
     const auto sample = collector.collect();
+    ASSERT_TRUE(sample.has_value());
 
-    EXPECT_EQ(sample.coreCount, static_cast<int>(expectedCores));
-    EXPECT_FALSE(std::isnan(sample.totalUsagePercent));
-    EXPECT_FALSE(std::isinf(sample.totalUsagePercent));
-    EXPECT_GE(sample.totalUsagePercent, 0.0f);
-    EXPECT_LE(sample.totalUsagePercent, 100.0f);
+    EXPECT_EQ(sample->coreCount, static_cast<int>(expectedCores));
+    EXPECT_FALSE(std::isnan(sample->totalUsagePercent));
+    EXPECT_FALSE(std::isinf(sample->totalUsagePercent));
+    EXPECT_GE(sample->totalUsagePercent, 0.0f);
+    EXPECT_LE(sample->totalUsagePercent, 100.0f);
 
-    EXPECT_EQ(sample.coreUsagePercents.size(), static_cast<std::size_t>(sample.coreCount));
-    for (float coreUsage : sample.coreUsagePercents) {
+    EXPECT_EQ(sample->coreUsagePercents.size(), static_cast<std::size_t>(sample->coreCount));
+    for (float coreUsage : sample->coreUsagePercents) {
         EXPECT_FALSE(std::isnan(coreUsage));
         EXPECT_FALSE(std::isinf(coreUsage));
         EXPECT_GE(coreUsage, 0.0f);
@@ -59,15 +60,16 @@ TEST(CpuCollectorIntegration, ConsecutiveSamplesOverTime_MaintainsInvariantsAndU
     for (int i = 0; i < kSampleCount; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
         const auto sample = collector.collect();
+        ASSERT_TRUE(sample.has_value());
 
-        EXPECT_EQ(sample.coreCount, static_cast<int>(expectedCores));
-        EXPECT_FALSE(std::isnan(sample.totalUsagePercent));
-        EXPECT_FALSE(std::isinf(sample.totalUsagePercent));
-        EXPECT_GE(sample.totalUsagePercent, 0.0f);
-        EXPECT_LE(sample.totalUsagePercent, 100.0f);
+        EXPECT_EQ(sample->coreCount, static_cast<int>(expectedCores));
+        EXPECT_FALSE(std::isnan(sample->totalUsagePercent));
+        EXPECT_FALSE(std::isinf(sample->totalUsagePercent));
+        EXPECT_GE(sample->totalUsagePercent, 0.0f);
+        EXPECT_LE(sample->totalUsagePercent, 100.0f);
 
-        ASSERT_EQ(sample.coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
-        for (float coreUsage : sample.coreUsagePercents) {
+        ASSERT_EQ(sample->coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
+        for (float coreUsage : sample->coreUsagePercents) {
             EXPECT_FALSE(std::isnan(coreUsage));
             EXPECT_FALSE(std::isinf(coreUsage));
             EXPECT_GE(coreUsage, 0.0f);
@@ -83,8 +85,8 @@ TEST(CpuCollectorIntegration, LoadGeneration_DetectsActiveWorkload)
 
     // Initial collect to anchor baseline
     std::this_thread::sleep_for(std::chrono::milliseconds{20});
-    const auto initialSample = collector.collect();
-    (void)initialSample;
+    // No time has elapsed since the constructor baseline, so this may or may not carry a value.
+    [[maybe_unused]] const auto baselineSample = collector.collect();
 
     // Generate intensive synthetic workload on 2 background worker threads
     std::atomic<bool> stopWorkload{false};
@@ -104,23 +106,24 @@ TEST(CpuCollectorIntegration, LoadGeneration_DetectsActiveWorkload)
 
     std::this_thread::sleep_for(std::chrono::milliseconds{80});
     const auto activeSample = collector.collect();
+    ASSERT_TRUE(activeSample.has_value());
     stopWorkload.store(true, std::memory_order_relaxed);
 
-    EXPECT_EQ(activeSample.coreCount, static_cast<int>(expectedCores));
-    EXPECT_FALSE(std::isnan(activeSample.totalUsagePercent));
-    EXPECT_GE(activeSample.totalUsagePercent, 0.0f);
-    EXPECT_LE(activeSample.totalUsagePercent, 100.0f);
+    EXPECT_EQ(activeSample->coreCount, static_cast<int>(expectedCores));
+    EXPECT_FALSE(std::isnan(activeSample->totalUsagePercent));
+    EXPECT_GE(activeSample->totalUsagePercent, 0.0f);
+    EXPECT_LE(activeSample->totalUsagePercent, 100.0f);
 
     // With 2 threads burning CPU for 80ms, the system should sense active compute work
     bool anyCoreActive = false;
-    for (float coreUsage : activeSample.coreUsagePercents) {
+    for (float coreUsage : activeSample->coreUsagePercents) {
         if (coreUsage > 0.0f) {
             anyCoreActive = true;
             break;
         }
     }
 
-    EXPECT_TRUE(anyCoreActive || activeSample.totalUsagePercent > 0.0f);
+    EXPECT_TRUE(anyCoreActive || activeSample->totalUsagePercent > 0.0f);
 }
 
 TEST(CpuCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics)
@@ -151,13 +154,15 @@ TEST(CpuCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics)
 
     scheduler.stop();
 
-    EXPECT_GE(snapshotCount.load(), 1);
+    // The first tick may only establish the CPU baseline, so require at least two.
+    ASSERT_GE(snapshotCount.load(), 2);
     {
         std::lock_guard lock(snapshotMutex);
-        EXPECT_EQ(lastSnapshot.cpu.coreCount, static_cast<int>(expectedCores));
-        EXPECT_EQ(lastSnapshot.cpu.coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
-        EXPECT_FALSE(std::isnan(lastSnapshot.cpu.totalUsagePercent));
-        EXPECT_GE(lastSnapshot.cpu.totalUsagePercent, 0.0f);
-        EXPECT_LE(lastSnapshot.cpu.totalUsagePercent, 100.0f);
+        ASSERT_TRUE(lastSnapshot.cpu.has_value());
+        EXPECT_EQ(lastSnapshot.cpu->coreCount, static_cast<int>(expectedCores));
+        EXPECT_EQ(lastSnapshot.cpu->coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
+        EXPECT_FALSE(std::isnan(lastSnapshot.cpu->totalUsagePercent));
+        EXPECT_GE(lastSnapshot.cpu->totalUsagePercent, 0.0f);
+        EXPECT_LE(lastSnapshot.cpu->totalUsagePercent, 100.0f);
     }
 }

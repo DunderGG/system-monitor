@@ -2,6 +2,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <QObject>
 #include <thread>
 
@@ -30,23 +31,24 @@ TEST(SamplingScheduler, SampleOnce_AssemblesRegisteredCollectors)
 
     EXPECT_GE(snapshot.timestamp, before);
     EXPECT_LE(snapshot.timestamp, after);
-    EXPECT_EQ(snapshot.cpu.coreCount, 6);
-    ASSERT_EQ(snapshot.cpu.coreUsagePercents.size(), 6u);
-    EXPECT_GT(snapshot.memory.totalBytes, 0ULL);
+    ASSERT_TRUE(snapshot.cpu.has_value());
+    EXPECT_EQ(snapshot.cpu->coreCount, 6);
+    ASSERT_EQ(snapshot.cpu->coreUsagePercents.size(), 6u);
+    ASSERT_TRUE(snapshot.memory.has_value());
+    EXPECT_GT(snapshot.memory->totalBytes, 0ULL);
     EXPECT_TRUE(snapshot.disks.empty());
     EXPECT_TRUE(snapshot.networks.empty());
     EXPECT_TRUE(snapshot.processes.empty());
 }
 
-TEST(SamplingScheduler, SampleOnce_MissingCollectorsProduceDefaults)
+TEST(SamplingScheduler, SampleOnce_MissingCollectors_ProduceNoData)
 {
     SamplingScheduler scheduler;
 
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
-    EXPECT_EQ(snapshot.cpu.coreCount, 0);
-    EXPECT_FLOAT_EQ(snapshot.cpu.totalUsagePercent, 0.0f);
-    EXPECT_EQ(snapshot.memory.totalBytes, 0ULL);
+    EXPECT_FALSE(snapshot.cpu.has_value());
+    EXPECT_FALSE(snapshot.memory.has_value());
     EXPECT_TRUE(snapshot.disks.empty());
     EXPECT_TRUE(snapshot.networks.empty());
     EXPECT_TRUE(snapshot.processes.empty());
@@ -94,8 +96,10 @@ TEST(SamplingScheduler, EmitsSnapshotReadySignal_ReceivedViaQtConnection)
     EXPECT_GE(snapshotCount.load(), 2);
     {
         std::lock_guard lock(snapMutex);
-        EXPECT_EQ(lastSnapshot.cpu.coreCount, 4);
-        EXPECT_GT(lastSnapshot.memory.totalBytes, 0ULL);
+        ASSERT_TRUE(lastSnapshot.cpu.has_value());
+        EXPECT_EQ(lastSnapshot.cpu->coreCount, 4);
+        ASSERT_TRUE(lastSnapshot.memory.has_value());
+        EXPECT_GT(lastSnapshot.memory->totalBytes, 0ULL);
     }
 }
 
@@ -125,7 +129,7 @@ class MutexReentryProbeCollector : public sysmon::monitoring::ICpuCollector
 public:
     explicit MutexReentryProbeCollector(SamplingScheduler &scheduler) : m_scheduler(scheduler) {}
 
-    [[nodiscard]] sysmon::domain::CpuSample collect() override
+    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
     {
         // Calling setDiskCollector acquires m_collectorMutex.
         // If sampleOnce() held m_collectorMutex during collect(), this non-recursive mutex would deadlock.
@@ -159,7 +163,8 @@ TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
     EXPECT_TRUE(probePtr->wasCalled());
-    EXPECT_EQ(snapshot.cpu.coreCount, 8);
+    ASSERT_TRUE(snapshot.cpu.has_value());
+    EXPECT_EQ(snapshot.cpu->coreCount, 8);
 }
 
 namespace

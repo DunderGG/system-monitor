@@ -12,7 +12,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Open — needs guideline decision |
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
 | [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Open |
-| [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Open |
+| [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Resolved (2026-09-25) |
 
 ---
 
@@ -97,3 +97,5 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/domain/system_snapshot.h`, `src/platform/windows/memory_collector.cpp` — `collect()`, `tests/unit/sampling_scheduler_test.cpp`
 
 **Plan:** Make the `cpu` and `memory` snapshot fields `std::optional` (as `uptime` already is) and return `std::nullopt` on collector failure. Audit `CpuCollector` at the same time. Best done before the dashboard cards consume these fields.
+
+**Status:** Resolved (2026-09-25). `ICpuCollector` / `IMemoryCollector` and the `cpu` / `memory` snapshot fields are now `std::optional`. The `CpuCollector` audit found four more zero placeholders, all fixed: both queries failing, the baseline-only first sample, uncomputable rates in `calculateCpuUsage` (including counters that went backwards), and zero-filled per-core values on a core-count change. `MemoryCollector` returns `std::nullopt` on failure or a zero total. The dashboard shows "N/A". See the [design decision](design_decisions.md#no-zero-placeholders-for-cpu-and-memory-optional-samples-end-to-end).

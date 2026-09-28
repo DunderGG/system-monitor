@@ -11,7 +11,7 @@ SyntheticMemoryCollector::SyntheticMemoryCollector(uint64_t totalBytes, uint64_t
       m_baseUsagePercent(std::clamp(baseUsagePercent, 0.0f, 100.0f))
 {}
 
-domain::MemorySample SyntheticMemoryCollector::collect()
+std::optional<domain::MemorySample> SyntheticMemoryCollector::collect()
 {
     const float radians = static_cast<float>(m_step) * 0.05f;
     const float rawUsage = m_baseUsagePercent + 15.0f * std::sin(radians) + 3.0f * std::cos(radians * 1.7f);

@@ -35,19 +35,28 @@ DashboardView::DashboardView(QWidget *parent) : QWidget(parent)
 
 void DashboardView::updateSnapshot(const domain::SystemSnapshot &snapshot)
 {
-    m_cpuLabel->setText(QString("CPU: %1% (%2 cores)")
-                            .arg(static_cast<double>(snapshot.cpu.totalUsagePercent), 0, 'f', 1)
-                            .arg(snapshot.cpu.coreCount));
+    if (snapshot.cpu) {
+        m_cpuLabel->setText(QString("CPU: %1% (%2 cores)")
+                                .arg(static_cast<double>(snapshot.cpu->totalUsagePercent), 0, 'f', 1)
+                                .arg(snapshot.cpu->coreCount));
+    } else {
+        m_cpuLabel->setText("CPU: N/A");
+    }
 
+    if (!snapshot.memory) {
+        m_memoryLabel->setText("Memory: N/A");
+        return;
+    }
+
+    const auto &memory = *snapshot.memory;
     constexpr double kBytesPerGiB = 1024.0 * 1024.0 * 1024.0;
-    const double totalGiB = static_cast<double>(snapshot.memory.totalBytes) / kBytesPerGiB;
-    const uint64_t usedBytes = (snapshot.memory.totalBytes > snapshot.memory.availableBytes)
-                                   ? (snapshot.memory.totalBytes - snapshot.memory.availableBytes)
-                                   : 0ULL;
+    const double totalGiB = static_cast<double>(memory.totalBytes) / kBytesPerGiB;
+    const uint64_t usedBytes =
+        (memory.totalBytes > memory.availableBytes) ? (memory.totalBytes - memory.availableBytes) : 0ULL;
     const double usedGiB = static_cast<double>(usedBytes) / kBytesPerGiB;
 
     m_memoryLabel->setText(QString("Memory: %1% (%2 / %3 GiB)")
-                               .arg(static_cast<double>(snapshot.memory.usagePercent), 0, 'f', 1)
+                               .arg(static_cast<double>(memory.usagePercent), 0, 'f', 1)
                                .arg(usedGiB, 0, 'f', 1)
                                .arg(totalGiB, 0, 'f', 1));
 }

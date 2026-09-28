@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -269,28 +270,29 @@ SystemTimesData aggregateCoreTimes(const std::vector<SystemTimesData> &coreTimes
 
 } // namespace
 
-float calculateCpuUsage(
+std::optional<float> calculateCpuUsage(
     const SystemTimesData &previous,
     const SystemTimesData &current,
     std::chrono::nanoseconds monotonicElapsed)
 {
     if (monotonicElapsed <= std::chrono::nanoseconds{0}) {
-        return 0.0f;
+        return std::nullopt;
     }
 
-    const uint64_t deltaIdle = (current.idleTime >= previous.idleTime)
-        ? (current.idleTime - previous.idleTime)
-        : 0;
-    const uint64_t deltaKernel = (current.kernelTime >= previous.kernelTime)
-        ? (current.kernelTime - previous.kernelTime)
-        : 0;
-    const uint64_t deltaUser = (current.userTime >= previous.userTime)
-        ? (current.userTime - previous.userTime)
-        : 0;
+    // A counter that went backwards means the counters were reset; the delta
+    // across the reset is meaningless, so no rate can be reported.
+    if (current.idleTime < previous.idleTime || current.kernelTime < previous.kernelTime ||
+        current.userTime < previous.userTime) {
+        return std::nullopt;
+    }
+
+    const uint64_t deltaIdle = current.idleTime - previous.idleTime;
+    const uint64_t deltaKernel = current.kernelTime - previous.kernelTime;
+    const uint64_t deltaUser = current.userTime - previous.userTime;
 
     const uint64_t deltaTotal = deltaKernel + deltaUser;
     if (deltaTotal == 0) {
-        return 0.0f;
+        return std::nullopt;
     }
 
     const uint64_t deltaBusy = (deltaTotal > deltaIdle) ? (deltaTotal - deltaIdle) : 0;
@@ -362,7 +364,7 @@ CpuCollector::CpuCollector(
     }
 }
 
-domain::CpuSample CpuCollector::collect()
+std::optional<domain::CpuSample> CpuCollector::collect()
 {
     SystemTimesData currentTimes{};
     std::vector<SystemTimesData> currentCoreTimes;
@@ -372,11 +374,7 @@ domain::CpuSample CpuCollector::collect()
     const bool hasCoreTimes = m_coreReader && m_coreReader(currentCoreTimes);
 
     if (!hasTimes && !hasCoreTimes) {
-        return domain::CpuSample{
-            .totalUsagePercent = 0.0f,
-            .coreUsagePercents = {},
-            .coreCount = m_coreCount,
-        };
+        return std::nullopt;
     }
 
     // For multi-group systems (>64 cores) or if GetSystemTimes failed,
@@ -386,46 +384,44 @@ domain::CpuSample CpuCollector::collect()
     }
 
     if (!m_hasBaseline) {
+        // A usage rate needs two samples; this one only establishes the baseline.
         m_previousTimes = currentTimes;
         m_previousCoreTimes = std::move(currentCoreTimes);
         m_previousTimestamp = now;
         m_hasBaseline = true;
-
-        std::vector<float> initialCoreUsages;
-        if (hasCoreTimes) {
-            initialCoreUsages.assign(m_previousCoreTimes.size(), 0.0f);
-        }
-
-        const int coreCount = !initialCoreUsages.empty() ? static_cast<int>(initialCoreUsages.size()) : m_coreCount;
-
-        return domain::CpuSample{
-            .totalUsagePercent = 0.0f,
-            .coreUsagePercents = std::move(initialCoreUsages),
-            .coreCount = coreCount,
-        };
+        return std::nullopt;
     }
 
     const auto monotonicElapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_previousTimestamp);
-    const float totalUsage = calculateCpuUsage(m_previousTimes, currentTimes, monotonicElapsed);
+    const auto totalUsage = calculateCpuUsage(m_previousTimes, currentTimes, monotonicElapsed);
 
+    // Per-core values are reported all-or-nothing: a partial list would misalign
+    // core indices, and zero-filling would misreport missing data as idle cores.
     std::vector<float> coreUsages;
     if (hasCoreTimes && currentCoreTimes.size() == m_previousCoreTimes.size()) {
         coreUsages.reserve(currentCoreTimes.size());
         for (std::size_t i = 0; i < currentCoreTimes.size(); ++i) {
-            coreUsages.push_back(calculateCpuUsage(m_previousCoreTimes[i], currentCoreTimes[i], monotonicElapsed));
+            const auto coreUsage = calculateCpuUsage(m_previousCoreTimes[i], currentCoreTimes[i], monotonicElapsed);
+            if (!coreUsage) {
+                coreUsages.clear();
+                break;
+            }
+            coreUsages.push_back(*coreUsage);
         }
-    } else if (hasCoreTimes) {
-        coreUsages.assign(currentCoreTimes.size(), 0.0f);
     }
 
-    const int coreCount = !coreUsages.empty() ? static_cast<int>(coreUsages.size()) : m_coreCount;
+    const int coreCount = hasCoreTimes ? static_cast<int>(currentCoreTimes.size()) : m_coreCount;
 
     m_previousTimes = currentTimes;
     m_previousCoreTimes = std::move(currentCoreTimes);
     m_previousTimestamp = now;
 
+    if (!totalUsage) {
+        return std::nullopt;
+    }
+
     return domain::CpuSample{
-        .totalUsagePercent = totalUsage,
+        .totalUsagePercent = *totalUsage,
         .coreUsagePercents = std::move(coreUsages),
         .coreCount = coreCount,
     };

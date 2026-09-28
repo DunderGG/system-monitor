@@ -26,13 +26,14 @@ namespace sysmon::domain
 // scheduler thread build a new snapshot each tick; the UI thread receives it
 // and discards the previous one. No shared mutable state persists between ticks.
 //
-// uptime is the time since the system booted, including time spent in sleep or
-// hibernation. It is std::nullopt when no uptime collector is registered.
+// Optional fields are std::nullopt when no collector is registered or no valid
+// sample was available this tick (never a zero-filled placeholder). uptime is
+// the time since the system booted, including time spent in sleep or hibernation.
 struct SystemSnapshot
 {
     std::chrono::steady_clock::time_point timestamp;
-    CpuSample cpu;
-    MemorySample memory;
+    std::optional<CpuSample> cpu;
+    std::optional<MemorySample> memory;
     std::vector<DiskSample> disks;
     std::vector<NetworkSample> networks;
     ConnectivityStatus connectivity;

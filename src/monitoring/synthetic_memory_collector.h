@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <cstdint>
 
 #include "domain/memory_sample.h"
@@ -26,7 +27,7 @@ public:
                                       float baseUsagePercent = 45.0f);
     ~SyntheticMemoryCollector() override = default;
 
-    [[nodiscard]] domain::MemorySample collect() override;
+    [[nodiscard]] std::optional<domain::MemorySample> collect() override;
 
     void setTotalBytes(uint64_t bytes);
     [[nodiscard]] uint64_t totalBytes() const;

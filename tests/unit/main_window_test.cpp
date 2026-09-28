@@ -46,11 +46,12 @@ TEST(DashboardView, UpdateSnapshot_UpdatesCpuAndMemoryLabels)
     EXPECT_TRUE(dashboard.memoryText().contains("--"));
 
     SystemSnapshot snapshot;
-    snapshot.cpu.totalUsagePercent = 42.5f;
-    snapshot.cpu.coreCount = 8;
-    snapshot.memory.totalBytes = 34'359'738'368ULL;     // 32 GiB
-    snapshot.memory.availableBytes = 17'179'869'184ULL; // 16 GiB
-    snapshot.memory.usagePercent = 50.0f;
+    snapshot.cpu = sysmon::domain::CpuSample{.totalUsagePercent = 42.5f, .coreCount = 8};
+    snapshot.memory = sysmon::domain::MemorySample{
+        .totalBytes = 34'359'738'368ULL,     // 32 GiB
+        .availableBytes = 17'179'869'184ULL, // 16 GiB
+        .usagePercent = 50.0f,
+    };
 
     dashboard.updateSnapshot(snapshot);
 
@@ -58,6 +59,17 @@ TEST(DashboardView, UpdateSnapshot_UpdatesCpuAndMemoryLabels)
     EXPECT_TRUE(dashboard.cpuText().contains("8 cores"));
     EXPECT_TRUE(dashboard.memoryText().contains("50.0%"));
     EXPECT_TRUE(dashboard.memoryText().contains("32.0 GiB"));
+}
+
+TEST(DashboardView, UpdateSnapshot_MissingCpuAndMemory_ShowsNotAvailable)
+{
+    DashboardView dashboard;
+    const SystemSnapshot snapshot;
+
+    dashboard.updateSnapshot(snapshot);
+
+    EXPECT_EQ(dashboard.cpuText(), "CPU: N/A");
+    EXPECT_EQ(dashboard.memoryText(), "Memory: N/A");
 }
 
 TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)

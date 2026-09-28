@@ -12,7 +12,7 @@ SyntheticCpuCollector::SyntheticCpuCollector(int coreCount, float baseUsagePerce
     : m_coreCount(std::max(1, coreCount)), m_baseUsagePercent(std::clamp(baseUsagePercent, 0.0f, 100.0f))
 {}
 
-domain::CpuSample SyntheticCpuCollector::collect()
+std::optional<domain::CpuSample> SyntheticCpuCollector::collect()
 {
     const float radians = static_cast<float>(m_step) * 0.1f;
     const float rawTotal = m_baseUsagePercent + 20.0f * std::sin(radians) + 5.0f * std::sin(radians * 2.3f);
