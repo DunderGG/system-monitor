@@ -19,6 +19,7 @@ add_executable(system_monitor_tests
     unit/network_collector_test.cpp
     unit/adapter_details_cache_test.cpp
     unit/repeated_failure_log_test.cpp
+    unit/log_capture.h
     unit/connectivity_collector_test.cpp
     unit/uptime_collector_test.cpp
     unit/health_evaluator_test.cpp

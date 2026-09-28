@@ -52,7 +52,8 @@ using ConnectivitySubscriber = std::function<std::unique_ptr<ConnectivitySubscri
  *
  * Missing data is explicit: before the first successful read, or after a failed
  * read, collect() returns ConnectivityLevel::Unknown with isMetered == std::nullopt.
- * Each change of status is logged at info level.
+ * collect() logs each change of status at info level, so notification callbacks
+ * only store the value.
  */
 class ConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
 {
@@ -77,11 +78,15 @@ public:
     [[nodiscard]] domain::ConnectivityStatus collect() override;
 
 private:
-    // Stores the status and logs if it differs from the previous one. Thread-safe.
-    void applyStatus(domain::ConnectivityStatus status);
+    // Stores the status in the cache and does nothing else. Thread-safe; called
+    // from notification callbacks on OS thread-pool threads.
+    void storeStatus(domain::ConnectivityStatus status);
 
     // Polled on every collect() in polling mode; empty on the notification path.
     ConnectivityReader m_pollingReader;
+
+    // The last status collect() logged. Used only on the collecting thread.
+    domain::ConnectivityStatus m_lastLoggedStatus;
 
     std::mutex m_mutex;
     domain::ConnectivityStatus m_cachedStatus;

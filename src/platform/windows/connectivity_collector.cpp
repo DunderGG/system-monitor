@@ -136,10 +136,10 @@ ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader, Connecti
     // an asynchronous notification, and before subscribing so a notification
     // can never be overwritten by an older seed value.
     if (const auto status = reader()) {
-        applyStatus(*status);
+        storeStatus(*status);
     }
 
-    m_subscription = subscriber([this](domain::ConnectivityStatus status) { applyStatus(status); });
+    m_subscription = subscriber([this](domain::ConnectivityStatus status) { storeStatus(status); });
     if (!m_subscription) {
         // Known deviation D-2 (docs/known_deviations.md): polls on the scheduler thread.
         spdlog::warn("Connectivity change notifications unavailable; falling back to polling");
@@ -155,26 +155,30 @@ ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader)
 domain::ConnectivityStatus ConnectivityCollector::collect()
 {
     if (m_pollingReader) {
-        applyStatus(m_pollingReader().value_or(domain::ConnectivityStatus{}));
+        storeStatus(m_pollingReader().value_or(domain::ConnectivityStatus{}));
     }
 
-    const std::lock_guard lock(m_mutex);
-    return m_cachedStatus;
-}
-
-void ConnectivityCollector::applyStatus(domain::ConnectivityStatus status)
-{
-    bool hasChanged = false;
+    domain::ConnectivityStatus status;
     {
         const std::lock_guard lock(m_mutex);
-        hasChanged = status != m_cachedStatus;
-        m_cachedStatus = status;
+        status = m_cachedStatus;
     }
 
-    if (hasChanged) {
+    // Logged here, on the collecting thread, so notification callbacks only store
+    // (event-driven collector rule 1). A change that reverts before the next tick
+    // is not logged.
+    if (status != m_lastLoggedStatus) {
         spdlog::info("Connectivity changed: level={}, metered={}", levelName(status.level),
                      meteredName(status.isMetered));
+        m_lastLoggedStatus = status;
     }
+    return status;
+}
+
+void ConnectivityCollector::storeStatus(domain::ConnectivityStatus status)
+{
+    const std::lock_guard lock(m_mutex);
+    m_cachedStatus = status;
 }
 
 } // namespace sysmon::platform

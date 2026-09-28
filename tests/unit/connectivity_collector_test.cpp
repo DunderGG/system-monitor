@@ -1,10 +1,12 @@
 #include <memory>
 #include <optional>
+#include <string>
 #include <thread>
 
 #include <gtest/gtest.h>
 
 #include "domain/connectivity_status.h"
+#include "log_capture.h"
 #include "platform/windows/connectivity_collector.h"
 
 using namespace sysmon::domain;
@@ -243,6 +245,24 @@ TEST(ConnectivityCollector, Notification_UpdatesCollectedStatus)
 
     EXPECT_EQ(collected.level, ConnectivityLevel::InternetAccess);
     EXPECT_EQ(collected.isMetered, true);
+}
+
+TEST(ConnectivityCollector, Notification_StoresOnlyAndCollectLogsTheChange)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false), fakeSubscriber(state));
+    ASSERT_TRUE(state.handler);
+    static_cast<void>(collector.collect()); // Logs the seeded status.
+    const sysmon::tests::ScopedLogCapture logCapture;
+
+    // The notification runs on an OS thread in production and must not log.
+    state.handler(status(ConnectivityLevel::InternetAccess));
+    const std::string afterNotification = logCapture.output();
+    static_cast<void>(collector.collect());
+    static_cast<void>(collector.collect());
+
+    EXPECT_TRUE(afterNotification.empty());
+    EXPECT_EQ(logCapture.output(), "info Connectivity changed: level=InternetAccess, metered=no\n");
 }
 
 TEST(ConnectivityCollector, NotificationPath_CollectDoesNotPollReader)

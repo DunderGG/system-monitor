@@ -56,7 +56,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Resolved |
 | [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Resolved |
 | [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Resolved |
-| [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Open |
+| [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Resolved |
 | [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Open |
 | [F-16](#f-16-resourcecardsetstatus-restyles-every-tick) | `ResourceCard::setStatus` restyles every tick | Low | Open |
 | [F-17](#f-17-clang-format-is-not-enforced) | `.clang-format` is not enforced | Low | Open |
@@ -299,7 +299,7 @@ The trade-off is that a change which reverts within one tick is not logged. That
 
 **Recommendation:** Fix when convenient, before another event-driven collector copies the pattern (F-10's address notifications would be the next one).
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). `applyStatus()` became `storeStatus()`, which only writes the cache under the mutex. `collect()` compares the cached status with `m_lastLoggedStatus` (used on the collecting thread only) and logs the change there. F-10's address notifications already followed the rule. A new unit test captures the log and checks that a notification logs nothing and that the following `collect()` calls log the change exactly once. The log-capture helper moved to `tests/unit/log_capture.h` so the F-11 tests share it. Updated the connectivity design decision.
 
 ---
 

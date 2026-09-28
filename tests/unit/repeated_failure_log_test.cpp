@@ -1,12 +1,9 @@
-#include <memory>
-#include <sstream>
 #include <string>
 
 #include <gtest/gtest.h>
-#include <spdlog/pattern_formatter.h>
-#include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "log_capture.h"
 #include "platform/windows/repeated_failure_log.h"
 
 using sysmon::platform::RepeatedFailureLog;
@@ -14,36 +11,16 @@ using sysmon::platform::RepeatedFailureLog;
 namespace
 {
 
-// Routes the default logger to a string stream for the duration of a test,
-// one "level message" line per record.
 class RepeatedFailureLogTest : public ::testing::Test
 {
 protected:
-    void SetUp() override
-    {
-        m_previousLogger = spdlog::default_logger();
-        auto sink = std::make_shared<spdlog::sinks::ostream_sink_st>(m_output);
-        auto logger = std::make_shared<spdlog::logger>("repeated_failure_log_test", sink);
-        // Explicit "\n": spdlog's default line ending on Windows is "\r\n".
-        logger->set_formatter(
-            std::make_unique<spdlog::pattern_formatter>("%l %v", spdlog::pattern_time_type::local, "\n"));
-        logger->set_level(spdlog::level::trace);
-        spdlog::set_default_logger(logger);
-    }
-
-    void TearDown() override
-    {
-        spdlog::set_default_logger(m_previousLogger);
-    }
-
     [[nodiscard]] std::string output() const
     {
-        return m_output.str();
+        return m_logCapture.output();
     }
 
 private:
-    std::ostringstream m_output;
-    std::shared_ptr<spdlog::logger> m_previousLogger;
+    sysmon::tests::ScopedLogCapture m_logCapture;
 };
 
 } // namespace
