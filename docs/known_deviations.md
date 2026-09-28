@@ -10,7 +10,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | [D-2](#d-2-connectivity-fallback-polls-on-the-scheduler-thread) | Connectivity fallback polls on the scheduler thread | Low | Open — blocked on D-1 |
 | [D-3](#d-3-connectivity-updates-arrive-on-an-os-thread-pool-thread) | Connectivity updates arrive on an OS thread-pool thread | Low | Resolved (2026-09-25) |
 | [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Resolved (2026-09-25) |
-| [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
+| [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Resolved (2026-09-25) |
 | [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Resolved (2026-09-25) |
 | [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Resolved (2026-09-25) |
 | [D-8](#d-8-zero-capacity-disk-volumes-report-0-usage) | Zero-capacity disk volumes report 0% usage | Low | Resolved (2026-09-25) |
@@ -78,6 +78,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/platform/windows/connectivity_collector.cpp`, `tests/integration/connectivity_collector_test.cpp`
 
 **Plan:** Add a seam that lets a test deliver a notification (for example an injectable subscription function) if this path gains more logic than "map, then store".
+
+**Status:** Resolved (2026-09-25). `ConnectivityCollector` now takes an injected `ConnectivitySubscriber` (alongside the `ConnectivityReader`) that returns an RAII `ConnectivitySubscription`. The Windows implementation moved into a `WindowsConnectivitySubscription` class in the `.cpp`, replacing `NotificationBridge` and `NotificationHandleDeleter`. New unit tests use a fake subscriber to cover seeding before subscribing, notification delivery, no polling on the notification path, Unknown until the first notification when seeding fails, cancellation on destruction, the polling fallback, and notifications arriving from another thread.
 
 ---
 

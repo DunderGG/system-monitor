@@ -1,4 +1,6 @@
+#include <memory>
 #include <optional>
+#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -155,4 +157,168 @@ TEST(ConnectivityCollector, Collect_StatusChangesBetweenTicks_ReflectsEachChange
     EXPECT_EQ(s2.level, ConnectivityLevel::None);
     EXPECT_EQ(s3.level, ConnectivityLevel::InternetAccess);
     EXPECT_EQ(callCount, 3);
+}
+
+// ---------------------------------------------------------------------------
+// Notification path with a fake subscriber (event-driven collector rules)
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+// Records what the collector did with its subscription. Owned by the test and
+// outlives the collector, so the fakes can refer to it by reference.
+struct FakeSubscriptionState
+{
+    ConnectivityChangeHandler handler;
+    int subscribeCount = 0;
+    bool isCancelled = false;
+    bool shouldFail = false;
+};
+
+class FakeSubscription : public ConnectivitySubscription
+{
+public:
+    explicit FakeSubscription(FakeSubscriptionState &state)
+        : m_state(state)
+    {
+    }
+
+    ~FakeSubscription() override
+    {
+        m_state.isCancelled = true;
+    }
+
+private:
+    FakeSubscriptionState &m_state;
+};
+
+ConnectivitySubscriber fakeSubscriber(FakeSubscriptionState &state)
+{
+    return [&state](ConnectivityChangeHandler handler) -> std::unique_ptr<ConnectivitySubscription> {
+        ++state.subscribeCount;
+        if (state.shouldFail) {
+            return nullptr;
+        }
+        state.handler = std::move(handler);
+        return std::make_unique<FakeSubscription>(state);
+    };
+}
+
+ConnectivityStatus status(ConnectivityLevel level)
+{
+    return ConnectivityStatus{.level = level, .isMetered = false};
+}
+
+} // namespace
+
+TEST(ConnectivityCollector, Construction_SeedsFromReaderBeforeSubscribing)
+{
+    FakeSubscriptionState state;
+    int readsBeforeSubscribe = -1;
+    int readCount = 0;
+    auto reader = [&readCount] {
+        ++readCount;
+        return std::optional<ConnectivityStatus>{status(ConnectivityLevel::LocalAccess)};
+    };
+    auto subscriber = [&](ConnectivityChangeHandler handler) {
+        readsBeforeSubscribe = readCount;
+        return fakeSubscriber(state)(std::move(handler));
+    };
+
+    ConnectivityCollector collector(reader, subscriber);
+
+    EXPECT_EQ(readsBeforeSubscribe, 1);
+    EXPECT_EQ(collector.collect().level, ConnectivityLevel::LocalAccess);
+}
+
+TEST(ConnectivityCollector, Notification_UpdatesCollectedStatus)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false), fakeSubscriber(state));
+    ASSERT_TRUE(state.handler);
+
+    state.handler(ConnectivityStatus{.level = ConnectivityLevel::InternetAccess, .isMetered = true});
+    const auto collected = collector.collect();
+
+    EXPECT_EQ(collected.level, ConnectivityLevel::InternetAccess);
+    EXPECT_EQ(collected.isMetered, true);
+}
+
+TEST(ConnectivityCollector, NotificationPath_CollectDoesNotPollReader)
+{
+    FakeSubscriptionState state;
+    int readCount = 0;
+    auto reader = [&readCount] {
+        ++readCount;
+        return std::optional<ConnectivityStatus>{status(ConnectivityLevel::InternetAccess)};
+    };
+    ConnectivityCollector collector(reader, fakeSubscriber(state));
+
+    [[maybe_unused]] const auto first = collector.collect();
+    [[maybe_unused]] const auto second = collector.collect();
+
+    EXPECT_EQ(readCount, 1); // Only the construction seed.
+}
+
+TEST(ConnectivityCollector, SeedFails_UnknownUntilFirstNotification)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector([] { return std::optional<ConnectivityStatus>{}; }, fakeSubscriber(state));
+
+    const auto beforeNotification = collector.collect();
+    state.handler(status(ConnectivityLevel::None));
+    const auto afterNotification = collector.collect();
+
+    EXPECT_EQ(beforeNotification.level, ConnectivityLevel::Unknown);
+    EXPECT_EQ(afterNotification.level, ConnectivityLevel::None);
+}
+
+TEST(ConnectivityCollector, Destruction_CancelsSubscription)
+{
+    FakeSubscriptionState state;
+    {
+        ConnectivityCollector collector(fixedReader(ConnectivityLevel::InternetAccess, false), fakeSubscriber(state));
+        EXPECT_FALSE(state.isCancelled);
+    }
+
+    EXPECT_TRUE(state.isCancelled);
+}
+
+TEST(ConnectivityCollector, SubscribeFails_FallsBackToPollingReader)
+{
+    FakeSubscriptionState state{.shouldFail = true};
+    int readCount = 0;
+    auto reader = [&readCount] {
+        ++readCount;
+        return std::optional<ConnectivityStatus>{status(readCount == 1 ? ConnectivityLevel::LocalAccess
+                                                                        : ConnectivityLevel::InternetAccess)};
+    };
+
+    ConnectivityCollector collector(reader, fakeSubscriber(state));
+    const auto collected = collector.collect();
+
+    EXPECT_EQ(state.subscribeCount, 1);
+    EXPECT_EQ(readCount, 2); // Seed plus one poll.
+    EXPECT_EQ(collected.level, ConnectivityLevel::InternetAccess);
+}
+
+TEST(ConnectivityCollector, NotificationsFromAnotherThread_CollectSeesLatestAfterJoin)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector(fixedReader(ConnectivityLevel::None, false), fakeSubscriber(state));
+
+    {
+        std::jthread notifier([&state] {
+            for (int i = 0; i < 1000; ++i) {
+                state.handler(status(i % 2 == 0 ? ConnectivityLevel::LocalAccess : ConnectivityLevel::None));
+            }
+            state.handler(status(ConnectivityLevel::InternetAccess));
+        });
+        for (int i = 0; i < 1000; ++i) {
+            [[maybe_unused]] const auto concurrent = collector.collect();
+        }
+    }
+
+    EXPECT_EQ(collector.collect().level, ConnectivityLevel::InternetAccess);
 }

@@ -1,5 +1,7 @@
 #include "platform/windows/connectivity_collector.h"
 
+#include <cassert>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string_view>
@@ -57,58 +59,97 @@ std::optional<domain::ConnectivityStatus> queryConnectivityHint()
     return toConnectivityStatus(hint);
 }
 
-} // namespace
-
-struct ConnectivityCollector::NotificationBridge
+// RAII registration of NotifyNetworkConnectivityHintChange. The callback runs on
+// a system thread pool thread and only forwards the mapped status to the
+// handler (event-driven collector rules in docs/architecture.md).
+class WindowsConnectivitySubscription final : public ConnectivitySubscription
 {
-    // Invoked on a system thread pool thread; follows the event-driven collector
-    // rules in docs/architecture.md (store only, cancelled before teardown).
+public:
+    explicit WindowsConnectivitySubscription(ConnectivityChangeHandler handler)
+        : m_handler(std::move(handler))
+    {
+    }
+
+    ~WindowsConnectivitySubscription() override
+    {
+        if (m_handle != nullptr) {
+            // Blocks until any in-flight callback has returned.
+            CancelMibChangeNotify2(m_handle);
+        }
+    }
+
+    WindowsConnectivitySubscription(const WindowsConnectivitySubscription &) = delete;
+    WindowsConnectivitySubscription &operator=(const WindowsConnectivitySubscription &) = delete;
+    WindowsConnectivitySubscription(WindowsConnectivitySubscription &&) = delete;
+    WindowsConnectivitySubscription &operator=(WindowsConnectivitySubscription &&) = delete;
+
+    // Registers with an initial notification, which closes the gap between the
+    // caller's synchronous seed read and this registration.
+    [[nodiscard]] bool registerNotifications()
+    {
+        const DWORD result = NotifyNetworkConnectivityHintChange(&onConnectivityChange, this, TRUE, &m_handle);
+        if (result != NO_ERROR) {
+            spdlog::warn("NotifyNetworkConnectivityHintChange failed with error {}", result);
+            m_handle = nullptr;
+            return false;
+        }
+        return true;
+    }
+
+private:
     static void WINAPI onConnectivityChange(PVOID callerContext, NL_NETWORK_CONNECTIVITY_HINT hint) noexcept
     {
-        auto *self = static_cast<ConnectivityCollector *>(callerContext);
-        self->applyStatus(toConnectivityStatus(hint));
+        static_cast<WindowsConnectivitySubscription *>(callerContext)->m_handler(toConnectivityStatus(hint));
     }
+
+    ConnectivityChangeHandler m_handler;
+    HANDLE m_handle{nullptr};
 };
 
-void ConnectivityCollector::NotificationHandleDeleter::operator()(void *handle) const noexcept
+std::unique_ptr<ConnectivitySubscription> subscribeToConnectivityChanges(ConnectivityChangeHandler handler)
 {
-    // Blocks until any in-flight callback has returned.
-    CancelMibChangeNotify2(handle);
+    auto subscription = std::make_unique<WindowsConnectivitySubscription>(std::move(handler));
+    if (!subscription->registerNotifications()) {
+        return nullptr;
+    }
+    return subscription;
 }
 
+} // namespace
+
 ConnectivityCollector::ConnectivityCollector()
+    : ConnectivityCollector(queryConnectivityHint, subscribeToConnectivityChanges)
 {
+}
+
+ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader, ConnectivitySubscriber subscriber)
+{
+    assert(reader && subscriber && "reader and subscriber are required");
+
     // Seed synchronously so the first collect() is accurate without waiting for
-    // the asynchronous initial notification. Done before registering so a
-    // callback can never be overwritten by an older seed value. The initial
-    // notification still closes the gap between seeding and registration.
-    if (const auto status = queryConnectivityHint()) {
+    // an asynchronous notification, and before subscribing so a notification
+    // can never be overwritten by an older seed value.
+    if (const auto status = reader()) {
         applyStatus(*status);
     }
 
-    HANDLE handle = nullptr;
-    const DWORD result = NotifyNetworkConnectivityHintChange(&NotificationBridge::onConnectivityChange, this,
-                                                             TRUE, &handle);
-    if (result != NO_ERROR) {
+    m_subscription = subscriber([this](domain::ConnectivityStatus status) { applyStatus(status); });
+    if (!m_subscription) {
         // Known deviation D-2 (docs/known_deviations.md): polls on the scheduler thread.
-        spdlog::warn("NotifyNetworkConnectivityHintChange failed with error {}; "
-                     "falling back to polling GetNetworkConnectivityHint",
-                     result);
-        m_reader = queryConnectivityHint;
-        return;
+        spdlog::warn("Connectivity change notifications unavailable; falling back to polling");
+        m_pollingReader = std::move(reader);
     }
-    m_notificationHandle.reset(handle);
 }
 
 ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader)
-    : m_reader(std::move(reader))
+    : m_pollingReader(std::move(reader))
 {
 }
 
 domain::ConnectivityStatus ConnectivityCollector::collect()
 {
-    if (m_reader) {
-        applyStatus(m_reader().value_or(domain::ConnectivityStatus{}));
+    if (m_pollingReader) {
+        applyStatus(m_pollingReader().value_or(domain::ConnectivityStatus{}));
     }
 
     const std::lock_guard lock(m_mutex);

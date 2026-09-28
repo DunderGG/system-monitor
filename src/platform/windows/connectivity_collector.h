@@ -12,26 +12,43 @@ namespace sysmon::platform
 {
 
 /**
- * Reader callback type — injected in unit tests instead of calling
- * GetNetworkConnectivityHint directly. Returns std::nullopt on failure.
+ * Reads the current connectivity synchronously (GetNetworkConnectivityHint in
+ * production). Returns std::nullopt on failure.
  */
 using ConnectivityReader = std::function<std::optional<domain::ConnectivityStatus>()>;
 
+/** Receives each connectivity change. May be invoked on any thread. */
+using ConnectivityChangeHandler = std::function<void(domain::ConnectivityStatus)>;
+
 /**
- * Collector for system-wide network connectivity status.
- *
- * Windows implementation:
- * - Seeds the cache synchronously with GetNetworkConnectivityHint so the first
- *   collect() is accurate, then registers NotifyNetworkConnectivityHintChange to
- *   receive a callback on every subsequent change.
- * - Stores the latest ConnectivityStatus in a mutex-protected cache updated from
- *   the system callback thread. collect() returns the cached value and never
- *   performs a kernel round-trip on the notification path.
- * - The notification is cancelled via CancelMibChangeNotify2 before the cache is
- *   destroyed, preventing callbacks after object teardown.
- *
- * If notification registration fails at runtime, collect() falls back to calling
- * GetNetworkConnectivityHint synchronously on every tick.
+ * An active change-notification registration. Destroying it cancels the
+ * registration and must wait for any in-flight handler call to return, so the
+ * handler is never invoked after destruction.
+ */
+class ConnectivitySubscription
+{
+public:
+    virtual ~ConnectivitySubscription() = default;
+};
+
+/**
+ * Registers handler for connectivity change notifications
+ * (NotifyNetworkConnectivityHintChange in production). Returns nullptr if
+ * registration fails. The handler may be invoked before this returns.
+ */
+using ConnectivitySubscriber = std::function<std::unique_ptr<ConnectivitySubscription>(ConnectivityChangeHandler)>;
+
+/**
+ * Collector for system-wide network connectivity status. An event-driven
+ * collector (see docs/architecture.md, "Event-driven collectors"):
+ * - Seeds the cache synchronously with the reader so the first collect() is
+ *   accurate, then subscribes to change notifications. Seeding first means a
+ *   notification can never be overwritten by an older seed value.
+ * - Stores each notified status in a mutex-protected cache; collect() only
+ *   returns the cached value on the notification path.
+ * - Holds the subscription as its last member, so it is cancelled (waiting for
+ *   in-flight callbacks) before the cache is destroyed.
+ * - If subscribing fails, falls back to polling the reader on every collect().
  *
  * Missing data is explicit: before the first successful read, or after a failed
  * read, collect() returns ConnectivityLevel::Unknown with isMetered == std::nullopt.
@@ -40,17 +57,18 @@ using ConnectivityReader = std::function<std::optional<domain::ConnectivityStatu
 class ConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
 {
 public:
-    /** Default constructor using live Windows connectivity APIs. */
+    /** Uses GetNetworkConnectivityHint and NotifyNetworkConnectivityHintChange. */
     ConnectivityCollector();
 
-    /**
-     * Injected constructor for deterministic unit testing.
-     * The reader is called on every collect() invocation.
-     */
+    /** Event-driven mode with injected reader and subscriber, for unit testing. */
+    ConnectivityCollector(ConnectivityReader reader, ConnectivitySubscriber subscriber);
+
+    /** Polling mode: the reader is called on every collect(). */
     explicit ConnectivityCollector(ConnectivityReader reader);
 
     ~ConnectivityCollector() override = default;
 
+    // Not copyable or movable: the subscription's handler captures this.
     ConnectivityCollector(const ConnectivityCollector &) = delete;
     ConnectivityCollector &operator=(const ConnectivityCollector &) = delete;
     ConnectivityCollector(ConnectivityCollector &&) = delete;
@@ -59,29 +77,18 @@ public:
     [[nodiscard]] domain::ConnectivityStatus collect() override;
 
 private:
-    // Hosts the OS callback; defined in the .cpp to keep Windows types out of this header.
-    struct NotificationBridge;
-
-    struct NotificationHandleDeleter
-    {
-        void operator()(void *handle) const noexcept;
-    };
-
-    using NotificationHandle = std::unique_ptr<void, NotificationHandleDeleter>;
-
     // Stores the status and logs if it differs from the previous one. Thread-safe.
     void applyStatus(domain::ConnectivityStatus status);
 
-    // Polled on every collect() — the injected reader, or the synchronous
-    // fallback when notification registration failed. Empty on the notification path.
-    ConnectivityReader m_reader;
+    // Polled on every collect() in polling mode; empty on the notification path.
+    ConnectivityReader m_pollingReader;
 
     std::mutex m_mutex;
     domain::ConnectivityStatus m_cachedStatus;
 
-    // Declared last so it is destroyed first: the notification is cancelled
+    // Declared last so it is destroyed first: notifications are cancelled
     // before m_mutex and m_cachedStatus go away.
-    NotificationHandle m_notificationHandle;
+    std::unique_ptr<ConnectivitySubscription> m_subscription;
 };
 
 } // namespace sysmon::platform
