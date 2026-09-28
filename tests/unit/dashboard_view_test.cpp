@@ -3,6 +3,9 @@
 #include <optional>
 
 #include <gtest/gtest.h>
+#include <QEvent>
+#include <QLabel>
+#include <QObject>
 
 #include "domain/health_status.h"
 #include "domain/system_snapshot.h"
@@ -16,6 +19,33 @@ using sysmon::ui::ResourceCard;
 
 namespace
 {
+
+// Counts QEvent::StyleChange events, which setStyleSheet() sends to a widget.
+class StyleChangeCounter : public QObject
+{
+public:
+    int count = 0;
+
+protected:
+    bool eventFilter(QObject * /*watched*/, QEvent *event) override
+    {
+        if (event->type() == QEvent::StyleChange) {
+            ++count;
+        }
+        return false;
+    }
+};
+
+// Returns the card's label that currently shows text, or nullptr.
+QLabel *findLabel(const ResourceCard &card, const QString &text)
+{
+    for (auto *label : card.findChildren<QLabel *>()) {
+        if (label->text() == text) {
+            return label;
+        }
+    }
+    return nullptr;
+}
 
 SystemSnapshot populatedSnapshot()
 {
@@ -70,6 +100,25 @@ TEST(ResourceCard, SetStatusNullopt_HidesStatus)
 
     EXPECT_FALSE(card.status().has_value());
     EXPECT_TRUE(card.statusText().isEmpty());
+}
+
+TEST(ResourceCard, SetStatus_SameLevelAgain_DoesNotRestyle)
+{
+    ResourceCard card("Memory");
+    card.setStatus(HealthLevel::Warning);
+    auto *statusLabel = findLabel(card, "Warning");
+    ASSERT_NE(statusLabel, nullptr);
+    StyleChangeCounter counter;
+    statusLabel->installEventFilter(&counter);
+
+    card.setStatus(HealthLevel::Warning);
+    card.setStatus(HealthLevel::Warning);
+    const int restylesForSameLevel = counter.count;
+    card.setStatus(HealthLevel::Critical);
+
+    EXPECT_EQ(restylesForSameLevel, 0);
+    EXPECT_GT(counter.count, 0);
+    EXPECT_EQ(card.statusText(), "Critical");
 }
 
 TEST(DashboardView, Construction_AllCardsShowPlaceholders)

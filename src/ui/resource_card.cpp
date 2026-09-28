@@ -88,6 +88,12 @@ void ResourceCard::setValue(const QString &value, const QString &detail)
 
 void ResourceCard::setStatus(std::optional<domain::HealthLevel> level)
 {
+    // Called on every snapshot; setStyleSheet() re-polishes the label, so skip it
+    // when nothing changed. The constructor's setStatus(Unknown) always applies,
+    // because m_status starts as std::nullopt.
+    if (level == m_status) {
+        return;
+    }
     m_status = level;
     if (!level) {
         m_statusLabel->hide();
