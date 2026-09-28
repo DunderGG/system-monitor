@@ -38,7 +38,7 @@ public:
      * Pushes a sample to the back of the buffer.
      * If the buffer is full, the oldest sample is overwritten.
      */
-    void push(const T &sample)
+    void push(const T& sample)
     {
         const std::size_t pos = m_head;
         m_storage[pos] = sample;
@@ -53,7 +53,7 @@ public:
      * Pushes a sample to the back of the buffer using move semantics.
      * If the buffer is full, the oldest sample is overwritten.
      */
-    void push(T &&sample)
+    void push(T&& sample)
     {
         const std::size_t pos = m_head;
         // Copy into primary slot, then move into mirror. Both slots must hold
@@ -108,21 +108,21 @@ public:
     }
 
     /** Returns the sample at the specified chronological index (0 = oldest). */
-    [[nodiscard]] const T &operator[](std::size_t index) const
+    [[nodiscard]] const T& operator[](std::size_t index) const
     {
         assert(index < m_size && "Index out of bounds");
         return samples()[index];
     }
 
     /** Returns the oldest sample in the buffer. */
-    [[nodiscard]] const T &front() const
+    [[nodiscard]] const T& front() const
     {
         assert(m_size > 0 && "RingBuffer is empty");
         return samples().front();
     }
 
     /** Returns the newest sample in the buffer. */
-    [[nodiscard]] const T &back() const
+    [[nodiscard]] const T& back() const
     {
         assert(m_size > 0 && "RingBuffer is empty");
         return samples().back();

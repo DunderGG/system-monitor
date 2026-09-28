@@ -1,9 +1,16 @@
 ---
+# Checked in CI with clang-format 22 (see .github/workflows/ci.yml). Format with
+# .\scripts\build.ps1 -Format and check with .\scripts\build.ps1 -CheckFormat.
 Language: Cpp
 BasedOnStyle: LLVM
 IndentWidth: 4
 ColumnLimit: 120
 AccessModifierOffset: -4
+IndentCaseLabels: true
+
+# `Type* name` / `Type& name` (C++ Core Guidelines NL.18).
+DerivePointerAlignment: false
+PointerAlignment: Left
 
 BreakBeforeBraces: Custom
 BraceWrapping:
@@ -23,20 +30,34 @@ AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 
+# Blocks, in order: the file's own header (.cpp only), standard library,
+# Windows SDK, third-party, project. The first matching regex wins.
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: '^<[a-z_]+>'        # Standard library
+  - Regex: '^<[a-z_]+>'              # Standard library (lowercase, no extension)
+    CaseSensitive: true
     Priority: 1
-  - Regex: '^<Q'               # Qt
+  # Windows SDK headers form one block. SortPriority keeps the order the SDK
+  # needs: ws2tcpip.h before iphlpapi.h, or netioapi.h (included by iphlpapi.h)
+  # does not declare CancelMibChangeNotify2.
+  - Regex: '^<winsock2\.h>'
     Priority: 2
-  - Regex: '^<spdlog/'         # spdlog
+    SortPriority: 2
+  - Regex: '^<ws2tcpip\.h>'
     Priority: 2
-  - Regex: '^<nlohmann/'       # nlohmann
+    SortPriority: 3
+  - Regex: '^<[Ww]indows\.h>'
     Priority: 2
-  - Regex: '^<gtest/'          # GoogleTest
+    SortPriority: 4
+  - Regex: '^<[A-Za-z0-9_]+\.h>'     # Other Windows SDK headers (iphlpapi.h, netioapi.h, ...)
     Priority: 2
-  - Regex: '^"'                # Project headers
+    SortPriority: 5
+  - Regex: '^<(Q|spdlog/|nlohmann/|gtest/)' # Third-party: Qt, spdlog, nlohmann, GoogleTest
     Priority: 3
+    SortPriority: 6
+  - Regex: '^"'                      # Project headers
+    Priority: 4
+    SortPriority: 7
 
 SortIncludes: CaseInsensitive
 InsertBraces: true

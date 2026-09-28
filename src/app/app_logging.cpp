@@ -29,7 +29,7 @@ std::optional<spdlog::level::level_enum> parseLogLevel(std::string_view value)
         {"off", spdlog::level::off},
     };
 
-    for (const auto &[name, level] : kLevels) {
+    for (const auto& [name, level] : kLevels) {
         if (value == name) {
             return level;
         }
@@ -38,7 +38,7 @@ std::optional<spdlog::level::level_enum> parseLogLevel(std::string_view value)
     return std::nullopt;
 }
 
-void configureLogging(const std::filesystem::path &logFilePath, spdlog::level::level_enum logLevel)
+void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::level_enum logLevel)
 {
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     auto fileSink =

@@ -25,7 +25,7 @@ constexpr qreal kLineWidth = 1.5;
 YRange autoRange(std::span<const std::optional<float>> samples)
 {
     float largest = 0.0f;
-    for (const auto &sample : samples) {
+    for (const auto& sample : samples) {
         if (sample) {
             largest = std::max(largest, *sample);
         }
@@ -33,10 +33,8 @@ YRange autoRange(std::span<const std::optional<float>> samples)
     return YRange{.min = 0.0f, .max = largest > 0.0f ? largest * kAutoRangeHeadroom : 1.0f};
 }
 
-std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> samples,
-                                         std::size_t capacity,
-                                         const QRectF &area,
-                                         YRange range)
+std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> samples, std::size_t capacity,
+                                         const QRectF& area, YRange range)
 {
     assert(capacity > 0 && "sparkline capacity must be greater than zero");
     assert(range.min < range.max && "sparkline range must not be empty");
@@ -54,7 +52,7 @@ std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> s
 
     QPolygonF current;
     for (std::size_t i = 0; i < visible.size(); ++i) {
-        const auto &sample = visible[i];
+        const auto& sample = visible[i];
         if (!sample) {
             if (!current.isEmpty()) {
                 segments.push_back(std::move(current));
@@ -65,8 +63,8 @@ std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> s
 
         const double slot = static_cast<double>(firstSlot + i);
         const double x = capacity > 1 ? area.left() + slot * slotWidth : area.right();
-        const double clamped = std::clamp(static_cast<double>(*sample), static_cast<double>(range.min),
-                                          static_cast<double>(range.max));
+        const double clamped =
+            std::clamp(static_cast<double>(*sample), static_cast<double>(range.min), static_cast<double>(range.max));
         const double y = area.bottom() - (clamped - range.min) / span * area.height();
         current.append(QPointF{x, y});
     }
@@ -76,7 +74,7 @@ std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> s
     return segments;
 }
 
-SparklineWidget::SparklineWidget(QWidget *parent) : QWidget(parent)
+SparklineWidget::SparklineWidget(QWidget* parent) : QWidget(parent)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
@@ -117,7 +115,7 @@ std::size_t SparklineWidget::capacity() const
     return m_capacity;
 }
 
-void SparklineWidget::setLineColor(const QColor &color)
+void SparklineWidget::setLineColor(const QColor& color)
 {
     m_lineColor = color;
     update();
@@ -143,7 +141,7 @@ QSize SparklineWidget::minimumSizeHint() const
     return {40, 16};
 }
 
-void SparklineWidget::paintEvent(QPaintEvent * /*event*/)
+void SparklineWidget::paintEvent(QPaintEvent* /*event*/)
 {
     // Inset by half the pen width so the line is not clipped at the edges.
     const QRectF area = QRectF(rect()).adjusted(kLineWidth, kLineWidth, -kLineWidth, -kLineWidth);
@@ -164,7 +162,7 @@ void SparklineWidget::paintEvent(QPaintEvent * /*event*/)
     gradient.setColorAt(0.0, fillTop);
     gradient.setColorAt(1.0, fillBottom);
 
-    for (const auto &segment : segments) {
+    for (const auto& segment : segments) {
         if (segment.size() < 2) {
             // An isolated sample between gaps: draw it as a dot.
             painter.setPen(QPen(lineColor, kLineWidth * 2, Qt::SolidLine, Qt::RoundCap));
@@ -174,7 +172,7 @@ void SparklineWidget::paintEvent(QPaintEvent * /*event*/)
 
         QPainterPath fill;
         fill.moveTo(segment.front().x(), area.bottom());
-        for (const auto &point : segment) {
+        for (const auto& point : segment) {
             fill.lineTo(point);
         }
         fill.lineTo(segment.back().x(), area.bottom());

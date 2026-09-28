@@ -5,9 +5,10 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <QObject>
 #include <stop_token>
 #include <thread>
+
+#include <QObject>
 
 #include "domain/system_snapshot.h"
 #include "monitoring/collector.h"
@@ -34,13 +35,13 @@ class SamplingScheduler : public QObject
 
 public:
     explicit SamplingScheduler(std::chrono::milliseconds interval = std::chrono::milliseconds{1000},
-                               QObject *parent = nullptr);
+                               QObject* parent = nullptr);
     ~SamplingScheduler() override;
 
-    SamplingScheduler(const SamplingScheduler &) = delete;
-    SamplingScheduler &operator=(const SamplingScheduler &) = delete;
-    SamplingScheduler(SamplingScheduler &&) = delete;
-    SamplingScheduler &operator=(SamplingScheduler &&) = delete;
+    SamplingScheduler(const SamplingScheduler&) = delete;
+    SamplingScheduler& operator=(const SamplingScheduler&) = delete;
+    SamplingScheduler(SamplingScheduler&&) = delete;
+    SamplingScheduler& operator=(SamplingScheduler&&) = delete;
 
     /** Starts the background sampling thread. */
     void start();
@@ -74,7 +75,7 @@ public:
      * Sets the thresholds used to evaluate SystemSnapshot::health on each tick.
      * Same invariant as collector registration: only call while stopped.
      */
-    void setHealthThresholds(const HealthThresholds &thresholds);
+    void setHealthThresholds(const HealthThresholds& thresholds);
     void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
 
     /**
@@ -85,7 +86,7 @@ public:
 
 signals:
     /** Emitted on each sampling tick with the newly assembled snapshot. */
-    void snapshotReady(const sysmon::domain::SystemSnapshot &snapshot);
+    void snapshotReady(const sysmon::domain::SystemSnapshot& snapshot);
 
 private:
     void run(std::stop_token stopToken);

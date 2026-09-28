@@ -36,10 +36,10 @@ public:
         spdlog::set_default_logger(m_previousLogger);
     }
 
-    ScopedLogCapture(const ScopedLogCapture &) = delete;
-    ScopedLogCapture &operator=(const ScopedLogCapture &) = delete;
-    ScopedLogCapture(ScopedLogCapture &&) = delete;
-    ScopedLogCapture &operator=(ScopedLogCapture &&) = delete;
+    ScopedLogCapture(const ScopedLogCapture&) = delete;
+    ScopedLogCapture& operator=(const ScopedLogCapture&) = delete;
+    ScopedLogCapture(ScopedLogCapture&&) = delete;
+    ScopedLogCapture& operator=(ScopedLogCapture&&) = delete;
 
     /** Returns everything logged so far. */
     [[nodiscard]] std::string output() const

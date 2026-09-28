@@ -18,22 +18,20 @@ TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesUnavailableAndBase
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
 
-    const std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .ifIndex = 1,
-            .adapterName = "Ethernet",
-            .friendlyName = "Ethernet",
-            .description = "Intel Gigabit",
-            .inBytesTotal = 50'000,
-            .outBytesTotal = 25'000,
-            .linkSpeedBps = 1'000'000'000,
-            .operationalStatus = OperationalStatus::Up,
-            .ipAddresses = {"192.168.1.10"},
-            .dnsServers = {"1.1.1.1"},
-            .isLoopback = false,
-        }
-    };
+    const std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .ifIndex = 1,
+        .adapterName = "Ethernet",
+        .friendlyName = "Ethernet",
+        .description = "Intel Gigabit",
+        .inBytesTotal = 50'000,
+        .outBytesTotal = 25'000,
+        .linkSpeedBps = 1'000'000'000,
+        .operationalStatus = OperationalStatus::Up,
+        .ipAddresses = {"192.168.1.10"},
+        .dnsServers = {"1.1.1.1"},
+        .isLoopback = false,
+    }};
 
     const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
 
@@ -58,20 +56,18 @@ TEST(NetworkCollector, CalculateNetworkSamples_SecondTick_CalculatesAccurateThro
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
     const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{102}}; // 2.0 seconds elapsed
 
-    std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .ifIndex = 1,
-            .adapterName = "Ethernet",
-            .friendlyName = "Ethernet",
-            .description = "Intel Gigabit",
-            .inBytesTotal = 100'000,
-            .outBytesTotal = 50'000,
-            .linkSpeedBps = 1'000'000'000,
-            .operationalStatus = OperationalStatus::Up,
-            .isLoopback = false,
-        }
-    };
+    std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .ifIndex = 1,
+        .adapterName = "Ethernet",
+        .friendlyName = "Ethernet",
+        .description = "Intel Gigabit",
+        .inBytesTotal = 100'000,
+        .outBytesTotal = 50'000,
+        .linkSpeedBps = 1'000'000'000,
+        .operationalStatus = OperationalStatus::Up,
+        .isLoopback = false,
+    }};
 
     // First tick to set baseline
     NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
@@ -169,15 +165,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesUnav
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
     const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{101}};
 
-    std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .adapterName = "Ethernet",
-            .inBytesTotal = 50'000,
-            .outBytesTotal = 25'000,
-            .isLoopback = false,
-        }
-    };
+    std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .adapterName = "Ethernet",
+        .inBytesTotal = 50'000,
+        .outBytesTotal = 25'000,
+        .isLoopback = false,
+    }};
 
     NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
 
@@ -199,15 +193,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_ZeroElapsedDuration_RatesUnavaila
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
 
-    std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .adapterName = "Ethernet",
-            .inBytesTotal = 50'000,
-            .outBytesTotal = 25'000,
-            .isLoopback = false,
-        }
-    };
+    std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .adapterName = "Ethernet",
+        .inBytesTotal = 50'000,
+        .outBytesTotal = 25'000,
+        .isLoopback = false,
+    }};
 
     NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
 
@@ -227,15 +219,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_IdleLink_ReportsZeroNotUnavailabl
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
     const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{101}};
 
-    const std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .adapterName = "Ethernet",
-            .inBytesTotal = 50'000,
-            .outBytesTotal = 25'000,
-            .isLoopback = false,
-        }
-    };
+    const std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .adapterName = "Ethernet",
+        .inBytesTotal = 50'000,
+        .outBytesTotal = 25'000,
+        .isLoopback = false,
+    }};
 
     NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
     const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
@@ -251,15 +241,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_ResetInOneDirection_OtherDirectio
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
     const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{101}};
 
-    std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .adapterName = "Ethernet",
-            .inBytesTotal = 50'000,
-            .outBytesTotal = 25'000,
-            .isLoopback = false,
-        }
-    };
+    std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .adapterName = "Ethernet",
+        .inBytesTotal = 50'000,
+        .outBytesTotal = 25'000,
+        .isLoopback = false,
+    }};
 
     NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
 
@@ -303,17 +291,15 @@ TEST(NetworkCollector, CalculateNetworkSamples_IpAndDnsAddresses_PreservedInSamp
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
     const auto now = std::chrono::steady_clock::now();
 
-    const std::vector<RawNetworkAdapter> adapters = {
-        RawNetworkAdapter{
-            .luid = 101,
-            .adapterName = "Ethernet",
-            .friendlyName = "Ethernet 1",
-            .description = "Realtek Controller",
-            .ipAddresses = {"192.168.1.50", "2001:db8::1"},
-            .dnsServers = {"1.1.1.1", "1.0.0.1"},
-            .isLoopback = false,
-        }
-    };
+    const std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .adapterName = "Ethernet",
+        .friendlyName = "Ethernet 1",
+        .description = "Realtek Controller",
+        .ipAddresses = {"192.168.1.50", "2001:db8::1"},
+        .dnsServers = {"1.1.1.1", "1.0.0.1"},
+        .isLoopback = false,
+    }};
 
     const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
     ASSERT_EQ(samples.size(), 1u);
@@ -332,15 +318,13 @@ TEST(NetworkCollector, Collect_InjectedReader_InvokedAndReturnsSamples)
     const auto now = std::chrono::steady_clock::now();
 
     auto mockReader = []() -> std::optional<std::vector<RawNetworkAdapter>> {
-        return std::vector<RawNetworkAdapter>{
-            RawNetworkAdapter{
-                .luid = 200,
-                .adapterName = "Wi-Fi",
-                .inBytesTotal = 1234,
-                .outBytesTotal = 5678,
-                .isLoopback = false,
-            }
-        };
+        return std::vector<RawNetworkAdapter>{RawNetworkAdapter{
+            .luid = 200,
+            .adapterName = "Wi-Fi",
+            .inBytesTotal = 1234,
+            .outBytesTotal = 5678,
+            .isLoopback = false,
+        }};
     };
 
     NetworkCollector collector(mockReader, [now]() { return now; });
@@ -355,13 +339,10 @@ TEST(NetworkCollector, Collect_InjectedReader_InvokedAndReturnsSamples)
 
 TEST(NetworkCollector, Collect_ReaderReturnsNullopt_ReturnsNullopt)
 {
-    auto failingReader = []() -> std::optional<std::vector<RawNetworkAdapter>> {
-        return std::nullopt;
-    };
+    auto failingReader = []() -> std::optional<std::vector<RawNetworkAdapter>> { return std::nullopt; };
 
     NetworkCollector collector(failingReader, []() { return std::chrono::steady_clock::now(); });
     const auto samples = collector.collect();
 
     EXPECT_FALSE(samples.has_value());
 }
-

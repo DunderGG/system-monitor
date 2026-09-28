@@ -26,7 +26,7 @@ struct MemoryStatusData
  * Returns std::nullopt when total physical memory is zero, which is never a valid reading.
  * Pure function with no OS dependencies for deterministic unit testing.
  */
-[[nodiscard]] std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData &data);
+[[nodiscard]] std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData& data);
 
 /**
  * Physical and virtual memory metrics collector for Windows using GlobalMemoryStatusEx.
@@ -35,7 +35,7 @@ struct MemoryStatusData
 class MemoryCollector : public monitoring::IMemoryCollector
 {
 public:
-    using MemoryStatusReader = std::function<bool(MemoryStatusData &)>;
+    using MemoryStatusReader = std::function<bool(MemoryStatusData&)>;
 
     explicit MemoryCollector();
     explicit MemoryCollector(MemoryStatusReader reader);
@@ -48,4 +48,3 @@ private:
 };
 
 } // namespace sysmon::platform
-

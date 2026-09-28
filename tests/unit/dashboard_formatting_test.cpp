@@ -16,9 +16,7 @@ using namespace sysmon::ui;
 namespace
 {
 
-NetworkSample adapter(OperationalStatus status,
-                      std::optional<uint64_t> in,
-                      std::optional<uint64_t> out,
+NetworkSample adapter(OperationalStatus status, std::optional<uint64_t> in, std::optional<uint64_t> out,
                       bool isHardwareInterface = true)
 {
     return NetworkSample{
@@ -176,7 +174,7 @@ TEST(DashboardFormatting, FullestVolume_ReturnsHighestUsage)
         DiskSample{.volumeName = "E:\\", .usagePercent = 60.0f},
     };
 
-    const auto *fullest = fullestVolume(disks);
+    const auto* fullest = fullestVolume(disks);
 
     ASSERT_NE(fullest, nullptr);
     EXPECT_EQ(fullest->volumeName, "D:\\");

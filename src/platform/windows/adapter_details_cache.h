@@ -33,7 +33,7 @@ struct AdapterDetailsTable
     std::unordered_map<uint32_t, uint64_t> luidByIfIndex;
 
     /** Returns the details for an interface, matching by LUID first and interface index second. */
-    [[nodiscard]] const AdapterDetails *find(uint64_t luid, uint32_t ifIndex) const;
+    [[nodiscard]] const AdapterDetails* find(uint64_t luid, uint32_t ifIndex) const;
 };
 
 /**
@@ -70,11 +70,10 @@ public:
      * details, so none are presented as current, and makes the next
      * beginRefreshIfDue() return true so the query is retried.
      */
-    void completeRefresh(std::optional<AdapterDetailsTable> table,
-                         std::span<const uint64_t> interfaceLuids,
+    void completeRefresh(std::optional<AdapterDetailsTable> table, std::span<const uint64_t> interfaceLuids,
                          std::chrono::steady_clock::time_point now);
 
-    [[nodiscard]] const AdapterDetailsTable &table() const;
+    [[nodiscard]] const AdapterDetailsTable& table() const;
 
 private:
     std::mutex m_staleMutex;

@@ -24,11 +24,11 @@ class ResourceCard : public QFrame
     Q_OBJECT
 
 public:
-    explicit ResourceCard(const QString &title, QWidget *parent = nullptr);
+    explicit ResourceCard(const QString& title, QWidget* parent = nullptr);
     ~ResourceCard() override = default;
 
     /** Sets the main value (e.g. "42.5%") and the secondary detail line. */
-    void setValue(const QString &value, const QString &detail = {});
+    void setValue(const QString& value, const QString& detail = {});
 
     /** Shows the health status label for level, or hides it for std::nullopt. */
     void setStatus(std::optional<domain::HealthLevel> level);
@@ -42,17 +42,17 @@ public:
     [[nodiscard]] std::optional<domain::HealthLevel> status() const;
 
     /** Places chart in the sparkline slot; the card takes ownership through Qt parenting. */
-    void setChart(QWidget *chart);
+    void setChart(QWidget* chart);
 
     /** Container for the card's mini sparkline chart (see setChart). */
-    [[nodiscard]] QWidget *sparklineSlot() const;
+    [[nodiscard]] QWidget* sparklineSlot() const;
 
 private:
-    QLabel *m_titleLabel{nullptr};
-    QLabel *m_valueLabel{nullptr};
-    QLabel *m_detailLabel{nullptr};
-    QLabel *m_statusLabel{nullptr};
-    QWidget *m_sparklineSlot{nullptr};
+    QLabel* m_titleLabel{nullptr};
+    QLabel* m_valueLabel{nullptr};
+    QLabel* m_detailLabel{nullptr};
+    QLabel* m_statusLabel{nullptr};
+    QWidget* m_sparklineSlot{nullptr};
     std::optional<domain::HealthLevel> m_status;
 };
 

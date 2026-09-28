@@ -33,16 +33,16 @@ QString statusStyleSheet(domain::HealthLevel level)
 
 } // namespace
 
-ResourceCard::ResourceCard(const QString &title, QWidget *parent) : QFrame(parent)
+ResourceCard::ResourceCard(const QString& title, QWidget* parent) : QFrame(parent)
 {
     setFrameShape(QFrame::StyledPanel);
     setMinimumWidth(180);
 
-    auto *layout = new QVBoxLayout(this);
+    auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(12, 10, 12, 10);
     layout->setSpacing(4);
 
-    auto *headerLayout = new QHBoxLayout();
+    auto* headerLayout = new QHBoxLayout();
     m_titleLabel = new QLabel(title, this);
     QFont titleFont = m_titleLabel->font();
     titleFont.setBold(true);
@@ -73,14 +73,14 @@ ResourceCard::ResourceCard(const QString &title, QWidget *parent) : QFrame(paren
     // the chart is added.
     m_sparklineSlot = new QWidget(this);
     m_sparklineSlot->setFixedHeight(kSparklineHeight);
-    auto *sparklineLayout = new QVBoxLayout(m_sparklineSlot);
+    auto* sparklineLayout = new QVBoxLayout(m_sparklineSlot);
     sparklineLayout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_sparklineSlot);
 
     setStatus(domain::HealthLevel::Unknown);
 }
 
-void ResourceCard::setValue(const QString &value, const QString &detail)
+void ResourceCard::setValue(const QString& value, const QString& detail)
 {
     m_valueLabel->setText(value);
     m_detailLabel->setText(detail);
@@ -129,12 +129,12 @@ std::optional<domain::HealthLevel> ResourceCard::status() const
     return m_status;
 }
 
-void ResourceCard::setChart(QWidget *chart)
+void ResourceCard::setChart(QWidget* chart)
 {
     m_sparklineSlot->layout()->addWidget(chart);
 }
 
-QWidget *ResourceCard::sparklineSlot() const
+QWidget* ResourceCard::sparklineSlot() const
 {
     return m_sparklineSlot;
 }

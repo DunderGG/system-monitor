@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstddef>
-#include <optional>
 #include <cstdint>
+#include <optional>
 
 #include "domain/memory_sample.h"
 #include "monitoring/collector.h"

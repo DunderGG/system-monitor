@@ -29,7 +29,7 @@ struct SystemHealth
     HealthLevel network{HealthLevel::Unknown};
     HealthLevel overall{HealthLevel::Unknown};
 
-    bool operator==(const SystemHealth &) const = default;
+    bool operator==(const SystemHealth&) const = default;
 };
 
 } // namespace sysmon::domain

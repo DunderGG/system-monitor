@@ -4,16 +4,16 @@
 #include <optional>
 #include <utility>
 
-#include <spdlog/spdlog.h>
-
 #include <Windows.h>
+
+#include <spdlog/spdlog.h>
 
 #include "platform/windows/repeated_failure_log.h"
 
 namespace sysmon::platform
 {
 
-std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData &data)
+std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData& data)
 {
     if (data.totalPhys == 0) {
         return std::nullopt;
@@ -38,7 +38,7 @@ std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData
 }
 
 MemoryCollector::MemoryCollector()
-    : m_reader([failureLog = RepeatedFailureLog{"GlobalMemoryStatusEx"}](MemoryStatusData &data) mutable {
+    : m_reader([failureLog = RepeatedFailureLog{"GlobalMemoryStatusEx"}](MemoryStatusData& data) mutable {
           MEMORYSTATUSEX memStatus{};
           memStatus.dwLength = sizeof(MEMORYSTATUSEX);
           if (!::GlobalMemoryStatusEx(&memStatus)) {
@@ -55,9 +55,7 @@ MemoryCollector::MemoryCollector()
       })
 {}
 
-MemoryCollector::MemoryCollector(MemoryStatusReader reader)
-    : m_reader(std::move(reader))
-{}
+MemoryCollector::MemoryCollector(MemoryStatusReader reader) : m_reader(std::move(reader)) {}
 
 std::optional<domain::MemorySample> MemoryCollector::collect()
 {
@@ -69,4 +67,3 @@ std::optional<domain::MemorySample> MemoryCollector::collect()
 }
 
 } // namespace sysmon::platform
-

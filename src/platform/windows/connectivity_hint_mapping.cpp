@@ -35,7 +35,7 @@ std::optional<bool> toIsMetered(NL_NETWORK_CONNECTIVITY_COST_HINT cost) noexcept
     }
 }
 
-domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HINT &hint) noexcept
+domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HINT& hint) noexcept
 {
     return domain::ConnectivityStatus{
         .level = toConnectivityLevel(hint.ConnectivityLevel),

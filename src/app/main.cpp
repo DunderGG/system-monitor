@@ -1,12 +1,12 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <string>
+
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QStandardPaths>
-#include <string>
-
 #include <spdlog/spdlog.h>
 
 #include "app_logging.h"
@@ -19,7 +19,7 @@
 #include "platform/windows/uptime_collector.h"
 #include "ui/main_window.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     QApplication application(argc, argv);
 

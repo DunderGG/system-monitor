@@ -25,6 +25,6 @@ namespace sysmon::platform
  */
 [[nodiscard]] std::optional<bool> toIsMetered(NL_NETWORK_CONNECTIVITY_COST_HINT cost) noexcept;
 
-[[nodiscard]] domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HINT &hint) noexcept;
+[[nodiscard]] domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HINT& hint) noexcept;
 
 } // namespace sysmon::platform

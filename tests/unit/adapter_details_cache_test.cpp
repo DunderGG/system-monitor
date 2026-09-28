@@ -25,7 +25,7 @@ AdapterDetailsTable tableWithEthernet()
 }
 
 // Completes a successful first refresh at kStart.
-void refreshAtStart(AdapterDetailsCache &cache)
+void refreshAtStart(AdapterDetailsCache& cache)
 {
     static_cast<void>(cache.beginRefreshIfDue(kLuids, kStart));
     cache.completeRefresh(tableWithEthernet(), kLuids, kStart);
@@ -54,7 +54,7 @@ TEST(AdapterDetailsCache, AfterRefresh_ServesStoredDetails)
     AdapterDetailsCache cache;
     refreshAtStart(cache);
 
-    const auto *details = cache.table().find(10, 0);
+    const auto* details = cache.table().find(10, 0);
 
     ASSERT_NE(details, nullptr);
     EXPECT_EQ(details->friendlyName, "Ethernet");
@@ -127,7 +127,7 @@ TEST(AdapterDetailsTable, Find_UnknownLuid_FallsBackToInterfaceIndex)
 {
     const auto table = tableWithEthernet();
 
-    const auto *details = table.find(999, 7);
+    const auto* details = table.find(999, 7);
 
     ASSERT_NE(details, nullptr);
     EXPECT_EQ(details->friendlyName, "Ethernet");

@@ -91,7 +91,7 @@ TEST(MemoryCollector, Collect_InjectedReader_ReturnsCalculatedSample)
     constexpr uint64_t k32GiB = 32ULL * 1024 * 1024 * 1024;
     constexpr uint64_t k16GiB = 16ULL * 1024 * 1024 * 1024;
 
-    auto reader = [](MemoryStatusData &data) {
+    auto reader = [](MemoryStatusData& data) {
         data.totalPhys = k32GiB;
         data.availPhys = k16GiB;
         data.totalPageFile = k32GiB;
@@ -110,13 +110,10 @@ TEST(MemoryCollector, Collect_InjectedReader_ReturnsCalculatedSample)
 
 TEST(MemoryCollector, Collect_ReaderFails_ReturnsNullopt)
 {
-    auto reader = [](MemoryStatusData &) {
-        return false;
-    };
+    auto reader = [](MemoryStatusData&) { return false; };
 
     MemoryCollector collector(reader);
     const auto sample = collector.collect();
 
     EXPECT_FALSE(sample.has_value());
 }
-

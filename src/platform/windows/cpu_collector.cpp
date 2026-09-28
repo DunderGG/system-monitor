@@ -42,21 +42,12 @@ struct SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION
     ULONG InterruptCount;
 };
 
-using pfnNtQuerySystemInformation = NTSTATUS(NTAPI *)(
-    ULONG SystemInformationClass,
-    PVOID SystemInformation,
-    ULONG SystemInformationLength,
-    PULONG ReturnLength
-);
+using pfnNtQuerySystemInformation = NTSTATUS(NTAPI*)(ULONG SystemInformationClass, PVOID SystemInformation,
+                                                     ULONG SystemInformationLength, PULONG ReturnLength);
 
-using pfnNtQuerySystemInformationEx = NTSTATUS(NTAPI *)(
-    ULONG SystemInformationClass,
-    PVOID InputBuffer,
-    ULONG InputBufferLength,
-    PVOID SystemInformation,
-    ULONG SystemInformationLength,
-    PULONG ReturnLength
-);
+using pfnNtQuerySystemInformationEx = NTSTATUS(NTAPI*)(ULONG SystemInformationClass, PVOID InputBuffer,
+                                                       ULONG InputBufferLength, PVOID SystemInformation,
+                                                       ULONG SystemInformationLength, PULONG ReturnLength);
 
 struct NtdllProcessorFunctions
 {
@@ -73,14 +64,15 @@ NtdllProcessorFunctions resolveNtdllProcessorFunctions() noexcept
         return funcs;
     }
 
-    funcs.ntQuerySystemInformationEx = reinterpret_cast<pfnNtQuerySystemInformationEx>(
-        ::GetProcAddress(ntdll, "NtQuerySystemInformationEx"));
+    funcs.ntQuerySystemInformationEx =
+        reinterpret_cast<pfnNtQuerySystemInformationEx>(::GetProcAddress(ntdll, "NtQuerySystemInformationEx"));
     if (funcs.ntQuerySystemInformationEx == nullptr) {
-        spdlog::warn("GetProcAddress failed for NtQuerySystemInformationEx in ntdll.dll, using NtQuerySystemInformation fallback");
+        spdlog::warn("GetProcAddress failed for NtQuerySystemInformationEx in ntdll.dll, using "
+                     "NtQuerySystemInformation fallback");
     }
 
-    funcs.ntQuerySystemInformation = reinterpret_cast<pfnNtQuerySystemInformation>(
-        ::GetProcAddress(ntdll, "NtQuerySystemInformation"));
+    funcs.ntQuerySystemInformation =
+        reinterpret_cast<pfnNtQuerySystemInformation>(::GetProcAddress(ntdll, "NtQuerySystemInformation"));
     if (funcs.ntQuerySystemInformation == nullptr) {
         spdlog::error("GetProcAddress failed for NtQuerySystemInformation in ntdll.dll");
     }
@@ -88,12 +80,9 @@ NtdllProcessorFunctions resolveNtdllProcessorFunctions() noexcept
     return funcs;
 }
 
-bool queryGroupProcessorPerformance(
-    pfnNtQuerySystemInformationEx ntQuerySystemInfoEx,
-    USHORT processorGroup,
-    std::vector<SystemTimesData> &outGroupCores,
-    int estimatedCoresInGroup,
-    RepeatedFailureLog &failureLog)
+bool queryGroupProcessorPerformance(pfnNtQuerySystemInformationEx ntQuerySystemInfoEx, USHORT processorGroup,
+                                    std::vector<SystemTimesData>& outGroupCores, int estimatedCoresInGroup,
+                                    RepeatedFailureLog& failureLog)
 {
     if (ntQuerySystemInfoEx == nullptr) {
         return false;
@@ -109,19 +98,12 @@ bool queryGroupProcessorPerformance(
         const ULONG bufferSizeBytes =
             static_cast<ULONG>(buffer.size() * sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION));
         USHORT group = processorGroup;
-        const NTSTATUS status = ntQuerySystemInfoEx(
-            kSystemProcessorPerformanceInformation,
-            &group,
-            sizeof(USHORT),
-            buffer.data(),
-            bufferSizeBytes,
-            &returnLength
-        );
+        const NTSTATUS status = ntQuerySystemInfoEx(kSystemProcessorPerformanceInformation, &group, sizeof(USHORT),
+                                                    buffer.data(), bufferSizeBytes, &returnLength);
 
         if (status == kStatusSuccess) {
-            const std::size_t count = (returnLength > 0)
-                ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
-                : buffer.size();
+            const std::size_t count =
+                (returnLength > 0) ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION)) : buffer.size();
 
             outGroupCores.reserve(outGroupCores.size() + count);
             for (std::size_t i = 0; i < count; ++i) {
@@ -136,8 +118,8 @@ bool queryGroupProcessorPerformance(
 
         if (status == kStatusInfoLengthMismatch) {
             const std::size_t requiredCount = (returnLength > 0)
-                ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
-                : (buffer.size() * 2);
+                                                  ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
+                                                  : (buffer.size() * 2);
             buffer.resize(std::max(buffer.size() + 1, requiredCount));
             continue;
         }
@@ -156,11 +138,9 @@ bool queryGroupProcessorPerformance(
     return false;
 }
 
-bool queryLegacyProcessorPerformance(
-    pfnNtQuerySystemInformation ntQuerySystemInfo,
-    std::vector<SystemTimesData> &outCoreTimes,
-    int estimatedCoreCount,
-    RepeatedFailureLog &failureLog)
+bool queryLegacyProcessorPerformance(pfnNtQuerySystemInformation ntQuerySystemInfo,
+                                     std::vector<SystemTimesData>& outCoreTimes, int estimatedCoreCount,
+                                     RepeatedFailureLog& failureLog)
 {
     if (ntQuerySystemInfo == nullptr) {
         return false;
@@ -175,17 +155,12 @@ bool queryLegacyProcessorPerformance(
     for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
         const ULONG bufferSizeBytes =
             static_cast<ULONG>(buffer.size() * sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION));
-        const NTSTATUS status = ntQuerySystemInfo(
-            kSystemProcessorPerformanceInformation,
-            buffer.data(),
-            bufferSizeBytes,
-            &returnLength
-        );
+        const NTSTATUS status =
+            ntQuerySystemInfo(kSystemProcessorPerformanceInformation, buffer.data(), bufferSizeBytes, &returnLength);
 
         if (status == kStatusSuccess) {
-            const std::size_t count = (returnLength > 0)
-                ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
-                : buffer.size();
+            const std::size_t count =
+                (returnLength > 0) ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION)) : buffer.size();
 
             outCoreTimes.clear();
             outCoreTimes.reserve(count);
@@ -201,15 +176,16 @@ bool queryLegacyProcessorPerformance(
 
         if (status == kStatusInfoLengthMismatch) {
             const std::size_t requiredCount = (returnLength > 0)
-                ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
-                : (buffer.size() * 2);
+                                                  ? (returnLength / sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION))
+                                                  : (buffer.size() * 2);
             buffer.resize(std::max(buffer.size() + 1, requiredCount));
             continue;
         }
 
-        failureLog.failure(spdlog::level::err,
-                           "NtQuerySystemInformation(SystemProcessorPerformanceInformation) failed with status 0x{:08X}",
-                           static_cast<uint32_t>(status));
+        failureLog.failure(
+            spdlog::level::err,
+            "NtQuerySystemInformation(SystemProcessorPerformanceInformation) failed with status 0x{:08X}",
+            static_cast<uint32_t>(status));
         return false;
     }
 
@@ -217,11 +193,8 @@ bool queryLegacyProcessorPerformance(
     return false;
 }
 
-bool queryAllProcessorPerformance(
-    const NtdllProcessorFunctions &funcs,
-    std::vector<SystemTimesData> &outCoreTimes,
-    int estimatedCoreCount,
-    CoreQueryFailureLogs &failureLogs)
+bool queryAllProcessorPerformance(const NtdllProcessorFunctions& funcs, std::vector<SystemTimesData>& outCoreTimes,
+                                  int estimatedCoreCount, CoreQueryFailureLogs& failureLogs)
 {
     const USHORT groupCount = ::GetActiveProcessorGroupCount();
 
@@ -232,12 +205,8 @@ bool queryAllProcessorPerformance(
 
         for (USHORT group = 0; group < groupCount; ++group) {
             const DWORD coresInGroup = ::GetActiveProcessorCount(group);
-            if (!queryGroupProcessorPerformance(
-                    funcs.ntQuerySystemInformationEx,
-                    group,
-                    outCoreTimes,
-                    static_cast<int>(coresInGroup),
-                    failureLogs.groupQuery)) {
+            if (!queryGroupProcessorPerformance(funcs.ntQuerySystemInformationEx, group, outCoreTimes,
+                                                static_cast<int>(coresInGroup), failureLogs.groupQuery)) {
                 allGroupsSucceeded = false;
                 break;
             }
@@ -249,17 +218,16 @@ bool queryAllProcessorPerformance(
         }
 
         if (allGroupsSucceeded) {
-            failureLogs.groupQuery.failure(spdlog::level::warn,
-                                           "NtQuerySystemInformationEx returned no processors; "
-                                           "falling back to NtQuerySystemInformation");
+            failureLogs.groupQuery.failure(spdlog::level::warn, "NtQuerySystemInformationEx returned no processors; "
+                                                                "falling back to NtQuerySystemInformation");
         }
         outCoreTimes.clear();
     }
 
     // Fallback path: Query primary group with NtQuerySystemInformation
     if (funcs.ntQuerySystemInformation != nullptr) {
-        const bool hasCoreTimes = queryLegacyProcessorPerformance(
-            funcs.ntQuerySystemInformation, outCoreTimes, estimatedCoreCount, failureLogs.legacyQuery);
+        const bool hasCoreTimes = queryLegacyProcessorPerformance(funcs.ntQuerySystemInformation, outCoreTimes,
+                                                                  estimatedCoreCount, failureLogs.legacyQuery);
         if (hasCoreTimes) {
             failureLogs.legacyQuery.success();
         }
@@ -269,7 +237,7 @@ bool queryAllProcessorPerformance(
     return false;
 }
 
-constexpr uint64_t fileTimeToUInt64(const FILETIME &fileTime) noexcept
+constexpr uint64_t fileTimeToUInt64(const FILETIME& fileTime) noexcept
 {
     return (static_cast<uint64_t>(fileTime.dwHighDateTime) << 32) | static_cast<uint64_t>(fileTime.dwLowDateTime);
 }
@@ -286,10 +254,10 @@ int detectLogicalCoreCount() noexcept
     return std::max(1, static_cast<int>(systemInfo.dwNumberOfProcessors));
 }
 
-SystemTimesData aggregateCoreTimes(const std::vector<SystemTimesData> &coreTimes) noexcept
+SystemTimesData aggregateCoreTimes(const std::vector<SystemTimesData>& coreTimes) noexcept
 {
     SystemTimesData sum{};
-    for (const auto &core : coreTimes) {
+    for (const auto& core : coreTimes) {
         sum.idleTime += core.idleTime;
         sum.kernelTime += core.kernelTime;
         sum.userTime += core.userTime;
@@ -299,10 +267,8 @@ SystemTimesData aggregateCoreTimes(const std::vector<SystemTimesData> &coreTimes
 
 } // namespace
 
-std::optional<float> calculateCpuUsage(
-    const SystemTimesData &previous,
-    const SystemTimesData &current,
-    std::chrono::nanoseconds monotonicElapsed)
+std::optional<float> calculateCpuUsage(const SystemTimesData& previous, const SystemTimesData& current,
+                                       std::chrono::nanoseconds monotonicElapsed)
 {
     if (monotonicElapsed <= std::chrono::nanoseconds{0}) {
         return std::nullopt;
@@ -330,7 +296,7 @@ std::optional<float> calculateCpuUsage(
 }
 
 CpuCollector::CpuCollector()
-    : m_timesReader([failureLog = RepeatedFailureLog{"GetSystemTimes"}](SystemTimesData &data) mutable {
+    : m_timesReader([failureLog = RepeatedFailureLog{"GetSystemTimes"}](SystemTimesData& data) mutable {
           FILETIME idleTime{};
           FILETIME kernelTime{};
           FILETIME userTime{};
@@ -347,14 +313,13 @@ CpuCollector::CpuCollector()
           data.userTime = fileTimeToUInt64(userTime);
           return true;
       }),
-      m_clockReader([] { return std::chrono::steady_clock::now(); }),
-      m_coreCount(detectLogicalCoreCount()),
+      m_clockReader([] { return std::chrono::steady_clock::now(); }), m_coreCount(detectLogicalCoreCount()),
       m_isMultiGroup(::GetActiveProcessorGroupCount() > 1)
 {
     const auto funcs = resolveNtdllProcessorFunctions();
     const int initialCores = m_coreCount;
-    m_coreReader = [funcs, initialCores, failureLogs = CoreQueryFailureLogs{}](
-                       std::vector<SystemTimesData> &coreTimes) mutable {
+    m_coreReader = [funcs, initialCores,
+                    failureLogs = CoreQueryFailureLogs{}](std::vector<SystemTimesData>& coreTimes) mutable {
         return queryAllProcessorPerformance(funcs, coreTimes, initialCores, failureLogs);
     };
 
@@ -365,17 +330,10 @@ CpuCollector::CpuCollector(SystemTimesReader timesReader, SteadyClockReader cloc
     : CpuCollector(std::move(timesReader), nullptr, std::move(clockReader), coreCount)
 {}
 
-CpuCollector::CpuCollector(
-    SystemTimesReader timesReader,
-    CorePerformanceReader coreReader,
-    SteadyClockReader clockReader,
-    int coreCount,
-    int processorGroupCount)
-    : m_timesReader(std::move(timesReader)),
-      m_coreReader(std::move(coreReader)),
-      m_clockReader(std::move(clockReader)),
-      m_coreCount(std::max(1, coreCount)),
-      m_isMultiGroup(processorGroupCount > 1)
+CpuCollector::CpuCollector(SystemTimesReader timesReader, CorePerformanceReader coreReader,
+                           SteadyClockReader clockReader, int coreCount, int processorGroupCount)
+    : m_timesReader(std::move(timesReader)), m_coreReader(std::move(coreReader)), m_clockReader(std::move(clockReader)),
+      m_coreCount(std::max(1, coreCount)), m_isMultiGroup(processorGroupCount > 1)
 {
     if (m_clockReader) {
         establishBaseline();
@@ -397,11 +355,8 @@ void CpuCollector::establishBaseline()
     }
 }
 
-std::optional<SystemTimesData> CpuCollector::totalTimes(
-    bool hasTimes,
-    const SystemTimesData &times,
-    bool hasCoreTimes,
-    const std::vector<SystemTimesData> &coreTimes) const
+std::optional<SystemTimesData> CpuCollector::totalTimes(bool hasTimes, const SystemTimesData& times, bool hasCoreTimes,
+                                                        const std::vector<SystemTimesData>& coreTimes) const
 {
     // GetSystemTimes covers only the calling thread's processor group, so on a
     // multi-group system the total must come from all cores. With a single
@@ -432,7 +387,7 @@ std::optional<domain::CpuSample> CpuCollector::collect()
     if (!total) {
         return std::nullopt;
     }
-    const SystemTimesData &currentTimes = *total;
+    const SystemTimesData& currentTimes = *total;
 
     if (!m_hasBaseline) {
         // A usage rate needs two samples; this one only establishes the baseline.

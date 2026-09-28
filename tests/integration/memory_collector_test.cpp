@@ -67,12 +67,11 @@ TEST(MemoryCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics
     SystemSnapshot lastSnapshot;
     std::mutex snapshotMutex;
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-                     [&](const SystemSnapshot &snapshot) {
-                         std::lock_guard lock(snapshotMutex);
-                         lastSnapshot = snapshot;
-                         ++snapshotCount;
-                     });
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
+        std::lock_guard lock(snapshotMutex);
+        lastSnapshot = snapshot;
+        ++snapshotCount;
+    });
 
     scheduler.start();
 
@@ -94,4 +93,3 @@ TEST(MemoryCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics
         EXPECT_LE(lastSnapshot.memory->usagePercent, 100.0f);
     }
 }
-

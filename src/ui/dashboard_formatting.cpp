@@ -68,7 +68,7 @@ QString healthLevelText(domain::HealthLevel level)
     }
 }
 
-QString connectivityText(const domain::ConnectivityStatus &status)
+QString connectivityText(const domain::ConnectivityStatus& status)
 {
     QString text;
     switch (status.level) {
@@ -99,19 +99,19 @@ QString connectivityText(const domain::ConnectivityStatus &status)
 namespace
 {
 
-bool isActiveHardwareAdapter(const domain::NetworkSample &adapter)
+bool isActiveHardwareAdapter(const domain::NetworkSample& adapter)
 {
     return adapter.isHardwareInterface && adapter.operationalStatus == domain::OperationalStatus::Up;
 }
 
 } // namespace
 
-std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::NetworkSample> &networks)
+std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::NetworkSample>& networks)
 {
     ThroughputTotals totals;
     bool hasActive = false;
 
-    for (const auto &adapter : networks) {
+    for (const auto& adapter : networks) {
         if (!isActiveHardwareAdapter(adapter)) {
             continue;
         }
@@ -129,12 +129,12 @@ std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::Ne
     return totals;
 }
 
-bool hasActiveAdapter(const std::vector<domain::NetworkSample> &networks)
+bool hasActiveAdapter(const std::vector<domain::NetworkSample>& networks)
 {
     return std::ranges::any_of(networks, isActiveHardwareAdapter);
 }
 
-const domain::DiskSample *fullestVolume(const std::vector<domain::DiskSample> &disks)
+const domain::DiskSample* fullestVolume(const std::vector<domain::DiskSample>& disks)
 {
     const auto it = std::ranges::max_element(disks, {}, &domain::DiskSample::usagePercent);
     return it != disks.end() ? &*it : nullptr;

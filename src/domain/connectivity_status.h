@@ -33,7 +33,7 @@ struct ConnectivityStatus
     ConnectivityLevel level{ConnectivityLevel::Unknown};
     std::optional<bool> isMetered;
 
-    bool operator==(const ConnectivityStatus &) const = default;
+    bool operator==(const ConnectivityStatus&) const = default;
 };
 
 } // namespace sysmon::domain

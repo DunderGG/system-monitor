@@ -3,15 +3,15 @@
 #include <cassert>
 #include <chrono>
 #include <mutex>
-#include <QMetaType>
 #include <utility>
 
+#include <QMetaType>
 #include <spdlog/spdlog.h>
 
 namespace sysmon::monitoring
 {
 
-SamplingScheduler::SamplingScheduler(std::chrono::milliseconds interval, QObject *parent)
+SamplingScheduler::SamplingScheduler(std::chrono::milliseconds interval, QObject* parent)
     : QObject(parent), m_interval(interval)
 {
     qRegisterMetaType<sysmon::domain::SystemSnapshot>();
@@ -111,7 +111,7 @@ void SamplingScheduler::setUptimeCollector(std::unique_ptr<IUptimeCollector> col
     m_uptimeCollector = std::move(collector);
 }
 
-void SamplingScheduler::setHealthThresholds(const HealthThresholds &thresholds)
+void SamplingScheduler::setHealthThresholds(const HealthThresholds& thresholds)
 {
     assert(!m_isRunning.load() && "setHealthThresholds must only be called when scheduler is stopped");
     std::lock_guard lock(m_collectorMutex);
@@ -132,14 +132,14 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     domain::SystemSnapshot snapshot;
     snapshot.timestamp = std::chrono::steady_clock::now();
 
-    ICpuCollector *cpu = nullptr;
-    IMemoryCollector *memory = nullptr;
-    IDiskCollector *disk = nullptr;
-    INetworkCollector *network = nullptr;
-    IConnectivityCollector *connectivity = nullptr;
-    IUptimeCollector *uptime = nullptr;
+    ICpuCollector* cpu = nullptr;
+    IMemoryCollector* memory = nullptr;
+    IDiskCollector* disk = nullptr;
+    INetworkCollector* network = nullptr;
+    IConnectivityCollector* connectivity = nullptr;
+    IUptimeCollector* uptime = nullptr;
     HealthThresholds healthThresholds;
-    IProcessCollector *process = nullptr;
+    IProcessCollector* process = nullptr;
 
     {
         std::lock_guard lock(m_collectorMutex);

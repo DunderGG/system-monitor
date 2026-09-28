@@ -33,7 +33,7 @@ struct HealthThresholds
 };
 
 /** Classifies a usage percent. std::nullopt (no data) yields HealthLevel::Unknown. */
-[[nodiscard]] domain::HealthLevel evaluateUsage(std::optional<float> usagePercent, const UsageThresholds &thresholds);
+[[nodiscard]] domain::HealthLevel evaluateUsage(std::optional<float> usagePercent, const UsageThresholds& thresholds);
 
 /**
  * Classifies connectivity: InternetAccess is Healthy, Unknown is Unknown, and
@@ -46,7 +46,7 @@ struct HealthThresholds
  * Overall is Critical if any component is Critical, else Warning if any is
  * Warning, else Unknown if any is Unknown, else Healthy.
  */
-[[nodiscard]] domain::SystemHealth evaluateHealth(const domain::SystemSnapshot &snapshot,
-                                                  const HealthThresholds &thresholds);
+[[nodiscard]] domain::SystemHealth evaluateHealth(const domain::SystemSnapshot& snapshot,
+                                                  const HealthThresholds& thresholds);
 
 } // namespace sysmon::monitoring

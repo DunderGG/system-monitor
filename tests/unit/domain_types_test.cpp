@@ -298,8 +298,8 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
         .cpu = CpuSample{.totalUsagePercent = 10.0f, .coreCount = 4},
         .memory = MemorySample{.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
         .disks = std::vector<DiskSample>{DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
-        .networks = std::vector<NetworkSample>{
-            NetworkSample{.adapterName = "Wi-Fi", .operationalStatus = OperationalStatus::Up}},
+        .networks = std::vector<NetworkSample>{NetworkSample{.adapterName = "Wi-Fi",
+                                                             .operationalStatus = OperationalStatus::Up}},
         .connectivity = {.level = ConnectivityLevel::InternetAccess},
         .processes = std::vector<ProcessInfo>{ProcessInfo{.pid = 4, .imageName = "System"}},
     };

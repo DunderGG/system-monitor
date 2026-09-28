@@ -27,7 +27,7 @@ TEST(DiskCollectorIntegration, RealHostSampling_DetectsFixedDrivesWithSensibleMe
     ASSERT_TRUE(samples.has_value());
     EXPECT_FALSE(samples->empty());
 
-    for (const auto &disk : *samples) {
+    for (const auto& disk : *samples) {
         EXPECT_FALSE(disk.volumeName.empty());
         EXPECT_GT(disk.totalBytes, 0u);
         EXPECT_LE(disk.freeBytes, disk.totalBytes);
@@ -48,12 +48,11 @@ TEST(DiskCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealDisks)
     SystemSnapshot lastSnapshot;
     std::mutex snapshotMutex;
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-                     [&](const SystemSnapshot &snapshot) {
-                         std::lock_guard lock(snapshotMutex);
-                         lastSnapshot = snapshot;
-                         ++snapshotCount;
-                     });
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
+        std::lock_guard lock(snapshotMutex);
+        lastSnapshot = snapshot;
+        ++snapshotCount;
+    });
 
     scheduler.start();
 
@@ -70,7 +69,7 @@ TEST(DiskCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealDisks)
         std::lock_guard lock(snapshotMutex);
         ASSERT_TRUE(lastSnapshot.disks.has_value());
         EXPECT_FALSE(lastSnapshot.disks->empty());
-        for (const auto &disk : *lastSnapshot.disks) {
+        for (const auto& disk : *lastSnapshot.disks) {
             EXPECT_FALSE(disk.volumeName.empty());
             EXPECT_GT(disk.totalBytes, 0u);
             EXPECT_GE(disk.usagePercent, 0.0f);
@@ -78,4 +77,3 @@ TEST(DiskCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealDisks)
         }
     }
 }
-

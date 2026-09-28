@@ -14,7 +14,7 @@ class NetworkView : public QWidget
     Q_OBJECT
 
 public:
-    explicit NetworkView(QWidget *parent = nullptr);
+    explicit NetworkView(QWidget* parent = nullptr);
     ~NetworkView() override = default;
 };
 

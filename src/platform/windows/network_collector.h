@@ -89,10 +89,10 @@ public:
      * Pure calculation helper that processes raw adapter records against historical baselines,
      * calculates bytes/sec rates over elapsed monotonic time, and purges retired baselines.
      */
-    static std::vector<domain::NetworkSample> calculateNetworkSamples(
-        const std::vector<RawNetworkAdapter> &adapters,
-        std::unordered_map<uint64_t, NetworkBaseline> &baselines,
-        std::chrono::steady_clock::time_point currentTime);
+    static std::vector<domain::NetworkSample>
+    calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
+                            std::unordered_map<uint64_t, NetworkBaseline>& baselines,
+                            std::chrono::steady_clock::time_point currentTime);
 
 private:
     // Owns the Windows reader (and its change notifications) in production;
@@ -105,4 +105,3 @@ private:
 };
 
 } // namespace sysmon::platform
-

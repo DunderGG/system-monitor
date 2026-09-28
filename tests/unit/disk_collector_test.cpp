@@ -52,11 +52,9 @@ TEST(DiskCollector, CalculateDiskSample_FullyFull_Returns100Percent)
 
 TEST(DiskCollector, Collect_MultipleFixedDrives_ReturnsAllSamples)
 {
-    auto enumerator = []() -> std::vector<std::string> {
-        return {"C:\\", "D:\\"};
-    };
+    auto enumerator = []() -> std::vector<std::string> { return {"C:\\", "D:\\"}; };
 
-    auto reader = [](const std::string &volume, DiskSpaceData &data) {
+    auto reader = [](const std::string& volume, DiskSpaceData& data) {
         if (volume == "C:\\") {
             data.totalBytes = 500'000'000'000ULL;
             data.freeBytes = 250'000'000'000ULL;
@@ -84,11 +82,9 @@ TEST(DiskCollector, Collect_MultipleFixedDrives_ReturnsAllSamples)
 
 TEST(DiskCollector, Collect_DriveReadFails_SkipsFailedVolume)
 {
-    auto enumerator = []() -> std::vector<std::string> {
-        return {"C:\\", "E:\\"};
-    };
+    auto enumerator = []() -> std::vector<std::string> { return {"C:\\", "E:\\"}; };
 
-    auto reader = [](const std::string &volume, DiskSpaceData &data) {
+    auto reader = [](const std::string& volume, DiskSpaceData& data) {
         if (volume == "C:\\") {
             data.totalBytes = 500'000'000'000ULL;
             data.freeBytes = 250'000'000'000ULL;
@@ -108,11 +104,9 @@ TEST(DiskCollector, Collect_DriveReadFails_SkipsFailedVolume)
 
 TEST(DiskCollector, Collect_ZeroTotalVolume_SkipsVolume)
 {
-    auto enumerator = []() -> std::vector<std::string> {
-        return {"C:\\", "Z:\\"};
-    };
+    auto enumerator = []() -> std::vector<std::string> { return {"C:\\", "Z:\\"}; };
 
-    auto reader = [](const std::string &volume, DiskSpaceData &data) {
+    auto reader = [](const std::string& volume, DiskSpaceData& data) {
         if (volume == "C:\\") {
             data.totalBytes = 500'000'000'000ULL;
             data.freeBytes = 250'000'000'000ULL;
@@ -133,12 +127,8 @@ TEST(DiskCollector, Collect_ZeroTotalVolume_SkipsVolume)
 
 TEST(DiskCollector, Collect_EmptyDrives_ReturnsEmpty)
 {
-    auto enumerator = []() -> std::vector<std::string> {
-        return {};
-    };
-    auto reader = [](const std::string &, DiskSpaceData &) {
-        return true;
-    };
+    auto enumerator = []() -> std::vector<std::string> { return {}; };
+    auto reader = [](const std::string&, DiskSpaceData&) { return true; };
 
     DiskCollector collector(enumerator, reader);
     const auto samples = collector.collect();
@@ -149,12 +139,8 @@ TEST(DiskCollector, Collect_EmptyDrives_ReturnsEmpty)
 
 TEST(DiskCollector, Collect_EnumerationFails_ReturnsNullopt)
 {
-    auto enumerator = []() -> std::optional<std::vector<std::string>> {
-        return std::nullopt;
-    };
-    auto reader = [](const std::string &, DiskSpaceData &) {
-        return true;
-    };
+    auto enumerator = []() -> std::optional<std::vector<std::string>> { return std::nullopt; };
+    auto reader = [](const std::string&, DiskSpaceData&) { return true; };
 
     DiskCollector collector(enumerator, reader);
 
@@ -163,15 +149,10 @@ TEST(DiskCollector, Collect_EnumerationFails_ReturnsNullopt)
 
 TEST(DiskCollector, Collect_AllDriveReadsFail_ReturnsNullopt)
 {
-    auto enumerator = []() -> std::vector<std::string> {
-        return {"C:\\", "D:\\"};
-    };
-    auto reader = [](const std::string &, DiskSpaceData &) {
-        return false;
-    };
+    auto enumerator = []() -> std::vector<std::string> { return {"C:\\", "D:\\"}; };
+    auto reader = [](const std::string&, DiskSpaceData&) { return false; };
 
     DiskCollector collector(enumerator, reader);
 
     EXPECT_FALSE(collector.collect().has_value());
 }
-

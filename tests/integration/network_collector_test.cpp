@@ -23,7 +23,7 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
     ASSERT_TRUE(samples.has_value());
 
     // If host has network adapters, verify all invariants
-    for (const auto &sample : *samples) {
+    for (const auto& sample : *samples) {
         // Must have non-empty name
         EXPECT_FALSE(sample.adapterName.empty());
 
@@ -55,17 +55,16 @@ TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTim
     const auto secondResult = collector.collect();
     ASSERT_TRUE(firstResult.has_value());
     ASSERT_TRUE(secondResult.has_value());
-    const auto &firstSamples = *firstResult;
-    const auto &secondSamples = *secondResult;
+    const auto& firstSamples = *firstResult;
+    const auto& secondSamples = *secondResult;
 
     EXPECT_EQ(firstSamples.size(), secondSamples.size());
 
     // Adapters present in both samples have a baseline, so both rates must be reported.
     // (An adapter that appeared in between legitimately has no rate yet.)
-    for (const auto &sample : secondSamples) {
-        const bool seenBefore = std::ranges::any_of(firstSamples, [&sample](const NetworkSample &first) {
-            return first.adapterName == sample.adapterName;
-        });
+    for (const auto& sample : secondSamples) {
+        const bool seenBefore = std::ranges::any_of(
+            firstSamples, [&sample](const NetworkSample& first) { return first.adapterName == sample.adapterName; });
         if (seenBefore) {
             EXPECT_TRUE(sample.inBytesPerSec.has_value()) << sample.adapterName;
             EXPECT_TRUE(sample.outBytesPerSec.has_value()) << sample.adapterName;
@@ -82,11 +81,11 @@ TEST(NetworkCollectorIntegration, ConsecutiveSamples_KeepAdapterDetailsBetweenRe
     const auto secondResult = collector.collect();
     ASSERT_TRUE(firstResult.has_value());
     ASSERT_TRUE(secondResult.has_value());
-    const auto &firstSamples = *firstResult;
-    const auto &secondSamples = *secondResult;
+    const auto& firstSamples = *firstResult;
+    const auto& secondSamples = *secondResult;
 
-    for (const auto &sample : secondSamples) {
-        const auto first = std::ranges::find_if(firstSamples, [&sample](const NetworkSample &candidate) {
+    for (const auto& sample : secondSamples) {
+        const auto first = std::ranges::find_if(firstSamples, [&sample](const NetworkSample& candidate) {
             return candidate.adapterName == sample.adapterName;
         });
         if (first != firstSamples.end()) {
@@ -113,9 +112,7 @@ TEST(NetworkCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealNetwor
     std::vector<SystemSnapshot> receivedSnapshots;
 
     QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-                     [&receivedSnapshots](const SystemSnapshot &snapshot) {
-                         receivedSnapshots.push_back(snapshot);
-                     });
+                     [&receivedSnapshots](const SystemSnapshot& snapshot) { receivedSnapshots.push_back(snapshot); });
 
     scheduler.start();
 
@@ -130,13 +127,12 @@ TEST(NetworkCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealNetwor
 
     ASSERT_GE(receivedSnapshots.size(), 2u);
 
-    for (const auto &snapshot : receivedSnapshots) {
+    for (const auto& snapshot : receivedSnapshots) {
         ASSERT_TRUE(snapshot.networks.has_value());
-        for (const auto &adapter : *snapshot.networks) {
+        for (const auto& adapter : *snapshot.networks) {
             EXPECT_FALSE(adapter.adapterName.empty());
             EXPECT_GE(adapter.inBytesTotal, 0u);
             EXPECT_GE(adapter.outBytesTotal, 0u);
         }
     }
 }
-

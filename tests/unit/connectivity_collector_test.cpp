@@ -181,10 +181,7 @@ struct FakeSubscriptionState
 class FakeSubscription : public ConnectivitySubscription
 {
 public:
-    explicit FakeSubscription(FakeSubscriptionState &state)
-        : m_state(state)
-    {
-    }
+    explicit FakeSubscription(FakeSubscriptionState& state) : m_state(state) {}
 
     ~FakeSubscription() override
     {
@@ -192,10 +189,10 @@ public:
     }
 
 private:
-    FakeSubscriptionState &m_state;
+    FakeSubscriptionState& m_state;
 };
 
-ConnectivitySubscriber fakeSubscriber(FakeSubscriptionState &state)
+ConnectivitySubscriber fakeSubscriber(FakeSubscriptionState& state)
 {
     return [&state](ConnectivityChangeHandler handler) -> std::unique_ptr<ConnectivitySubscription> {
         ++state.subscribeCount;
@@ -311,8 +308,8 @@ TEST(ConnectivityCollector, SubscribeFails_FallsBackToPollingReader)
     int readCount = 0;
     auto reader = [&readCount] {
         ++readCount;
-        return std::optional<ConnectivityStatus>{status(readCount == 1 ? ConnectivityLevel::LocalAccess
-                                                                        : ConnectivityLevel::InternetAccess)};
+        return std::optional<ConnectivityStatus>{
+            status(readCount == 1 ? ConnectivityLevel::LocalAccess : ConnectivityLevel::InternetAccess)};
     };
 
     ConnectivityCollector collector(reader, fakeSubscriber(state));

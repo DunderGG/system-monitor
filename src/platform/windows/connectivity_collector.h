@@ -70,10 +70,10 @@ public:
     ~ConnectivityCollector() override = default;
 
     // Not copyable or movable: the subscription's handler captures this.
-    ConnectivityCollector(const ConnectivityCollector &) = delete;
-    ConnectivityCollector &operator=(const ConnectivityCollector &) = delete;
-    ConnectivityCollector(ConnectivityCollector &&) = delete;
-    ConnectivityCollector &operator=(ConnectivityCollector &&) = delete;
+    ConnectivityCollector(const ConnectivityCollector&) = delete;
+    ConnectivityCollector& operator=(const ConnectivityCollector&) = delete;
+    ConnectivityCollector(ConnectivityCollector&&) = delete;
+    ConnectivityCollector& operator=(ConnectivityCollector&&) = delete;
 
     [[nodiscard]] domain::ConnectivityStatus collect() override;
 

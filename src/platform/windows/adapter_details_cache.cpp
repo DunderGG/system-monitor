@@ -6,7 +6,7 @@
 namespace sysmon::platform
 {
 
-const AdapterDetails *AdapterDetailsTable::find(uint64_t luid, uint32_t ifIndex) const
+const AdapterDetails* AdapterDetailsTable::find(uint64_t luid, uint32_t ifIndex) const
 {
     if (const auto it = byLuid.find(luid); it != byLuid.end()) {
         return &it->second;
@@ -28,9 +28,8 @@ void AdapterDetailsCache::markStale()
 bool AdapterDetailsCache::beginRefreshIfDue(std::span<const uint64_t> interfaceLuids,
                                             std::chrono::steady_clock::time_point now)
 {
-    const bool hasNewInterface = std::ranges::any_of(interfaceLuids, [this](uint64_t luid) {
-        return !m_knownLuids.contains(luid);
-    });
+    const bool hasNewInterface =
+        std::ranges::any_of(interfaceLuids, [this](uint64_t luid) { return !m_knownLuids.contains(luid); });
     const bool isExpired = !m_lastRefresh || now - *m_lastRefresh >= kMaxAge;
 
     const std::lock_guard lock(m_staleMutex);
@@ -55,7 +54,7 @@ void AdapterDetailsCache::completeRefresh(std::optional<AdapterDetailsTable> tab
     m_lastRefresh = now;
 }
 
-const AdapterDetailsTable &AdapterDetailsCache::table() const
+const AdapterDetailsTable& AdapterDetailsCache::table() const
 {
     return m_table;
 }

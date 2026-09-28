@@ -14,7 +14,7 @@ class ProcessesView : public QWidget
     Q_OBJECT
 
 public:
-    explicit ProcessesView(QWidget *parent = nullptr);
+    explicit ProcessesView(QWidget* parent = nullptr);
     ~ProcessesView() override = default;
 };
 

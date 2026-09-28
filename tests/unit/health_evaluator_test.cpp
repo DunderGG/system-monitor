@@ -24,7 +24,8 @@ SystemSnapshot healthySnapshot()
     SystemSnapshot snapshot;
     snapshot.cpu = CpuSample{.totalUsagePercent = 20.0f, .coreCount = 4};
     snapshot.memory = MemorySample{.totalBytes = 16'000'000'000ULL, .usagePercent = 40.0f};
-    snapshot.disks = std::vector<DiskSample>{DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .usagePercent = 50.0f}};
+    snapshot.disks =
+        std::vector<DiskSample>{DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .usagePercent = 50.0f}};
     snapshot.connectivity.level = ConnectivityLevel::InternetAccess;
     return snapshot;
 }

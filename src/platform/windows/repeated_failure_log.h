@@ -24,13 +24,11 @@ class RepeatedFailureLog
 {
 public:
     /** operation names what failed in the recovery message, e.g. "GetSystemTimes". */
-    explicit RepeatedFailureLog(std::string operation) : m_operation(std::move(operation))
-    {
-    }
+    explicit RepeatedFailureLog(std::string operation) : m_operation(std::move(operation)) {}
 
     /** Records a failure and logs it: at level the first time, at debug while it repeats. */
     template <typename... Args>
-    void failure(spdlog::level::level_enum level, spdlog::format_string_t<Args...> format, Args &&...args)
+    void failure(spdlog::level::level_enum level, spdlog::format_string_t<Args...> format, Args&&... args)
     {
         ++m_consecutiveFailures;
         spdlog::log(m_consecutiveFailures == 1 ? level : spdlog::level::debug, format, std::forward<Args>(args)...);

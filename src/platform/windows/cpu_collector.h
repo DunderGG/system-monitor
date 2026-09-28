@@ -30,10 +30,8 @@ struct SystemTimesData
  * went backwards (reset), or no CPU time elapsed at all.
  * Pure function with no OS dependencies for deterministic testing.
  */
-[[nodiscard]] std::optional<float> calculateCpuUsage(
-    const SystemTimesData &previous,
-    const SystemTimesData &current,
-    std::chrono::nanoseconds monotonicElapsed);
+[[nodiscard]] std::optional<float> calculateCpuUsage(const SystemTimesData& previous, const SystemTimesData& current,
+                                                     std::chrono::nanoseconds monotonicElapsed);
 
 /**
  * Total and per-core CPU usage collector for Windows using GetSystemTimes
@@ -53,18 +51,14 @@ struct SystemTimesData
 class CpuCollector : public monitoring::ICpuCollector
 {
 public:
-    using SystemTimesReader = std::function<bool(SystemTimesData &)>;
-    using CorePerformanceReader = std::function<bool(std::vector<SystemTimesData> &)>;
+    using SystemTimesReader = std::function<bool(SystemTimesData&)>;
+    using CorePerformanceReader = std::function<bool(std::vector<SystemTimesData>&)>;
     using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>;
 
     explicit CpuCollector();
     CpuCollector(SystemTimesReader timesReader, SteadyClockReader clockReader, int coreCount);
-    CpuCollector(
-        SystemTimesReader timesReader,
-        CorePerformanceReader coreReader,
-        SteadyClockReader clockReader,
-        int coreCount,
-        int processorGroupCount = 1);
+    CpuCollector(SystemTimesReader timesReader, CorePerformanceReader coreReader, SteadyClockReader clockReader,
+                 int coreCount, int processorGroupCount = 1);
     ~CpuCollector() override = default;
 
     [[nodiscard]] std::optional<domain::CpuSample> collect() override;
@@ -78,11 +72,9 @@ private:
     // Returns the times the total is computed from: GetSystemTimes on a
     // single-group system, otherwise the sum of all cores. std::nullopt when
     // neither source covers the whole machine this tick.
-    [[nodiscard]] std::optional<SystemTimesData> totalTimes(
-        bool hasTimes,
-        const SystemTimesData &times,
-        bool hasCoreTimes,
-        const std::vector<SystemTimesData> &coreTimes) const;
+    [[nodiscard]] std::optional<SystemTimesData> totalTimes(bool hasTimes, const SystemTimesData& times,
+                                                            bool hasCoreTimes,
+                                                            const std::vector<SystemTimesData>& coreTimes) const;
 
     SystemTimesReader m_timesReader;
     CorePerformanceReader m_coreReader;

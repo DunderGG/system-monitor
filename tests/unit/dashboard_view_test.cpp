@@ -27,7 +27,7 @@ public:
     int count = 0;
 
 protected:
-    bool eventFilter(QObject * /*watched*/, QEvent *event) override
+    bool eventFilter(QObject* /*watched*/, QEvent* event) override
     {
         if (event->type() == QEvent::StyleChange) {
             ++count;
@@ -37,9 +37,9 @@ protected:
 };
 
 // Returns the card's label that currently shows text, or nullptr.
-QLabel *findLabel(const ResourceCard &card, const QString &text)
+QLabel* findLabel(const ResourceCard& card, const QString& text)
 {
-    for (auto *label : card.findChildren<QLabel *>()) {
+    for (auto* label : card.findChildren<QLabel*>()) {
         if (label->text() == text) {
             return label;
         }
@@ -106,7 +106,7 @@ TEST(ResourceCard, SetStatus_SameLevelAgain_DoesNotRestyle)
 {
     ResourceCard card("Memory");
     card.setStatus(HealthLevel::Warning);
-    auto *statusLabel = findLabel(card, "Warning");
+    auto* statusLabel = findLabel(card, "Warning");
     ASSERT_NE(statusLabel, nullptr);
     StyleChangeCounter counter;
     statusLabel->installEventFilter(&counter);

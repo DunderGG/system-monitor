@@ -3,12 +3,13 @@
 #include <thread>
 #include <vector>
 
-#include <gtest/gtest.h>
-#include <QCoreApplication>
-#include <QObject>
 #include <winsock2.h>
 #include <windows.h>
 #include <iphlpapi.h>
+
+#include <gtest/gtest.h>
+#include <QCoreApplication>
+#include <QObject>
 
 #include "domain/connectivity_status.h"
 #include "domain/system_snapshot.h"
@@ -26,8 +27,8 @@ namespace
 bool isValidLevel(ConnectivityLevel level)
 {
     return level == ConnectivityLevel::Unknown || level == ConnectivityLevel::None ||
-           level == ConnectivityLevel::LocalAccess ||
-           level == ConnectivityLevel::ConstrainedInternetAccess || level == ConnectivityLevel::InternetAccess;
+           level == ConnectivityLevel::LocalAccess || level == ConnectivityLevel::ConstrainedInternetAccess ||
+           level == ConnectivityLevel::InternetAccess;
 }
 
 } // namespace
@@ -80,9 +81,7 @@ TEST(ConnectivityCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithConne
     std::vector<SystemSnapshot> receivedSnapshots;
 
     QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-                     [&receivedSnapshots](const SystemSnapshot &snapshot) {
-                         receivedSnapshots.push_back(snapshot);
-                     });
+                     [&receivedSnapshots](const SystemSnapshot& snapshot) { receivedSnapshots.push_back(snapshot); });
 
     scheduler.start();
 
@@ -97,7 +96,7 @@ TEST(ConnectivityCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithConne
 
     ASSERT_GE(receivedSnapshots.size(), 2u);
 
-    for (const auto &snapshot : receivedSnapshots) {
+    for (const auto& snapshot : receivedSnapshots) {
         EXPECT_TRUE(isValidLevel(snapshot.connectivity.level));
     }
 }

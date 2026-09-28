@@ -3,10 +3,10 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <QObject>
 #include <thread>
 
 #include <gtest/gtest.h>
+#include <QObject>
 
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
@@ -78,7 +78,7 @@ TEST(SamplingScheduler, EmitsSnapshotReadySignal_ReceivedViaQtConnection)
     SystemSnapshot lastSnapshot;
     std::mutex snapMutex;
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot &snapshot) {
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
         std::lock_guard lock(snapMutex);
         lastSnapshot = snapshot;
         ++snapshotCount;
@@ -127,7 +127,7 @@ namespace
 class MutexReentryProbeCollector : public sysmon::monitoring::ICpuCollector
 {
 public:
-    explicit MutexReentryProbeCollector(SamplingScheduler &scheduler) : m_scheduler(scheduler) {}
+    explicit MutexReentryProbeCollector(SamplingScheduler& scheduler) : m_scheduler(scheduler) {}
 
     [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
     {
@@ -147,7 +147,7 @@ public:
     }
 
 private:
-    SamplingScheduler &m_scheduler;
+    SamplingScheduler& m_scheduler;
     bool m_called{false};
 };
 
@@ -157,7 +157,7 @@ TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
 {
     SamplingScheduler scheduler;
     auto probe = std::make_unique<MutexReentryProbeCollector>(scheduler);
-    const auto *probePtr = probe.get();
+    const auto* probePtr = probe.get();
     scheduler.setCpuCollector(std::move(probe));
 
     const SystemSnapshot snapshot = scheduler.sampleOnce();
@@ -173,10 +173,7 @@ namespace
 class FakeUptimeCollector : public sysmon::monitoring::IUptimeCollector
 {
 public:
-    explicit FakeUptimeCollector(std::chrono::milliseconds uptime)
-        : m_uptime(uptime)
-    {
-    }
+    explicit FakeUptimeCollector(std::chrono::milliseconds uptime) : m_uptime(uptime) {}
 
     [[nodiscard]] std::chrono::milliseconds collect() override
     {
@@ -214,10 +211,7 @@ namespace
 class FixedCpuCollector : public sysmon::monitoring::ICpuCollector
 {
 public:
-    explicit FixedCpuCollector(float usagePercent)
-        : m_usagePercent(usagePercent)
-    {
-    }
+    explicit FixedCpuCollector(float usagePercent) : m_usagePercent(usagePercent) {}
 
     [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
     {

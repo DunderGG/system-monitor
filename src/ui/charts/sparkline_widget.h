@@ -35,9 +35,7 @@ struct YRange
  * outside range are clamped. Pure function for unit testing.
  */
 [[nodiscard]] std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> samples,
-                                                       std::size_t capacity,
-                                                       const QRectF &area,
-                                                       YRange range);
+                                                       std::size_t capacity, const QRectF& area, YRange range);
 
 /**
  * Minimal single-series sparkline: a polyline with a gradient fill beneath it.
@@ -52,7 +50,7 @@ class SparklineWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit SparklineWidget(QWidget *parent = nullptr);
+    explicit SparklineWidget(QWidget* parent = nullptr);
     ~SparklineWidget() override = default;
 
     /** Replaces the displayed samples (oldest first) and repaints. */
@@ -68,7 +66,7 @@ public:
     void setAutoRange();
 
     /** Sets the line colour; the fill uses the same colour fading to transparent. */
-    void setLineColor(const QColor &color);
+    void setLineColor(const QColor& color);
 
     [[nodiscard]] std::span<const std::optional<float>> samples() const;
     [[nodiscard]] std::size_t capacity() const;
@@ -81,7 +79,7 @@ public:
     [[nodiscard]] QSize minimumSizeHint() const override;
 
 protected:
-    void paintEvent(QPaintEvent *event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 private:
     std::vector<std::optional<float>> m_samples;

@@ -38,7 +38,7 @@ namespace sysmon::ui
 [[nodiscard]] QString healthLevelText(domain::HealthLevel level);
 
 /** Describes connectivity in words, with ", metered" appended when the connection is known to be metered. */
-[[nodiscard]] QString connectivityText(const domain::ConnectivityStatus &status);
+[[nodiscard]] QString connectivityText(const domain::ConnectivityStatus& status);
 
 /** Total inbound and outbound throughput across active hardware adapters, in bytes/sec. */
 struct ThroughputTotals
@@ -54,12 +54,12 @@ struct ThroughputTotals
  * std::nullopt when there is no such adapter or any of them has no rate yet,
  * because a partial sum would understate the real throughput.
  */
-[[nodiscard]] std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::NetworkSample> &networks);
+[[nodiscard]] std::optional<ThroughputTotals> sumActiveThroughput(const std::vector<domain::NetworkSample>& networks);
 
 /** Returns true if any hardware adapter's operational status is Up. */
-[[nodiscard]] bool hasActiveAdapter(const std::vector<domain::NetworkSample> &networks);
+[[nodiscard]] bool hasActiveAdapter(const std::vector<domain::NetworkSample>& networks);
 
 /** Returns the volume with the highest usage percent, or nullptr when there are none. */
-[[nodiscard]] const domain::DiskSample *fullestVolume(const std::vector<domain::DiskSample> &disks);
+[[nodiscard]] const domain::DiskSample* fullestVolume(const std::vector<domain::DiskSample>& disks);
 
 } // namespace sysmon::ui

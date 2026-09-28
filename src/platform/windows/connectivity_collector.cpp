@@ -49,7 +49,7 @@ std::string_view meteredName(std::optional<bool> isMetered) noexcept
     return *isMetered ? "yes" : "no";
 }
 
-std::optional<domain::ConnectivityStatus> queryConnectivityHint(RepeatedFailureLog &failureLog)
+std::optional<domain::ConnectivityStatus> queryConnectivityHint(RepeatedFailureLog& failureLog)
 {
     NL_NETWORK_CONNECTIVITY_HINT hint{};
     const DWORD result = GetNetworkConnectivityHint(&hint);
@@ -67,10 +67,7 @@ std::optional<domain::ConnectivityStatus> queryConnectivityHint(RepeatedFailureL
 class WindowsConnectivitySubscription final : public ConnectivitySubscription
 {
 public:
-    explicit WindowsConnectivitySubscription(ConnectivityChangeHandler handler)
-        : m_handler(std::move(handler))
-    {
-    }
+    explicit WindowsConnectivitySubscription(ConnectivityChangeHandler handler) : m_handler(std::move(handler)) {}
 
     ~WindowsConnectivitySubscription() override
     {
@@ -80,10 +77,10 @@ public:
         }
     }
 
-    WindowsConnectivitySubscription(const WindowsConnectivitySubscription &) = delete;
-    WindowsConnectivitySubscription &operator=(const WindowsConnectivitySubscription &) = delete;
-    WindowsConnectivitySubscription(WindowsConnectivitySubscription &&) = delete;
-    WindowsConnectivitySubscription &operator=(WindowsConnectivitySubscription &&) = delete;
+    WindowsConnectivitySubscription(const WindowsConnectivitySubscription&) = delete;
+    WindowsConnectivitySubscription& operator=(const WindowsConnectivitySubscription&) = delete;
+    WindowsConnectivitySubscription(WindowsConnectivitySubscription&&) = delete;
+    WindowsConnectivitySubscription& operator=(WindowsConnectivitySubscription&&) = delete;
 
     // Registers with an initial notification, which closes the gap between the
     // caller's synchronous seed read and this registration.
@@ -101,7 +98,7 @@ public:
 private:
     static void WINAPI onConnectivityChange(PVOID callerContext, NL_NETWORK_CONNECTIVITY_HINT hint) noexcept
     {
-        static_cast<WindowsConnectivitySubscription *>(callerContext)->m_handler(toConnectivityStatus(hint));
+        static_cast<WindowsConnectivitySubscription*>(callerContext)->m_handler(toConnectivityStatus(hint));
     }
 
     ConnectivityChangeHandler m_handler;
@@ -125,8 +122,7 @@ ConnectivityCollector::ConnectivityCollector()
               return queryConnectivityHint(failureLog);
           },
           subscribeToConnectivityChanges)
-{
-}
+{}
 
 ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader, ConnectivitySubscriber subscriber)
 {
@@ -147,10 +143,7 @@ ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader, Connecti
     }
 }
 
-ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader)
-    : m_pollingReader(std::move(reader))
-{
-}
+ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader) : m_pollingReader(std::move(reader)) {}
 
 domain::ConnectivityStatus ConnectivityCollector::collect()
 {

@@ -1,10 +1,10 @@
 #include <chrono>
 #include <memory>
-#include <QCoreApplication>
-#include <QTabWidget>
 #include <thread>
 
 #include <gtest/gtest.h>
+#include <QCoreApplication>
+#include <QTabWidget>
 
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
@@ -58,7 +58,7 @@ TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
 
     scheduler.stop();
 
-    const auto *dashboard = mainWindow.dashboardView();
+    const auto* dashboard = mainWindow.dashboardView();
     EXPECT_NE(dashboard->cpuCard()->valueText(), "--");
     EXPECT_EQ(dashboard->cpuCard()->detailText(), "4 cores");
     EXPECT_NE(dashboard->memoryCard()->valueText(), "--");

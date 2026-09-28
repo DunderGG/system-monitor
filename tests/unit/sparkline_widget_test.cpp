@@ -22,7 +22,7 @@ const QRectF kArea{0.0, 0.0, 100.0, 50.0};
 constexpr YRange kPercent{.min = 0.0f, .max = 100.0f};
 
 // True if any pixel in the image is not fully transparent.
-bool hasPaintedPixel(const QImage &image)
+bool hasPaintedPixel(const QImage& image)
 {
     for (int y = 0; y < image.height(); ++y) {
         for (int x = 0; x < image.width(); ++x) {
@@ -77,7 +77,7 @@ TEST(SparklineSegments, FullCapacity_SpansWholeWidthAndMapsValues)
     const auto segments = sparklineSegments(Samples{0.0f, 25.0f, 50.0f, 75.0f, 100.0f}, 5, kArea, kPercent);
 
     ASSERT_EQ(segments.size(), 1u);
-    const auto &line = segments[0];
+    const auto& line = segments[0];
     ASSERT_EQ(line.size(), 5);
     EXPECT_DOUBLE_EQ(line[0].x(), 0.0);
     EXPECT_DOUBLE_EQ(line[4].x(), 100.0);
@@ -146,8 +146,7 @@ TEST(SparklineSegments, CapacityOne_PlacesSampleAtRightEdge)
 // ---------------------------------------------------------------------------
 
 class SparklineBufferSize : public ::testing::TestWithParam<std::size_t>
-{
-};
+{};
 
 TEST_P(SparklineBufferSize, FullSyntheticHistory_ProducesOneSegmentAcrossWidth)
 {

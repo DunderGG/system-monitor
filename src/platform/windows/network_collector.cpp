@@ -35,7 +35,7 @@ constexpr ULONG kInitialAdapterBufferSize = 15 * 1024;
 // The required size can grow between calls, so the documented pattern retries a few times.
 constexpr int kMaxAdapterQueryAttempts = 3;
 
-std::string wideToUtf8(const WCHAR *wideStr)
+std::string wideToUtf8(const WCHAR* wideStr)
 {
     if (!wideStr || wideStr[0] == L'\0') {
         return {};
@@ -51,7 +51,7 @@ std::string wideToUtf8(const WCHAR *wideStr)
 
 struct MibTableDeleter
 {
-    void operator()(MIB_IF_TABLE2 *p) const noexcept
+    void operator()(MIB_IF_TABLE2* p) const noexcept
     {
         if (p) {
             FreeMibTable(p);
@@ -109,7 +109,7 @@ domain::OperationalStatus toOperationalStatus(IF_OPER_STATUS status)
 }
 
 // Reads names, addresses, and DNS servers for all adapters with GetAdaptersAddresses.
-std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog &failureLog)
+std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failureLog)
 {
     const ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST;
     ULONG bufferSize = kInitialAdapterBufferSize;
@@ -134,8 +134,8 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog &failu
 
     failureLog.success();
     AdapterDetailsTable table;
-    const auto *addresses = reinterpret_cast<const IP_ADAPTER_ADDRESSES *>(buffer.data());
-    for (const IP_ADAPTER_ADDRESSES *curr = addresses; curr != nullptr; curr = curr->Next) {
+    const auto* addresses = reinterpret_cast<const IP_ADAPTER_ADDRESSES*>(buffer.data());
+    for (const IP_ADAPTER_ADDRESSES* curr = addresses; curr != nullptr; curr = curr->Next) {
         AdapterDetails details;
         if (curr->AdapterName) {
             details.adapterName = curr->AdapterName;
@@ -153,12 +153,12 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog &failu
             }
             char ipBuffer[INET6_ADDRSTRLEN] = {0};
             if (uni->Address.lpSockaddr->sa_family == AF_INET) {
-                const auto *sin = reinterpret_cast<const sockaddr_in *>(uni->Address.lpSockaddr);
+                const auto* sin = reinterpret_cast<const sockaddr_in*>(uni->Address.lpSockaddr);
                 if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
                     details.ipAddresses.emplace_back(ipBuffer);
                 }
             } else if (uni->Address.lpSockaddr->sa_family == AF_INET6) {
-                const auto *sin6 = reinterpret_cast<const sockaddr_in6 *>(uni->Address.lpSockaddr);
+                const auto* sin6 = reinterpret_cast<const sockaddr_in6*>(uni->Address.lpSockaddr);
                 if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
                     details.ipAddresses.emplace_back(ipBuffer);
                 }
@@ -171,12 +171,12 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog &failu
             }
             char ipBuffer[INET6_ADDRSTRLEN] = {0};
             if (dns->Address.lpSockaddr->sa_family == AF_INET) {
-                const auto *sin = reinterpret_cast<const sockaddr_in *>(dns->Address.lpSockaddr);
+                const auto* sin = reinterpret_cast<const sockaddr_in*>(dns->Address.lpSockaddr);
                 if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
                     details.dnsServers.emplace_back(ipBuffer);
                 }
             } else if (dns->Address.lpSockaddr->sa_family == AF_INET6) {
-                const auto *sin6 = reinterpret_cast<const sockaddr_in6 *>(dns->Address.lpSockaddr);
+                const auto* sin6 = reinterpret_cast<const sockaddr_in6*>(dns->Address.lpSockaddr);
                 if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
                     details.dnsServers.emplace_back(ipBuffer);
                 }
@@ -237,15 +237,15 @@ public:
         }
     }
 
-    WindowsAdapterReader(const WindowsAdapterReader &) = delete;
-    WindowsAdapterReader &operator=(const WindowsAdapterReader &) = delete;
-    WindowsAdapterReader(WindowsAdapterReader &&) = delete;
-    WindowsAdapterReader &operator=(WindowsAdapterReader &&) = delete;
+    WindowsAdapterReader(const WindowsAdapterReader&) = delete;
+    WindowsAdapterReader& operator=(const WindowsAdapterReader&) = delete;
+    WindowsAdapterReader(WindowsAdapterReader&&) = delete;
+    WindowsAdapterReader& operator=(WindowsAdapterReader&&) = delete;
     ~WindowsAdapterReader() = default;
 
     std::optional<std::vector<RawNetworkAdapter>> read()
     {
-        MIB_IF_TABLE2 *rawTable = nullptr;
+        MIB_IF_TABLE2* rawTable = nullptr;
         const DWORD mibResult = GetIfTable2(&rawTable);
         if (mibResult != NO_ERROR || !rawTable) {
             m_ifTableFailureLog.failure(spdlog::level::err, "GetIfTable2 failed with error code {}", mibResult);
@@ -264,13 +264,13 @@ public:
         if (m_cache.beginRefreshIfDue(luids, now)) {
             m_cache.completeRefresh(queryAdapterDetails(m_adapterDetailsFailureLog), luids, now);
         }
-        const AdapterDetailsTable &detailsTable = m_cache.table();
+        const AdapterDetailsTable& detailsTable = m_cache.table();
 
         std::vector<RawNetworkAdapter> rawAdapters;
         rawAdapters.reserve(table->NumEntries);
 
         for (ULONG i = 0; i < table->NumEntries; ++i) {
-            const MIB_IF_ROW2 &row = table->Table[i];
+            const MIB_IF_ROW2& row = table->Table[i];
             RawNetworkAdapter raw;
             raw.luid = row.InterfaceLuid.Value;
             raw.ifIndex = row.InterfaceIndex;
@@ -279,16 +279,19 @@ public:
             raw.isHardwareInterface = row.InterfaceAndOperStatusFlags.HardwareInterface != FALSE;
             raw.inBytesTotal = row.InOctets;
             raw.outBytesTotal = row.OutOctets;
-            raw.linkSpeedBps = (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
+            raw.linkSpeedBps =
+                (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
             raw.operationalStatus = toOperationalStatus(row.OperStatus);
 
             const std::string alias = wideToUtf8(row.Alias);
             const std::string desc = wideToUtf8(row.Description);
 
-            if (const AdapterDetails *details = detailsTable.find(raw.luid, raw.ifIndex)) {
+            if (const AdapterDetails* details = detailsTable.find(raw.luid, raw.ifIndex)) {
                 raw.friendlyName = !details->friendlyName.empty() ? details->friendlyName : alias;
                 raw.description = !details->description.empty() ? details->description : desc;
-                raw.adapterName = !raw.friendlyName.empty() ? raw.friendlyName : (!details->adapterName.empty() ? details->adapterName : raw.description);
+                raw.adapterName = !raw.friendlyName.empty()
+                                      ? raw.friendlyName
+                                      : (!details->adapterName.empty() ? details->adapterName : raw.description);
                 raw.ipAddresses = details->ipAddresses;
                 raw.dnsServers = details->dnsServers;
             } else {
@@ -307,13 +310,13 @@ private:
     static void WINAPI onUnicastAddressChange(PVOID callerContext, PMIB_UNICASTIPADDRESS_ROW /*row*/,
                                               MIB_NOTIFICATION_TYPE /*notificationType*/) noexcept
     {
-        static_cast<WindowsAdapterReader *>(callerContext)->m_cache.markStale();
+        static_cast<WindowsAdapterReader*>(callerContext)->m_cache.markStale();
     }
 
     static void WINAPI onInterfaceChange(PVOID callerContext, PMIB_IPINTERFACE_ROW /*row*/,
                                          MIB_NOTIFICATION_TYPE /*notificationType*/) noexcept
     {
-        static_cast<WindowsAdapterReader *>(callerContext)->m_cache.markStale();
+        static_cast<WindowsAdapterReader*>(callerContext)->m_cache.markStale();
     }
 
     RepeatedFailureLog m_ifTableFailureLog{"GetIfTable2"};
@@ -330,14 +333,11 @@ NetworkCollector::NetworkCollector()
     : m_windowsReader(std::make_unique<WindowsAdapterReader>()),
       m_adaptersReader([reader = m_windowsReader.get()] { return reader->read(); }),
       m_clockReader([]() { return std::chrono::steady_clock::now(); })
-{
-}
+{}
 
 NetworkCollector::NetworkCollector(NetworkAdaptersReader adaptersReader, SteadyClockReader clockReader)
-    : m_adaptersReader(std::move(adaptersReader)),
-      m_clockReader(std::move(clockReader))
-{
-}
+    : m_adaptersReader(std::move(adaptersReader)), m_clockReader(std::move(clockReader))
+{}
 
 NetworkCollector::~NetworkCollector() = default;
 
@@ -356,15 +356,15 @@ std::optional<std::vector<domain::NetworkSample>> NetworkCollector::collect()
     return calculateNetworkSamples(*rawAdapters, m_baselines, now);
 }
 
-std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
-    const std::vector<RawNetworkAdapter> &adapters,
-    std::unordered_map<uint64_t, NetworkBaseline> &baselines,
-    std::chrono::steady_clock::time_point currentTime)
+std::vector<domain::NetworkSample>
+NetworkCollector::calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
+                                          std::unordered_map<uint64_t, NetworkBaseline>& baselines,
+                                          std::chrono::steady_clock::time_point currentTime)
 {
     std::vector<domain::NetworkSample> samples;
     std::unordered_set<uint64_t> activeKeys;
 
-    for (const auto &adapter : adapters) {
+    for (const auto& adapter : adapters) {
         // Filter interfaces (WFP, QoS Packet Scheduler, ...) mirror the counters of the
         // adapter they are bound to; reporting them would count its traffic again.
         if (adapter.isLoopback || adapter.isFilterInterface) {
@@ -372,8 +372,8 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
         }
 
         const uint64_t key = adapter.luid != 0 ? adapter.luid
-                             : (adapter.ifIndex != 0 ? static_cast<uint64_t>(adapter.ifIndex)
-                                : std::hash<std::string>{}(adapter.adapterName));
+                                               : (adapter.ifIndex != 0 ? static_cast<uint64_t>(adapter.ifIndex)
+                                                                       : std::hash<std::string>{}(adapter.adapterName));
         activeKeys.insert(key);
 
         // Rates stay std::nullopt when they cannot be computed (no baseline yet,
@@ -412,9 +412,7 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
         samples.push_back(std::move(sample));
     }
 
-    std::erase_if(baselines, [&activeKeys](const auto &pair) {
-        return !activeKeys.contains(pair.first);
-    });
+    std::erase_if(baselines, [&activeKeys](const auto& pair) { return !activeKeys.contains(pair.first); });
 
     return samples;
 }

@@ -26,9 +26,9 @@ QString overallStatusLine(domain::HealthLevel level)
     return QString("System status: %1").arg(healthLevelText(level));
 }
 
-charts::SparklineWidget *addSparkline(ResourceCard *card, std::optional<charts::YRange> fixedRange)
+charts::SparklineWidget* addSparkline(ResourceCard* card, std::optional<charts::YRange> fixedRange)
 {
-    auto *sparkline = new charts::SparklineWidget(card);
+    auto* sparkline = new charts::SparklineWidget(card);
     sparkline->setCapacity(DashboardView::kHistoryCapacity);
     if (fixedRange) {
         sparkline->setFixedRange(*fixedRange);
@@ -40,8 +40,7 @@ charts::SparklineWidget *addSparkline(ResourceCard *card, std::optional<charts::
 }
 
 // Appends one sample (std::nullopt records a gap) and refreshes the chart.
-void recordSample(domain::RingBuffer<std::optional<float>> &history,
-                  charts::SparklineWidget *sparkline,
+void recordSample(domain::RingBuffer<std::optional<float>>& history, charts::SparklineWidget* sparkline,
                   std::optional<float> sample)
 {
     history.push(sample);
@@ -50,13 +49,13 @@ void recordSample(domain::RingBuffer<std::optional<float>> &history,
 
 } // namespace
 
-DashboardView::DashboardView(QWidget *parent) : QWidget(parent)
+DashboardView::DashboardView(QWidget* parent) : QWidget(parent)
 {
-    auto *layout = new QVBoxLayout(this);
+    auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(12);
 
-    auto *titleLabel = new QLabel("Dashboard", this);
+    auto* titleLabel = new QLabel("Dashboard", this);
     QFont titleFont = titleLabel->font();
     titleFont.setPointSize(16);
     titleFont.setBold(true);
@@ -81,7 +80,7 @@ DashboardView::DashboardView(QWidget *parent) : QWidget(parent)
     m_diskSparkline = addSparkline(m_diskCard, kPercentRange);
     m_networkSparkline = addSparkline(m_networkCard, std::nullopt); // Throughput has no natural maximum.
 
-    auto *grid = new QGridLayout();
+    auto* grid = new QGridLayout();
     grid->setSpacing(12);
     const std::array cards{m_cpuCard, m_memoryCard, m_diskCard, m_networkCard, m_uptimeCard};
     for (int index = 0; index < static_cast<int>(cards.size()); ++index) {
@@ -94,7 +93,7 @@ DashboardView::DashboardView(QWidget *parent) : QWidget(parent)
     layout->addStretch();
 }
 
-void DashboardView::updateSnapshot(const domain::SystemSnapshot &snapshot)
+void DashboardView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
     m_overallStatusLabel->setText(overallStatusLine(snapshot.health.overall));
     updateCpuCard(snapshot);
@@ -104,7 +103,7 @@ void DashboardView::updateSnapshot(const domain::SystemSnapshot &snapshot)
     updateUptimeCard(snapshot);
 }
 
-void DashboardView::updateCpuCard(const domain::SystemSnapshot &snapshot)
+void DashboardView::updateCpuCard(const domain::SystemSnapshot& snapshot)
 {
     m_cpuCard->setStatus(snapshot.health.cpu);
     if (!snapshot.cpu) {
@@ -117,7 +116,7 @@ void DashboardView::updateCpuCard(const domain::SystemSnapshot &snapshot)
                         QString("%1 cores").arg(snapshot.cpu->coreCount));
 }
 
-void DashboardView::updateMemoryCard(const domain::SystemSnapshot &snapshot)
+void DashboardView::updateMemoryCard(const domain::SystemSnapshot& snapshot)
 {
     m_memoryCard->setStatus(snapshot.health.memory);
     if (!snapshot.memory) {
@@ -125,7 +124,7 @@ void DashboardView::updateMemoryCard(const domain::SystemSnapshot &snapshot)
         m_memoryCard->setValue(kNotAvailable);
         return;
     }
-    const auto &memory = *snapshot.memory;
+    const auto& memory = *snapshot.memory;
     recordSample(m_memoryHistory, m_memorySparkline, memory.usagePercent);
     const uint64_t usedBytes =
         (memory.totalBytes > memory.availableBytes) ? (memory.totalBytes - memory.availableBytes) : 0ULL;
@@ -133,25 +132,25 @@ void DashboardView::updateMemoryCard(const domain::SystemSnapshot &snapshot)
                            QString("%1 of %2 used").arg(formatBytes(usedBytes), formatBytes(memory.totalBytes)));
 }
 
-void DashboardView::updateDiskCard(const domain::SystemSnapshot &snapshot)
+void DashboardView::updateDiskCard(const domain::SystemSnapshot& snapshot)
 {
     m_diskCard->setStatus(snapshot.health.disk);
-    const auto *fullest = snapshot.disks ? fullestVolume(*snapshot.disks) : nullptr;
+    const auto* fullest = snapshot.disks ? fullestVolume(*snapshot.disks) : nullptr;
     if (fullest == nullptr) {
         recordSample(m_diskHistory, m_diskSparkline, std::nullopt);
         m_diskCard->setValue(kNotAvailable);
         return;
     }
     recordSample(m_diskHistory, m_diskSparkline, fullest->usagePercent);
-    QString detail = QString("%1 %2 free").arg(QString::fromStdString(fullest->volumeName),
-                                               formatBytes(fullest->freeBytes));
+    QString detail =
+        QString("%1 %2 free").arg(QString::fromStdString(fullest->volumeName), formatBytes(fullest->freeBytes));
     if (snapshot.disks->size() > 1) {
         detail += QString(" (fullest of %1 volumes)").arg(snapshot.disks->size());
     }
     m_diskCard->setValue(formatPercent(fullest->usagePercent), detail);
 }
 
-void DashboardView::updateNetworkCard(const domain::SystemSnapshot &snapshot)
+void DashboardView::updateNetworkCard(const domain::SystemSnapshot& snapshot)
 {
     m_networkCard->setStatus(snapshot.health.network);
     const QString connectivity = connectivityText(snapshot.connectivity);
@@ -183,52 +182,52 @@ void DashboardView::updateNetworkCard(const domain::SystemSnapshot &snapshot)
         connectivity);
 }
 
-void DashboardView::updateUptimeCard(const domain::SystemSnapshot &snapshot)
+void DashboardView::updateUptimeCard(const domain::SystemSnapshot& snapshot)
 {
     m_uptimeCard->setValue(snapshot.uptime ? formatUptime(*snapshot.uptime) : kNotAvailable, "Since last boot");
 }
 
-ResourceCard *DashboardView::cpuCard() const
+ResourceCard* DashboardView::cpuCard() const
 {
     return m_cpuCard;
 }
 
-ResourceCard *DashboardView::memoryCard() const
+ResourceCard* DashboardView::memoryCard() const
 {
     return m_memoryCard;
 }
 
-ResourceCard *DashboardView::diskCard() const
+ResourceCard* DashboardView::diskCard() const
 {
     return m_diskCard;
 }
 
-ResourceCard *DashboardView::networkCard() const
+ResourceCard* DashboardView::networkCard() const
 {
     return m_networkCard;
 }
 
-ResourceCard *DashboardView::uptimeCard() const
+ResourceCard* DashboardView::uptimeCard() const
 {
     return m_uptimeCard;
 }
 
-charts::SparklineWidget *DashboardView::cpuSparkline() const
+charts::SparklineWidget* DashboardView::cpuSparkline() const
 {
     return m_cpuSparkline;
 }
 
-charts::SparklineWidget *DashboardView::memorySparkline() const
+charts::SparklineWidget* DashboardView::memorySparkline() const
 {
     return m_memorySparkline;
 }
 
-charts::SparklineWidget *DashboardView::diskSparkline() const
+charts::SparklineWidget* DashboardView::diskSparkline() const
 {
     return m_diskSparkline;
 }
 
-charts::SparklineWidget *DashboardView::networkSparkline() const
+charts::SparklineWidget* DashboardView::networkSparkline() const
 {
     return m_networkSparkline;
 }

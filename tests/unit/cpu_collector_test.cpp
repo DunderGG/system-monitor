@@ -105,13 +105,11 @@ TEST(CpuCollector, Collect_InjectedReaders_CalculatesUsageAcrossTicks)
     SystemTimesData simulatedTimes{.idleTime = 10'000, .kernelTime = 20'000, .userTime = 5'000};
     std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
 
-    auto timesReader = [&simulatedTimes](SystemTimesData &out) {
+    auto timesReader = [&simulatedTimes](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto clockReader = [&simulatedNow]() {
-        return simulatedNow;
-    };
+    auto clockReader = [&simulatedNow]() { return simulatedNow; };
 
     CpuCollector collector(timesReader, clockReader, 8);
     EXPECT_EQ(collector.coreCount(), 8);
@@ -150,7 +148,7 @@ TEST(CpuCollector, Collect_BaselineFailsAtConstruction_FirstSuccessfulCollectRet
     SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         ++callCount;
         if (callCount == 1) {
             return false; // Baseline read in the constructor fails.
@@ -182,7 +180,7 @@ TEST(CpuCollector, Collect_ReaderFails_ReturnsNullopt)
     SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         if (!shouldSucceed) {
             return false;
         }
@@ -212,17 +210,15 @@ TEST(CpuCollector, Collect_PopulatesCoreUsagePercents_UsingInjectedCoreReader)
     };
     std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
-    auto clockReader = [&]() {
-        return simulatedNow;
-    };
+    auto clockReader = [&]() { return simulatedNow; };
 
     CpuCollector collector(timesReader, coreReader, clockReader, 4);
 
@@ -265,13 +261,11 @@ TEST(CpuCollector, Collect_CoreReaderFails_GracefullyRetainsEmptyCoreUsages)
     SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [](std::vector<SystemTimesData> &) {
-        return false;
-    };
+    auto coreReader = [](std::vector<SystemTimesData>&) { return false; };
     auto clockReader = [&]() { return clock; };
 
     CpuCollector collector(timesReader, coreReader, clockReader, 4);
@@ -297,11 +291,11 @@ TEST(CpuCollector, Collect_CoreCountChanges_OmitsPerCoreValuesInsteadOfZeroFilli
     };
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
@@ -333,11 +327,11 @@ TEST(CpuCollector, Collect_IndividualCoreJitter_ClampedToZero)
     };
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
@@ -378,11 +372,11 @@ TEST(CpuCollector, Collect_MultiGroup128Cores_MonitorsAllCores)
     SystemTimesData simulatedTimes{.idleTime = 1000 * 128, .kernelTime = 2000 * 128, .userTime = 500 * 128};
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
@@ -423,11 +417,11 @@ TEST(CpuCollector, Collect_MultiGroupWorkloadInSecondaryGroup_ReflectsInTotalUsa
     SystemTimesData simulatedTimes{.idleTime = 1000 * 64, .kernelTime = 2000 * 64, .userTime = 500 * 64};
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
@@ -479,10 +473,10 @@ TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
     };
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [](SystemTimesData &) {
+    auto timesReader = [](SystemTimesData&) {
         return false; // GetSystemTimes fails
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
@@ -494,7 +488,7 @@ TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
 
     clock += std::chrono::milliseconds{1000};
     // 50% busy on both cores
-    for (auto &core : simulatedCoreTimes) {
+    for (auto& core : simulatedCoreTimes) {
         core.idleTime += 50;
         core.kernelTime += 75;
         core.userTime += 25;
@@ -510,8 +504,6 @@ TEST(CpuCollector, Collect_GetSystemTimesFails_FallsBackToCoreAggregation)
     EXPECT_FLOAT_EQ(sample->totalUsagePercent, 50.0f);
 }
 
-
-
 TEST(CpuCollector, Collect_TwoGroupsWithFewerThan64Cores_AggregatesAllCores)
 {
     // 16 cores in two processor groups of 8 (e.g. one group per NUMA node).
@@ -520,11 +512,11 @@ TEST(CpuCollector, Collect_TwoGroupsWithFewerThan64Cores_AggregatesAllCores)
     SystemTimesData simulatedTimes{.idleTime = 1000 * 8, .kernelTime = 2000 * 8};
     auto clock = std::chrono::steady_clock::now();
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = simulatedCoreTimes;
         return true;
     };
@@ -555,11 +547,11 @@ TEST(CpuCollector, Collect_MultiGroupCoreQueryFails_ReturnsNulloptNotOneGroup)
     auto clock = std::chrono::steady_clock::now();
     bool isCoreQueryWorking = true;
 
-    auto timesReader = [&](SystemTimesData &out) {
+    auto timesReader = [&](SystemTimesData& out) {
         out = simulatedTimes;
         return true;
     };
-    auto coreReader = [&](std::vector<SystemTimesData> &out) {
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
         out = std::vector<SystemTimesData>(16, SystemTimesData{.idleTime = 1000, .kernelTime = 2000});
         return isCoreQueryWorking;
     };
