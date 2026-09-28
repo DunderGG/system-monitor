@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-22
 **Scope:** All 46 files across `src/`, `tests/`, `scripts/`, CMake configuration, vcpkg manifests, CI, and documentation.
-**Reviewed against:** [architecture.md](architecture.md), [coding_guidelines.md](coding_guidelines.md), [design_decisions.md](design_decisions.md), [roadmap.md](../roadmap.md), [AGENTS.md](../AGENTS.md)
+**Reviewed against:** [architecture.md](../architecture.md), [coding_guidelines.md](../coding_guidelines.md), [design_decisions.md](../design_decisions.md), [roadmap.md](../../roadmap.md), [AGENTS.md](../../AGENTS.md)
 
 ---
 
@@ -258,7 +258,7 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
 
 **Recommendation:** Decide the approach when implementing Phase 2. No action needed now.
 
-**Status:** Deferred to Phase 3 (updated 2026-09-25) — The Phase 2 dashboard now receives real snapshots through `onSnapshotReady`. The other tabs are still placeholders with no `updateSnapshot`, so forwarding and visible-tab-only updates are deferred to the Phase 3 Performance tab, where the first of them becomes functional ([roadmap](../roadmap.md#performance-tab-srcui)).
+**Status:** Deferred to Phase 3 (updated 2026-09-25) — The Phase 2 dashboard now receives real snapshots through `onSnapshotReady`. The other tabs are still placeholders with no `updateSnapshot`, so forwarding and visible-tab-only updates are deferred to the Phase 3 Performance tab, where the first of them becomes functional ([roadmap](../../roadmap.md#performance-tab-srcui)).
 
 ---
 
