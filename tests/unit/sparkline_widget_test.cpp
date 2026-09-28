@@ -1,13 +1,17 @@
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <optional>
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QColor>
 #include <QImage>
 #include <QPoint>
+#include <QRect>
 #include <QRectF>
 #include <QRegion>
+#include <QString>
 
 #include "ui/charts/sparkline_widget.h"
 
@@ -19,19 +23,46 @@ namespace
 using Samples = std::vector<std::optional<float>>;
 
 const QRectF kArea{0.0, 0.0, 100.0, 50.0};
+// 60 slots one pixel apart, so grid line positions equal slot numbers.
+const QRectF kSlotArea{0.0, 0.0, 59.0, 50.0};
 constexpr YRange kPercent{.min = 0.0f, .max = 100.0f};
 
-// True if any pixel in the image is not fully transparent.
-bool hasPaintedPixel(const QImage& image)
+// True if any pixel in region of the image is not fully transparent.
+bool hasPaintedPixel(const QImage& image, const QRect& region)
 {
-    for (int y = 0; y < image.height(); ++y) {
-        for (int x = 0; x < image.width(); ++x) {
+    const QRect bounded = region.intersected(image.rect());
+    for (int y = bounded.top(); y <= bounded.bottom(); ++y) {
+        for (int x = bounded.left(); x <= bounded.right(); ++x) {
             if (qAlpha(image.pixel(x, y)) > 0) {
                 return true;
             }
         }
     }
     return false;
+}
+
+bool hasPaintedPixel(const QImage& image)
+{
+    return hasPaintedPixel(image, image.rect());
+}
+
+// Renders only the widget's own painting onto a transparent image.
+QImage renderWidget(SparklineWidget& widget)
+{
+    QImage image(widget.size(), QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    widget.render(&image, QPoint(), QRegion(), QWidget::DrawChildren); // Skip the window background.
+    return image;
+}
+
+Samples sineSamples(std::size_t count)
+{
+    Samples samples;
+    samples.reserve(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        samples.push_back(50.0f + 40.0f * static_cast<float>(std::sin(static_cast<double>(i) * 0.1)));
+    }
+    return samples;
 }
 
 } // namespace
@@ -142,6 +173,151 @@ TEST(SparklineSegments, CapacityOne_PlacesSampleAtRightEdge)
 }
 
 // ---------------------------------------------------------------------------
+// verticalGridLines
+// ---------------------------------------------------------------------------
+
+TEST(SparklineGrid, CapacityBelowTwo_NoLines)
+{
+    EXPECT_TRUE(verticalGridLines(1, 10, kSlotArea).empty());
+}
+
+TEST(SparklineGrid, EmptyArea_NoLines)
+{
+    EXPECT_TRUE(verticalGridLines(60, 59, QRectF{}).empty());
+}
+
+TEST(SparklineGrid, IndexAlignedWithSpacing_TenLinesFromLeftEdge)
+{
+    // Capacity 60 puts a line on every 6th sample; slot 0 holds sample 0.
+    const auto lines = verticalGridLines(60, 59, kSlotArea);
+
+    ASSERT_EQ(lines.size(), 10u);
+    EXPECT_DOUBLE_EQ(lines.front(), 0.0);
+    EXPECT_DOUBLE_EQ(lines[1], 6.0);
+    EXPECT_DOUBLE_EQ(lines.back(), 54.0);
+}
+
+TEST(SparklineGrid, NextSample_LinesScrollLeftByOneSlot)
+{
+    EXPECT_DOUBLE_EQ(verticalGridLines(60, 60, kSlotArea).front(), 5.0);
+    EXPECT_DOUBLE_EQ(verticalGridLines(60, 61, kSlotArea).front(), 4.0);
+    EXPECT_DOUBLE_EQ(verticalGridLines(60, 60, kSlotArea).back(), 59.0);
+}
+
+TEST(SparklineGrid, FullSpacingLater_SameLinesAgain)
+{
+    EXPECT_EQ(verticalGridLines(60, 59, kSlotArea), verticalGridLines(60, 65, kSlotArea));
+}
+
+TEST(SparklineGrid, ShortHistory_OffsetsWithoutUnderflow)
+{
+    // Sample 0 at the right edge (slot 59): lines on slots 5, 11, ..., 59.
+    const auto lines = verticalGridLines(60, 0, kSlotArea);
+
+    ASSERT_FALSE(lines.empty());
+    EXPECT_DOUBLE_EQ(lines.front(), 5.0);
+    EXPECT_DOUBLE_EQ(lines.back(), 59.0);
+}
+
+TEST(SparklineGrid, SmallCapacity_LineOnEverySample)
+{
+    EXPECT_EQ(verticalGridLines(5, 4, kArea).size(), 5u);
+}
+
+// ---------------------------------------------------------------------------
+// summarizeSeries
+// ---------------------------------------------------------------------------
+
+TEST(SparklineSummary, NoSamples_Empty)
+{
+    const auto summary = summarizeSeries(Samples{}, 60);
+
+    EXPECT_FALSE(summary.current.has_value());
+    EXPECT_FALSE(summary.minimum.has_value());
+    EXPECT_FALSE(summary.maximum.has_value());
+}
+
+TEST(SparklineSummary, Samples_CurrentIsNewestAndExtremesIgnoreGaps)
+{
+    const auto summary = summarizeSeries(Samples{5.0f, std::nullopt, 1.0f, 9.0f, 3.0f}, 60);
+
+    EXPECT_EQ(summary.current, 3.0f);
+    ASSERT_TRUE(summary.minimum.has_value());
+    EXPECT_EQ(summary.minimum->index, 2u);
+    EXPECT_FLOAT_EQ(summary.minimum->value, 1.0f);
+    ASSERT_TRUE(summary.maximum.has_value());
+    EXPECT_EQ(summary.maximum->index, 3u);
+    EXPECT_FLOAT_EQ(summary.maximum->value, 9.0f);
+}
+
+TEST(SparklineSummary, NewestSampleMissing_NoCurrentValue)
+{
+    const auto summary = summarizeSeries(Samples{5.0f, std::nullopt}, 60);
+
+    EXPECT_FALSE(summary.current.has_value());
+    EXPECT_TRUE(summary.maximum.has_value());
+}
+
+TEST(SparklineSummary, Ties_ReportNewestOccurrence)
+{
+    const auto summary = summarizeSeries(Samples{4.0f, 2.0f, 4.0f, 2.0f}, 60);
+
+    ASSERT_TRUE(summary.minimum.has_value());
+    ASSERT_TRUE(summary.maximum.has_value());
+    EXPECT_EQ(summary.minimum->index, 3u);
+    EXPECT_EQ(summary.maximum->index, 2u);
+}
+
+TEST(SparklineSummary, MoreSamplesThanCapacity_OnlyVisibleSamplesCount)
+{
+    const auto summary = summarizeSeries(Samples{100.0f, 1.0f, 2.0f}, 2);
+
+    ASSERT_TRUE(summary.minimum.has_value());
+    ASSERT_TRUE(summary.maximum.has_value());
+    EXPECT_EQ(summary.maximum->index, 1u);
+    EXPECT_FLOAT_EQ(summary.maximum->value, 2.0f);
+    EXPECT_EQ(summary.minimum->index, 0u);
+}
+
+// ---------------------------------------------------------------------------
+// formatHistoryWindow and defaultSeriesColor
+// ---------------------------------------------------------------------------
+
+TEST(SparklineHistoryWindow, Windows_UseLargestExactUnit)
+{
+    using namespace std::chrono_literals;
+    EXPECT_EQ(formatHistoryWindow(0s), "0 s");
+    EXPECT_EQ(formatHistoryWindow(90s), "90 s");
+    EXPECT_EQ(formatHistoryWindow(60s), "1 min");
+    EXPECT_EQ(formatHistoryWindow(300s), "5 min");
+    EXPECT_EQ(formatHistoryWindow(1800s), "30 min");
+    EXPECT_EQ(formatHistoryWindow(7200s), "2 h");
+}
+
+TEST(SparklineSeriesColor, FirstFiveSeries_DistinctColors)
+{
+    for (std::size_t i = 0; i < 5; ++i) {
+        for (std::size_t j = i + 1; j < 5; ++j) {
+            EXPECT_NE(defaultSeriesColor(i, false), defaultSeriesColor(j, false)) << i << " vs " << j;
+            EXPECT_NE(defaultSeriesColor(i, true), defaultSeriesColor(j, true)) << i << " vs " << j;
+        }
+    }
+}
+
+TEST(SparklineSeriesColor, DarkSurface_UsesDarkSteps)
+{
+    EXPECT_NE(defaultSeriesColor(0, false), defaultSeriesColor(0, true));
+}
+
+TEST(SparklineSeriesColor, BeyondPalette_SharedGreyNotRepeatedHue)
+{
+    EXPECT_EQ(defaultSeriesColor(5, false), defaultSeriesColor(12, false));
+    for (std::size_t i = 0; i < 5; ++i) {
+        EXPECT_NE(defaultSeriesColor(5, false), defaultSeriesColor(i, false));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Buffer sizes from the roadmap (60, 300, 1800 samples)
 // ---------------------------------------------------------------------------
 
@@ -151,11 +327,7 @@ class SparklineBufferSize : public ::testing::TestWithParam<std::size_t>
 TEST_P(SparklineBufferSize, FullSyntheticHistory_ProducesOneSegmentAcrossWidth)
 {
     const std::size_t size = GetParam();
-    Samples samples;
-    samples.reserve(size);
-    for (std::size_t i = 0; i < size; ++i) {
-        samples.push_back(50.0f + 40.0f * static_cast<float>(std::sin(static_cast<double>(i) * 0.1)));
-    }
+    const Samples samples = sineSamples(size);
 
     const auto segments = sparklineSegments(samples, size, kArea, kPercent);
 
@@ -174,11 +346,31 @@ TEST_P(SparklineBufferSize, FullSyntheticHistory_PaintsWithoutError)
     widget.setCapacity(size);
     widget.setSamples(samples);
 
-    QImage image(widget.size(), QImage::Format_ARGB32);
-    image.fill(Qt::transparent);
-    widget.render(&image, QPoint(), QRegion(), QWidget::DrawChildren); // Skip the window background.
+    EXPECT_TRUE(hasPaintedPixel(renderWidget(widget)));
+}
 
-    EXPECT_TRUE(hasPaintedPixel(image));
+TEST_P(SparklineBufferSize, FullHistory_TenGridColumns)
+{
+    const std::size_t size = GetParam();
+
+    EXPECT_EQ(verticalGridLines(size, size - 1, kArea).size(), 10u);
+}
+
+TEST_P(SparklineBufferSize, FullDecoratedChartWithTwoSeries_PaintsWithoutError)
+{
+    const std::size_t size = GetParam();
+    SparklineWidget widget;
+    widget.resize(480, 200);
+    widget.setCapacity(size);
+    widget.setSeriesCount(2);
+    widget.setSeriesSamples(0, sineSamples(size));
+    widget.setSeriesSamples(1, Samples(size, 20.0f));
+    widget.setSampleIndex(size * 3);
+    widget.setGridVisible(true);
+    widget.setAxisLabelsVisible(true);
+    widget.setAnnotationsVisible(true);
+
+    EXPECT_TRUE(hasPaintedPixel(renderWidget(widget)));
 }
 
 INSTANTIATE_TEST_SUITE_P(RoadmapSizes, SparklineBufferSize, ::testing::Values(60u, 300u, 1800u));
@@ -197,6 +389,20 @@ TEST(SparklineWidget, Defaults_FixedPercentRangeAndSixtySlots)
     EXPECT_TRUE(widget.samples().empty());
 }
 
+TEST(SparklineWidget, Defaults_OneFilledSeriesAndNoDecorations)
+{
+    SparklineWidget widget;
+
+    EXPECT_EQ(widget.seriesCount(), 1u);
+    EXPECT_TRUE(widget.isSeriesFilled(0));
+    EXPECT_TRUE(widget.seriesLabel(0).isEmpty());
+    EXPECT_FALSE(widget.isGridVisible());
+    EXPECT_FALSE(widget.areAxisLabelsVisible());
+    EXPECT_FALSE(widget.areAnnotationsVisible());
+    EXPECT_EQ(widget.sampleIndex(), 0u);
+    EXPECT_EQ(widget.sampleInterval(), std::chrono::seconds{1});
+}
+
 TEST(SparklineWidget, AutoRange_FollowsSamples)
 {
     SparklineWidget widget;
@@ -206,6 +412,18 @@ TEST(SparklineWidget, AutoRange_FollowsSamples)
 
     EXPECT_TRUE(widget.isAutoRange());
     EXPECT_FLOAT_EQ(widget.effectiveRange().max, 440.0f);
+}
+
+TEST(SparklineWidget, AutoRange_CoversAllSeries)
+{
+    SparklineWidget widget;
+    widget.setAutoRange();
+    widget.setSeriesCount(2);
+
+    widget.setSeriesSamples(0, Samples{10.0f});
+    widget.setSeriesSamples(1, Samples{std::nullopt, 200.0f});
+
+    EXPECT_FLOAT_EQ(widget.effectiveRange().max, 220.0f);
 }
 
 TEST(SparklineWidget, SetSamples_KeepsCopyIncludingGaps)
@@ -220,14 +438,158 @@ TEST(SparklineWidget, SetSamples_KeepsCopyIncludingGaps)
     EXPECT_FALSE(widget.samples()[1].has_value());
 }
 
+TEST(SparklineWidget, SetSamples_UpdatesPrimarySeries)
+{
+    SparklineWidget widget;
+    widget.setSeriesCount(2);
+
+    widget.setSamples(Samples{7.0f});
+
+    ASSERT_EQ(widget.seriesSamples(0).size(), 1u);
+    EXPECT_EQ(widget.seriesSamples(0)[0], 7.0f);
+    EXPECT_TRUE(widget.seriesSamples(1).empty());
+}
+
+TEST(SparklineWidget, SetSeriesCount_KeepsExistingSeriesAndAddsUnfilledOnes)
+{
+    SparklineWidget widget;
+    widget.setSamples(Samples{1.0f});
+    widget.setSeriesLabel(0, "Total");
+
+    widget.setSeriesCount(3);
+
+    EXPECT_EQ(widget.seriesCount(), 3u);
+    EXPECT_EQ(widget.samples().size(), 1u);
+    EXPECT_EQ(widget.seriesLabel(0), "Total");
+    EXPECT_TRUE(widget.isSeriesFilled(0));
+    EXPECT_FALSE(widget.isSeriesFilled(1));
+    EXPECT_TRUE(widget.seriesSamples(2).empty());
+}
+
+TEST(SparklineWidget, SeriesColor_DefaultUntilOverridden)
+{
+    SparklineWidget widget;
+    widget.setSeriesCount(2);
+    EXPECT_NE(widget.seriesColor(0), widget.seriesColor(1));
+
+    widget.setSeriesColor(1, QColor(Qt::black));
+
+    EXPECT_EQ(widget.seriesColor(1), QColor(Qt::black));
+}
+
+TEST(SparklineWidget, ValueFormatter_UsedForLabels)
+{
+    SparklineWidget widget;
+    EXPECT_EQ(widget.formatValue(100.0f), "100");
+    EXPECT_EQ(widget.formatValue(0.0f), "0");
+    EXPECT_EQ(widget.formatValue(2.5f), "2.5");
+
+    widget.setValueFormatter([](float value) { return QString("%1%").arg(static_cast<double>(value)); });
+
+    EXPECT_EQ(widget.formatValue(42.0f), "42%");
+}
+
+TEST(SparklineWidget, PlotArea_LabelsAndAnnotationsReserveSpace)
+{
+    SparklineWidget widget;
+    widget.resize(300, 150);
+    const QRectF plain = widget.plotArea();
+
+    widget.setAxisLabelsVisible(true);
+    const QRectF labelled = widget.plotArea();
+    widget.setAnnotationsVisible(true);
+    const QRectF annotated = widget.plotArea();
+
+    EXPECT_GT(labelled.left(), plain.left());
+    EXPECT_LT(labelled.bottom(), plain.bottom());
+    EXPECT_DOUBLE_EQ(labelled.top(), plain.top());
+    EXPECT_GT(annotated.top(), labelled.top());
+}
+
 TEST(SparklineWidget, NoSamples_PaintsNothing)
 {
     SparklineWidget widget;
     widget.resize(160, 36);
 
-    QImage image(widget.size(), QImage::Format_ARGB32);
-    image.fill(Qt::transparent);
-    widget.render(&image, QPoint(), QRegion(), QWidget::DrawChildren); // Skip the window background.
+    EXPECT_FALSE(hasPaintedPixel(renderWidget(widget)));
+}
 
-    EXPECT_FALSE(hasPaintedPixel(image));
+TEST(SparklineWidget, GridVisible_PaintsWithoutSamples)
+{
+    SparklineWidget widget;
+    widget.resize(160, 60);
+    widget.setGridVisible(true);
+
+    EXPECT_TRUE(hasPaintedPixel(renderWidget(widget)));
+}
+
+TEST(SparklineWidget, SampleIndex_ScrollsGrid)
+{
+    SparklineWidget widget;
+    widget.resize(300, 100);
+    widget.setGridVisible(true);
+    widget.setSampleIndex(59);
+    const QImage before = renderWidget(widget);
+
+    widget.setSampleIndex(60);
+    const QImage after = renderWidget(widget);
+    widget.setSampleIndex(65);
+    const QImage fullSpacingLater = renderWidget(widget);
+
+    EXPECT_NE(before, after);
+    EXPECT_EQ(before, fullSpacingLater);
+}
+
+TEST(SparklineWidget, AxisLabelsVisible_PaintsInGutterAndBelowPlot)
+{
+    SparklineWidget widget;
+    widget.resize(300, 120);
+    widget.setAxisLabelsVisible(true);
+    const QRect plot = widget.plotArea().toAlignedRect();
+
+    const QImage image = renderWidget(widget);
+
+    EXPECT_TRUE(hasPaintedPixel(image, QRect(0, 0, plot.left() - 2, widget.height())));
+    EXPECT_TRUE(hasPaintedPixel(image, QRect(0, plot.bottom() + 2, widget.width(), widget.height())));
+}
+
+TEST(SparklineWidget, AnnotationsVisible_PaintsAbovePlot)
+{
+    SparklineWidget widget;
+    widget.resize(300, 120);
+    widget.setAnnotationsVisible(true);
+    widget.setSamples(Samples{10.0f, 90.0f, 50.0f});
+    const QRect plot = widget.plotArea().toAlignedRect();
+
+    const QImage image = renderWidget(widget);
+
+    // The band above the plot, excluding where the max marker may reach into it.
+    EXPECT_TRUE(hasPaintedPixel(image, QRect(0, 0, widget.width(), plot.top() - 8)));
+}
+
+TEST(SparklineWidget, AnnotationsWithoutSamples_ShowNotAvailable)
+{
+    SparklineWidget widget;
+    widget.resize(300, 120);
+    widget.setAnnotationsVisible(true);
+    const QRect plot = widget.plotArea().toAlignedRect();
+
+    const QImage image = renderWidget(widget);
+
+    EXPECT_TRUE(hasPaintedPixel(image, QRect(0, 0, widget.width(), plot.top() - 8)));
+}
+
+TEST(SparklineWidget, UnfilledSeries_PaintsOnlyNearTheLine)
+{
+    SparklineWidget widget;
+    widget.resize(200, 100);
+    widget.setSamples(Samples(60, 100.0f)); // A line along the top edge.
+    const QRect plot = widget.plotArea().toAlignedRect();
+    const QRect lowerHalf(plot.left(), plot.center().y(), plot.width(), plot.height() / 2);
+
+    EXPECT_TRUE(hasPaintedPixel(renderWidget(widget), lowerHalf)); // Gradient fill.
+
+    widget.setSeriesFilled(0, false);
+
+    EXPECT_FALSE(hasPaintedPixel(renderWidget(widget), lowerHalf));
 }

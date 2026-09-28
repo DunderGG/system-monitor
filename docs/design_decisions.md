@@ -407,6 +407,34 @@ Each entry links to the relevant roadmap phase and source files.
 - **Missing data:** samples are `std::optional<float>`, and a missing sample breaks the line (a visible gap) instead of plotting zero.
 - **Y range:** fixed (0–100% for CPU, memory, and disk) or auto-scaled to the data with 10% headroom (network).
 - **Ownership:** the caller owns the history. `DashboardView` keeps a 60-sample `domain::RingBuffer<std::optional<float>>` per card (one minute at 1 Hz) and passes a view of it with `setSamples()` each tick. The network sparkline charts combined in + out throughput.
-- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour.
+- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour. (Phase 3 replaced this blue with the first slot of a theme-aware series palette; see [Sparkline series colours](#sparkline-series-colours-a-validated-five-hue-palette-without-status-hues).)
 
 **Rationale:** Roadmap item "each card shows a mini sparkline" belongs to Phase 2. The minimal widget covers exactly what the dashboard needs, and Phase 3 extends it (grid, multiple series, axis labels, annotations) rather than replacing it. Rendering from a caller-supplied view keeps the widget reusable for the Performance view's longer histories. Gaps follow the project rule against representing missing data as zero. Copying 60 samples per chart per tick is negligible.
+
+---
+
+## Phase 3 — Sparkline charts and performance views (`src/ui/charts/`, `src/ui/`)
+
+### Sparkline grid scrolls with a caller-supplied sample index
+
+**Decision:** `SparklineWidget::setSampleIndex()` takes the running index of the newest sample (e.g. the number of samples recorded so far), and the pure function `verticalGridLines()` places vertical grid lines on every `capacity / 10`th sample of that sequence. Each new sample moves every line one slot to the left, so the grid scrolls with the data as in Task Manager. Horizontal lines are fixed at quarters of the Y range. The grid, like the other decorations, is off by default.
+
+**Rationale:** Once the history is full, the samples span passed to the widget keeps the same length, so the widget cannot tell from the samples alone that time has moved on. Counting `setSamples()` calls inside the widget would break as soon as a series is set twice per tick or the widget is refreshed for other reasons, so the caller passes the index explicitly. Deriving the spacing from the capacity keeps about ten columns whether the chart shows 60, 300, or 1800 samples. Lines are computed with modular arithmetic on the running index, so a short history (index smaller than the capacity) does not underflow. `RingBuffer` was left unchanged; a caller that needs the index keeps its own counter.
+
+### Multiple series share one time axis and Y range, with series 0 as the primary
+
+**Decision:** A `SparklineWidget` holds one or more series (`setSeriesCount()`, `setSeriesSamples()`), each with its own colour, optional legend label, and fill flag. All series share the capacity, time axis (newest sample at the right edge), and Y range; the auto range covers every series. Series 0 is the *primary* series: `setSamples()` / `samples()` are shortcuts for it, only it is filled by default, it is painted on top, and the min/max annotations describe it. The existing single-series API is kept, so the dashboard did not change.
+
+**Rationale:** The roadmap asks for several series on one chart (per-core CPU, and network receive/send). One Y scale keeps the chart honest: series of different units or scales belong on separate charts, not a second axis. Filling only the primary series avoids stacked translucent fills turning into a muddy block. Min/max markers for every series would clutter a per-core chart, so they follow the one series the chart is about.
+
+### Axis labels and annotations reserve space outside the plot
+
+**Decision:** Two optional decorations: *axis labels* (Y range min and max in a left gutter, the history window, e.g. "1 min", and "now" below the plot) and *annotations* (a line above the plot with the current value, the primary series' min and max, and dot markers at those points on its line). With two or more series and at least one label, the current-value area becomes a legend: a short line in the series colour, then the label and current value in the text colour. Values are formatted by a caller-supplied `ValueFormatter`, so the charts library stays independent of `ui`'s formatting helpers. A missing current value shows "N/A". `plotArea()` exposes the rectangle left for the series, and pure `summarizeSeries()` and `formatHistoryWindow()` functions carry the logic for unit tests.
+
+**Rationale:** Drawing text over the plot would collide with the lines, so labels get their own bands and the plot shrinks instead. Keeping everything off by default lets the same widget stay a bare 36-pixel dashboard sparkline. Text stays in the palette's text colour (dimmed for secondary labels), never the series colour, so it is readable on any theme, and a series is identified by its colour key plus its label, never by colour alone. On ties, the newest occurrence is marked, which keeps the marker close to the live edge on flat data.
+
+### Sparkline series colours: a validated five-hue palette without status hues
+
+**Decision:** Unless the caller overrides a series colour, series 0–4 take fixed hues in this order: blue, orange, aqua, violet, magenta (`defaultSeriesColor()`), with separate light and dark steps. The widget picks the dark steps when its background colour is dark, at paint time, so it follows theme changes. Series 5 and later share a muted grey instead of generated or repeated hues. The grid, frame, and secondary text use the palette's text colour at reduced opacity.
+
+**Rationale:** The hues and steps come from a categorical palette whose order was checked with a colour-vision-deficiency validator: every adjacent pair stays separable under deuteranopia, protanopia, and tritanopia, and has enough contrast against the chart background, in both light and dark mode. Red, amber, and green were removed from that palette because they are the dashboard's Critical, Warning, and Healthy status colours, and a series in those hues would read as a status. The remaining five still pass after re-validation. In light mode, aqua and magenta fall below 3:1 contrast against the background, which is why labelled series always appear in the legend with their values. Repeating or generating hues past the fifth series would make series look alike, so more series (e.g. per-core CPU on a 16-core machine) get a shared de-emphasised grey. The caller can colour them explicitly, highlight a total in the primary colour, or split them across charts. Following the palette rather than the system accent colour keeps the Phase 2 reason for a fixed blue: a red accent would read as Critical.

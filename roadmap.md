@@ -98,10 +98,10 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Implement `SparklineWidget` as a `QWidget` subclass overriding `paintEvent`. (Minimal single-series version built early for the Phase 2 dashboard.)
 - [x] Draw a `QPainterPath` polyline from ring buffer data.
 - [x] Fill below the line with a `QLinearGradient`.
-- [ ] Draw a scrolling grid background offset by the sample index.
+- [x] Draw a scrolling grid background offset by the sample index.
 - [x] Support configurable Y-axis range (0–100% for CPU/memory, auto-scale for network throughput).
-- [ ] Support multiple series on one chart (e.g., per-core CPU).
-- [ ] Display axis labels, current value, and min/max annotations.
+- [x] Support multiple series on one chart (e.g., per-core CPU).
+- [x] Display axis labels, current value, and min/max annotations.
 - [x] Test with synthetic data at various buffer sizes (60, 300, 1800 samples).
 
 ### Performance tab (`src/ui/`)
