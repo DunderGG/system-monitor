@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include <Windows.h>
+#include <windows.h>
 
 #include <spdlog/spdlog.h>
 
@@ -31,11 +31,9 @@ std::optional<std::vector<std::string>> enumerateFixedDrives(RepeatedFailureLog&
     std::vector<std::string> fixedDrives;
     for (int i = 0; i < 26; ++i) {
         if (driveMask & (1 << i)) {
-            const wchar_t rootW[] = {static_cast<wchar_t>(L'A' + i), L':', L'\\', L'\0'};
-            const UINT driveType = ::GetDriveTypeW(rootW);
-            if (driveType == DRIVE_FIXED) {
-                const char rootA[] = {static_cast<char>('A' + i), ':', '\\', '\0'};
-                fixedDrives.emplace_back(rootA);
+            const std::wstring rootW{static_cast<wchar_t>(L'A' + i), L':', L'\\'};
+            if (::GetDriveTypeW(rootW.c_str()) == DRIVE_FIXED) {
+                fixedDrives.push_back(std::string{static_cast<char>('A' + i), ':', '\\'});
             }
         }
     }

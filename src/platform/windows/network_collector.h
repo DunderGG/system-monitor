@@ -11,6 +11,7 @@
 
 #include "domain/network_sample.h"
 #include "monitoring/collector.h"
+#include "platform/windows/steady_clock_reader.h"
 
 namespace sysmon::platform
 {
@@ -50,8 +51,18 @@ struct NetworkBaseline
     std::chrono::steady_clock::time_point timestamp;
 };
 
+/**
+ * Converts raw adapter records into samples: drops loopback and filter
+ * interfaces, computes bytes/sec rates against the previous baselines over
+ * elapsed monotonic time, updates the baselines, and removes baselines of
+ * adapters that are gone. Pure function with no OS dependencies for
+ * deterministic unit testing.
+ */
+std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
+                                                           std::unordered_map<uint64_t, NetworkBaseline>& baselines,
+                                                           std::chrono::steady_clock::time_point currentTime);
+
 using NetworkAdaptersReader = std::function<std::optional<std::vector<RawNetworkAdapter>>()>;
-using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>;
 
 class WindowsAdapterReader;
 
@@ -84,15 +95,6 @@ public:
     ~NetworkCollector() override;
 
     [[nodiscard]] std::optional<std::vector<domain::NetworkSample>> collect() override;
-
-    /**
-     * Pure calculation helper that processes raw adapter records against historical baselines,
-     * calculates bytes/sec rates over elapsed monotonic time, and purges retired baselines.
-     */
-    static std::vector<domain::NetworkSample>
-    calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
-                            std::unordered_map<uint64_t, NetworkBaseline>& baselines,
-                            std::chrono::steady_clock::time_point currentTime);
 
 private:
     // Owns the Windows reader (and its change notifications) in production;

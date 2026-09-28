@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include <Windows.h>
+#include <windows.h>
 
 #include <spdlog/spdlog.h>
 
@@ -42,17 +42,17 @@ struct SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION
     ULONG InterruptCount;
 };
 
-using pfnNtQuerySystemInformation = NTSTATUS(NTAPI*)(ULONG SystemInformationClass, PVOID SystemInformation,
-                                                     ULONG SystemInformationLength, PULONG ReturnLength);
+using NtQuerySystemInformationFn = NTSTATUS(NTAPI*)(ULONG SystemInformationClass, PVOID SystemInformation,
+                                                    ULONG SystemInformationLength, PULONG ReturnLength);
 
-using pfnNtQuerySystemInformationEx = NTSTATUS(NTAPI*)(ULONG SystemInformationClass, PVOID InputBuffer,
-                                                       ULONG InputBufferLength, PVOID SystemInformation,
-                                                       ULONG SystemInformationLength, PULONG ReturnLength);
+using NtQuerySystemInformationExFn = NTSTATUS(NTAPI*)(ULONG SystemInformationClass, PVOID InputBuffer,
+                                                      ULONG InputBufferLength, PVOID SystemInformation,
+                                                      ULONG SystemInformationLength, PULONG ReturnLength);
 
 struct NtdllProcessorFunctions
 {
-    pfnNtQuerySystemInformationEx ntQuerySystemInformationEx{nullptr};
-    pfnNtQuerySystemInformation ntQuerySystemInformation{nullptr};
+    NtQuerySystemInformationExFn ntQuerySystemInformationEx{nullptr};
+    NtQuerySystemInformationFn ntQuerySystemInformation{nullptr};
 };
 
 NtdllProcessorFunctions resolveNtdllProcessorFunctions() noexcept
@@ -65,14 +65,14 @@ NtdllProcessorFunctions resolveNtdllProcessorFunctions() noexcept
     }
 
     funcs.ntQuerySystemInformationEx =
-        reinterpret_cast<pfnNtQuerySystemInformationEx>(::GetProcAddress(ntdll, "NtQuerySystemInformationEx"));
+        reinterpret_cast<NtQuerySystemInformationExFn>(::GetProcAddress(ntdll, "NtQuerySystemInformationEx"));
     if (funcs.ntQuerySystemInformationEx == nullptr) {
         spdlog::warn("GetProcAddress failed for NtQuerySystemInformationEx in ntdll.dll, using "
                      "NtQuerySystemInformation fallback");
     }
 
     funcs.ntQuerySystemInformation =
-        reinterpret_cast<pfnNtQuerySystemInformation>(::GetProcAddress(ntdll, "NtQuerySystemInformation"));
+        reinterpret_cast<NtQuerySystemInformationFn>(::GetProcAddress(ntdll, "NtQuerySystemInformation"));
     if (funcs.ntQuerySystemInformation == nullptr) {
         spdlog::error("GetProcAddress failed for NtQuerySystemInformation in ntdll.dll");
     }
@@ -80,7 +80,7 @@ NtdllProcessorFunctions resolveNtdllProcessorFunctions() noexcept
     return funcs;
 }
 
-bool queryGroupProcessorPerformance(pfnNtQuerySystemInformationEx ntQuerySystemInfoEx, USHORT processorGroup,
+bool queryGroupProcessorPerformance(NtQuerySystemInformationExFn ntQuerySystemInfoEx, USHORT processorGroup,
                                     std::vector<SystemTimesData>& outGroupCores, int estimatedCoresInGroup,
                                     RepeatedFailureLog& failureLog)
 {
@@ -138,7 +138,7 @@ bool queryGroupProcessorPerformance(pfnNtQuerySystemInformationEx ntQuerySystemI
     return false;
 }
 
-bool queryLegacyProcessorPerformance(pfnNtQuerySystemInformation ntQuerySystemInfo,
+bool queryLegacyProcessorPerformance(NtQuerySystemInformationFn ntQuerySystemInfo,
                                      std::vector<SystemTimesData>& outCoreTimes, int estimatedCoreCount,
                                      RepeatedFailureLog& failureLog)
 {

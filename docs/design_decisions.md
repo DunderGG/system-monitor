@@ -311,11 +311,6 @@ Each entry links to the relevant roadmap phase and source files.
 
 **Rationale:** Simulating multiple network interfaces, varying link speeds, counter rollovers, IP/DNS configurations, loopback filters, and baseline eviction across elapsed intervals requires deterministic control over input data and monotonic timestamps. Injected readers allow comprehensive unit testing without network privileges or hardware manipulation, while host integration tests verify real Windows IP Helper API calls.
 
-
-
-
-
-
 ---
 
 ### Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache

@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include <Windows.h>
+#include <windows.h>
 
 namespace sysmon::platform
 {

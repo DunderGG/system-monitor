@@ -36,7 +36,8 @@ QString formatByteRate(uint64_t bytesPerSecond)
 
 QString formatUptime(std::chrono::milliseconds uptime)
 {
-    using namespace std::chrono;
+    using std::chrono::duration_cast;
+    using std::chrono::seconds;
 
     const auto totalSeconds = duration_cast<seconds>(uptime).count();
     const auto days = totalSeconds / 86'400;

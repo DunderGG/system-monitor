@@ -214,7 +214,7 @@ TEST(ProcessInfo, DefaultConstruction_ZeroAndFalse)
 
 TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
 {
-    using namespace std::chrono;
+    using std::chrono::system_clock;
     const auto now = system_clock::now();
 
     ProcessInfo p{
@@ -258,7 +258,8 @@ TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
 // never use PID alone as a stable key.
 TEST(ProcessInfo, SamePidDifferentCreationTime_DifferentIdentity)
 {
-    using namespace std::chrono;
+    using std::chrono::seconds;
+    using std::chrono::system_clock;
     const auto t1 = system_clock::time_point{seconds{1000}};
     const auto t2 = system_clock::time_point{seconds{2000}};
 
@@ -290,7 +291,7 @@ TEST(SystemSnapshot, DefaultConstruction_NoOptionalData)
 
 TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
 {
-    using namespace std::chrono;
+    using std::chrono::steady_clock;
     const auto ts = steady_clock::now();
 
     SystemSnapshot snap{

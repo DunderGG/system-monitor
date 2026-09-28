@@ -4,7 +4,7 @@
 #include <optional>
 #include <utility>
 
-#include <Windows.h>
+#include <windows.h>
 
 #include <spdlog/spdlog.h>
 

@@ -44,7 +44,7 @@ public:
     using FixedDriveEnumerator = std::function<std::optional<std::vector<std::string>>()>;
     using DiskSpaceReader = std::function<bool(const std::string& volumeName, DiskSpaceData& data)>;
 
-    explicit DiskCollector();
+    DiskCollector();
     DiskCollector(FixedDriveEnumerator enumerator, DiskSpaceReader reader);
     ~DiskCollector() override = default;
 

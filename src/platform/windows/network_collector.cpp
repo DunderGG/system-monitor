@@ -1,6 +1,7 @@
 #include "platform/windows/network_collector.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -20,9 +21,6 @@
 
 #include "platform/windows/adapter_details_cache.h"
 #include "platform/windows/repeated_failure_log.h"
-
-#pragma comment(lib, "iphlpapi.lib")
-#pragma comment(lib, "ws2_32.lib")
 
 namespace sysmon::platform
 {
@@ -45,8 +43,35 @@ std::string wideToUtf8(const WCHAR* wideStr)
         return {};
     }
     std::string result(static_cast<size_t>(sizeNeeded - 1), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, result.data(), sizeNeeded, nullptr, nullptr);
+    // result has room for the terminating null that WideCharToMultiByte writes.
+    if (WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, result.data(), sizeNeeded, nullptr, nullptr) == 0) {
+        spdlog::debug("WideCharToMultiByte failed with error code {}", ::GetLastError());
+        return {};
+    }
     return result;
+}
+
+// Formats an IPv4 or IPv6 socket address as text; std::nullopt for other families or on failure.
+std::optional<std::string> sockaddrToString(const SOCKADDR* address)
+{
+    if (address == nullptr) {
+        return std::nullopt;
+    }
+
+    std::array<char, INET6_ADDRSTRLEN> text{};
+    const char* formatted = nullptr;
+    if (address->sa_family == AF_INET) {
+        const auto* ipv4 = reinterpret_cast<const sockaddr_in*>(address);
+        formatted = inet_ntop(AF_INET, &ipv4->sin_addr, text.data(), text.size());
+    } else if (address->sa_family == AF_INET6) {
+        const auto* ipv6 = reinterpret_cast<const sockaddr_in6*>(address);
+        formatted = inet_ntop(AF_INET6, &ipv6->sin6_addr, text.data(), text.size());
+    }
+
+    if (formatted == nullptr) {
+        return std::nullopt;
+    }
+    return std::string(text.data());
 }
 
 struct MibTableDeleter
@@ -68,7 +93,10 @@ struct MibNotificationDeleter
     void operator()(HANDLE handle) const noexcept
     {
         if (handle != nullptr) {
-            CancelMibChangeNotify2(handle);
+            const DWORD result = CancelMibChangeNotify2(handle);
+            if (result != NO_ERROR) {
+                spdlog::warn("CancelMibChangeNotify2 failed with error {}", result);
+            }
         }
     }
 };
@@ -148,38 +176,14 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failu
         }
 
         for (PIP_ADAPTER_UNICAST_ADDRESS uni = curr->FirstUnicastAddress; uni != nullptr; uni = uni->Next) {
-            if (!uni->Address.lpSockaddr) {
-                continue;
-            }
-            char ipBuffer[INET6_ADDRSTRLEN] = {0};
-            if (uni->Address.lpSockaddr->sa_family == AF_INET) {
-                const auto* sin = reinterpret_cast<const sockaddr_in*>(uni->Address.lpSockaddr);
-                if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
-                    details.ipAddresses.emplace_back(ipBuffer);
-                }
-            } else if (uni->Address.lpSockaddr->sa_family == AF_INET6) {
-                const auto* sin6 = reinterpret_cast<const sockaddr_in6*>(uni->Address.lpSockaddr);
-                if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
-                    details.ipAddresses.emplace_back(ipBuffer);
-                }
+            if (auto address = sockaddrToString(uni->Address.lpSockaddr)) {
+                details.ipAddresses.push_back(std::move(*address));
             }
         }
 
         for (PIP_ADAPTER_DNS_SERVER_ADDRESS dns = curr->FirstDnsServerAddress; dns != nullptr; dns = dns->Next) {
-            if (!dns->Address.lpSockaddr) {
-                continue;
-            }
-            char ipBuffer[INET6_ADDRSTRLEN] = {0};
-            if (dns->Address.lpSockaddr->sa_family == AF_INET) {
-                const auto* sin = reinterpret_cast<const sockaddr_in*>(dns->Address.lpSockaddr);
-                if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
-                    details.dnsServers.emplace_back(ipBuffer);
-                }
-            } else if (dns->Address.lpSockaddr->sa_family == AF_INET6) {
-                const auto* sin6 = reinterpret_cast<const sockaddr_in6*>(dns->Address.lpSockaddr);
-                if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
-                    details.dnsServers.emplace_back(ipBuffer);
-                }
+            if (auto address = sockaddrToString(dns->Address.lpSockaddr)) {
+                details.dnsServers.push_back(std::move(*address));
             }
         }
 
@@ -356,10 +360,9 @@ std::optional<std::vector<domain::NetworkSample>> NetworkCollector::collect()
     return calculateNetworkSamples(*rawAdapters, m_baselines, now);
 }
 
-std::vector<domain::NetworkSample>
-NetworkCollector::calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
-                                          std::unordered_map<uint64_t, NetworkBaseline>& baselines,
-                                          std::chrono::steady_clock::time_point currentTime)
+std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
+                                                           std::unordered_map<uint64_t, NetworkBaseline>& baselines,
+                                                           std::chrono::steady_clock::time_point currentTime)
 {
     std::vector<domain::NetworkSample> samples;
     std::unordered_set<uint64_t> activeKeys;

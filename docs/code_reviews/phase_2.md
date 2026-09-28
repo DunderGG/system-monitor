@@ -60,7 +60,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Resolved |
 | [F-16](#f-16-resourcecardsetstatus-restyles-every-tick) | `ResourceCard::setStatus` restyles every tick | Low | Resolved |
 | [F-17](#f-17-clang-format-is-not-enforced) | `.clang-format` is not enforced | Low | Resolved |
-| [F-18](#f-18-style-and-consistency-items) | Style and consistency items | Cosmetic | Open |
+| [F-18](#f-18-style-and-consistency-items) | Style and consistency items | Cosmetic | Resolved |
 | [F-19](#f-19-log-file-path-is-converted-to-the-ansi-code-page) | Log file path is converted to the ANSI code page (Phase 0 code) | Medium | Open |
 
 **Open findings from earlier reviews:** [F-4](phase_1.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) (snapshot forwarding to other tabs), deferred to the Phase 3 Performance tab.
@@ -406,7 +406,19 @@ Clang-format came from Visual Studio's LLVM tools (22.1.3). Nothing had to be in
 
 **Recommendation:** Fix alongside F-17, since most of these are what a format check would catch.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). Line lengths, include grouping, SDK include order, and empty-body style were fixed by the F-17 reformat, and `.clang-format` now enforces them. This commit handles the rest:
+- `<Windows.h>` is spelled `<windows.h>` everywhere.
+- C arrays became `std::string`/`std::wstring` (drive roots), `std::array` (address formatting, log levels).
+- The type aliases are `NtQuerySystemInformationFn` / `NtQuerySystemInformationExFn`.
+- The `using namespace std::chrono;` directives (one in `src/`, three in tests) became targeted `using` declarations.
+- The second `WideCharToMultiByte` call and both `CancelMibChangeNotify2` calls are checked.
+- The duplicated address loops use a new `sockaddrToString()` helper.
+- `SteadyClockReader` is defined once in `platform/windows/steady_clock_reader.h`.
+- `calculateNetworkSamples` is a free function like the other calculators.
+- The `#pragma comment` lines and the `explicit` on default constructors are gone.
+- The domain types' comments are Doxygen `/** */` blocks.
+- The blank-line run in `design_decisions.md` is removed.
+- `coding_guidelines.md` now allows tests to use `using namespace` for the project namespaces under test.
 
 ---
 

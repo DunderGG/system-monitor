@@ -33,7 +33,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesUnavailableAndBase
         .isLoopback = false,
     }};
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    const auto samples = calculateNetworkSamples(adapters, baselines, t0);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].adapterName, "Ethernet");
@@ -70,13 +70,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_SecondTick_CalculatesAccurateThro
     }};
 
     // First tick to set baseline
-    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    calculateNetworkSamples(adapters, baselines, t0);
 
     // Second tick: +20,000 inBytes, +10,000 outBytes over 2 seconds
     adapters[0].inBytesTotal = 120'000;
     adapters[0].outBytesTotal = 60'000;
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
+    const auto samples = calculateNetworkSamples(adapters, baselines, t1);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].inBytesTotal, 120'000u);
@@ -103,7 +103,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_LoopbackAdapter_FilteredOut)
         },
     };
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].adapterName, "Wi-Fi");
@@ -135,7 +135,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_FilterInterface_FilteredOut)
         },
     };
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].adapterName, "Ethernet");
@@ -152,7 +152,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_HardwareFlag_PreservedInSample)
         RawNetworkAdapter{.luid = 2, .adapterName = "VPN Tunnel", .isHardwareInterface = false},
     };
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
 
     ASSERT_EQ(samples.size(), 2u);
     EXPECT_TRUE(samples[0].isHardwareInterface);
@@ -173,13 +173,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesUnav
         .isLoopback = false,
     }};
 
-    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    calculateNetworkSamples(adapters, baselines, t0);
 
     // Counter resets to a lower value (e.g. adapter reset)
     adapters[0].inBytesTotal = 1'000;
     adapters[0].outBytesTotal = 500;
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
+    const auto samples = calculateNetworkSamples(adapters, baselines, t1);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
@@ -201,12 +201,12 @@ TEST(NetworkCollector, CalculateNetworkSamples_ZeroElapsedDuration_RatesUnavaila
         .isLoopback = false,
     }};
 
-    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    calculateNetworkSamples(adapters, baselines, t0);
 
     // Same timestamp
     adapters[0].inBytesTotal = 60'000;
     adapters[0].outBytesTotal = 30'000;
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    const auto samples = calculateNetworkSamples(adapters, baselines, t0);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
@@ -227,8 +227,8 @@ TEST(NetworkCollector, CalculateNetworkSamples_IdleLink_ReportsZeroNotUnavailabl
         .isLoopback = false,
     }};
 
-    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
+    calculateNetworkSamples(adapters, baselines, t0);
+    const auto samples = calculateNetworkSamples(adapters, baselines, t1);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].inBytesPerSec, std::optional<uint64_t>{0});
@@ -249,11 +249,11 @@ TEST(NetworkCollector, CalculateNetworkSamples_ResetInOneDirection_OtherDirectio
         .isLoopback = false,
     }};
 
-    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    calculateNetworkSamples(adapters, baselines, t0);
 
     adapters[0].inBytesTotal = 1'000;   // inbound counter reset
     adapters[0].outBytesTotal = 27'000; // outbound advanced by 2,000 bytes
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
+    const auto samples = calculateNetworkSamples(adapters, baselines, t1);
 
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
@@ -271,7 +271,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_RetiredAdapter_PurgedFromBaseline
         RawNetworkAdapter{.luid = 102, .adapterName = "USB-NIC", .isLoopback = false},
     };
 
-    NetworkCollector::calculateNetworkSamples(adaptersTick0, baselines, t0);
+    calculateNetworkSamples(adaptersTick0, baselines, t0);
     EXPECT_EQ(baselines.size(), 2u);
 
     // USB-NIC disconnected
@@ -279,7 +279,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_RetiredAdapter_PurgedFromBaseline
         RawNetworkAdapter{.luid = 101, .adapterName = "Ethernet", .isLoopback = false},
     };
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adaptersTick1, baselines, t1);
+    const auto samples = calculateNetworkSamples(adaptersTick1, baselines, t1);
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(baselines.size(), 1u);
     EXPECT_TRUE(baselines.contains(101));
@@ -301,7 +301,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_IpAndDnsAddresses_PreservedInSamp
         .isLoopback = false,
     }};
 
-    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, now);
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].friendlyName, "Ethernet 1");
     EXPECT_EQ(samples[0].description, "Realtek Controller");

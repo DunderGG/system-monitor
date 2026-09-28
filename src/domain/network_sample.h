@@ -8,8 +8,10 @@
 namespace sysmon::domain
 {
 
-// Maps directly to IF_OPER_STATUS from the Windows IP Helper API (GetIfTable2).
-// Loopback adapters are filtered out before this type is produced.
+/**
+ * Maps directly to IF_OPER_STATUS from the Windows IP Helper API (GetIfTable2).
+ * Loopback and NDIS filter interfaces are filtered out before this type is produced.
+ */
 enum class OperationalStatus
 {
     Up,
@@ -21,23 +23,25 @@ enum class OperationalStatus
     LowerLayerDown,
 };
 
-// A single snapshot of one network adapter's traffic counters, throughput, and link state.
-//
-// inBytesTotal and outBytesTotal are cumulative 64-bit byte counters as
-// returned by GetIfTable2.
-//
-// inBytesPerSec and outBytesPerSec are instantaneous throughput rates computed
-// from byte counter deltas over measured monotonic elapsed time. Each is
-// std::nullopt when no rate can be computed: the first sample for an adapter
-// (no baseline yet), zero elapsed time, or a counter that went backwards (reset).
-// A genuinely idle link reports 0.
-//
-// linkSpeedBps is the negotiated link speed in bits per second.
-//
-// isHardwareInterface is true for a physical adapter and false for tunnels,
-// VPNs, and other virtual interfaces. Traffic through a virtual interface
-// usually also crosses a physical one, so a total across adapters should sum
-// hardware interfaces only.
+/**
+ * A single snapshot of one network adapter's traffic counters, throughput, and link state.
+ *
+ * inBytesTotal and outBytesTotal are cumulative 64-bit byte counters as
+ * returned by GetIfTable2.
+ *
+ * inBytesPerSec and outBytesPerSec are instantaneous throughput rates computed
+ * from byte counter deltas over measured monotonic elapsed time. Each is
+ * std::nullopt when no rate can be computed: the first sample for an adapter
+ * (no baseline yet), zero elapsed time, or a counter that went backwards (reset).
+ * A genuinely idle link reports 0.
+ *
+ * linkSpeedBps is the negotiated link speed in bits per second.
+ *
+ * isHardwareInterface is true for a physical adapter and false for tunnels,
+ * VPNs, and other virtual interfaces. Traffic through a virtual interface
+ * usually also crosses a physical one, so a total across adapters should sum
+ * hardware interfaces only.
+ */
 struct NetworkSample
 {
     std::string adapterName;

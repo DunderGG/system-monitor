@@ -107,6 +107,7 @@ sysmon::ui           // Qt widgets, view models, charts
 Rules:
 - Never use `using namespace` in headers.
 - `using namespace` is allowed in `.cpp` files for the file's own namespace (e.g., `using namespace sysmon::monitoring;` inside `sampling_scheduler.cpp`).
+- Test files have no namespace of their own, so they may use `using namespace` for the project namespaces under test (e.g. `using namespace sysmon::platform;` in `network_collector_test.cpp`). Standard library namespaces still use targeted `using` declarations.
 - Do not use `using namespace std;` anywhere. Qualify standard library names explicitly or use targeted `using` declarations (e.g., `using std::chrono::steady_clock;`).
 
 ---

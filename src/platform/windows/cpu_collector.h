@@ -8,6 +8,7 @@
 
 #include "domain/cpu_sample.h"
 #include "monitoring/collector.h"
+#include "platform/windows/steady_clock_reader.h"
 
 namespace sysmon::platform
 {
@@ -53,9 +54,8 @@ class CpuCollector : public monitoring::ICpuCollector
 public:
     using SystemTimesReader = std::function<bool(SystemTimesData&)>;
     using CorePerformanceReader = std::function<bool(std::vector<SystemTimesData>&)>;
-    using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>;
 
-    explicit CpuCollector();
+    CpuCollector();
     CpuCollector(SystemTimesReader timesReader, SteadyClockReader clockReader, int coreCount);
     CpuCollector(SystemTimesReader timesReader, CorePerformanceReader coreReader, SteadyClockReader clockReader,
                  int coreCount, int processorGroupCount = 1);

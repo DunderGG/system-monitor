@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-#include <Windows.h>
+#include <windows.h>
 
 #include <gtest/gtest.h>
 #include <QCoreApplication>

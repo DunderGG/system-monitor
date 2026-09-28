@@ -73,7 +73,10 @@ public:
     {
         if (m_handle != nullptr) {
             // Blocks until any in-flight callback has returned.
-            CancelMibChangeNotify2(m_handle);
+            const DWORD result = CancelMibChangeNotify2(m_handle);
+            if (result != NO_ERROR) {
+                spdlog::warn("CancelMibChangeNotify2 failed with error {}", result);
+            }
         }
     }
 

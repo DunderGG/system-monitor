@@ -37,7 +37,7 @@ class MemoryCollector : public monitoring::IMemoryCollector
 public:
     using MemoryStatusReader = std::function<bool(MemoryStatusData&)>;
 
-    explicit MemoryCollector();
+    MemoryCollector();
     explicit MemoryCollector(MemoryStatusReader reader);
     ~MemoryCollector() override = default;
 

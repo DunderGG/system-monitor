@@ -1,5 +1,6 @@
 #include "app_logging.h"
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -23,10 +24,12 @@ constexpr std::size_t kMaxLogFiles = 3U;
 
 std::optional<spdlog::level::level_enum> parseLogLevel(std::string_view value)
 {
-    constexpr std::pair<std::string_view, spdlog::level::level_enum> kLevels[] = {
-        {"trace", spdlog::level::trace}, {"debug", spdlog::level::debug}, {"info", spdlog::level::info},
-        {"warn", spdlog::level::warn},   {"error", spdlog::level::err},   {"critical", spdlog::level::critical},
-        {"off", spdlog::level::off},
+    using LevelName = std::pair<std::string_view, spdlog::level::level_enum>;
+    constexpr std::array kLevels{
+        LevelName{"trace", spdlog::level::trace}, LevelName{"debug", spdlog::level::debug},
+        LevelName{"info", spdlog::level::info},   LevelName{"warn", spdlog::level::warn},
+        LevelName{"error", spdlog::level::err},   LevelName{"critical", spdlog::level::critical},
+        LevelName{"off", spdlog::level::off},
     };
 
     for (const auto& [name, level] : kLevels) {
