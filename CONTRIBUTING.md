@@ -237,7 +237,7 @@ Open a GitHub issue describing the feature, its use case, and how it fits into t
 3. **Write tests**.
    - Unit tests for logic, calculations, data transformations, and ring buffer behavior.
    - Integration tests for Windows API wrappers (these should tolerate varying host configurations).
-   - Tests go in `tests/unit/` or `tests/integration/` as appropriate.
+   - Tests go in `tests/unit/`, `tests/platform/`, or `tests/integration/` as appropriate. `tests/unit/` must not include Windows headers; `tests/platform/` is for deterministic tests that need Windows SDK types but make no API calls (see [coding_guidelines.md — Test layout](docs/coding_guidelines.md#test-layout)).
 
 4. **Keep commits focused**. One logical change per commit. Write clear commit messages.
 

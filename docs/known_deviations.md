@@ -9,7 +9,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | [D-1](#d-1-sampling-scheduler-has-no-slow-collector-thread) | Sampling scheduler has no slow-collector thread | Medium | Open — planned for Phase 4 |
 | [D-2](#d-2-connectivity-fallback-polls-on-the-scheduler-thread) | Connectivity fallback polls on the scheduler thread | Low | Open — blocked on D-1 |
 | [D-3](#d-3-connectivity-updates-arrive-on-an-os-thread-pool-thread) | Connectivity updates arrive on an OS thread-pool thread | Low | Resolved (2026-09-25) |
-| [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Open — needs guideline decision |
+| [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Resolved (2026-09-25) |
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
 | [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Resolved (2026-09-25) |
 | [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Resolved (2026-09-25) |
@@ -64,6 +64,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/platform/windows/connectivity_hint_mapping.h`, `tests/unit/connectivity_hint_mapping_test.cpp`
 
 **Plan:** Either clarify the guidelines to allow unit tests of `platform/windows` mapping code to include SDK headers (no API calls), or move these tests to a platform-specific test target.
+
+**Status:** Resolved (2026-09-25). The test moved to `tests/platform/connectivity_hint_mapping_test.cpp` in a separate `system_monitor_platform_tests` target (GoogleTest only, no Qt). `tests/unit/` no longer includes Windows headers. The rules now define the test layout: `tests/unit/` never includes Windows headers; `tests/platform/` may include SDK headers for types and constants but must not call Windows APIs; `tests/integration/` may call Windows APIs. They also allow internal `platform/windows` headers that expose Windows types to `tests/platform/` only. Updated: AGENTS.md, GEMINI.md, copilot-instructions.md, coding_guidelines.md (new "Test layout" section), architecture.md, CONTRIBUTING.md, and platform/windows/AGENTS.md.
 
 ---
 

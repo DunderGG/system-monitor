@@ -13,8 +13,8 @@ namespace sysmon::platform
 
 // Pure conversions from GetNetworkConnectivityHint types to domain types.
 // Internal to platform/windows: exposed in a header only so the mapping can be
-// unit tested without calling the OS (known deviation D-4, docs/known_deviations.md).
-// Do not include from other modules.
+// unit tested without calling the OS, by tests/platform/ only.
+// Do not include from other modules or from tests/unit/.
 
 /** Maps a Windows connectivity level; Unknown and Hidden map to ConnectivityLevel::Unknown. */
 [[nodiscard]] domain::ConnectivityLevel toConnectivityLevel(NL_NETWORK_CONNECTIVITY_LEVEL_HINT level) noexcept;

@@ -5,7 +5,7 @@ This module contains all Windows API wrappers. It is the only module that includ
 ## Dependency constraints
 
 - **No Qt headers.** This module must not depend on Qt. It returns domain types, not Qt types.
-- **This is the only module allowed to include Windows headers** (`<Windows.h>`, `<winternl.h>`, `<iphlpapi.h>`, `<pdh.h>`, etc.).
+- **This is the only source module allowed to include Windows headers** (`<Windows.h>`, `<winternl.h>`, `<iphlpapi.h>`, `<pdh.h>`, etc.). Among tests, only `tests/platform/` and `tests/integration/` may include them; `tests/unit/` may not.
 
 ## API usage rules
 
@@ -28,7 +28,7 @@ This module contains all Windows API wrappers. It is the only module that includ
 - Define `WIN32_LEAN_AND_MEAN` and `NOMINMAX` before including `<Windows.h>` (or define project-wide in CMake).
 - Resolve `NtQuerySystemInformation` and other ntdll functions dynamically via `GetProcAddress` at initialization.
 - Wrap all Windows handles (process handles, PDH queries, MIB tables) in RAII types that release in the destructor.
-- Convert all Windows types (FILETIME, SYSTEM_PROCESS_INFORMATION, MIB_IF_ROW2, etc.) to domain types at the boundary. Never expose Windows types outside this module.
+- Convert all Windows types (FILETIME, SYSTEM_PROCESS_INFORMATION, MIB_IF_ROW2, etc.) to domain types at the boundary. Never expose Windows types outside this module, except through internal headers (such as `connectivity_hint_mapping.h`) that exist so `tests/platform/` can unit test the conversion. Other modules must not include those headers.
 - Check return values from every Windows API call. Convert error codes to domain error types.
 - Use the resizing-buffer loop pattern for `NtQuerySystemInformation` calls.
 - Cache process static identity (path, command line) by `(PID, creation time)`. Do not re-query on every refresh.

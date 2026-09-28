@@ -14,7 +14,6 @@ add_executable(system_monitor_tests
     unit/disk_collector_test.cpp
     unit/network_collector_test.cpp
     unit/connectivity_collector_test.cpp
-    unit/connectivity_hint_mapping_test.cpp
     unit/uptime_collector_test.cpp
     unit/health_evaluator_test.cpp
     integration/cpu_collector_test.cpp
@@ -52,3 +51,20 @@ if(WIN32)
 endif()
 
 gtest_discover_tests(system_monitor_tests)
+
+# Platform unit tests: deterministic tests of platform/windows code that need
+# Windows SDK types or constants (e.g. Windows-to-domain mapping functions).
+# They may include Windows headers but must not call Windows APIs. Kept in a
+# separate target so tests/unit/ stays free of Windows headers. No Qt needed.
+add_executable(system_monitor_platform_tests
+    platform/connectivity_hint_mapping_test.cpp
+)
+
+target_link_libraries(system_monitor_platform_tests
+    PRIVATE
+        GTest::gtest_main
+        sysmon_domain
+        sysmon_platform_windows
+)
+
+gtest_discover_tests(system_monitor_platform_tests)

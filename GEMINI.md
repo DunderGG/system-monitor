@@ -61,6 +61,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 - Use `EXPECT_*` by default, `ASSERT_*` only when the test is meaningless without the assertion.
 - Use fake collectors, not mocking frameworks.
 - Unit tests must be fast and deterministic with no OS dependencies. Integration tests may use real Windows APIs but must tolerate varying environments.
+- Test layout: `tests/unit/` never includes Windows headers. Unit tests of `platform/windows` code that need Windows SDK types or constants (e.g. mapping functions) go in `tests/platform/` (the separate `system_monitor_platform_tests` target); they may include SDK headers but must not call Windows APIs. `tests/integration/` may include Windows headers and call Windows APIs.
 
 ## Logging
 

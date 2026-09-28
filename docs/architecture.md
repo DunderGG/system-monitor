@@ -283,6 +283,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 - Unit test rate calculations, normalization, ring-buffer retention, health-state decisions, JSON settings validation, and view-model transformations.
 - Use fake collectors to test scheduling and snapshot aggregation without relying on the host machine's state.
 - Add integration tests for selected Windows adapters, tolerant of unavailable counters and permissions.
+- Unit test Windows-to-domain conversions that need Windows SDK types in a separate `tests/platform/` target (SDK types and constants only, no API calls), so the main unit tests stay free of Windows headers.
 - Test Qt item models separately from widgets where possible.
 - Include regression tests for PID reuse, elapsed-time gaps after sleep, denied process access, network state transitions, and `NtQuerySystemInformation` buffer resizing.
 - Consider adding Google Benchmark for regression-testing sampling overhead.

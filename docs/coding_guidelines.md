@@ -290,7 +290,7 @@ connect(m_scheduler, SIGNAL(snapshotReady(SystemSnapshot)),
 
 ## Windows API wrapping
 
-All Windows API calls must be isolated in the `src/platform/windows/` module. No other module includes Windows headers.
+All Windows API calls must be isolated in the `src/platform/windows/` module. No other source module includes Windows headers. Among tests, only `tests/platform/` (SDK types and constants, no API calls) and `tests/integration/` (real API calls) may include them; `tests/unit/` may not.
 
 ### Rules
 
@@ -462,6 +462,16 @@ TEST(RingBuffer, PushBeyondCapacity_OverwritesOldest)
 - **Arrange–Act–Assert**: Set up state, perform the action, verify the outcome. Separate the three phases with blank lines.
 - **One logical assertion per test.** Multiple `EXPECT_*` calls that verify different aspects of the same result are fine. Separate tests for separate behaviors.
 - **Use `EXPECT_*` by default**, not `ASSERT_*`. `EXPECT` continues executing after failure, so you see all failures. Use `ASSERT` only when the rest of the test is meaningless without the assertion passing.
+
+### Test layout
+
+| Directory | Target | May include Windows headers | May call Windows APIs |
+| --- | --- | --- | --- |
+| `tests/unit/` | `system_monitor_tests` | No | No |
+| `tests/platform/` | `system_monitor_platform_tests` | Yes (SDK types and constants) | No |
+| `tests/integration/` | `system_monitor_tests` | Yes | Yes (must tolerate varying hosts) |
+
+Put deterministic tests of `platform/windows` code in `tests/unit/` when they can use reader injection and plain types. Use `tests/platform/` only when the test needs Windows SDK types or constants, e.g. to test a Windows-to-domain mapping function.
 
 ### Fakes over mocks
 
