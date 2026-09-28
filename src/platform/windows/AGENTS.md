@@ -33,4 +33,5 @@ This module contains all Windows API wrappers. It is the only module that includ
 - Use the resizing-buffer loop pattern for `NtQuerySystemInformation` calls.
 - Cache process static identity (path, command line) by `(PID, creation time)`. Do not re-query on every refresh.
 - Release `GetIfTable2` results with `FreeMibTable`.
+- OS change-notification callbacks (e.g. `NotifyNetworkConnectivityHintChange`) run on OS thread-pool threads. Follow [architecture.md — Event-driven collectors](../../../docs/architecture.md#event-driven-collectors-os-callback-threads): the callback only stores into mutex-protected state, and the registration is an RAII member cancelled (waiting for in-flight callbacks) before that state is destroyed.
 

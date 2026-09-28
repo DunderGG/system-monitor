@@ -8,7 +8,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | --- | --- | --- | --- |
 | [D-1](#d-1-sampling-scheduler-has-no-slow-collector-thread) | Sampling scheduler has no slow-collector thread | Medium | Open — planned for Phase 4 |
 | [D-2](#d-2-connectivity-fallback-polls-on-the-scheduler-thread) | Connectivity fallback polls on the scheduler thread | Low | Open — blocked on D-1 |
-| [D-3](#d-3-connectivity-updates-arrive-on-an-os-thread-pool-thread) | Connectivity updates arrive on an OS thread-pool thread | Low | Open — needs architecture decision |
+| [D-3](#d-3-connectivity-updates-arrive-on-an-os-thread-pool-thread) | Connectivity updates arrive on an OS thread-pool thread | Low | Resolved (2026-09-25) |
 | [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Open — needs guideline decision |
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
 | [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Resolved (2026-09-25) |
@@ -50,6 +50,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/platform/windows/connectivity_collector.cpp` — `NotificationBridge`, `NotificationHandleDeleter`
 
 **Plan:** Decide whether OS-owned callback threads are acceptable for event-driven collectors. If they are, document the pattern and its rules (callbacks only touch mutex-protected state, and are cancelled before teardown) in the architecture threading model. If not, forward notifications to the slow-collector thread from D-1.
+
+**Status:** Resolved (2026-09-25) by documenting the pattern. OS-owned callback threads are accepted for event-driven collectors under the rules now in [architecture.md — Event-driven collectors](architecture.md#event-driven-collectors-os-callback-threads): store only, cancel before teardown, seed synchronously, read from the cache, fall back to polling. The `std::jthread` rule in AGENTS.md, coding_guidelines.md, and the module AGENTS files now applies explicitly to threads the application creates. No code change was needed; `ConnectivityCollector` already followed these rules. Its polling fallback running on the scheduler thread remains tracked as D-2.
 
 ---
 

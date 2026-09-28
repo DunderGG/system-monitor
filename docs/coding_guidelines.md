@@ -245,7 +245,7 @@ Apply the same pattern to: PDH query handles, MIB tables (`FreeMibTable`), COM i
 ### Rules
 
 1. **No shared mutable state between threads** unless protected by a mutex or atomic. Prefer passing immutable data (snapshots) across thread boundaries via Qt queued signals.
-2. **Use `std::jthread` with `std::stop_token`** for all background threads. Never use `std::thread` directly (it terminates the program if destroyed while joinable).
+2. **Use `std::jthread` with `std::stop_token`** for all background threads the application creates. Never use `std::thread` directly (it terminates the program if destroyed while joinable). Callbacks that Windows runs on its own thread pool (change notifications) are allowed only under the rules in [architecture.md — Event-driven collectors](architecture.md#event-driven-collectors-os-callback-threads).
 3. **Use `std::mutex` and `std::lock_guard`** (or `std::scoped_lock` for multiple mutexes) for protecting shared state. Never lock manually without a guard.
 4. **Keep critical sections short.** Copy data under the lock, then process it outside the lock.
 5. **Qt signals across threads** must use `Qt::QueuedConnection` (or `Qt::AutoConnection`, which is queued when sender and receiver are on different threads). Never call widget methods from a non-UI thread.

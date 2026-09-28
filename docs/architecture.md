@@ -133,7 +133,8 @@ Windows integration layer (platform/windows)
 │        Slow Collector Thread (std::jthread)       │
 │  - Process enumeration via NtQuerySystemInfo     │
 │    (~0.5–1.5 ms, but includes path cache lookup) │
-│  - Connectivity probes                           │
+│  - Connectivity polling (fallback only; see      │
+│    event-driven collectors below)                │
 │  - Runs at own cadence (e.g. every 2–5 seconds)  │
 │  - Posts results for scheduler to pick up         │
 │  - Uses std::stop_token for clean shutdown       │
@@ -143,9 +144,22 @@ Windows integration layer (platform/windows)
 Key threading rules:
 
 - Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in under 1 ms combined.
-- Slow collectors (process enumeration, connectivity probes) run on separate `std::jthread`s at their own cadence. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet.
+- Slow collectors (process enumeration, and connectivity polling when change notifications are unavailable) run on separate `std::jthread`s at their own cadence. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet.
+- Event-driven collectors receive changes from the OS instead of polling (see below). Their `collect()` only returns a cached value, so it runs on the scheduler tick like a fast collector.
 - Snapshots cross from the scheduler thread to the UI thread via `Qt::QueuedConnection`. The snapshot is an immutable value type; no shared mutable state crosses the boundary.
-- All background threads use `std::stop_token` for cooperative cancellation at shutdown.
+- All background threads the application creates are `std::jthread`s and use `std::stop_token` for cooperative cancellation at shutdown.
+
+#### Event-driven collectors (OS callback threads)
+
+Some Windows APIs deliver change notifications by invoking a callback on a thread from the OS thread pool, for example `NotifyNetworkConnectivityHintChange`. The application does not own these threads, so the `std::jthread` rule cannot apply to them. A collector may use such a callback instead of a polling thread when it follows all of these rules:
+
+1. **Store only.** The callback converts the notification to a domain value and stores it in mutex-protected state (`std::lock_guard`). It does no blocking or long-running work, and it never touches Qt objects or emits signals.
+2. **Cancel before teardown.** The registration handle is an RAII member whose deleter cancels the registration with an API that waits for in-flight callbacks (e.g. `CancelMibChangeNotify2`). The handle is declared after the state the callback writes, so it is destroyed first.
+3. **Seed synchronously.** The constructor reads the current value synchronously before registering, so the first `collect()` does not depend on callback timing.
+4. **Read from the cache.** `collect()` only copies the cached value under the mutex; it makes no OS calls.
+5. **Fall back to polling.** If registration fails, the collector polls on the slow-collector thread instead.
+
+`ConnectivityCollector` is the reference implementation.
 
 ### Data flow
 

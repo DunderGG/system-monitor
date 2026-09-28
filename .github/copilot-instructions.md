@@ -23,7 +23,7 @@ Do not invoke `cmake` or `ctest` directly: `build.ps1` initializes the x64 MSVC 
 - No exceptions. Return `std::optional` or result structs.
 - `PascalCase` types, `camelCase` functions/variables, `m_` members, `k` constants, `snake_case` files.
 - Allman braces for classes/functions, K&R for control flow. Always use braces. 4-space indent.
-- `std::jthread` + `std::stop_token` for threads. RAII for all resources.
+- `std::jthread` + `std::stop_token` for threads the app creates; OS notification callbacks only store into mutex-protected state and are cancelled via RAII before teardown (see `docs/architecture.md`). RAII for all resources.
 - spdlog for logging, not qDebug or cout.
 
 ### Security

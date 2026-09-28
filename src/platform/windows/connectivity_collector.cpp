@@ -61,7 +61,8 @@ std::optional<domain::ConnectivityStatus> queryConnectivityHint()
 
 struct ConnectivityCollector::NotificationBridge
 {
-    // Invoked on a system thread pool thread (known deviation D-3, docs/known_deviations.md).
+    // Invoked on a system thread pool thread; follows the event-driven collector
+    // rules in docs/architecture.md (store only, cancelled before teardown).
     static void WINAPI onConnectivityChange(PVOID callerContext, NL_NETWORK_CONNECTIVITY_HINT hint) noexcept
     {
         auto *self = static_cast<ConnectivityCollector *>(callerContext);

@@ -10,9 +10,10 @@ This module contains the metric collection infrastructure: collector interfaces,
 
 ## Design and threading rules
 
-- Schedulers manage background threads using `std::jthread` with `std::stop_token` for clean shutdown.
+- Schedulers manage the background threads they create using `std::jthread` with `std::stop_token` for clean shutdown.
 - Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick loop.
-- Slow collectors (process enumeration, connectivity) run on dedicated threads at their own cadence and merge into snapshots asynchronously.
+- Slow collectors (process enumeration, connectivity polling fallback) run on dedicated threads at their own cadence and merge into snapshots asynchronously.
+- Event-driven collectors (OS callbacks, e.g. connectivity) return a cached value from `collect()` and run on the scheduler tick; see [architecture.md — Event-driven collectors](../../docs/architecture.md#event-driven-collectors-os-callback-threads).
 - Always protect shared state with `std::mutex` and `std::lock_guard` / `std::scoped_lock`. Keep critical sections minimal (copy under lock, process outside).
 - Aggregate collected data into immutable `SystemSnapshot` objects timestamped with `std::chrono::steady_clock`.
 - Bounded ring buffers (`RingBuffer<T>`) must be fixed-capacity, thread-safe or caller-synchronized, and never allocate dynamically on push after initialization.
