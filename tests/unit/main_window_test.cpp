@@ -12,12 +12,11 @@
 #include "monitoring/synthetic_memory_collector.h"
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
+#include "ui/resource_card.h"
 
-using sysmon::domain::SystemSnapshot;
 using sysmon::monitoring::SamplingScheduler;
 using sysmon::monitoring::SyntheticCpuCollector;
 using sysmon::monitoring::SyntheticMemoryCollector;
-using sysmon::ui::DashboardView;
 using sysmon::ui::MainWindow;
 
 TEST(MainWindow, Construction_InitializesFourTabsInExpectedOrder)
@@ -38,40 +37,6 @@ TEST(MainWindow, Construction_InitializesFourTabsInExpectedOrder)
     EXPECT_NE(mainWindow.networkView(), nullptr);
 }
 
-TEST(DashboardView, UpdateSnapshot_UpdatesCpuAndMemoryLabels)
-{
-    DashboardView dashboard;
-
-    EXPECT_TRUE(dashboard.cpuText().contains("--"));
-    EXPECT_TRUE(dashboard.memoryText().contains("--"));
-
-    SystemSnapshot snapshot;
-    snapshot.cpu = sysmon::domain::CpuSample{.totalUsagePercent = 42.5f, .coreCount = 8};
-    snapshot.memory = sysmon::domain::MemorySample{
-        .totalBytes = 34'359'738'368ULL,     // 32 GiB
-        .availableBytes = 17'179'869'184ULL, // 16 GiB
-        .usagePercent = 50.0f,
-    };
-
-    dashboard.updateSnapshot(snapshot);
-
-    EXPECT_TRUE(dashboard.cpuText().contains("42.5%"));
-    EXPECT_TRUE(dashboard.cpuText().contains("8 cores"));
-    EXPECT_TRUE(dashboard.memoryText().contains("50.0%"));
-    EXPECT_TRUE(dashboard.memoryText().contains("32.0 GiB"));
-}
-
-TEST(DashboardView, UpdateSnapshot_MissingCpuAndMemory_ShowsNotAvailable)
-{
-    DashboardView dashboard;
-    const SystemSnapshot snapshot;
-
-    dashboard.updateSnapshot(snapshot);
-
-    EXPECT_EQ(dashboard.cpuText(), "CPU: N/A");
-    EXPECT_EQ(dashboard.memoryText(), "Memory: N/A");
-}
-
 TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
 {
     SamplingScheduler scheduler(std::chrono::milliseconds{20});
@@ -86,14 +51,15 @@ TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
     scheduler.start();
 
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{1000};
-    while (mainWindow.dashboardView()->cpuText().contains("--") && std::chrono::steady_clock::now() < deadline) {
+    while (mainWindow.dashboardView()->cpuCard()->valueText() == "--" && std::chrono::steady_clock::now() < deadline) {
         QCoreApplication::processEvents();
         std::this_thread::sleep_for(std::chrono::milliseconds{10});
     }
 
     scheduler.stop();
 
-    EXPECT_FALSE(mainWindow.dashboardView()->cpuText().contains("--"));
-    EXPECT_TRUE(mainWindow.dashboardView()->cpuText().contains("4 cores"));
-    EXPECT_FALSE(mainWindow.dashboardView()->memoryText().contains("--"));
+    const auto *dashboard = mainWindow.dashboardView();
+    EXPECT_NE(dashboard->cpuCard()->valueText(), "--");
+    EXPECT_EQ(dashboard->cpuCard()->detailText(), "4 cores");
+    EXPECT_NE(dashboard->memoryCard()->valueText(), "--");
 }

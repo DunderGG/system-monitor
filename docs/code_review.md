@@ -258,7 +258,7 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
 
 **Recommendation:** Decide the approach when implementing Phase 2. No action needed now.
 
-**Status:** Deferred to Phase 2+ (2026-09-23) — Linked in [roadmap.md](../roadmap.md#dashboard-view-srcui) under Phase 2 Dashboard view. The snapshot distribution and active-tab optimization strategy will be applied as other tab views become functional.
+**Status:** Deferred to Phase 3 (updated 2026-09-25) — The Phase 2 dashboard now receives real snapshots through `onSnapshotReady`. The other tabs are still placeholders with no `updateSnapshot`, so forwarding and visible-tab-only updates are deferred to the Phase 3 Performance tab, where the first of them becomes functional ([roadmap](../roadmap.md#performance-tab-srcui)).
 
 ---
 

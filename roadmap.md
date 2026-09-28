@@ -82,11 +82,11 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Dashboard view (`src/ui/`)
 
-- [ ] Design a dashboard layout with resource cards: CPU, memory, disk, network, uptime.
-- [ ] Each card shows current value, a mini sparkline, and a brief status label.
-- [ ] Display system uptime using `GetTickCount64`. Collection is done (`UptimeCollector` → `SystemSnapshot::uptime`); display lands with the dashboard cards.
-- [ ] Display basic health status derived from resource thresholds (e.g., memory >90% → warning). Evaluation is done (`evaluateHealth` → `SystemSnapshot::health`); display lands with the dashboard cards.
-- [ ] Connect real collector data through the snapshot pipeline to the dashboard widgets (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) for snapshot distribution across views and visible-tab update optimization).
+- [x] Design a dashboard layout with resource cards: CPU, memory, disk, network, uptime.
+- [ ] Each card shows current value, a mini sparkline, and a brief status label. Value and status label are done; each card reserves a slot for the mini sparkline, which comes with a minimal `SparklineWidget`.
+- [x] Display system uptime using `GetTickCount64`.
+- [x] Display basic health status derived from resource thresholds (e.g., memory >90% → warning).
+- [x] Connect real collector data through the snapshot pipeline to the dashboard widgets (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) for snapshot distribution across views and visible-tab update optimization).
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. Include the open entries in [known_deviations.md](docs/known_deviations.md) (D-5).
 
 ---
@@ -106,7 +106,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Performance tab (`src/ui/`)
 
-- [ ] Create a performance view with full-size sparkline charts for CPU (total and per-core), memory (usage and commit), disk (space per volume), and network (throughput per adapter).
+- [ ] Create a performance view with full-size sparkline charts for CPU (total and per-core), memory (usage and commit), disk (space per volume), and network (throughput per adapter). Extend `MainWindow::onSnapshotReady` to forward snapshots to this view, and decide on visible-tab-only updates (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview)).
 - [ ] Show detailed numeric readouts alongside each chart (e.g., speed, processes, uptime, handles for CPU; total, cached, paged pool for memory).
 - [ ] Use a left sidebar or selector to switch between CPU, memory, disk, and network detail views.
 - [ ] Verify smooth 1 Hz updates with 5–30 minutes of history.

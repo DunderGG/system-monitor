@@ -1,6 +1,8 @@
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
 
 add_library(sysmon_ui STATIC
+    dashboard_formatting.cpp
+    dashboard_formatting.h
     dashboard_view.cpp
     dashboard_view.h
     main_window.cpp
@@ -11,6 +13,8 @@ add_library(sysmon_ui STATIC
     performance_view.h
     processes_view.cpp
     processes_view.h
+    resource_card.cpp
+    resource_card.h
 )
 
 set_target_properties(sysmon_ui PROPERTIES
