@@ -283,7 +283,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Protected processes deny access | `NtQuerySystemInformation` returns full metrics for all processes even unelevated. Only path/command-line queries may be denied; display partial data with clear indicators. |
 | PDH registry corruption | Core metrics use direct Win32 APIs, not PDH. PDH is used only for advanced counters and handles missing counters gracefully. |
 | PDH process instance shifting | Per-process data comes from `NtQuerySystemInformation`, never PDH. |
-| Ambiguous connectivity status | Use `GetNetworkConnectivityHint` for structured connectivity levels (None, LocalAccess, ConstrainedInternetAccess, InternetAccess) rather than a single "online" flag. |
+| Ambiguous connectivity status | Use `GetNetworkConnectivityHint` for structured connectivity levels (None, LocalAccess, ConstrainedInternetAccess, InternetAccess, plus an explicit Unknown when the state cannot be determined) rather than a single "online" flag. |
 | UI stutters under a large process list | Diff/update Qt item models efficiently. All collection and aggregation happens off the UI thread. Snapshots cross to UI via queued signals. |
 | Unbounded memory or disk usage | Use fixed-size in-memory ring buffers and explicit persistence retention/downsampling policies. |
 | Excessive privilege or security risk | Run unelevated by default. Only request `PROCESS_QUERY_LIMITED_INFORMATION`. Never open `lsass.exe` or `csrss.exe` handles. |

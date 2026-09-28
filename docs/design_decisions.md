@@ -282,5 +282,26 @@ Each entry links to the relevant roadmap phase and source files.
 
 
 
+---
 
+### Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
 
+**Decision:** `ConnectivityCollector` seeds a mutex-protected `ConnectivityStatus` cache with `GetNetworkConnectivityHint` in its constructor, then registers `NotifyNetworkConnectivityHintChange` (with `InitialNotification = TRUE`). `collect()` returns the cached value on the scheduler tick. The notification handle is held in a `std::unique_ptr<void, NotificationHandleDeleter>` whose deleter calls `CancelMibChangeNotify2`, and is declared last so it is destroyed before the mutex and cache. If registration fails at runtime, the collector falls back to polling `GetNetworkConnectivityHint` in `collect()` (see [known deviation D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread)). Each change of status is logged once at `info`.
+
+**Rationale:** Connectivity changes rarely, so event-driven updates avoid a kernel round-trip every tick while keeping `collect()` cheap. Seeding before registration makes the first `collect()` accurate without waiting for the asynchronous initial callback, and ordering it before registration means a newer callback value can never be overwritten by the seed; the initial notification still covers a change between the two. `CancelMibChangeNotify2` waits for in-flight callbacks, so destroying the handle first guarantees the callback never touches a destroyed cache. The OS callback lives in a nested `NotificationBridge` defined in the `.cpp` so no Windows types appear in `connectivity_collector.h`. Logging only on change follows the architecture's `info` level for connectivity state changes without repeating the same state every tick.
+
+---
+
+### Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
+
+**Decision:** Add `ConnectivityLevel::Unknown` as the default level and make `ConnectivityStatus::isMetered` a `std::optional<bool>`. The collector reports `Unknown` / `std::nullopt` before the first successful read, after a failed read, and when Windows reports `NetworkConnectivityLevelHintUnknown`, `NetworkConnectivityLevelHintHidden`, or `NetworkConnectivityCostHintUnknown`. A failed read does not keep the previous value.
+
+**Rationale:** The guidelines forbid substituting a default for missing data. With only `None`, "we could not determine connectivity" was indistinguishable from "offline", and a retained previous value would present stale data as current. `Unknown` is an enum value rather than wrapping the whole status in `std::optional` so the scheduler, snapshot, and UI keep a single value type and the UI can render the state directly (for example "Unknown" or a dimmed indicator).
+
+---
+
+### Windows-to-domain connectivity mapping in a separate, testable header
+
+**Decision:** The pure conversions `toConnectivityLevel`, `toIsMetered`, and `toConnectivityStatus` live in `platform/windows/connectivity_hint_mapping.h/.cpp`, which exposes Windows SDK types, and are unit tested directly.
+
+**Rationale:** The mapping is the part most likely to be wrong and is impossible to exercise from a host integration test, because the host's connectivity state cannot be forced. Keeping it separate keeps `connectivity_collector.h` free of Windows types. Including SDK headers in a unit test is a departure from the guidelines, recorded as [known deviation D-4](known_deviations.md#d-4-a-unit-test-includes-windows-sdk-headers). Note that `netioapi.h` must be reached through `<iphlpapi.h>`, and `CancelMibChangeNotify2` is only declared when `<ws2tcpip.h>` is included first.

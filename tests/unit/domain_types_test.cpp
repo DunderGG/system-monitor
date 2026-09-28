@@ -161,11 +161,11 @@ TEST(OperationalStatus, EnumValues_AreDistinct)
 // ConnectivityStatus
 // ---------------------------------------------------------------------------
 
-TEST(ConnectivityStatus, DefaultConstruction_NoneNotMetered)
+TEST(ConnectivityStatus, DefaultConstruction_UnknownWithUnknownCost)
 {
     ConnectivityStatus s;
-    EXPECT_EQ(s.level, ConnectivityLevel::None);
-    EXPECT_FALSE(s.isMetered);
+    EXPECT_EQ(s.level, ConnectivityLevel::Unknown);
+    EXPECT_FALSE(s.isMetered.has_value());
 }
 
 TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
@@ -175,11 +175,12 @@ TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
         .isMetered = true,
     };
     EXPECT_EQ(s.level, ConnectivityLevel::InternetAccess);
-    EXPECT_TRUE(s.isMetered);
+    EXPECT_EQ(s.isMetered, true);
 }
 
 TEST(ConnectivityLevel, EnumValues_AreDistinct)
 {
+    EXPECT_NE(ConnectivityLevel::Unknown, ConnectivityLevel::None);
     EXPECT_NE(ConnectivityLevel::None, ConnectivityLevel::LocalAccess);
     EXPECT_NE(ConnectivityLevel::LocalAccess, ConnectivityLevel::ConstrainedInternetAccess);
     EXPECT_NE(ConnectivityLevel::ConstrainedInternetAccess, ConnectivityLevel::InternetAccess);
@@ -277,7 +278,7 @@ TEST(SystemSnapshot, DefaultConstruction_EmptyCollections)
     EXPECT_TRUE(snap.disks.empty());
     EXPECT_TRUE(snap.networks.empty());
     EXPECT_TRUE(snap.processes.empty());
-    EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::None);
+    EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::Unknown);
 }
 
 TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)

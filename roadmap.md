@@ -76,9 +76,9 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 - [x] Implement adapter throughput using `GetIfTable2`. Use 64-bit counters. Filter loopback. Calculate bytes/sec from deltas.
 - [x] Implement adapter addresses and DNS servers using `GetAdaptersAddresses`.
-- [ ] Implement connectivity status using `GetNetworkConnectivityHint`. Set up `NotifyNetworkConnectivityHintChange` for event-driven updates.
+- [x] Implement connectivity status using `GetNetworkConnectivityHint`. Set up `NotifyNetworkConnectivityHintChange` for event-driven updates.
 - [x] Free resources correctly (`FreeMibTable`).
-- [ ] Write integration tests tolerant of varying network environments.
+- [x] Write integration tests tolerant of varying network environments.
 
 ### Dashboard view (`src/ui/`)
 
@@ -87,7 +87,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Display system uptime using `GetTickCount64`.
 - [ ] Display basic health status derived from resource thresholds (e.g., memory >90% → warning).
 - [ ] Connect real collector data through the snapshot pipeline to the dashboard widgets (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) for snapshot distribution across views and visible-tab update optimization).
-- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. Include the open entries in [known_deviations.md](docs/known_deviations.md) (D-3, D-4, D-5, D-6).
 
 ---
 
@@ -124,7 +124,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] On new process detection, query `QueryFullProcessImageNameW` and `NtQueryInformationProcess(ProcessCommandLineInformation)` via `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`. Cache the result.
 - [ ] Skip opening handles to `lsass.exe` and `csrss.exe` to avoid EDR false positives. Use data from `NtQuerySystemInformation` directly for these.
 - [ ] Calculate per-process CPU usage percent from CPU time deltas and monotonic elapsed time.
-- [ ] Run the process collector on a slow-collector thread (every 2–5 seconds).
+- [ ] Run the process collector on a slow-collector thread (every 2–5 seconds). Move the connectivity collector (including its polling fallback) onto the same thread. Resolves [D-1 and D-2](docs/known_deviations.md).
 - [ ] Write integration tests verifying enumeration, cache behavior, and access-denied handling.
 
 ### Process explorer view (`src/ui/`)
@@ -152,7 +152,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Create a network tab showing all non-loopback adapters in a list or card layout.
 - [ ] Per adapter: name/alias, type (Ethernet/Wi-Fi/etc.), operational status, link speed, IP addresses (IPv4 and IPv6), DNS servers.
 - [ ] Per adapter: live throughput sparklines (inbound and outbound bytes/sec).
-- [ ] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming.
+- [ ] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming. Render `ConnectivityLevel::Unknown` and an unknown metered state (`isMetered == std::nullopt`) explicitly rather than as offline or unmetered.
 - [ ] Optionally display friendly network name from NLM (lazy, cached query).
 - [ ] Update connectivity status reactively via `NotifyNetworkConnectivityHintChange` rather than polling.
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.

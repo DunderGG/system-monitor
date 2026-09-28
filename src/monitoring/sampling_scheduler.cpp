@@ -113,6 +113,8 @@ void SamplingScheduler::setProcessCollector(std::unique_ptr<IProcessCollector> c
 
 domain::SystemSnapshot SamplingScheduler::sampleOnce()
 {
+    // Known deviation D-1 (docs/known_deviations.md): slow collectors (connectivity,
+    // processes) also run inline here until the slow-collector thread exists.
     domain::SystemSnapshot snapshot;
     snapshot.timestamp = std::chrono::steady_clock::now();
 

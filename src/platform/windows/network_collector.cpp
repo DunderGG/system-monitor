@@ -263,6 +263,7 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
                                 : std::hash<std::string>{}(adapter.adapterName));
         activeKeys.insert(key);
 
+        // Known deviation D-6 (docs/known_deviations.md): reports 0 rather than "no rate" without a baseline.
         uint64_t inBytesPerSec = 0;
         uint64_t outBytesPerSec = 0;
 

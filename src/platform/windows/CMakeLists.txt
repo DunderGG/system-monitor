@@ -1,6 +1,10 @@
 find_package(spdlog CONFIG REQUIRED)
 
 add_library(sysmon_platform_windows STATIC
+    connectivity_collector.cpp
+    connectivity_collector.h
+    connectivity_hint_mapping.cpp
+    connectivity_hint_mapping.h
     cpu_collector.cpp
     cpu_collector.h
     disk_collector.cpp
