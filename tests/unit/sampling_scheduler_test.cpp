@@ -207,3 +207,47 @@ TEST(SamplingScheduler, SampleOnce_NoUptimeCollector_UptimeIsNullopt)
 
     EXPECT_FALSE(snapshot.uptime.has_value());
 }
+
+namespace
+{
+
+class FixedCpuCollector : public sysmon::monitoring::ICpuCollector
+{
+public:
+    explicit FixedCpuCollector(float usagePercent)
+        : m_usagePercent(usagePercent)
+    {
+    }
+
+    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
+    {
+        return sysmon::domain::CpuSample{.totalUsagePercent = m_usagePercent, .coreCount = 1};
+    }
+
+private:
+    float m_usagePercent;
+};
+
+} // namespace
+
+TEST(SamplingScheduler, SampleOnce_NoCollectors_HealthAllUnknown)
+{
+    SamplingScheduler scheduler;
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_EQ(snapshot.health, sysmon::domain::SystemHealth{});
+}
+
+TEST(SamplingScheduler, SampleOnce_EvaluatesHealthWithConfiguredThresholds)
+{
+    SamplingScheduler scheduler;
+    scheduler.setCpuCollector(std::make_unique<FixedCpuCollector>(50.0f));
+    scheduler.setHealthThresholds(sysmon::monitoring::HealthThresholds{
+        .cpu = sysmon::monitoring::UsageThresholds{.warningPercent = 40.0f, .criticalPercent = 60.0f},
+    });
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_EQ(snapshot.health.cpu, sysmon::domain::HealthLevel::Warning);
+}

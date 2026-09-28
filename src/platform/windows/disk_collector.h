@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -22,9 +23,11 @@ struct DiskSpaceData
 
 /**
  * Calculates a DiskSample from volume name, total bytes, and free bytes.
+ * Returns std::nullopt when totalBytes is zero, which is never a valid reading;
+ * collect() skips such volumes just as it skips volumes whose query fails.
  * Pure function with no OS dependencies for deterministic unit testing.
  */
-[[nodiscard]] domain::DiskSample calculateDiskSample(
+[[nodiscard]] std::optional<domain::DiskSample> calculateDiskSample(
     const std::string &volumeName,
     uint64_t totalBytes,
     uint64_t freeBytes);

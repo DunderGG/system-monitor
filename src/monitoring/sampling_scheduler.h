@@ -11,6 +11,7 @@
 
 #include "domain/system_snapshot.h"
 #include "monitoring/collector.h"
+#include "monitoring/health_evaluator.h"
 
 Q_DECLARE_METATYPE(sysmon::domain::SystemSnapshot)
 
@@ -68,6 +69,12 @@ public:
     void setNetworkCollector(std::unique_ptr<INetworkCollector> collector);
     void setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector);
     void setUptimeCollector(std::unique_ptr<IUptimeCollector> collector);
+
+    /**
+     * Sets the thresholds used to evaluate SystemSnapshot::health on each tick.
+     * Same invariant as collector registration: only call while stopped.
+     */
+    void setHealthThresholds(const HealthThresholds &thresholds);
     void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
 
     /**
@@ -98,6 +105,7 @@ private:
     std::unique_ptr<INetworkCollector> m_networkCollector;
     std::unique_ptr<IConnectivityCollector> m_connectivityCollector;
     std::unique_ptr<IUptimeCollector> m_uptimeCollector;
+    HealthThresholds m_healthThresholds;
     std::unique_ptr<IProcessCollector> m_processCollector;
 };
 

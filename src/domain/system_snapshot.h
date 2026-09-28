@@ -7,6 +7,7 @@
 #include "connectivity_status.h"
 #include "cpu_sample.h"
 #include "disk_sample.h"
+#include "health_status.h"
 #include "memory_sample.h"
 #include "network_sample.h"
 #include "process_info.h"
@@ -29,6 +30,7 @@ namespace sysmon::domain
 // Optional fields are std::nullopt when no collector is registered or no valid
 // sample was available this tick (never a zero-filled placeholder). uptime is
 // the time since the system booted, including time spent in sleep or hibernation.
+// health is evaluated by the scheduler from the other fields of this snapshot.
 struct SystemSnapshot
 {
     std::chrono::steady_clock::time_point timestamp;
@@ -38,6 +40,7 @@ struct SystemSnapshot
     std::vector<NetworkSample> networks;
     ConnectivityStatus connectivity;
     std::optional<std::chrono::milliseconds> uptime;
+    SystemHealth health;
     std::vector<ProcessInfo> processes;
 };
 

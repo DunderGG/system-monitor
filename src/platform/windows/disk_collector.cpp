@@ -1,6 +1,7 @@
 #include "platform/windows/disk_collector.h"
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,16 +62,19 @@ bool readDiskSpace(const std::string &volumeName, DiskSpaceData &data)
 
 } // namespace
 
-domain::DiskSample calculateDiskSample(
+std::optional<domain::DiskSample> calculateDiskSample(
     const std::string &volumeName,
     uint64_t totalBytes,
     uint64_t freeBytes)
 {
+    if (totalBytes == 0) {
+        return std::nullopt;
+    }
+
     const uint64_t validFreeBytes = std::min(freeBytes, totalBytes);
     const uint64_t usedBytes = totalBytes - validFreeBytes;
-    const float usagePercent = totalBytes > 0
-        ? std::clamp(static_cast<float>(usedBytes) * 100.0f / static_cast<float>(totalBytes), 0.0f, 100.0f)
-        : 0.0f;
+    const float usagePercent =
+        std::clamp(static_cast<float>(usedBytes) * 100.0f / static_cast<float>(totalBytes), 0.0f, 100.0f);
 
     return domain::DiskSample{
         .volumeName = volumeName,
@@ -102,8 +106,11 @@ std::vector<domain::DiskSample> DiskCollector::collect()
 
     for (const auto &drive : drives) {
         DiskSpaceData data{};
-        if (m_reader(drive, data)) {
-            samples.push_back(calculateDiskSample(drive, data.totalBytes, data.freeBytes));
+        if (!m_reader(drive, data)) {
+            continue;
+        }
+        if (auto sample = calculateDiskSample(drive, data.totalBytes, data.freeBytes)) {
+            samples.push_back(std::move(*sample));
         }
     }
 

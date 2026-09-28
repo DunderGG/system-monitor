@@ -111,6 +111,13 @@ void SamplingScheduler::setUptimeCollector(std::unique_ptr<IUptimeCollector> col
     m_uptimeCollector = std::move(collector);
 }
 
+void SamplingScheduler::setHealthThresholds(const HealthThresholds &thresholds)
+{
+    assert(!m_isRunning.load() && "setHealthThresholds must only be called when scheduler is stopped");
+    std::lock_guard lock(m_collectorMutex);
+    m_healthThresholds = thresholds;
+}
+
 void SamplingScheduler::setProcessCollector(std::unique_ptr<IProcessCollector> collector)
 {
     assert(!m_isRunning.load() && "setProcessCollector must only be called when scheduler is stopped");
@@ -131,6 +138,7 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     INetworkCollector *network = nullptr;
     IConnectivityCollector *connectivity = nullptr;
     IUptimeCollector *uptime = nullptr;
+    HealthThresholds healthThresholds;
     IProcessCollector *process = nullptr;
 
     {
@@ -141,6 +149,7 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
         network = m_networkCollector.get();
         connectivity = m_connectivityCollector.get();
         uptime = m_uptimeCollector.get();
+        healthThresholds = m_healthThresholds;
         process = m_processCollector.get();
     }
 
@@ -165,6 +174,8 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     if (process) {
         snapshot.processes = process->collect();
     }
+
+    snapshot.health = evaluateHealth(snapshot, healthThresholds);
 
     return snapshot;
 }

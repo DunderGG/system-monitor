@@ -282,6 +282,7 @@ TEST(SystemSnapshot, DefaultConstruction_EmptyCollectionsAndNoOptionalData)
     EXPECT_FALSE(snap.cpu.has_value());
     EXPECT_FALSE(snap.memory.has_value());
     EXPECT_FALSE(snap.uptime.has_value());
+    EXPECT_EQ(snap.health, SystemHealth{});
 }
 
 TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)

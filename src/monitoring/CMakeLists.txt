@@ -3,6 +3,8 @@ find_package(Qt6 CONFIG REQUIRED COMPONENTS Core)
 
 add_library(sysmon_monitoring STATIC
     collector.h
+    health_evaluator.cpp
+    health_evaluator.h
     ring_buffer.h
     sampling_scheduler.cpp
     sampling_scheduler.h

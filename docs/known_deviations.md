@@ -13,6 +13,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
 | [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Open |
 | [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Resolved (2026-09-25) |
+| [D-8](#d-8-zero-capacity-disk-volumes-report-0-usage) | Zero-capacity disk volumes report 0% usage | Low | Resolved (2026-09-25) |
 
 ---
 
@@ -99,3 +100,17 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Plan:** Make the `cpu` and `memory` snapshot fields `std::optional` (as `uptime` already is) and return `std::nullopt` on collector failure. Audit `CpuCollector` at the same time. Best done before the dashboard cards consume these fields.
 
 **Status:** Resolved (2026-09-25). `ICpuCollector` / `IMemoryCollector` and the `cpu` / `memory` snapshot fields are now `std::optional`. The `CpuCollector` audit found four more zero placeholders, all fixed: both queries failing, the baseline-only first sample, uncomputable rates in `calculateCpuUsage` (including counters that went backwards), and zero-filled per-core values on a core-count change. `MemoryCollector` returns `std::nullopt` on failure or a zero total. The dashboard shows "N/A". See the [design decision](design_decisions.md#no-zero-placeholders-for-cpu-and-memory-optional-samples-end-to-end).
+
+---
+
+### D-8: Zero-capacity disk volumes report 0% usage
+
+**Rule:** Same as D-7.
+
+**Current state:** `calculateDiskSample` returned a `DiskSample` with `usagePercent = 0` when a volume reported a total size of zero, which is never a valid reading. The upcoming health evaluation would have classified such a volume as Healthy. Found while preparing health evaluation.
+
+**Files:** `src/platform/windows/disk_collector.cpp` — `calculateDiskSample()`, `collect()`
+
+**Plan:** Return `std::nullopt` for a zero total and skip the volume in `collect()`, matching how volumes whose query fails are already skipped.
+
+**Status:** Resolved (2026-09-25) in the same change that introduced health evaluation.
