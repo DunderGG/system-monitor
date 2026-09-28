@@ -7,6 +7,7 @@ The rules below are self-contained. For deeper rationale or design context, cons
 - [docs/build_system.md](docs/build_system.md) — Build prerequisites, CMake presets, vcpkg, and CI setup.
 - [docs/coding_guidelines.md](docs/coding_guidelines.md) — Naming, formatting, error handling, memory management, and testing conventions.
 - [docs/design_decisions.md](docs/design_decisions.md) — Rationale for non-obvious implementation choices made during development.
+- [docs/known_deviations.md](docs/known_deviations.md) — Known places where the code departs from the architecture or guidelines, with plans to fix them.
 - [roadmap.md](roadmap.md) — Phased implementation plan.
 
 ## Build & test commands
@@ -15,9 +16,11 @@ The rules below are self-contained. For deeper rationale or design context, cons
 
 - Build: `.\scripts\build.ps1 -NoRun`
 - Build and launch: `.\scripts\build.ps1`
-- Test: `.\scripts\build.ps1 -NoRun` then `ctest --preset default --output-on-failure`
+- Build and test: `.\scripts\build.ps1 -NoRun -Test`
 
 Do **not** invoke `cmake` directly. `build.ps1` initializes the x64 MSVC developer environment automatically, which is required for the build to succeed regardless of which terminal the agent runs in. Calling the raw `cmake` commands without this initialization will fail with a broken compiler or linker error.
+
+If `build.ps1` is missing something you need (a new option, clearer output, a fix for a failure mode), improve the script instead of working around it, and keep its comment-based help and these build commands in sync. Keep changes compatible with Windows PowerShell 5.1.
 
 ## Architecture rules
 
@@ -65,6 +68,7 @@ Do **not** invoke `cmake` directly. `build.ps1` initializes the x64 MSVC develop
 ## Design decisions
 
 - When you make a non-obvious implementation choice (API selection, data representation, threading approach, CMake target type, etc.), document it in [docs/design_decisions.md](docs/design_decisions.md) under the relevant phase heading using a **Decision / Rationale** structure before finishing the task.
+- If a change knowingly deviates from [architecture.md](docs/architecture.md), [coding_guidelines.md](docs/coding_guidelines.md), or these rules, record it in [docs/known_deviations.md](docs/known_deviations.md) with a new ID, reference that ID in a comment at the deviating code, and tell the user. Check that list before working in an affected area, and mark entries Resolved when you fix them.
 
 ## What NOT to do
 

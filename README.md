@@ -40,8 +40,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InstallMissing
 # Build from any terminal (automatically initializes the x64 MSVC environment):
 .\scripts\build.ps1 -NoRun
 
-# Run tests:
-ctest --preset default
+# Build and run tests:
+.\scripts\build.ps1 -NoRun -Test
 ```
 
 ### Manual build

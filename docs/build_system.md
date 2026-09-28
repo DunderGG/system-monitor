@@ -86,7 +86,10 @@ switch saves the vcpkg environment variables for future terminals.
 For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well. `scripts/build.ps1` does this
 automatically (via `Enter-VsDevShell`), so it works from any terminal,
-including VS Code's built-in one. If you invoke `cmake`/`ctest` directly
+including VS Code's built-in one. Pass `-Test` to run CTest after the build
+(`.\scripts\build.ps1 -NoRun -Test`). The script checks native tools by exit code
+rather than stderr output, so redirecting or capturing its output (as CI and
+agents do) cannot turn a CMake warning into a failure. If you invoke `cmake`/`ctest` directly
 instead of going through `build.ps1`, use the **Developer PowerShell for VS 2022**
 or **x64 Native Tools Command Prompt**, or let VS Code's CMake Tools extension select
 an MSVC kit. The `default` preset pins `x64` and explicitly sets `CMAKE_CXX_COMPILER`

@@ -53,9 +53,9 @@ The repository provides PowerShell scripts that automate tool detection, install
    ```
    `scripts/build.ps1` automatically detects and activates the x64 MSVC developer environment into the running PowerShell process, so it works from any terminal (PowerShell, Windows Terminal, VS Code) without manual environment setup.
 
-4. **Run tests:**
+4. **Build and run tests:**
    ```powershell
-   ctest --preset default --output-on-failure
+   .\scripts\build.ps1 -NoRun -Test
    ```
 
 ---
@@ -273,13 +273,13 @@ over monotonic elapsed intervals.
 
 ## Testing
 
-Run all tests:
+Build and run all tests:
 
 ```powershell
-ctest --preset default
+.\scripts\build.ps1 -NoRun -Test
 ```
 
-Run a specific test:
+Run a specific test (after building):
 
 ```powershell
 ctest --preset default -R "RingBufferTest"

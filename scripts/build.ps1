@@ -13,19 +13,56 @@ VCPKG_ROOT environment variable.
 .PARAMETER NoRun
 Configures and builds the application without launching it.
 
+.PARAMETER Test
+Runs the test suite with CTest after a successful build. The script fails if
+any test fails. Combine with -NoRun to build and test without launching.
+
 .EXAMPLE
 .\scripts\build.ps1
 
 .EXAMPLE
 .\scripts\build.ps1 -NoRun
+
+.EXAMPLE
+.\scripts\build.ps1 -NoRun -Test
 #>
 [CmdletBinding()]
 param(
-    [switch]$NoRun
+    [switch]$NoRun,
+    [switch]$Test
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# Runs a native tool and fails on a non-zero exit code. In Windows PowerShell 5.1,
+# when the caller redirects stderr (2>&1, *>, CI log capture), every stderr line
+# becomes an ErrorRecord, and with ErrorActionPreference=Stop the first CMake
+# warning would abort the script. Exit codes are the source of truth instead.
+function Invoke-NativeCommand
+{
+    param(
+        [Parameter(Mandatory)][string]$Description,
+        [Parameter(Mandatory)][string]$FilePath,
+        [string[]]$Arguments = @()
+    )
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try
+    {
+        & $FilePath @Arguments
+    }
+    finally
+    {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "$Description failed with exit code $LASTEXITCODE."
+    }
+}
 
 # Resolve paths from this script's location so it can be invoked from any
 # PowerShell working directory.
@@ -85,6 +122,10 @@ function Import-X64DevShell
     }
     $vsInstallPath = $vsInstallPath.Trim()
 
+    # VsDevCmd.bat invokes vswhere.exe by name; without its directory on PATH it
+    # prints "'vswhere.exe' is not recognized" on every run.
+    $env:Path = "$(Split-Path -Parent $vswherePath);$env:Path"
+
     $devShellModule = Join-Path $vsInstallPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
     Import-Module $devShellModule
     Enter-VsDevShell -VsInstallPath $vsInstallPath -SkipAutomaticLocation `
@@ -103,17 +144,15 @@ try
 {
     # Configure generates Ninja build files and causes vcpkg to restore missing
     # dependencies from its binary cache or build them as needed.
-    & cmake --preset default
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "CMake configuration failed."
-    }
+    Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", "default")
 
     # Build the default target defined by the project's default build preset.
-    & cmake --build --preset default
-    if ($LASTEXITCODE -ne 0)
+    Invoke-NativeCommand -Description "CMake build" -FilePath "cmake" -Arguments @("--build", "--preset", "default")
+
+    if ($Test)
     {
-        throw "CMake build failed."
+        Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
+            -Arguments @("--preset", "default", "--output-on-failure")
     }
 
     if ($NoRun)

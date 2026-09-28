@@ -1,13 +1,15 @@
 # GitHub Copilot Instructions — System Monitor
 
 This is a Windows desktop system monitor built with C++20 and Qt 6 Widgets.
-The rules below are self-contained. For deeper context, see `docs/architecture.md`, `docs/coding_guidelines.md`, or `AGENTS.md`.
+The rules below are self-contained. For deeper context, see `docs/architecture.md`, `docs/coding_guidelines.md`, or `AGENTS.md`. Known departures from these rules are tracked in `docs/known_deviations.md`; record any new deviation there.
 
 ## Build & test commands
 
-- Configure: `cmake --preset default`
-- Build: `cmake --build --preset default`
-- Test: `ctest --preset default --output-on-failure`
+- Build: `.\scripts\build.ps1 -NoRun`
+- Build and launch: `.\scripts\build.ps1`
+- Build and test: `.\scripts\build.ps1 -NoRun -Test`
+
+Do not invoke `cmake` or `ctest` directly: `build.ps1` initializes the x64 MSVC developer environment the build requires. If the script is missing something you need, improve it instead of working around it, and keep its help and these commands in sync.
 
 ## Critical rules
 
