@@ -16,6 +16,7 @@ add_executable(system_monitor_tests
     unit/memory_collector_test.cpp
     unit/disk_collector_test.cpp
     unit/network_collector_test.cpp
+    unit/adapter_details_cache_test.cpp
     unit/connectivity_collector_test.cpp
     unit/uptime_collector_test.cpp
     unit/health_evaluator_test.cpp

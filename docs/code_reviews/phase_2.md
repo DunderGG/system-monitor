@@ -52,7 +52,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
 | [F-9](#f-9-network-throughput-total-counts-the-same-traffic-several-times) | Network throughput total counts the same traffic several times | High | Resolved |
-| [F-10](#f-10-getadaptersaddresses-runs-on-every-scheduler-tick) | `GetAdaptersAddresses` runs on every scheduler tick | Medium | Open |
+| [F-10](#f-10-getadaptersaddresses-runs-on-every-scheduler-tick) | `GetAdaptersAddresses` runs on every scheduler tick | Medium | Resolved |
 | [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Open |
 | [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Open |
 | [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Open |
@@ -151,7 +151,7 @@ Also correct the architecture's timing estimate for network counters (~0.1 ms) t
 
 **Recommendation:** Fix together with F-9, because both change `queryWindowsAdapters()`. Record the caching approach in `design_decisions.md`.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). A new `AdapterDetailsCache` (`platform/windows/adapter_details_cache.h`, no Windows types) decides when details are due: stale mark, new interface, or 30 s maximum age. A failed query clears the details and retries on the next tick. `WindowsAdapterReader` in `network_collector.cpp` reads `GetIfTable2` every tick, re-reads `GetAdaptersAddresses` (now a loop of up to 3 attempts) only when due, and registers `NotifyUnicastIpAddressChange` / `NotifyIpInterfaceChange` as RAII members whose callbacks only mark the cache stale. Added 11 unit tests for the policy and 2 integration tests (details kept across the cached path; repeated construction and destruction). Updated the architecture timing and added a design decision.
 
 ---
 

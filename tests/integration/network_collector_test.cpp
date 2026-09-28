@@ -68,6 +68,34 @@ TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTim
     }
 }
 
+TEST(NetworkCollectorIntegration, ConsecutiveSamples_KeepAdapterDetailsBetweenRefreshes)
+{
+    NetworkCollector collector;
+
+    // The first collect() reads adapter details; the second is served from the cache.
+    const auto firstSamples = collector.collect();
+    const auto secondSamples = collector.collect();
+
+    for (const auto &sample : secondSamples) {
+        const auto first = std::ranges::find_if(firstSamples, [&sample](const NetworkSample &candidate) {
+            return candidate.adapterName == sample.adapterName;
+        });
+        if (first != firstSamples.end()) {
+            EXPECT_EQ(sample.friendlyName, first->friendlyName) << sample.adapterName;
+            EXPECT_EQ(sample.description, first->description) << sample.adapterName;
+        }
+    }
+}
+
+TEST(NetworkCollectorIntegration, RepeatedConstructionAndDestruction_CancelsNotificationsCleanly)
+{
+    for (int i = 0; i < 20; ++i) {
+        NetworkCollector collector;
+        static_cast<void>(collector.collect());
+    }
+    SUCCEED();
+}
+
 TEST(NetworkCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealNetworkAdapters)
 {
     SamplingScheduler scheduler(std::chrono::milliseconds{40});

@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -16,6 +18,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "platform/windows/adapter_details_cache.h"
+
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
 
@@ -24,6 +28,11 @@ namespace sysmon::platform
 
 namespace
 {
+
+// Starting GetAdaptersAddresses buffer size recommended by its documentation.
+constexpr ULONG kInitialAdapterBufferSize = 15 * 1024;
+// The required size can grow between calls, so the documented pattern retries a few times.
+constexpr int kMaxAdapterQueryAttempts = 3;
 
 std::string wideToUtf8(const WCHAR *wideStr)
 {
@@ -51,6 +60,20 @@ struct MibTableDeleter
 
 using ScopedMibIfTable2 = std::unique_ptr<MIB_IF_TABLE2, MibTableDeleter>;
 
+// Cancels a NotifyUnicastIpAddressChange / NotifyIpInterfaceChange registration.
+// CancelMibChangeNotify2 waits for in-flight callbacks to return.
+struct MibNotificationDeleter
+{
+    void operator()(HANDLE handle) const noexcept
+    {
+        if (handle != nullptr) {
+            CancelMibChangeNotify2(handle);
+        }
+    }
+};
+
+using ScopedMibNotification = std::unique_ptr<std::remove_pointer_t<HANDLE>, MibNotificationDeleter>;
+
 // Returns bytes/sec between two cumulative counter readings, or std::nullopt when
 // no meaningful rate exists: non-positive elapsed time, or a counter that went
 // backwards (adapter reset), where the delta across the reset is unknown.
@@ -63,178 +86,242 @@ std::optional<uint64_t> calculateByteRate(uint64_t previousBytes, uint64_t curre
     return static_cast<uint64_t>(std::round(deltaBytes / elapsedSec));
 }
 
-struct AdapterDetails
+domain::OperationalStatus toOperationalStatus(IF_OPER_STATUS status)
 {
-    std::string adapterName;
-    std::string friendlyName;
-    std::string description;
-    std::vector<std::string> ipAddresses;
-    std::vector<std::string> dnsServers;
-};
+    switch (status) {
+        case IfOperStatusUp:
+            return domain::OperationalStatus::Up;
+        case IfOperStatusDown:
+            return domain::OperationalStatus::Down;
+        case IfOperStatusTesting:
+            return domain::OperationalStatus::Testing;
+        case IfOperStatusDormant:
+            return domain::OperationalStatus::Dormant;
+        case IfOperStatusNotPresent:
+            return domain::OperationalStatus::NotPresent;
+        case IfOperStatusLowerLayerDown:
+            return domain::OperationalStatus::LowerLayerDown;
+        case IfOperStatusUnknown:
+        default:
+            return domain::OperationalStatus::Unknown;
+    }
+}
 
-std::optional<std::vector<RawNetworkAdapter>> queryWindowsAdapters()
+// Reads names, addresses, and DNS servers for all adapters with GetAdaptersAddresses.
+std::optional<AdapterDetailsTable> queryAdapterDetails()
 {
-    MIB_IF_TABLE2 *rawTable = nullptr;
-    const DWORD mibResult = GetIfTable2(&rawTable);
-    if (mibResult != NO_ERROR || !rawTable) {
-        spdlog::error("GetIfTable2 failed with error code {}", mibResult);
+    const ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST;
+    ULONG bufferSize = kInitialAdapterBufferSize;
+    std::vector<BYTE> buffer;
+    ULONG gaaResult = ERROR_BUFFER_OVERFLOW;
+
+    for (int attempt = 0; attempt < kMaxAdapterQueryAttempts && gaaResult == ERROR_BUFFER_OVERFLOW; ++attempt) {
+        buffer.resize(bufferSize);
+        gaaResult = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr,
+                                         reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.data()), &bufferSize);
+    }
+
+    if (gaaResult == ERROR_NO_DATA) {
+        return AdapterDetailsTable{};
+    }
+    if (gaaResult != NO_ERROR) {
+        spdlog::warn("GetAdaptersAddresses failed with code {}; using GetIfTable2 data only", gaaResult);
         return std::nullopt;
     }
-    ScopedMibIfTable2 table(rawTable);
 
-    std::unordered_map<uint64_t, AdapterDetails> detailsByLuid;
-    std::unordered_map<uint32_t, uint64_t> ifIndexToLuid;
+    AdapterDetailsTable table;
+    const auto *addresses = reinterpret_cast<const IP_ADAPTER_ADDRESSES *>(buffer.data());
+    for (const IP_ADAPTER_ADDRESSES *curr = addresses; curr != nullptr; curr = curr->Next) {
+        AdapterDetails details;
+        if (curr->AdapterName) {
+            details.adapterName = curr->AdapterName;
+        }
+        if (curr->FriendlyName) {
+            details.friendlyName = wideToUtf8(curr->FriendlyName);
+        }
+        if (curr->Description) {
+            details.description = wideToUtf8(curr->Description);
+        }
 
-    ULONG bufferSize = 16384;
-    std::vector<BYTE> buffer(bufferSize);
-    auto *addresses = reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.data());
-    const ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST;
+        for (PIP_ADAPTER_UNICAST_ADDRESS uni = curr->FirstUnicastAddress; uni != nullptr; uni = uni->Next) {
+            if (!uni->Address.lpSockaddr) {
+                continue;
+            }
+            char ipBuffer[INET6_ADDRSTRLEN] = {0};
+            if (uni->Address.lpSockaddr->sa_family == AF_INET) {
+                const auto *sin = reinterpret_cast<const sockaddr_in *>(uni->Address.lpSockaddr);
+                if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
+                    details.ipAddresses.emplace_back(ipBuffer);
+                }
+            } else if (uni->Address.lpSockaddr->sa_family == AF_INET6) {
+                const auto *sin6 = reinterpret_cast<const sockaddr_in6 *>(uni->Address.lpSockaddr);
+                if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
+                    details.ipAddresses.emplace_back(ipBuffer);
+                }
+            }
+        }
 
-    ULONG gaaResult = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, addresses, &bufferSize);
-    if (gaaResult == ERROR_BUFFER_OVERFLOW) {
-        buffer.resize(bufferSize);
-        addresses = reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.data());
-        gaaResult = GetAdaptersAddresses(AF_UNSPEC, flags, nullptr, addresses, &bufferSize);
+        for (PIP_ADAPTER_DNS_SERVER_ADDRESS dns = curr->FirstDnsServerAddress; dns != nullptr; dns = dns->Next) {
+            if (!dns->Address.lpSockaddr) {
+                continue;
+            }
+            char ipBuffer[INET6_ADDRSTRLEN] = {0};
+            if (dns->Address.lpSockaddr->sa_family == AF_INET) {
+                const auto *sin = reinterpret_cast<const sockaddr_in *>(dns->Address.lpSockaddr);
+                if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
+                    details.dnsServers.emplace_back(ipBuffer);
+                }
+            } else if (dns->Address.lpSockaddr->sa_family == AF_INET6) {
+                const auto *sin6 = reinterpret_cast<const sockaddr_in6 *>(dns->Address.lpSockaddr);
+                if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
+                    details.dnsServers.emplace_back(ipBuffer);
+                }
+            }
+        }
+
+        const uint64_t luidKey = curr->Luid.Value;
+        if (luidKey != 0) {
+            table.byLuid[luidKey] = std::move(details);
+            table.luidByIfIndex[curr->IfIndex] = luidKey;
+        } else if (curr->IfIndex != 0) {
+            table.luidByIfIndex[curr->IfIndex] = static_cast<uint64_t>(curr->IfIndex);
+            table.byLuid[static_cast<uint64_t>(curr->IfIndex)] = std::move(details);
+        }
     }
-
-    if (gaaResult == NO_ERROR) {
-        for (PIP_ADAPTER_ADDRESSES curr = addresses; curr != nullptr; curr = curr->Next) {
-            AdapterDetails details;
-            if (curr->AdapterName) {
-                details.adapterName = curr->AdapterName;
-            }
-            if (curr->FriendlyName) {
-                details.friendlyName = wideToUtf8(curr->FriendlyName);
-            }
-            if (curr->Description) {
-                details.description = wideToUtf8(curr->Description);
-            }
-
-            for (PIP_ADAPTER_UNICAST_ADDRESS uni = curr->FirstUnicastAddress; uni != nullptr; uni = uni->Next) {
-                if (!uni->Address.lpSockaddr) {
-                    continue;
-                }
-                char ipBuffer[INET6_ADDRSTRLEN] = {0};
-                if (uni->Address.lpSockaddr->sa_family == AF_INET) {
-                    const auto *sin = reinterpret_cast<const sockaddr_in *>(uni->Address.lpSockaddr);
-                    if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
-                        details.ipAddresses.emplace_back(ipBuffer);
-                    }
-                } else if (uni->Address.lpSockaddr->sa_family == AF_INET6) {
-                    const auto *sin6 = reinterpret_cast<const sockaddr_in6 *>(uni->Address.lpSockaddr);
-                    if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
-                        details.ipAddresses.emplace_back(ipBuffer);
-                    }
-                }
-            }
-
-            for (PIP_ADAPTER_DNS_SERVER_ADDRESS dns = curr->FirstDnsServerAddress; dns != nullptr; dns = dns->Next) {
-                if (!dns->Address.lpSockaddr) {
-                    continue;
-                }
-                char ipBuffer[INET6_ADDRSTRLEN] = {0};
-                if (dns->Address.lpSockaddr->sa_family == AF_INET) {
-                    const auto *sin = reinterpret_cast<const sockaddr_in *>(dns->Address.lpSockaddr);
-                    if (inet_ntop(AF_INET, &(sin->sin_addr), ipBuffer, sizeof(ipBuffer))) {
-                        details.dnsServers.emplace_back(ipBuffer);
-                    }
-                } else if (dns->Address.lpSockaddr->sa_family == AF_INET6) {
-                    const auto *sin6 = reinterpret_cast<const sockaddr_in6 *>(dns->Address.lpSockaddr);
-                    if (inet_ntop(AF_INET6, &(sin6->sin6_addr), ipBuffer, sizeof(ipBuffer))) {
-                        details.dnsServers.emplace_back(ipBuffer);
-                    }
-                }
-            }
-
-            const uint64_t luidKey = curr->Luid.Value;
-            if (luidKey != 0) {
-                detailsByLuid[luidKey] = details;
-                ifIndexToLuid[curr->IfIndex] = luidKey;
-            } else if (curr->IfIndex != 0) {
-                ifIndexToLuid[curr->IfIndex] = static_cast<uint64_t>(curr->IfIndex);
-                detailsByLuid[static_cast<uint64_t>(curr->IfIndex)] = details;
-            }
-        }
-    } else {
-        spdlog::warn("GetAdaptersAddresses failed with code {}; using GetIfTable2 data only", gaaResult);
-    }
-
-    std::vector<RawNetworkAdapter> rawAdapters;
-    rawAdapters.reserve(table->NumEntries);
-
-    for (ULONG i = 0; i < table->NumEntries; ++i) {
-        const MIB_IF_ROW2 &row = table->Table[i];
-        RawNetworkAdapter raw;
-        raw.luid = row.InterfaceLuid.Value;
-        raw.ifIndex = row.InterfaceIndex;
-        raw.isLoopback = (row.Type == IF_TYPE_SOFTWARE_LOOPBACK);
-        raw.isFilterInterface = row.InterfaceAndOperStatusFlags.FilterInterface != FALSE;
-        raw.isHardwareInterface = row.InterfaceAndOperStatusFlags.HardwareInterface != FALSE;
-        raw.inBytesTotal = row.InOctets;
-        raw.outBytesTotal = row.OutOctets;
-        raw.linkSpeedBps = (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
-
-        switch (row.OperStatus) {
-            case IfOperStatusUp:
-                raw.operationalStatus = domain::OperationalStatus::Up;
-                break;
-            case IfOperStatusDown:
-                raw.operationalStatus = domain::OperationalStatus::Down;
-                break;
-            case IfOperStatusTesting:
-                raw.operationalStatus = domain::OperationalStatus::Testing;
-                break;
-            case IfOperStatusUnknown:
-                raw.operationalStatus = domain::OperationalStatus::Unknown;
-                break;
-            case IfOperStatusDormant:
-                raw.operationalStatus = domain::OperationalStatus::Dormant;
-                break;
-            case IfOperStatusNotPresent:
-                raw.operationalStatus = domain::OperationalStatus::NotPresent;
-                break;
-            case IfOperStatusLowerLayerDown:
-                raw.operationalStatus = domain::OperationalStatus::LowerLayerDown;
-                break;
-            default:
-                raw.operationalStatus = domain::OperationalStatus::Unknown;
-                break;
-        }
-
-        const std::string alias = wideToUtf8(row.Alias);
-        const std::string desc = wideToUtf8(row.Description);
-
-        auto addrIt = detailsByLuid.find(raw.luid);
-        if (addrIt == detailsByLuid.end()) {
-            const auto ifIt = ifIndexToLuid.find(raw.ifIndex);
-            if (ifIt != ifIndexToLuid.end()) {
-                addrIt = detailsByLuid.find(ifIt->second);
-            }
-        }
-
-        if (addrIt != detailsByLuid.end()) {
-            const auto &details = addrIt->second;
-            raw.friendlyName = !details.friendlyName.empty() ? details.friendlyName : alias;
-            raw.description = !details.description.empty() ? details.description : desc;
-            raw.adapterName = !raw.friendlyName.empty() ? raw.friendlyName : (!details.adapterName.empty() ? details.adapterName : raw.description);
-            raw.ipAddresses = details.ipAddresses;
-            raw.dnsServers = details.dnsServers;
-        } else {
-            raw.friendlyName = alias;
-            raw.description = desc;
-            raw.adapterName = !alias.empty() ? alias : desc;
-        }
-
-        rawAdapters.push_back(std::move(raw));
-    }
-
-    return rawAdapters;
+    return table;
 }
 
 } // namespace
 
+/**
+ * Production adapter reader. Reads GetIfTable2 on every call and takes names,
+ * addresses, and DNS servers from an AdapterDetailsCache, re-reading them with
+ * GetAdaptersAddresses only when the cache says they are due.
+ *
+ * Address and interface change notifications mark the cache stale. They are an
+ * event-driven source (docs/architecture.md, "Event-driven collectors"): the
+ * callbacks only store the stale mark, the registrations are RAII members
+ * declared after the cache so they are cancelled first, the cache starts stale
+ * so the first read is complete, and if registration fails the cache's maximum
+ * age still refreshes the details.
+ *
+ * Registers callbacks with this as their context, so it is neither copyable nor movable.
+ */
+class WindowsAdapterReader
+{
+public:
+    WindowsAdapterReader()
+    {
+        HANDLE addressHandle = nullptr;
+        const DWORD addressResult =
+            NotifyUnicastIpAddressChange(AF_UNSPEC, &onUnicastAddressChange, this, FALSE, &addressHandle);
+        if (addressResult == NO_ERROR) {
+            m_addressNotification.reset(addressHandle);
+        } else {
+            spdlog::warn("NotifyUnicastIpAddressChange failed with error {}; adapter addresses refresh every {}s",
+                         addressResult, AdapterDetailsCache::kMaxAge.count());
+        }
+
+        HANDLE interfaceHandle = nullptr;
+        const DWORD interfaceResult =
+            NotifyIpInterfaceChange(AF_UNSPEC, &onInterfaceChange, this, FALSE, &interfaceHandle);
+        if (interfaceResult == NO_ERROR) {
+            m_interfaceNotification.reset(interfaceHandle);
+        } else {
+            spdlog::warn("NotifyIpInterfaceChange failed with error {}; adapter details refresh every {}s",
+                         interfaceResult, AdapterDetailsCache::kMaxAge.count());
+        }
+    }
+
+    WindowsAdapterReader(const WindowsAdapterReader &) = delete;
+    WindowsAdapterReader &operator=(const WindowsAdapterReader &) = delete;
+    WindowsAdapterReader(WindowsAdapterReader &&) = delete;
+    WindowsAdapterReader &operator=(WindowsAdapterReader &&) = delete;
+    ~WindowsAdapterReader() = default;
+
+    std::optional<std::vector<RawNetworkAdapter>> read()
+    {
+        MIB_IF_TABLE2 *rawTable = nullptr;
+        const DWORD mibResult = GetIfTable2(&rawTable);
+        if (mibResult != NO_ERROR || !rawTable) {
+            spdlog::error("GetIfTable2 failed with error code {}", mibResult);
+            return std::nullopt;
+        }
+        ScopedMibIfTable2 table(rawTable);
+
+        std::vector<uint64_t> luids;
+        luids.reserve(table->NumEntries);
+        for (ULONG i = 0; i < table->NumEntries; ++i) {
+            luids.push_back(table->Table[i].InterfaceLuid.Value);
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (m_cache.beginRefreshIfDue(luids, now)) {
+            m_cache.completeRefresh(queryAdapterDetails(), luids, now);
+        }
+        const AdapterDetailsTable &detailsTable = m_cache.table();
+
+        std::vector<RawNetworkAdapter> rawAdapters;
+        rawAdapters.reserve(table->NumEntries);
+
+        for (ULONG i = 0; i < table->NumEntries; ++i) {
+            const MIB_IF_ROW2 &row = table->Table[i];
+            RawNetworkAdapter raw;
+            raw.luid = row.InterfaceLuid.Value;
+            raw.ifIndex = row.InterfaceIndex;
+            raw.isLoopback = (row.Type == IF_TYPE_SOFTWARE_LOOPBACK);
+            raw.isFilterInterface = row.InterfaceAndOperStatusFlags.FilterInterface != FALSE;
+            raw.isHardwareInterface = row.InterfaceAndOperStatusFlags.HardwareInterface != FALSE;
+            raw.inBytesTotal = row.InOctets;
+            raw.outBytesTotal = row.OutOctets;
+            raw.linkSpeedBps = (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
+            raw.operationalStatus = toOperationalStatus(row.OperStatus);
+
+            const std::string alias = wideToUtf8(row.Alias);
+            const std::string desc = wideToUtf8(row.Description);
+
+            if (const AdapterDetails *details = detailsTable.find(raw.luid, raw.ifIndex)) {
+                raw.friendlyName = !details->friendlyName.empty() ? details->friendlyName : alias;
+                raw.description = !details->description.empty() ? details->description : desc;
+                raw.adapterName = !raw.friendlyName.empty() ? raw.friendlyName : (!details->adapterName.empty() ? details->adapterName : raw.description);
+                raw.ipAddresses = details->ipAddresses;
+                raw.dnsServers = details->dnsServers;
+            } else {
+                raw.friendlyName = alias;
+                raw.description = desc;
+                raw.adapterName = !alias.empty() ? alias : desc;
+            }
+
+            rawAdapters.push_back(std::move(raw));
+        }
+
+        return rawAdapters;
+    }
+
+private:
+    static void WINAPI onUnicastAddressChange(PVOID callerContext, PMIB_UNICASTIPADDRESS_ROW /*row*/,
+                                              MIB_NOTIFICATION_TYPE /*notificationType*/) noexcept
+    {
+        static_cast<WindowsAdapterReader *>(callerContext)->m_cache.markStale();
+    }
+
+    static void WINAPI onInterfaceChange(PVOID callerContext, PMIB_IPINTERFACE_ROW /*row*/,
+                                         MIB_NOTIFICATION_TYPE /*notificationType*/) noexcept
+    {
+        static_cast<WindowsAdapterReader *>(callerContext)->m_cache.markStale();
+    }
+
+    AdapterDetailsCache m_cache;
+
+    // Declared after m_cache so they are cancelled (waiting for in-flight
+    // callbacks) before the cache the callbacks write to is destroyed.
+    ScopedMibNotification m_addressNotification;
+    ScopedMibNotification m_interfaceNotification;
+};
+
 NetworkCollector::NetworkCollector()
-    : m_adaptersReader(queryWindowsAdapters),
+    : m_windowsReader(std::make_unique<WindowsAdapterReader>()),
+      m_adaptersReader([reader = m_windowsReader.get()] { return reader->read(); }),
       m_clockReader([]() { return std::chrono::steady_clock::now(); })
 {
 }
@@ -244,6 +331,8 @@ NetworkCollector::NetworkCollector(NetworkAdaptersReader adaptersReader, SteadyC
       m_clockReader(std::move(clockReader))
 {
 }
+
+NetworkCollector::~NetworkCollector() = default;
 
 std::vector<domain::NetworkSample> NetworkCollector::collect()
 {
@@ -324,4 +413,3 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
 }
 
 } // namespace sysmon::platform
-

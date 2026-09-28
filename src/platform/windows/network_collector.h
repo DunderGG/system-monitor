@@ -53,12 +53,17 @@ struct NetworkBaseline
 using NetworkAdaptersReader = std::function<std::optional<std::vector<RawNetworkAdapter>>()>;
 using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>;
 
+class WindowsAdapterReader;
+
 /**
  * Collector implementation for network adapter traffic, throughput, and addresses.
  *
  * Windows implementation uses:
- * - GetIfTable2 (releasing table with FreeMibTable) for 64-bit traffic counters and link speed.
- * - GetAdaptersAddresses for friendly names, device descriptions, IP addresses, and DNS servers.
+ * - GetIfTable2 (releasing table with FreeMibTable) on every collect() for 64-bit
+ *   traffic counters, link speed, and operational status.
+ * - GetAdaptersAddresses for friendly names, device descriptions, IP addresses, and
+ *   DNS servers, re-read only when AdapterDetailsCache says they are due. Address
+ *   and interface change notifications mark the cache stale.
  *
  * Filters out loopback interfaces (IF_TYPE_SOFTWARE_LOOPBACK) and NDIS filter
  * interfaces, whose counters repeat the traffic of the interface they are bound to.
@@ -75,7 +80,7 @@ public:
     /** Injected constructor for deterministic unit testing. */
     NetworkCollector(NetworkAdaptersReader adaptersReader, SteadyClockReader clockReader);
 
-    ~NetworkCollector() override = default;
+    ~NetworkCollector() override;
 
     [[nodiscard]] std::vector<domain::NetworkSample> collect() override;
 
@@ -89,6 +94,10 @@ public:
         std::chrono::steady_clock::time_point currentTime);
 
 private:
+    // Owns the Windows reader (and its change notifications) in production;
+    // null when a reader is injected. Declared before m_adaptersReader, which
+    // refers to it.
+    std::unique_ptr<WindowsAdapterReader> m_windowsReader;
     NetworkAdaptersReader m_adaptersReader;
     SteadyClockReader m_clockReader;
     std::unordered_map<uint64_t, NetworkBaseline> m_baselines;

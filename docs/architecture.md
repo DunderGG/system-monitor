@@ -122,7 +122,7 @@ Windows integration layer (platform/windows)
 │  - Owns the sampling tick loop                   │
 │  - Runs fast collectors inline:                  │
 │      CPU (~0.01 ms), memory (~0.01 ms),          │
-│      network counters (~0.1 ms)                  │
+│      network counters (~0.7 ms)                  │
 │  - Merges latest slow-collector results          │
 │  - Assembles immutable SystemSnapshot            │
 │  - Emits snapshot to UI thread via signal        │
@@ -143,7 +143,7 @@ Windows integration layer (platform/windows)
 
 Key threading rules:
 
-- Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in under 1 ms combined.
+- Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in about 1 ms combined; `GetIfTable2` dominates, and its cost grows with the number of interfaces (about 0.7 ms for 42 rows on a desktop). Adapter names, addresses, and DNS servers (`GetAdaptersAddresses`, about 2 ms) are cached and re-read only on change.
 - Slow collectors (process enumeration, and connectivity polling when change notifications are unavailable) run on separate `std::jthread`s at their own cadence. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet.
 - Event-driven collectors receive changes from the OS instead of polling (see below). Their `collect()` only returns a cached value, so it runs on the scheduler tick like a fast collector.
 - Snapshots cross from the scheduler thread to the UI thread via `Qt::QueuedConnection`. The snapshot is an immutable value type; no shared mutable state crosses the boundary.
