@@ -107,8 +107,8 @@ TEST(NetworkSample, DefaultConstruction_UnknownStatus)
     EXPECT_TRUE(s.description.empty());
     EXPECT_EQ(s.inBytesTotal, 0u);
     EXPECT_EQ(s.outBytesTotal, 0u);
-    EXPECT_EQ(s.inBytesPerSec, 0u);
-    EXPECT_EQ(s.outBytesPerSec, 0u);
+    EXPECT_FALSE(s.inBytesPerSec.has_value());
+    EXPECT_FALSE(s.outBytesPerSec.has_value());
     EXPECT_EQ(s.linkSpeedBps, 0u);
     EXPECT_EQ(s.operationalStatus, OperationalStatus::Unknown);
     EXPECT_TRUE(s.ipAddresses.empty());

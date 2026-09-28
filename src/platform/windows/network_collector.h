@@ -57,6 +57,8 @@ using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>
  *
  * Filters out loopback interfaces (IF_TYPE_SOFTWARE_LOOPBACK).
  * Computes instantaneous throughput (bytes/sec) from counter deltas across steady_clock ticks.
+ * A rate is std::nullopt (never 0) when it cannot be computed: first sample for an
+ * adapter, zero elapsed time, or a counter reset.
  */
 class NetworkCollector : public sysmon::monitoring::INetworkCollector
 {

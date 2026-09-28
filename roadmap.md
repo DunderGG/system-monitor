@@ -87,7 +87,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Display system uptime using `GetTickCount64`. Collection is done (`UptimeCollector` → `SystemSnapshot::uptime`); display lands with the dashboard cards.
 - [ ] Display basic health status derived from resource thresholds (e.g., memory >90% → warning). Evaluation is done (`evaluateHealth` → `SystemSnapshot::health`); display lands with the dashboard cards.
 - [ ] Connect real collector data through the snapshot pipeline to the dashboard widgets (see [code review Finding F-4](docs/code_review.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) for snapshot distribution across views and visible-tab update optimization).
-- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. Include the open entries in [known_deviations.md](docs/known_deviations.md) (D-3, D-4, D-5, D-6).
+- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. Include the open entries in [known_deviations.md](docs/known_deviations.md) (D-3, D-4, D-5).
 
 ---
 

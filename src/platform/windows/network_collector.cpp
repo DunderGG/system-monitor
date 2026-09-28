@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -49,6 +50,18 @@ struct MibTableDeleter
 };
 
 using ScopedMibIfTable2 = std::unique_ptr<MIB_IF_TABLE2, MibTableDeleter>;
+
+// Returns bytes/sec between two cumulative counter readings, or std::nullopt when
+// no meaningful rate exists: non-positive elapsed time, or a counter that went
+// backwards (adapter reset), where the delta across the reset is unknown.
+std::optional<uint64_t> calculateByteRate(uint64_t previousBytes, uint64_t currentBytes, double elapsedSec)
+{
+    if (elapsedSec <= 0.0 || currentBytes < previousBytes) {
+        return std::nullopt;
+    }
+    const double deltaBytes = static_cast<double>(currentBytes - previousBytes);
+    return static_cast<uint64_t>(std::round(deltaBytes / elapsedSec));
+}
 
 struct AdapterDetails
 {
@@ -263,25 +276,16 @@ std::vector<domain::NetworkSample> NetworkCollector::calculateNetworkSamples(
                                 : std::hash<std::string>{}(adapter.adapterName));
         activeKeys.insert(key);
 
-        // Known deviation D-6 (docs/known_deviations.md): reports 0 rather than "no rate" without a baseline.
-        uint64_t inBytesPerSec = 0;
-        uint64_t outBytesPerSec = 0;
+        // Rates stay std::nullopt when they cannot be computed (no baseline yet,
+        // zero elapsed time, or a counter reset) rather than reporting 0 B/s.
+        std::optional<uint64_t> inBytesPerSec;
+        std::optional<uint64_t> outBytesPerSec;
 
         const auto it = baselines.find(key);
         if (it != baselines.end()) {
-            const auto elapsed = currentTime - it->second.timestamp;
-            const double elapsedSec = std::chrono::duration<double>(elapsed).count();
-
-            if (elapsedSec > 0.0) {
-                if (adapter.inBytesTotal >= it->second.inBytes) {
-                    const double deltaIn = static_cast<double>(adapter.inBytesTotal - it->second.inBytes);
-                    inBytesPerSec = static_cast<uint64_t>(std::round(deltaIn / elapsedSec));
-                }
-                if (adapter.outBytesTotal >= it->second.outBytes) {
-                    const double deltaOut = static_cast<double>(adapter.outBytesTotal - it->second.outBytes);
-                    outBytesPerSec = static_cast<uint64_t>(std::round(deltaOut / elapsedSec));
-                }
-            }
+            const double elapsedSec = std::chrono::duration<double>(currentTime - it->second.timestamp).count();
+            inBytesPerSec = calculateByteRate(it->second.inBytes, adapter.inBytesTotal, elapsedSec);
+            outBytesPerSec = calculateByteRate(it->second.outBytes, adapter.outBytesTotal, elapsedSec);
         }
 
         baselines[key] = NetworkBaseline{

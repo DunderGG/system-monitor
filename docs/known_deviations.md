@@ -11,7 +11,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 | [D-3](#d-3-connectivity-updates-arrive-on-an-os-thread-pool-thread) | Connectivity updates arrive on an OS thread-pool thread | Low | Open — needs architecture decision |
 | [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Open — needs guideline decision |
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Open |
-| [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Open |
+| [D-6](#d-6-network-throughput-reports-zero-when-no-baseline-exists) | Network throughput reports zero when no baseline exists | Low | Resolved (2026-09-25) |
 | [D-7](#d-7-memory-and-cpu-data-report-zeros-when-missing) | Memory and CPU data report zeros when missing | Medium | Resolved (2026-09-25) |
 | [D-8](#d-8-zero-capacity-disk-volumes-report-0-usage) | Zero-capacity disk volumes report 0% usage | Low | Resolved (2026-09-25) |
 
@@ -86,6 +86,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/platform/windows/network_collector.cpp` — `calculateNetworkSamples()`, `src/domain/network_sample.h`
 
 **Plan:** Make the rate fields `std::optional<uint64_t>` (or add a validity flag), and check the CPU collector's first-sample behaviour for the same issue during the Phase 2 code review.
+
+**Status:** Resolved (2026-09-25). `NetworkSample::inBytesPerSec` and `outBytesPerSec` are now `std::optional<uint64_t>`, set to `std::nullopt` on the first sample for an adapter and also in two further zero-placeholder cases found while fixing it: zero elapsed time and a counter reset (each direction independently). The CPU collector's first-sample behaviour was already fixed under D-7.
 
 ---
 

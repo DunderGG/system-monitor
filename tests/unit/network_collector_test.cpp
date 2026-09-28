@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -12,7 +13,7 @@
 using namespace sysmon::domain;
 using namespace sysmon::platform;
 
-TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesAreZeroAndBaselineRecorded)
+TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesUnavailableAndBaselineRecorded)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
@@ -40,8 +41,8 @@ TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesAreZeroAndBaseline
     EXPECT_EQ(samples[0].adapterName, "Ethernet");
     EXPECT_EQ(samples[0].inBytesTotal, 50'000u);
     EXPECT_EQ(samples[0].outBytesTotal, 25'000u);
-    EXPECT_EQ(samples[0].inBytesPerSec, 0u);
-    EXPECT_EQ(samples[0].outBytesPerSec, 0u);
+    EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
+    EXPECT_FALSE(samples[0].outBytesPerSec.has_value());
     EXPECT_EQ(samples[0].linkSpeedBps, 1'000'000'000u);
     EXPECT_EQ(samples[0].operationalStatus, OperationalStatus::Up);
 
@@ -84,8 +85,8 @@ TEST(NetworkCollector, CalculateNetworkSamples_SecondTick_CalculatesAccurateThro
     ASSERT_EQ(samples.size(), 1u);
     EXPECT_EQ(samples[0].inBytesTotal, 120'000u);
     EXPECT_EQ(samples[0].outBytesTotal, 60'000u);
-    EXPECT_EQ(samples[0].inBytesPerSec, 10'000u); // 20,000 / 2s
-    EXPECT_EQ(samples[0].outBytesPerSec, 5'000u); // 10,000 / 2s
+    EXPECT_EQ(samples[0].inBytesPerSec, std::optional<uint64_t>{10'000}); // 20,000 / 2s
+    EXPECT_EQ(samples[0].outBytesPerSec, std::optional<uint64_t>{5'000}); // 10,000 / 2s
 }
 
 TEST(NetworkCollector, CalculateNetworkSamples_LoopbackAdapter_FilteredOut)
@@ -114,7 +115,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_LoopbackAdapter_FilteredOut)
     EXPECT_TRUE(baselines.contains(2));
 }
 
-TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesZeroWithoutCrash)
+TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesUnavailable)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
@@ -139,13 +140,13 @@ TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesZero
     const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
 
     ASSERT_EQ(samples.size(), 1u);
-    EXPECT_EQ(samples[0].inBytesPerSec, 0u);
-    EXPECT_EQ(samples[0].outBytesPerSec, 0u);
+    EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
+    EXPECT_FALSE(samples[0].outBytesPerSec.has_value());
     EXPECT_EQ(baselines[101].inBytes, 1'000u);
     EXPECT_EQ(baselines[101].outBytes, 500u);
 }
 
-TEST(NetworkCollector, CalculateNetworkSamples_ZeroElapsedDuration_RatesZero)
+TEST(NetworkCollector, CalculateNetworkSamples_ZeroElapsedDuration_RatesUnavailable)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
     const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
@@ -168,8 +169,59 @@ TEST(NetworkCollector, CalculateNetworkSamples_ZeroElapsedDuration_RatesZero)
     const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
 
     ASSERT_EQ(samples.size(), 1u);
-    EXPECT_EQ(samples[0].inBytesPerSec, 0u);
-    EXPECT_EQ(samples[0].outBytesPerSec, 0u);
+    EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
+    EXPECT_FALSE(samples[0].outBytesPerSec.has_value());
+}
+
+TEST(NetworkCollector, CalculateNetworkSamples_IdleLink_ReportsZeroNotUnavailable)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{101}};
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{
+            .luid = 101,
+            .adapterName = "Ethernet",
+            .inBytesTotal = 50'000,
+            .outBytesTotal = 25'000,
+            .isLoopback = false,
+        }
+    };
+
+    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
+
+    ASSERT_EQ(samples.size(), 1u);
+    EXPECT_EQ(samples[0].inBytesPerSec, std::optional<uint64_t>{0});
+    EXPECT_EQ(samples[0].outBytesPerSec, std::optional<uint64_t>{0});
+}
+
+TEST(NetworkCollector, CalculateNetworkSamples_ResetInOneDirection_OtherDirectionStillReported)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{101}};
+
+    std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{
+            .luid = 101,
+            .adapterName = "Ethernet",
+            .inBytesTotal = 50'000,
+            .outBytesTotal = 25'000,
+            .isLoopback = false,
+        }
+    };
+
+    NetworkCollector::calculateNetworkSamples(adapters, baselines, t0);
+
+    adapters[0].inBytesTotal = 1'000;   // inbound counter reset
+    adapters[0].outBytesTotal = 27'000; // outbound advanced by 2,000 bytes
+    const auto samples = NetworkCollector::calculateNetworkSamples(adapters, baselines, t1);
+
+    ASSERT_EQ(samples.size(), 1u);
+    EXPECT_FALSE(samples[0].inBytesPerSec.has_value());
+    EXPECT_EQ(samples[0].outBytesPerSec, std::optional<uint64_t>{2'000});
 }
 
 TEST(NetworkCollector, CalculateNetworkSamples_RetiredAdapter_PurgedFromBaselines)

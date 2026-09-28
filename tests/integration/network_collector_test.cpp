@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -29,9 +30,9 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
         EXPECT_GE(sample.inBytesTotal, 0u);
         EXPECT_GE(sample.outBytesTotal, 0u);
 
-        // First sample rates should be 0 (no baseline yet)
-        EXPECT_EQ(sample.inBytesPerSec, 0u);
-        EXPECT_EQ(sample.outBytesPerSec, 0u);
+        // No baseline yet on the first sample, so no rate can be reported
+        EXPECT_FALSE(sample.inBytesPerSec.has_value());
+        EXPECT_FALSE(sample.outBytesPerSec.has_value());
 
         // Adapter name / friendly name should not indicate loopback
         EXPECT_NE(sample.adapterName, "Loopback");
@@ -54,9 +55,16 @@ TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTim
 
     EXPECT_EQ(firstSamples.size(), secondSamples.size());
 
+    // Adapters present in both samples have a baseline, so both rates must be reported.
+    // (An adapter that appeared in between legitimately has no rate yet.)
     for (const auto &sample : secondSamples) {
-        EXPECT_GE(sample.inBytesPerSec, 0u);
-        EXPECT_GE(sample.outBytesPerSec, 0u);
+        const bool seenBefore = std::ranges::any_of(firstSamples, [&sample](const NetworkSample &first) {
+            return first.adapterName == sample.adapterName;
+        });
+        if (seenBefore) {
+            EXPECT_TRUE(sample.inBytesPerSec.has_value()) << sample.adapterName;
+            EXPECT_TRUE(sample.outBytesPerSec.has_value()) << sample.adapterName;
+        }
     }
 }
 
