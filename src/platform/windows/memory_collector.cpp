@@ -8,6 +8,8 @@
 
 #include <Windows.h>
 
+#include "platform/windows/repeated_failure_log.h"
+
 namespace sysmon::platform
 {
 
@@ -36,14 +38,15 @@ std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData
 }
 
 MemoryCollector::MemoryCollector()
-    : m_reader([](MemoryStatusData &data) {
+    : m_reader([failureLog = RepeatedFailureLog{"GlobalMemoryStatusEx"}](MemoryStatusData &data) mutable {
           MEMORYSTATUSEX memStatus{};
           memStatus.dwLength = sizeof(MEMORYSTATUSEX);
           if (!::GlobalMemoryStatusEx(&memStatus)) {
               const DWORD error = ::GetLastError();
-              spdlog::error("GlobalMemoryStatusEx failed with error code: {}", error);
+              failureLog.failure(spdlog::level::err, "GlobalMemoryStatusEx failed with error code: {}", error);
               return false;
           }
+          failureLog.success();
           data.totalPhys = memStatus.ullTotalPhys;
           data.availPhys = memStatus.ullAvailPhys;
           data.totalPageFile = memStatus.ullTotalPageFile;

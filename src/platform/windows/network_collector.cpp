@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "platform/windows/adapter_details_cache.h"
+#include "platform/windows/repeated_failure_log.h"
 
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
@@ -108,7 +109,7 @@ domain::OperationalStatus toOperationalStatus(IF_OPER_STATUS status)
 }
 
 // Reads names, addresses, and DNS servers for all adapters with GetAdaptersAddresses.
-std::optional<AdapterDetailsTable> queryAdapterDetails()
+std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog &failureLog)
 {
     const ULONG flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST;
     ULONG bufferSize = kInitialAdapterBufferSize;
@@ -122,13 +123,16 @@ std::optional<AdapterDetailsTable> queryAdapterDetails()
     }
 
     if (gaaResult == ERROR_NO_DATA) {
+        failureLog.success();
         return AdapterDetailsTable{};
     }
     if (gaaResult != NO_ERROR) {
-        spdlog::warn("GetAdaptersAddresses failed with code {}; using GetIfTable2 data only", gaaResult);
+        failureLog.failure(spdlog::level::warn, "GetAdaptersAddresses failed with code {}; using GetIfTable2 data only",
+                           gaaResult);
         return std::nullopt;
     }
 
+    failureLog.success();
     AdapterDetailsTable table;
     const auto *addresses = reinterpret_cast<const IP_ADAPTER_ADDRESSES *>(buffer.data());
     for (const IP_ADAPTER_ADDRESSES *curr = addresses; curr != nullptr; curr = curr->Next) {
@@ -244,10 +248,11 @@ public:
         MIB_IF_TABLE2 *rawTable = nullptr;
         const DWORD mibResult = GetIfTable2(&rawTable);
         if (mibResult != NO_ERROR || !rawTable) {
-            spdlog::error("GetIfTable2 failed with error code {}", mibResult);
+            m_ifTableFailureLog.failure(spdlog::level::err, "GetIfTable2 failed with error code {}", mibResult);
             return std::nullopt;
         }
         ScopedMibIfTable2 table(rawTable);
+        m_ifTableFailureLog.success();
 
         std::vector<uint64_t> luids;
         luids.reserve(table->NumEntries);
@@ -257,7 +262,7 @@ public:
 
         const auto now = std::chrono::steady_clock::now();
         if (m_cache.beginRefreshIfDue(luids, now)) {
-            m_cache.completeRefresh(queryAdapterDetails(), luids, now);
+            m_cache.completeRefresh(queryAdapterDetails(m_adapterDetailsFailureLog), luids, now);
         }
         const AdapterDetailsTable &detailsTable = m_cache.table();
 
@@ -311,6 +316,8 @@ private:
         static_cast<WindowsAdapterReader *>(callerContext)->m_cache.markStale();
     }
 
+    RepeatedFailureLog m_ifTableFailureLog{"GetIfTable2"};
+    RepeatedFailureLog m_adapterDetailsFailureLog{"GetAdaptersAddresses"};
     AdapterDetailsCache m_cache;
 
     // Declared after m_cache so they are cancelled (waiting for in-flight

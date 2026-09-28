@@ -1,5 +1,6 @@
 find_package(GTest CONFIG REQUIRED)
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Widgets)
+find_package(spdlog CONFIG REQUIRED)
 include(GoogleTest)
 
 add_executable(system_monitor_tests
@@ -17,6 +18,7 @@ add_executable(system_monitor_tests
     unit/disk_collector_test.cpp
     unit/network_collector_test.cpp
     unit/adapter_details_cache_test.cpp
+    unit/repeated_failure_log_test.cpp
     unit/connectivity_collector_test.cpp
     unit/uptime_collector_test.cpp
     unit/health_evaluator_test.cpp
@@ -41,6 +43,7 @@ target_link_libraries(system_monitor_tests
         sysmon_ui
         Qt6::Core
         Qt6::Widgets
+        spdlog::spdlog
 )
 
 if(WIN32)

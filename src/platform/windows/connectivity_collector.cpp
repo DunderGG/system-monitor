@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include "platform/windows/connectivity_hint_mapping.h"
+#include "platform/windows/repeated_failure_log.h"
 
 namespace sysmon::platform
 {
@@ -48,14 +49,15 @@ std::string_view meteredName(std::optional<bool> isMetered) noexcept
     return *isMetered ? "yes" : "no";
 }
 
-std::optional<domain::ConnectivityStatus> queryConnectivityHint()
+std::optional<domain::ConnectivityStatus> queryConnectivityHint(RepeatedFailureLog &failureLog)
 {
     NL_NETWORK_CONNECTIVITY_HINT hint{};
     const DWORD result = GetNetworkConnectivityHint(&hint);
     if (result != NO_ERROR) {
-        spdlog::warn("GetNetworkConnectivityHint failed with error {}", result);
+        failureLog.failure(spdlog::level::warn, "GetNetworkConnectivityHint failed with error {}", result);
         return std::nullopt;
     }
+    failureLog.success();
     return toConnectivityStatus(hint);
 }
 
@@ -118,7 +120,11 @@ std::unique_ptr<ConnectivitySubscription> subscribeToConnectivityChanges(Connect
 } // namespace
 
 ConnectivityCollector::ConnectivityCollector()
-    : ConnectivityCollector(queryConnectivityHint, subscribeToConnectivityChanges)
+    : ConnectivityCollector(
+          [failureLog = RepeatedFailureLog{"GetNetworkConnectivityHint"}]() mutable {
+              return queryConnectivityHint(failureLog);
+          },
+          subscribeToConnectivityChanges)
 {
 }
 

@@ -53,7 +53,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | --- | --- | --- | --- |
 | [F-9](#f-9-network-throughput-total-counts-the-same-traffic-several-times) | Network throughput total counts the same traffic several times | High | Resolved |
 | [F-10](#f-10-getadaptersaddresses-runs-on-every-scheduler-tick) | `GetAdaptersAddresses` runs on every scheduler tick | Medium | Resolved |
-| [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Open |
+| [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Resolved |
 | [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Open |
 | [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Open |
 | [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Open |
@@ -194,7 +194,7 @@ Disk needs one state per volume, e.g. a `std::unordered_map<std::string, Failure
 
 **Recommendation:** Fix before Phase 4. The process collector will add per-process access failures, which make the problem far larger unless this pattern already exists.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). Added `RepeatedFailureLog` (`platform/windows/repeated_failure_log.h`) instead of the proposed `FailureLogState`. It takes the log level and message itself, so each call site is one line, and it logs the recovery with the number of consecutive failures. It is applied to `GetSystemTimes`, both per-core `NtQuerySystemInformation(Ex)` paths (the separate "falling back" line is folded into the group-query message), `GlobalMemoryStatusEx`, `GetLogicalDrives`, `GetDiskFreeSpaceExW` (one log per volume), `GetIfTable2`, `GetAdaptersAddresses`, and `GetNetworkConnectivityHint`. One-time registration failures still log directly. Five unit tests check the emitted log lines through an in-memory sink.
 
 ---
 

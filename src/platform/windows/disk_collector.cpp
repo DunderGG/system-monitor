@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -10,20 +11,23 @@
 
 #include <Windows.h>
 
+#include "platform/windows/repeated_failure_log.h"
+
 namespace sysmon::platform
 {
 
 namespace
 {
 
-std::vector<std::string> enumerateFixedDrives()
+std::vector<std::string> enumerateFixedDrives(RepeatedFailureLog &failureLog)
 {
     std::vector<std::string> fixedDrives;
     const DWORD driveMask = ::GetLogicalDrives();
     if (driveMask == 0) {
-        spdlog::error("GetLogicalDrives failed with error code: {}", ::GetLastError());
+        failureLog.failure(spdlog::level::err, "GetLogicalDrives failed with error code: {}", ::GetLastError());
         return fixedDrives;
     }
+    failureLog.success();
 
     for (int i = 0; i < 26; ++i) {
         if (driveMask & (1 << i)) {
@@ -38,7 +42,7 @@ std::vector<std::string> enumerateFixedDrives()
     return fixedDrives;
 }
 
-bool readDiskSpace(const std::string &volumeName, DiskSpaceData &data)
+bool readDiskSpace(const std::string &volumeName, DiskSpaceData &data, RepeatedFailureLog &failureLog)
 {
     const std::wstring volumeW(volumeName.begin(), volumeName.end());
     ULARGE_INTEGER freeBytesAvailable{};
@@ -51,9 +55,11 @@ bool readDiskSpace(const std::string &volumeName, DiskSpaceData &data)
             &totalNumberOfBytes,
             &totalNumberOfFreeBytes)) {
         const DWORD error = ::GetLastError();
-        spdlog::warn("GetDiskFreeSpaceExW failed for volume '{}' with error code: {}", volumeName, error);
+        failureLog.failure(spdlog::level::warn, "GetDiskFreeSpaceExW failed for volume '{}' with error code: {}",
+                           volumeName, error);
         return false;
     }
+    failureLog.success();
 
     data.totalBytes = totalNumberOfBytes.QuadPart;
     data.freeBytes = freeBytesAvailable.QuadPart;
@@ -85,8 +91,16 @@ std::optional<domain::DiskSample> calculateDiskSample(
 }
 
 DiskCollector::DiskCollector()
-    : m_enumerator(enumerateFixedDrives),
-      m_reader(readDiskSpace)
+    : m_enumerator([failureLog = RepeatedFailureLog{"GetLogicalDrives"}]() mutable {
+          return enumerateFixedDrives(failureLog);
+      }),
+      // One failure log per volume, so a locked volume does not hide another's recovery.
+      m_reader([failureLogs = std::unordered_map<std::string, RepeatedFailureLog>{}](
+                   const std::string &volumeName, DiskSpaceData &data) mutable {
+          auto &failureLog =
+              failureLogs.try_emplace(volumeName, "GetDiskFreeSpaceExW(" + volumeName + ")").first->second;
+          return readDiskSpace(volumeName, data, failureLog);
+      })
 {}
 
 DiskCollector::DiskCollector(FixedDriveEnumerator enumerator, DiskSpaceReader reader)
