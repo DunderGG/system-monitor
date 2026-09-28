@@ -74,7 +74,7 @@ Rules:
 
 #include <QTimer>
 
-#include "monitoring/ring_buffer.h"
+#include "domain/ring_buffer.h"
 ```
 
 The file's own header comes first (before all other includes). This ensures the header is self-contained — if it's missing an include, the `.cpp` will fail to compile.
@@ -95,8 +95,8 @@ Small helper types (e.g., a struct used only by one class) may live in the same 
 All project code lives under the `sysmon` namespace, with sub-namespaces matching the module structure:
 
 ```cpp
-sysmon::domain       // Data types, process identity, metrics
-sysmon::monitoring   // Collectors, scheduler, ring buffers, snapshots
+sysmon::domain       // Data types, process identity, metrics, RingBuffer container
+sysmon::monitoring   // Collectors, scheduler, health evaluation, snapshots
 sysmon::platform     // Windows API wrappers
 sysmon::persistence  // Settings, future data storage
 sysmon::ui           // Qt widgets, view models, charts

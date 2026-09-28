@@ -101,9 +101,9 @@ Windows integration layer (platform/windows)
 | --- | --- |
 | `app` | Application startup, dependency wiring, settings, logging configuration, and lifetime management. |
 | `ui` | Qt Widgets, custom sparkline chart widgets, tables, and view models. Contains no direct Windows API calls. |
-| `monitoring` | Collector interfaces, scheduler, snapshot aggregation, sampling policy, and metric ring buffers. |
+| `monitoring` | Collector interfaces, scheduler, snapshot aggregation, sampling policy, and health evaluation. Metric history uses `domain::RingBuffer`. |
 | `platform/windows` | Narrow wrappers around Windows APIs and conversion into application domain types. |
-| `domain` | Typed metrics, process identity, health state, error types, and commands. Free of Qt and Windows dependencies. |
+| `domain` | Typed metrics, process identity, health state, error types, and commands, plus the `RingBuffer<T>` container for time-series history. Free of Qt and Windows dependencies. |
 | `persistence` | JSON settings initially; a repository interface and SQLite implementation when durable history is added. |
 | `tests` | Unit and integration tests. |
 
@@ -166,7 +166,7 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 1. The scheduler thread sleeps for the configured interval (default 1 second), then wakes and calls fast collectors for aggregate CPU, memory, disk, and network samples.
 2. Fast collectors obtain data from the Windows integration layer and return typed results, including any access or availability errors.
 3. The scheduler merges the latest results from slow collectors (process list, connectivity) with the fresh fast-collector samples into an immutable `SystemSnapshot` timestamped with `std::chrono::steady_clock`.
-4. Bounded ring buffers retain recent samples for sparkline charts.
+4. Bounded ring buffers (`domain::RingBuffer`) retain recent samples for sparkline charts. The dashboard keeps its own short presentation history for its mini sparklines; longer histories may live in `monitoring`.
 5. The scheduler emits the snapshot as a Qt signal. View models receive it via queued connection on the UI thread and update Qt item models.
 6. Optional persistence receives batched writes on a background worker; it must never block sampling or rendering.
 

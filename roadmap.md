@@ -244,5 +244,9 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Generate SVG output from `.puml` sources and embed the rendered diagrams in `docs/architecture.md`.
 - [ ] Add a CI step that runs PlantUML on every `.puml` file and fails the build if the generated SVGs are out of date.
 
+### Code organization
+
+- [ ] Create a header-only `src/common/` module (`sysmon_common`) for dependency-free utilities shared across modules, and move `RingBuffer<T>` there from `domain`. Trigger: do this when a second general-purpose utility (e.g. a thread-safe latest-value holder for collectors, or shared RAII helpers) needs to be shared across modules, so `domain` stays limited to data types. Update the module rules and architecture module table accordingly.
+
 ### DevEnv
 - [x] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.

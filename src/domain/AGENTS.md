@@ -1,6 +1,6 @@
 # Domain Module Rules
 
-This module defines the core data types, metrics, process identity, health states, and error types for the system monitor.
+This module defines the core data types, metrics, process identity, health states, and error types for the system monitor. It also holds `RingBuffer<T>`, a dependency-free container shared by `monitoring` and `ui` for time-series history.
 
 ## Dependency constraints
 
@@ -16,4 +16,4 @@ This module defines the core data types, metrics, process identity, health state
 - Use `enum class` for all enumerations.
 - Use designated initializers for struct construction where practical.
 - Mark accessors and query functions `[[nodiscard]]`.
-
+- `RingBuffer<T>` must stay fixed-capacity, caller-synchronized (not thread-safe), and never allocate on push after construction. Do not add other general-purpose utilities here; see the roadmap item on a `src/common/` module.

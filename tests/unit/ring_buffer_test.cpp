@@ -3,9 +3,9 @@
 
 #include <gtest/gtest.h>
 
-#include "monitoring/ring_buffer.h"
+#include "domain/ring_buffer.h"
 
-using sysmon::monitoring::RingBuffer;
+using sysmon::domain::RingBuffer;
 
 TEST(RingBuffer, DefaultState_IsEmptyAndCorrectCapacity)
 {

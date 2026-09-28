@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace sysmon::monitoring
+namespace sysmon::domain
 {
 
 /**
@@ -152,4 +152,4 @@ private:
     std::vector<T> m_storage;
 };
 
-} // namespace sysmon::monitoring
+} // namespace sysmon::domain

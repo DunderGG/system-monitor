@@ -5,7 +5,6 @@ add_library(sysmon_monitoring STATIC
     collector.h
     health_evaluator.cpp
     health_evaluator.h
-    ring_buffer.h
     sampling_scheduler.cpp
     sampling_scheduler.h
     synthetic_cpu_collector.cpp

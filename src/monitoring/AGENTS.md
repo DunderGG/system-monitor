@@ -1,6 +1,6 @@
 # Monitoring Module Rules
 
-This module contains the metric collection infrastructure: collector interfaces, the sampling scheduler, snapshot aggregation, and in-memory ring buffers.
+This module contains the metric collection infrastructure: collector interfaces, the sampling scheduler, snapshot aggregation, and health evaluation. Time-series history uses `domain::RingBuffer<T>`.
 
 ## Dependency constraints
 
@@ -16,6 +16,6 @@ This module contains the metric collection infrastructure: collector interfaces,
 - Event-driven collectors (OS callbacks, e.g. connectivity) return a cached value from `collect()` and run on the scheduler tick; see [architecture.md — Event-driven collectors](../../docs/architecture.md#event-driven-collectors-os-callback-threads).
 - Always protect shared state with `std::mutex` and `std::lock_guard` / `std::scoped_lock`. Keep critical sections minimal (copy under lock, process outside).
 - Aggregate collected data into immutable `SystemSnapshot` objects timestamped with `std::chrono::steady_clock`.
-- Bounded ring buffers (`RingBuffer<T>`) must be fixed-capacity, thread-safe or caller-synchronized, and never allocate dynamically on push after initialization.
+- History kept here uses `domain::RingBuffer<T>` (fixed-capacity, caller-synchronized). Protect it with a mutex if it is shared across threads.
 - Provide fake/synthetic collectors here (or alongside tests) to enable testing the entire pipeline without OS telemetry dependencies.
 
