@@ -165,10 +165,10 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Create a settings dialog (`QDialog`) for editing preferences.
 - [ ] Load settings at startup with defaults and validation. Save on change.
 - [ ] Add an application icon and window title.
-- [ ] Enable per-monitor DPI awareness in the application manifest.
+- [ ] Enable per-monitor DPI awareness in the application manifest (`src/app/system_monitor.manifest`, added for the UTF-8 code page in [code review F-19](docs/code_reviews/phase_2.md#f-19-log-file-path-is-converted-to-the-ansi-code-page)).
 - [ ] Implement sleep/resume detection (`WM_POWERBROADCAST`) — discard first sample and reset rate baselines on resume.
 - [ ] Profile CPU and memory usage of the monitor itself on a lower-end system. Optimize if needed.
-- [ ] Add an application manifest setting `requestedExecutionLevel` to `asInvoker`.
+- [ ] Set `requestedExecutionLevel` to `asInvoker` explicitly in `src/app/system_monitor.manifest`. (The MSVC linker already adds `asInvoker` by default; stating it in the manifest documents the requirement.)
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---

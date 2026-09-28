@@ -29,6 +29,9 @@ add_executable(system_monitor_tests
     integration/network_collector_test.cpp
     integration/connectivity_collector_test.cpp
     integration/uptime_collector_test.cpp
+    integration/app_logging_test.cpp
+    # Same manifest as the app, so tests run with the UTF-8 process code page.
+    ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
 )
 
 set_target_properties(system_monitor_tests PROPERTIES
@@ -38,6 +41,7 @@ set_target_properties(system_monitor_tests PROPERTIES
 target_link_libraries(system_monitor_tests
     PRIVATE
         GTest::gtest
+        sysmon_app_logging
         sysmon_domain
         sysmon_monitoring
         sysmon_platform_windows

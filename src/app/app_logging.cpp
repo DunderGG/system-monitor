@@ -47,7 +47,8 @@ void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::l
     auto fileSink =
         std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath.string(), kMaxLogFileSize, kMaxLogFiles);
 
-    auto logger = std::make_shared<spdlog::logger>("system_monitor", spdlog::sinks_init_list{consoleSink, fileSink});
+    auto logger = std::make_shared<spdlog::logger>(std::string{kApplicationLoggerName},
+                                                   spdlog::sinks_init_list{consoleSink, fileSink});
     logger->set_level(logLevel);
     logger->set_pattern("[%Y-%m-%d %T.%e] [%^%l%$] %v");
     logger->flush_on(spdlog::level::warn);

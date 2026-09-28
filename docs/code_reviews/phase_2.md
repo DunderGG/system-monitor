@@ -61,7 +61,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-16](#f-16-resourcecardsetstatus-restyles-every-tick) | `ResourceCard::setStatus` restyles every tick | Low | Resolved |
 | [F-17](#f-17-clang-format-is-not-enforced) | `.clang-format` is not enforced | Low | Resolved |
 | [F-18](#f-18-style-and-consistency-items) | Style and consistency items | Cosmetic | Resolved |
-| [F-19](#f-19-log-file-path-is-converted-to-the-ansi-code-page) | Log file path is converted to the ANSI code page (Phase 0 code) | Medium | Open |
+| [F-19](#f-19-log-file-path-is-converted-to-the-ansi-code-page) | Log file path is converted to the ANSI code page (Phase 0 code) | Medium | Resolved |
 
 **Open findings from earlier reviews:** [F-4](phase_1.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) (snapshot forwarding to other tabs), deferred to the Phase 3 Performance tab.
 
@@ -444,7 +444,11 @@ Either way, add a test that configures logging with a non-ASCII path in a tempor
 
 **Recommendation:** Fix soon. The issue is outside Phase 2, but it crashes the application at startup for affected users.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25) with the UTF-8 active code page. `src/app/system_monitor.manifest` sets `activeCodePage` to UTF-8, and it is embedded in both `system_monitor.exe` and `system_monitor_tests.exe` (verified in the built binaries, next to the linker's default `asInvoker`). The logging setup moved into the `sysmon_app_logging` library, and the logger name is now the constant `kApplicationLoggerName`. Two new integration tests:
+- `ProcessCodePage_IsUtf8` checks `GetACP() == CP_UTF8`.
+- The other configures logging in a directory whose name contains CJK and Cyrillic characters, and checks that the log file is written and can be removed.
+
+Writing that test uncovered a spdlog 1.17 behaviour: `set_default_logger()` keeps the replaced logger registered. As a result, `ScopedLogCapture` (from F-14) left a registered logger that wrote to its destroyed stream; it now drops the logger. The roadmap's Phase 6 manifest items now point to the new file, and the design decision on ASCII-only string literals now gives the correct reason (Qt-linked targets do compile with `/utf-8`; `domain` and `platform/windows` do not).
 
 ---
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Application manifest, merged by the MSVC linker into system_monitor.exe and
+  system_monitor_tests.exe.
+
+  activeCodePage UTF-8 (Windows 10 1903+) makes the process ANSI code page UTF-8,
+  so narrow strings passed to Windows and the CRT (for example
+  std::filesystem::path::string() and spdlog's log file name) are UTF-8 and can
+  represent any path. See docs/design_decisions.md, "UTF-8 active code page".
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>

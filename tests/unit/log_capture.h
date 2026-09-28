@@ -19,11 +19,13 @@ namespace sysmon::tests
  */
 class ScopedLogCapture
 {
+    static constexpr const char* kLoggerName = "test_log_capture";
+
 public:
     ScopedLogCapture() : m_previousLogger(spdlog::default_logger())
     {
         auto sink = std::make_shared<spdlog::sinks::ostream_sink_st>(m_output);
-        auto logger = std::make_shared<spdlog::logger>("test_log_capture", sink);
+        auto logger = std::make_shared<spdlog::logger>(kLoggerName, sink);
         // Explicit "\n": spdlog's default line ending on Windows is "\r\n".
         logger->set_formatter(
             std::make_unique<spdlog::pattern_formatter>("%l %v", spdlog::pattern_time_type::local, "\n"));
@@ -34,6 +36,9 @@ public:
     ~ScopedLogCapture()
     {
         spdlog::set_default_logger(m_previousLogger);
+        // set_default_logger() keeps the replaced logger registered. Drop it, or
+        // the registry would hold a logger that writes to the destroyed m_output.
+        spdlog::drop(kLoggerName);
     }
 
     ScopedLogCapture(const ScopedLogCapture&) = delete;
