@@ -6,6 +6,7 @@ This module contains all Windows API wrappers. It is the only module that includ
 
 - **No Qt headers.** This module must not depend on Qt. It returns domain types, not Qt types.
 - **This is the only source module allowed to include Windows headers** (`<Windows.h>`, `<winternl.h>`, `<iphlpapi.h>`, `<pdh.h>`, etc.). Among tests, only `tests/platform/` and `tests/integration/` may include them; `tests/unit/` may not.
+- **May depend on `domain/` and on the collector interfaces in `monitoring/collector.h`** (CMake target `sysmon_collector_interfaces`). Do not include any other `monitoring` header: the scheduler and the rest of `monitoring` depend on Qt.
 
 ## API usage rules
 

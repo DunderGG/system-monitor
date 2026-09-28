@@ -102,7 +102,7 @@ Windows integration layer (platform/windows)
 | `app` | Application startup, dependency wiring, settings, logging configuration, and lifetime management. |
 | `ui` | Qt Widgets, custom sparkline chart widgets, tables, and view models. Contains no direct Windows API calls. |
 | `monitoring` | Collector interfaces, scheduler, snapshot aggregation, sampling policy, and health evaluation. Metric history uses `domain::RingBuffer`. |
-| `platform/windows` | Narrow wrappers around Windows APIs and conversion into application domain types. |
+| `platform/windows` | Narrow wrappers around Windows APIs and conversion into application domain types. Its collectors implement the interfaces in `monitoring/collector.h` (CMake target `sysmon_collector_interfaces`), its only dependency on `monitoring`. |
 | `domain` | Typed metrics, process identity, health state, error types, and commands, plus the `RingBuffer<T>` container for time-series history. Free of Qt and Windows dependencies. |
 | `persistence` | JSON settings initially; a repository interface and SQLite implementation when durable history is added. |
 | `tests` | Unit and integration tests. |

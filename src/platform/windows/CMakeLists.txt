@@ -25,8 +25,11 @@ target_include_directories(sysmon_platform_windows
         "${CMAKE_CURRENT_SOURCE_DIR}/../.."
 )
 
+# The collectors implement the interfaces in monitoring/collector.h. That header
+# is the only part of monitoring this module may use.
 target_link_libraries(sysmon_platform_windows
     PUBLIC
+        sysmon_collector_interfaces
         sysmon_domain
     PRIVATE
         spdlog::spdlog

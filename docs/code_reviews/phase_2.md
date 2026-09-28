@@ -55,7 +55,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-10](#f-10-getadaptersaddresses-runs-on-every-scheduler-tick) | `GetAdaptersAddresses` runs on every scheduler tick | Medium | Resolved |
 | [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Resolved |
 | [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Resolved |
-| [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Open |
+| [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Resolved |
 | [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Open |
 | [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Open |
 | [F-16](#f-16-resourcecardsetstatus-restyles-every-tick) | `ResourceCard::setStatus` restyles every tick | Low | Open |
@@ -255,7 +255,7 @@ Add a line to the architecture's module table and to `src/platform/windows/AGENT
 
 **Recommendation:** Fix when convenient. It is a small change and makes the dependency explicit before more collectors arrive in Phase 4.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). `collector.h` moved into the new `INTERFACE` target `sysmon_collector_interfaces`, which `sysmon_monitoring` and `sysmon_platform_windows` both link publicly. Documented in the architecture's module table, in `src/platform/windows/AGENTS.md`, and in a design decision. `system_monitor_platform_tests` links `sysmon_platform_windows` without Qt, so the build now checks that the interfaces stay Qt-free.
 
 ---
 
