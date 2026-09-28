@@ -241,9 +241,11 @@ Open a GitHub issue describing the feature, its use case, and how it fits into t
 
 4. **Keep commits focused**. One logical change per commit. Write clear commit messages.
 
-5. **Ensure CI passes**. The GitHub Actions workflow builds and runs tests automatically on every push and pull request.
+5. **Format your changes** with `.\scripts\build.ps1 -Format`. CI checks formatting against `.clang-format` and fails on differences.
 
-6. **Open a pull request** against `main` with a clear description of what the change does and why.
+6. **Ensure CI passes**. The GitHub Actions workflow checks formatting, builds, and runs tests automatically on every push and pull request.
+
+7. **Open a pull request** against `main` with a clear description of what the change does and why.
 
 ### Code style
 

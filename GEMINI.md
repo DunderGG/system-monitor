@@ -17,6 +17,8 @@ The rules below are self-contained. For deeper rationale or design context, cons
 - Build: `.\scripts\build.ps1 -NoRun`
 - Build and launch: `.\scripts\build.ps1`
 - Build and test: `.\scripts\build.ps1 -NoRun -Test`
+- Format C++ files: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code)
+- Check formatting only: `.\scripts\build.ps1 -CheckFormat`
 
 Do **not** invoke `cmake` directly. `build.ps1` initializes the x64 MSVC developer environment automatically, which is required for the build to succeed regardless of which terminal the agent runs in. Calling the raw `cmake` commands without this initialization will fail with a broken compiler or linker error.
 
@@ -34,9 +36,9 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 - **C++20.** Use `std::jthread`, `std::stop_token`, `std::format`, `std::optional`, concepts, designated initializers.
 - **No exceptions.** Return `std::optional` or result structs for expected errors. Use assertions for programming bugs.
 - **Naming:** `PascalCase` for types, `camelCase` for functions/variables, `m_` prefix for members, `k` prefix for constants, `snake_case` for file names. Getters omit `get` prefix. Namespaces are lowercase under `sysmon::`.
-- **Formatting:** 4-space indentation, Allman braces for classes/functions, K&R braces for control flow. Always use braces.
+- **Formatting:** 4-space indentation, Allman braces for classes/functions, K&R braces for control flow. Always use braces. `Type* name` and `Type& name` (pointer and reference bind to the type). `.clang-format` is the source of truth; run `.\scripts\build.ps1 -Format`.
 - **Memory:** RAII everywhere. `std::unique_ptr` for single ownership. Qt parent-child for widgets. Never mix smart pointers with Qt parent ownership. Wrap all Windows handles in RAII types.
-- **Includes:** In `.h` files: standard library, then third-party, then project headers — each group separated by a blank line. In `.cpp` files: own header first (to verify self-containment), then the same three groups. Use `#pragma once`. Never use `using namespace` in headers. `using namespace std;` is banned everywhere; a file's own project namespace (e.g. `using namespace sysmon::monitoring;`) is allowed only in `.cpp` files.
+- **Includes:** In `.h` files: standard library, then Windows SDK (`platform/windows` only), then third-party, then project headers — each group separated by a blank line. In `.cpp` files: own header first (to verify self-containment), then the same groups. Windows SDK headers keep the order the SDK requires (`winsock2.h`, `ws2tcpip.h`, `windows.h`, then others); `.clang-format` enforces it. Use `#pragma once`. Never use `using namespace` in headers. `using namespace std;` is banned everywhere; a file's own project namespace (e.g. `using namespace sysmon::monitoring;`) is allowed only in `.cpp` files.
 
 ## Threading rules
 

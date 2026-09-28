@@ -59,7 +59,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Resolved |
 | [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Resolved |
 | [F-16](#f-16-resourcecardsetstatus-restyles-every-tick) | `ResourceCard::setStatus` restyles every tick | Low | Resolved |
-| [F-17](#f-17-clang-format-is-not-enforced) | `.clang-format` is not enforced | Low | Open |
+| [F-17](#f-17-clang-format-is-not-enforced) | `.clang-format` is not enforced | Low | Resolved |
 | [F-18](#f-18-style-and-consistency-items) | Style and consistency items | Cosmetic | Open |
 | [F-19](#f-19-log-file-path-is-converted-to-the-ansi-code-page) | Log file path is converted to the ANSI code page (Phase 0 code) | Medium | Open |
 
@@ -370,7 +370,11 @@ F-7 added `.clang-format`, but nothing runs it. `clang-format` is not installed 
 
 **Recommendation:** Fix when convenient, ideally before Phase 3, which adds a lot of UI code.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25), in two commits.
+1. **Configuration and reformat.** `.clang-format` now matches the house style: indented `case` labels, a Windows SDK include block whose `SortPriority` keeps the order the SDK requires, and a case-sensitive standard-library regex. `PointerAlignment: Left` (`Type& name`) follows the C++ Core Guidelines (NL.18) and the guideline examples, so the code changed rather than the examples. All files were then reformatted in one formatting-only commit.
+2. **Enforcement.** `build.ps1` gained `-Format` and `-CheckFormat`. It finds clang-format through `CLANG_FORMAT`, `PATH`, any Visual Studio instance's LLVM tools, or `%ProgramFiles%\LLVM`, and a major version other than 22 is an error in CI and a warning locally. A new CI job pins clang-format 22.1.3 from PyPI. `bootstrap.ps1` reports clang-format, and `-InstallMissing` installs LLVM through WinGet. The format commands and rules are in AGENTS.md, GEMINI.md, copilot-instructions.md, coding_guidelines.md (new "Automatic formatting" and "Pointers and references" sections, plus the SDK include rule), build_system.md, CONTRIBUTING.md, and a design decision.
+
+Clang-format came from Visual Studio's LLVM tools (22.1.3). Nothing had to be installed.
 
 ---
 

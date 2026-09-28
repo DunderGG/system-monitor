@@ -260,6 +260,55 @@ if ($null -eq $vsInstallPath)
 
 Write-Host "Found MSVC Build Tools at $vsInstallPath."
 
+# clang-format is needed only for .\scripts\build.ps1 -Format / -CheckFormat, so
+# a missing one is a warning. build.ps1 looks for it in the same places.
+function Find-ClangFormat
+{
+    $command = Get-Command "clang-format" -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -ne $command)
+    {
+        return $command.Source
+    }
+
+    $vswherePath = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path -LiteralPath $vswherePath)
+    {
+        $found = & $vswherePath -products * -sort -find "VC\Tools\Llvm\x64\bin\clang-format.exe" |
+            Select-Object -First 1
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($found))
+        {
+            return $found.Trim()
+        }
+    }
+
+    $standalonePath = Join-Path $env:ProgramFiles "LLVM\bin\clang-format.exe"
+    if (Test-Path -LiteralPath $standalonePath)
+    {
+        return $standalonePath
+    }
+
+    return $null
+}
+
+$clangFormatPath = Find-ClangFormat
+if ($null -eq $clangFormatPath -and $InstallMissing -and (Test-CommandAvailable "winget"))
+{
+    Write-Host "Installing LLVM for clang-format..."
+    Install-WingetPackage -Id "LLVM.LLVM"
+    $clangFormatPath = Find-ClangFormat
+}
+
+if ($null -eq $clangFormatPath)
+{
+    Write-Warning ("clang-format was not found; .\scripts\build.ps1 -Format and -CheckFormat will not work. " +
+        "Rerun with -InstallMissing, or add 'C++ Clang tools for Windows' in the Visual Studio Installer.")
+}
+else
+{
+    Write-Host "Found clang-format at $clangFormatPath."
+}
+
 # Locate an existing vcpkg installation or choose a non-conflicting default
 # checkout directory outside the repository.
 if ([string]::IsNullOrWhiteSpace($VcpkgRoot))

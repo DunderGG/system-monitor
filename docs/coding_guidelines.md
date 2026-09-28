@@ -62,6 +62,8 @@ namespace sysmon::monitoring {
 Rules:
 - Use `#pragma once` instead of include guards. All target compilers (MSVC, and Clang/GCC if used via CI) support it.
 - Group includes in the order shown above: standard library, third-party, project. Separate groups with a blank line. Alphabetize within each group.
+- In `platform/windows`, Windows SDK headers form their own group between the standard library and third-party groups. They are not alphabetized: they keep the order the SDK requires (`winsock2.h`, `ws2tcpip.h`, `windows.h`, then the others). For example, `ws2tcpip.h` must come before `iphlpapi.h` or `CancelMibChangeNotify2` is not declared. `.clang-format` encodes this order.
+- `clang-format` applies all of these rules (see [Automatic formatting](#automatic-formatting)).
 - Keep headers self-contained: every header must compile on its own without relying on include order.
 - Forward-declare types when a full definition is not needed. Prefer forward declarations in headers to reduce compile times.
 
@@ -323,6 +325,21 @@ std::optional<std::wstring> queryProcessImagePath(DWORD pid) {
 
 ## Formatting and whitespace
 
+### Automatic formatting
+
+`.clang-format` in the repository root is the source of truth for everything in this section. Format before committing:
+
+```powershell
+.\scripts\build.ps1 -Format        # rewrite files in place
+.\scripts\build.ps1 -CheckFormat   # check only; CI runs this and fails on differences
+```
+
+CI uses clang-format 22 (pinned in `.github/workflows/ci.yml`). Visual Studio's "C++ Clang tools for Windows" component includes a matching version, and `bootstrap.ps1` reports whether one is available. A different major version can format code differently, so `build.ps1` warns locally and fails in CI when the version differs.
+
+### Pointers and references
+
+The `*` and `&` bind to the type, not the name: `QWidget* parent`, `const SystemSnapshot& snapshot`, `auto* label`. This follows the C++ Core Guidelines ([NL.18](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#nl18-use-c-style-declarator-layout)), which emphasize the type. Declare one pointer per declaration.
+
 ### Indentation and braces
 
 - Use **4 spaces** for indentation. No tabs.
@@ -372,6 +389,7 @@ for (const auto& adapter : adapters) {
 ```
 
 - Always use braces for `if`, `for`, `while`, and `do-while`, even for single-line bodies. This prevents bugs from adding lines to unbraced blocks.
+- Indent `case` labels one level inside `switch`, and their statements one level further.
 
 ### Line length
 

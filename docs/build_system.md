@@ -136,3 +136,12 @@ the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
 by this repository, with GitHub Actions-backed binary caching. The checked-in
 presets, manifest, and baseline therefore keep developer and CI dependency
 resolution aligned.
+
+A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
+`.\scripts\build.ps1 -CheckFormat`, which fails if any file under `src/` or
+`tests/` differs from `.clang-format`. Run `.\scripts\build.ps1 -Format` locally
+before pushing. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
+the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
+change between clang-format major versions, so the pinned major version is also
+recorded in `build.ps1`: locally a different version is a warning, and in CI it
+is an error.
