@@ -19,16 +19,16 @@ namespace sysmon::platform
 namespace
 {
 
-std::vector<std::string> enumerateFixedDrives(RepeatedFailureLog &failureLog)
+std::optional<std::vector<std::string>> enumerateFixedDrives(RepeatedFailureLog &failureLog)
 {
-    std::vector<std::string> fixedDrives;
     const DWORD driveMask = ::GetLogicalDrives();
     if (driveMask == 0) {
         failureLog.failure(spdlog::level::err, "GetLogicalDrives failed with error code: {}", ::GetLastError());
-        return fixedDrives;
+        return std::nullopt;
     }
     failureLog.success();
 
+    std::vector<std::string> fixedDrives;
     for (int i = 0; i < 26; ++i) {
         if (driveMask & (1 << i)) {
             const wchar_t rootW[] = { static_cast<wchar_t>(L'A' + i), L':', L'\\', L'\0' };
@@ -108,19 +108,25 @@ DiskCollector::DiskCollector(FixedDriveEnumerator enumerator, DiskSpaceReader re
       m_reader(std::move(reader))
 {}
 
-std::vector<domain::DiskSample> DiskCollector::collect()
+std::optional<std::vector<domain::DiskSample>> DiskCollector::collect()
 {
-    std::vector<domain::DiskSample> samples;
     if (!m_enumerator || !m_reader) {
-        return samples;
+        return std::nullopt;
     }
 
     const auto drives = m_enumerator();
-    samples.reserve(drives.size());
+    if (!drives) {
+        return std::nullopt;
+    }
 
-    for (const auto &drive : drives) {
+    std::vector<domain::DiskSample> samples;
+    samples.reserve(drives->size());
+    bool hasFailedRead = false;
+
+    for (const auto &drive : *drives) {
         DiskSpaceData data{};
         if (!m_reader(drive, data)) {
+            hasFailedRead = true;
             continue;
         }
         if (auto sample = calculateDiskSample(drive, data.totalBytes, data.freeBytes)) {
@@ -128,6 +134,10 @@ std::vector<domain::DiskSample> DiskCollector::collect()
         }
     }
 
+    // Fixed drives exist but none could be read: that is missing data, not "no volumes".
+    if (samples.empty() && hasFailedRead) {
+        return std::nullopt;
+    }
     return samples;
 }
 

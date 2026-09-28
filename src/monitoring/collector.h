@@ -42,14 +42,16 @@ concept Collector = requires(C collector) {
     { collector.collect() } -> std::convertible_to<T>;
 };
 
-// CPU and memory collectors return std::nullopt when no valid sample is available
-// (query failure, or no baseline yet for rate-based metrics).
+// Collectors return std::nullopt when no valid sample is available
+// (query failure, or no baseline yet for rate-based metrics). For collections,
+// std::nullopt means the query failed and an empty vector means it succeeded
+// and found nothing.
 using ICpuCollector = ICollector<std::optional<domain::CpuSample>>;
 using IMemoryCollector = ICollector<std::optional<domain::MemorySample>>;
-using IDiskCollector = ICollector<std::vector<domain::DiskSample>>;
-using INetworkCollector = ICollector<std::vector<domain::NetworkSample>>;
+using IDiskCollector = ICollector<std::optional<std::vector<domain::DiskSample>>>;
+using INetworkCollector = ICollector<std::optional<std::vector<domain::NetworkSample>>>;
 using IConnectivityCollector = ICollector<domain::ConnectivityStatus>;
 using IUptimeCollector = ICollector<std::chrono::milliseconds>;
-using IProcessCollector = ICollector<std::vector<domain::ProcessInfo>>;
+using IProcessCollector = ICollector<std::optional<std::vector<domain::ProcessInfo>>>;
 
 } // namespace sysmon::monitoring

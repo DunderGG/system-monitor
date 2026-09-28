@@ -24,7 +24,7 @@ SystemSnapshot healthySnapshot()
     SystemSnapshot snapshot;
     snapshot.cpu = CpuSample{.totalUsagePercent = 20.0f, .coreCount = 4};
     snapshot.memory = MemorySample{.totalBytes = 16'000'000'000ULL, .usagePercent = 40.0f};
-    snapshot.disks = {DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .usagePercent = 50.0f}};
+    snapshot.disks = std::vector<DiskSample>{DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .usagePercent = 50.0f}};
     snapshot.connectivity.level = ConnectivityLevel::InternetAccess;
     return snapshot;
 }
@@ -135,7 +135,7 @@ TEST(HealthEvaluator, EvaluateHealth_CpuFullLoadBurst_WarningNotCritical)
 TEST(HealthEvaluator, EvaluateHealth_DiskUsesWorstVolume)
 {
     auto snapshot = healthySnapshot();
-    snapshot.disks = {
+    snapshot.disks = std::vector<DiskSample>{
         DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .usagePercent = 50.0f},
         DiskSample{.volumeName = "D:\\", .totalBytes = 1000, .usagePercent = 99.0f},
         DiskSample{.volumeName = "E:\\", .totalBytes = 1000, .usagePercent = 92.0f},
@@ -150,11 +150,22 @@ TEST(HealthEvaluator, EvaluateHealth_DiskUsesWorstVolume)
 TEST(HealthEvaluator, EvaluateHealth_NoDiskVolumes_DiskUnknown)
 {
     auto snapshot = healthySnapshot();
-    snapshot.disks.clear();
+    snapshot.disks = std::vector<DiskSample>{};
 
     const auto health = evaluateHealth(snapshot, HealthThresholds{});
 
     EXPECT_EQ(health.disk, HealthLevel::Unknown);
+}
+
+TEST(HealthEvaluator, EvaluateHealth_NoDiskData_DiskUnknown)
+{
+    auto snapshot = healthySnapshot();
+    snapshot.disks.reset();
+
+    const auto health = evaluateHealth(snapshot, HealthThresholds{});
+
+    EXPECT_EQ(health.disk, HealthLevel::Unknown);
+    EXPECT_EQ(health.overall, HealthLevel::Unknown);
 }
 
 TEST(HealthEvaluator, EvaluateHealth_OneComponentUnknownRestHealthy_OverallUnknown)

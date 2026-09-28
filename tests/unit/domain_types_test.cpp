@@ -275,12 +275,12 @@ TEST(ProcessInfo, SamePidDifferentCreationTime_DifferentIdentity)
 // SystemSnapshot
 // ---------------------------------------------------------------------------
 
-TEST(SystemSnapshot, DefaultConstruction_EmptyCollectionsAndNoOptionalData)
+TEST(SystemSnapshot, DefaultConstruction_NoOptionalData)
 {
     SystemSnapshot snap;
-    EXPECT_TRUE(snap.disks.empty());
-    EXPECT_TRUE(snap.networks.empty());
-    EXPECT_TRUE(snap.processes.empty());
+    EXPECT_FALSE(snap.disks.has_value());
+    EXPECT_FALSE(snap.networks.has_value());
+    EXPECT_FALSE(snap.processes.has_value());
     EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::Unknown);
     EXPECT_FALSE(snap.cpu.has_value());
     EXPECT_FALSE(snap.memory.has_value());
@@ -297,10 +297,11 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
         .timestamp = ts,
         .cpu = CpuSample{.totalUsagePercent = 10.0f, .coreCount = 4},
         .memory = MemorySample{.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
-        .disks = {DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
-        .networks = {NetworkSample{.adapterName = "Wi-Fi", .operationalStatus = OperationalStatus::Up}},
+        .disks = std::vector<DiskSample>{DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
+        .networks = std::vector<NetworkSample>{
+            NetworkSample{.adapterName = "Wi-Fi", .operationalStatus = OperationalStatus::Up}},
         .connectivity = {.level = ConnectivityLevel::InternetAccess},
-        .processes = {ProcessInfo{.pid = 4, .imageName = "System"}},
+        .processes = std::vector<ProcessInfo>{ProcessInfo{.pid = 4, .imageName = "System"}},
     };
 
     EXPECT_EQ(snap.timestamp, ts);
@@ -309,11 +310,14 @@ TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
     EXPECT_EQ(snap.cpu->coreCount, 4);
     ASSERT_TRUE(snap.memory.has_value());
     EXPECT_EQ(snap.memory->totalBytes, 8'000'000'000ULL);
-    ASSERT_EQ(snap.disks.size(), 1u);
-    EXPECT_EQ(snap.disks[0].volumeName, "C:\\");
-    ASSERT_EQ(snap.networks.size(), 1u);
-    EXPECT_EQ(snap.networks[0].adapterName, "Wi-Fi");
+    ASSERT_TRUE(snap.disks.has_value());
+    ASSERT_EQ(snap.disks->size(), 1u);
+    EXPECT_EQ((*snap.disks)[0].volumeName, "C:\\");
+    ASSERT_TRUE(snap.networks.has_value());
+    ASSERT_EQ(snap.networks->size(), 1u);
+    EXPECT_EQ((*snap.networks)[0].adapterName, "Wi-Fi");
     EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::InternetAccess);
-    ASSERT_EQ(snap.processes.size(), 1u);
-    EXPECT_EQ(snap.processes[0].pid, 4u);
+    ASSERT_TRUE(snap.processes.has_value());
+    ASSERT_EQ(snap.processes->size(), 1u);
+    EXPECT_EQ((*snap.processes)[0].pid, 4u);
 }

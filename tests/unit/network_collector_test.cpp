@@ -346,13 +346,14 @@ TEST(NetworkCollector, Collect_InjectedReader_InvokedAndReturnsSamples)
     NetworkCollector collector(mockReader, [now]() { return now; });
     const auto samples = collector.collect();
 
-    ASSERT_EQ(samples.size(), 1u);
-    EXPECT_EQ(samples[0].adapterName, "Wi-Fi");
-    EXPECT_EQ(samples[0].inBytesTotal, 1234u);
-    EXPECT_EQ(samples[0].outBytesTotal, 5678u);
+    ASSERT_TRUE(samples.has_value());
+    ASSERT_EQ(samples->size(), 1u);
+    EXPECT_EQ((*samples)[0].adapterName, "Wi-Fi");
+    EXPECT_EQ((*samples)[0].inBytesTotal, 1234u);
+    EXPECT_EQ((*samples)[0].outBytesTotal, 5678u);
 }
 
-TEST(NetworkCollector, Collect_ReaderReturnsNullopt_ReturnsEmptyVector)
+TEST(NetworkCollector, Collect_ReaderReturnsNullopt_ReturnsNullopt)
 {
     auto failingReader = []() -> std::optional<std::vector<RawNetworkAdapter>> {
         return std::nullopt;
@@ -361,6 +362,6 @@ TEST(NetworkCollector, Collect_ReaderReturnsNullopt_ReturnsEmptyVector)
     NetworkCollector collector(failingReader, []() { return std::chrono::steady_clock::now(); });
     const auto samples = collector.collect();
 
-    EXPECT_TRUE(samples.empty());
+    EXPECT_FALSE(samples.has_value());
 }
 

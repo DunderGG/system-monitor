@@ -36,9 +36,9 @@ TEST(SamplingScheduler, SampleOnce_AssemblesRegisteredCollectors)
     ASSERT_EQ(snapshot.cpu->coreUsagePercents.size(), 6u);
     ASSERT_TRUE(snapshot.memory.has_value());
     EXPECT_GT(snapshot.memory->totalBytes, 0ULL);
-    EXPECT_TRUE(snapshot.disks.empty());
-    EXPECT_TRUE(snapshot.networks.empty());
-    EXPECT_TRUE(snapshot.processes.empty());
+    EXPECT_FALSE(snapshot.disks.has_value());
+    EXPECT_FALSE(snapshot.networks.has_value());
+    EXPECT_FALSE(snapshot.processes.has_value());
 }
 
 TEST(SamplingScheduler, SampleOnce_MissingCollectors_ProduceNoData)
@@ -49,9 +49,9 @@ TEST(SamplingScheduler, SampleOnce_MissingCollectors_ProduceNoData)
 
     EXPECT_FALSE(snapshot.cpu.has_value());
     EXPECT_FALSE(snapshot.memory.has_value());
-    EXPECT_TRUE(snapshot.disks.empty());
-    EXPECT_TRUE(snapshot.networks.empty());
-    EXPECT_TRUE(snapshot.processes.empty());
+    EXPECT_FALSE(snapshot.disks.has_value());
+    EXPECT_FALSE(snapshot.networks.has_value());
+    EXPECT_FALSE(snapshot.processes.has_value());
 }
 
 TEST(SamplingScheduler, StartAndStop_TransitionsRunningStateCleanly)

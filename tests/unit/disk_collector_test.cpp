@@ -73,12 +73,13 @@ TEST(DiskCollector, Collect_MultipleFixedDrives_ReturnsAllSamples)
     DiskCollector collector(enumerator, reader);
     const auto samples = collector.collect();
 
-    ASSERT_EQ(samples.size(), 2u);
-    EXPECT_EQ(samples[0].volumeName, "C:\\");
-    EXPECT_FLOAT_EQ(samples[0].usagePercent, 50.0f);
+    ASSERT_TRUE(samples.has_value());
+    ASSERT_EQ(samples->size(), 2u);
+    EXPECT_EQ((*samples)[0].volumeName, "C:\\");
+    EXPECT_FLOAT_EQ((*samples)[0].usagePercent, 50.0f);
 
-    EXPECT_EQ(samples[1].volumeName, "D:\\");
-    EXPECT_FLOAT_EQ(samples[1].usagePercent, 90.0f);
+    EXPECT_EQ((*samples)[1].volumeName, "D:\\");
+    EXPECT_FLOAT_EQ((*samples)[1].usagePercent, 90.0f);
 }
 
 TEST(DiskCollector, Collect_DriveReadFails_SkipsFailedVolume)
@@ -99,9 +100,10 @@ TEST(DiskCollector, Collect_DriveReadFails_SkipsFailedVolume)
     DiskCollector collector(enumerator, reader);
     const auto samples = collector.collect();
 
-    ASSERT_EQ(samples.size(), 1u);
-    EXPECT_EQ(samples[0].volumeName, "C:\\");
-    EXPECT_FLOAT_EQ(samples[0].usagePercent, 50.0f);
+    ASSERT_TRUE(samples.has_value());
+    ASSERT_EQ(samples->size(), 1u);
+    EXPECT_EQ((*samples)[0].volumeName, "C:\\");
+    EXPECT_FLOAT_EQ((*samples)[0].usagePercent, 50.0f);
 }
 
 TEST(DiskCollector, Collect_ZeroTotalVolume_SkipsVolume)
@@ -124,8 +126,9 @@ TEST(DiskCollector, Collect_ZeroTotalVolume_SkipsVolume)
     DiskCollector collector(enumerator, reader);
     const auto samples = collector.collect();
 
-    ASSERT_EQ(samples.size(), 1u);
-    EXPECT_EQ(samples[0].volumeName, "C:\\");
+    ASSERT_TRUE(samples.has_value());
+    ASSERT_EQ(samples->size(), 1u);
+    EXPECT_EQ((*samples)[0].volumeName, "C:\\");
 }
 
 TEST(DiskCollector, Collect_EmptyDrives_ReturnsEmpty)
@@ -140,6 +143,35 @@ TEST(DiskCollector, Collect_EmptyDrives_ReturnsEmpty)
     DiskCollector collector(enumerator, reader);
     const auto samples = collector.collect();
 
-    EXPECT_TRUE(samples.empty());
+    ASSERT_TRUE(samples.has_value());
+    EXPECT_TRUE(samples->empty());
+}
+
+TEST(DiskCollector, Collect_EnumerationFails_ReturnsNullopt)
+{
+    auto enumerator = []() -> std::optional<std::vector<std::string>> {
+        return std::nullopt;
+    };
+    auto reader = [](const std::string &, DiskSpaceData &) {
+        return true;
+    };
+
+    DiskCollector collector(enumerator, reader);
+
+    EXPECT_FALSE(collector.collect().has_value());
+}
+
+TEST(DiskCollector, Collect_AllDriveReadsFail_ReturnsNullopt)
+{
+    auto enumerator = []() -> std::vector<std::string> {
+        return {"C:\\", "D:\\"};
+    };
+    auto reader = [](const std::string &, DiskSpaceData &) {
+        return false;
+    };
+
+    DiskCollector collector(enumerator, reader);
+
+    EXPECT_FALSE(collector.collect().has_value());
 }
 

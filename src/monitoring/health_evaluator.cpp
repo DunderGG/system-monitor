@@ -28,14 +28,15 @@ int severity(domain::HealthLevel level)
     }
 }
 
-domain::HealthLevel worstDiskLevel(const std::vector<domain::DiskSample> &disks, const UsageThresholds &thresholds)
+domain::HealthLevel worstDiskLevel(const std::optional<std::vector<domain::DiskSample>> &disks,
+                                   const UsageThresholds &thresholds)
 {
-    if (disks.empty()) {
+    if (!disks || disks->empty()) {
         return domain::HealthLevel::Unknown;
     }
 
     auto worst = domain::HealthLevel::Healthy;
-    for (const auto &disk : disks) {
+    for (const auto &disk : *disks) {
         const auto level = evaluateUsage(disk.usagePercent, thresholds);
         if (severity(level) > severity(worst)) {
             worst = level;

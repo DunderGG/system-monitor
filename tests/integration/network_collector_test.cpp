@@ -20,9 +20,10 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
 {
     NetworkCollector collector;
     const auto samples = collector.collect();
+    ASSERT_TRUE(samples.has_value());
 
     // If host has network adapters, verify all invariants
-    for (const auto &sample : samples) {
+    for (const auto &sample : *samples) {
         // Must have non-empty name
         EXPECT_FALSE(sample.adapterName.empty());
 
@@ -45,13 +46,17 @@ TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTim
     NetworkCollector collector;
 
     // First sample establishes initial baseline
-    const auto firstSamples = collector.collect();
+    const auto firstResult = collector.collect();
 
     // Sleep briefly to let monotonic clock advance
     std::this_thread::sleep_for(std::chrono::milliseconds{80});
 
     // Second sample computes throughput deltas
-    const auto secondSamples = collector.collect();
+    const auto secondResult = collector.collect();
+    ASSERT_TRUE(firstResult.has_value());
+    ASSERT_TRUE(secondResult.has_value());
+    const auto &firstSamples = *firstResult;
+    const auto &secondSamples = *secondResult;
 
     EXPECT_EQ(firstSamples.size(), secondSamples.size());
 
@@ -73,8 +78,12 @@ TEST(NetworkCollectorIntegration, ConsecutiveSamples_KeepAdapterDetailsBetweenRe
     NetworkCollector collector;
 
     // The first collect() reads adapter details; the second is served from the cache.
-    const auto firstSamples = collector.collect();
-    const auto secondSamples = collector.collect();
+    const auto firstResult = collector.collect();
+    const auto secondResult = collector.collect();
+    ASSERT_TRUE(firstResult.has_value());
+    ASSERT_TRUE(secondResult.has_value());
+    const auto &firstSamples = *firstResult;
+    const auto &secondSamples = *secondResult;
 
     for (const auto &sample : secondSamples) {
         const auto first = std::ranges::find_if(firstSamples, [&sample](const NetworkSample &candidate) {
@@ -122,7 +131,8 @@ TEST(NetworkCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealNetwor
     ASSERT_GE(receivedSnapshots.size(), 2u);
 
     for (const auto &snapshot : receivedSnapshots) {
-        for (const auto &adapter : snapshot.networks) {
+        ASSERT_TRUE(snapshot.networks.has_value());
+        for (const auto &adapter : *snapshot.networks) {
             EXPECT_FALSE(adapter.adapterName.empty());
             EXPECT_GE(adapter.inBytesTotal, 0u);
             EXPECT_GE(adapter.outBytesTotal, 0u);

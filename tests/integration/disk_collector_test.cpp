@@ -24,9 +24,10 @@ TEST(DiskCollectorIntegration, RealHostSampling_DetectsFixedDrivesWithSensibleMe
     const auto samples = collector.collect();
 
     // Any working Windows installation has at least one fixed drive (typically C:\)
-    EXPECT_FALSE(samples.empty());
+    ASSERT_TRUE(samples.has_value());
+    EXPECT_FALSE(samples->empty());
 
-    for (const auto &disk : samples) {
+    for (const auto &disk : *samples) {
         EXPECT_FALSE(disk.volumeName.empty());
         EXPECT_GT(disk.totalBytes, 0u);
         EXPECT_LE(disk.freeBytes, disk.totalBytes);
@@ -67,8 +68,9 @@ TEST(DiskCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealDisks)
     EXPECT_GE(snapshotCount.load(), 1);
     {
         std::lock_guard lock(snapshotMutex);
-        EXPECT_FALSE(lastSnapshot.disks.empty());
-        for (const auto &disk : lastSnapshot.disks) {
+        ASSERT_TRUE(lastSnapshot.disks.has_value());
+        EXPECT_FALSE(lastSnapshot.disks->empty());
+        for (const auto &disk : *lastSnapshot.disks) {
             EXPECT_FALSE(disk.volumeName.empty());
             EXPECT_GT(disk.totalBytes, 0u);
             EXPECT_GE(disk.usagePercent, 0.0f);

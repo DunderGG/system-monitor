@@ -28,7 +28,9 @@ namespace sysmon::domain
 // and discards the previous one. No shared mutable state persists between ticks.
 //
 // Optional fields are std::nullopt when no collector is registered or no valid
-// sample was available this tick (never a zero-filled placeholder). uptime is
+// sample was available this tick (never a zero-filled placeholder). For the
+// disks, networks, and processes collections, std::nullopt means no data, while
+// an empty vector means the query succeeded and found nothing. uptime is
 // the time since the system booted, including time spent in sleep or hibernation.
 // health is evaluated by the scheduler from the other fields of this snapshot.
 struct SystemSnapshot
@@ -36,12 +38,12 @@ struct SystemSnapshot
     std::chrono::steady_clock::time_point timestamp;
     std::optional<CpuSample> cpu;
     std::optional<MemorySample> memory;
-    std::vector<DiskSample> disks;
-    std::vector<NetworkSample> networks;
+    std::optional<std::vector<DiskSample>> disks;
+    std::optional<std::vector<NetworkSample>> networks;
     ConnectivityStatus connectivity;
     std::optional<std::chrono::milliseconds> uptime;
     SystemHealth health;
-    std::vector<ProcessInfo> processes;
+    std::optional<std::vector<ProcessInfo>> processes;
 };
 
 } // namespace sysmon::domain

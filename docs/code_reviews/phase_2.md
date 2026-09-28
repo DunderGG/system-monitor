@@ -54,7 +54,7 @@ The review found one **high-severity correctness bug**: the dashboard's network 
 | [F-9](#f-9-network-throughput-total-counts-the-same-traffic-several-times) | Network throughput total counts the same traffic several times | High | Resolved |
 | [F-10](#f-10-getadaptersaddresses-runs-on-every-scheduler-tick) | `GetAdaptersAddresses` runs on every scheduler tick | Medium | Resolved |
 | [F-11](#f-11-persistent-failures-are-logged-on-every-tick) | Persistent failures are logged on every tick | Medium | Resolved |
-| [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Open |
+| [F-12](#f-12-empty-disk-and-network-vectors-hide-collector-failures) | Empty disk and network vectors hide collector failures | Low | Resolved |
 | [F-13](#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it) | `platform/windows` depends on `monitoring` headers without declaring it | Low | Open |
 | [F-14](#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread) | Connectivity callback writes to the log on the OS thread | Low | Open |
 | [F-15](#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count) | CPU multi-group aggregation keys on core count, not group count | Low | Open |
@@ -220,7 +220,7 @@ Make `SystemSnapshot::disks` and `::networks` optional: `std::nullopt` means no 
 
 **Recommendation:** Fix before Phase 4 so the process collector starts with the right shape. It breaks the domain rule, so if it is not fixed straight away, record it in `known_deviations.md`.
 
-**Status:** Open
+**Status:** Resolved (2026-09-25). The disk, network, and process collector interfaces and snapshot fields are now `std::optional<std::vector<...>>`. `DiskCollector` returns `std::nullopt` when enumeration fails, or when fixed drives exist but every read failed, and `FixedDriveEnumerator` now returns an optional. `NetworkCollector` returns `std::nullopt` when the interface table cannot be read. The dashboard shows "N/A" instead of "No active adapter" for missing network data. New tests cover enumeration failure, all reads failing, missing disk data in health evaluation, and the dashboard's network card without data. Added a design decision.
 
 ---
 

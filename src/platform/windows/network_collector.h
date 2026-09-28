@@ -68,6 +68,7 @@ class WindowsAdapterReader;
  * Filters out loopback interfaces (IF_TYPE_SOFTWARE_LOOPBACK) and NDIS filter
  * interfaces, whose counters repeat the traffic of the interface they are bound to.
  * Computes instantaneous throughput (bytes/sec) from counter deltas across steady_clock ticks.
+ * collect() returns std::nullopt when the interface table cannot be read.
  * A rate is std::nullopt (never 0) when it cannot be computed: first sample for an
  * adapter, zero elapsed time, or a counter reset.
  */
@@ -82,7 +83,7 @@ public:
 
     ~NetworkCollector() override;
 
-    [[nodiscard]] std::vector<domain::NetworkSample> collect() override;
+    [[nodiscard]] std::optional<std::vector<domain::NetworkSample>> collect() override;
 
     /**
      * Pure calculation helper that processes raw adapter records against historical baselines,

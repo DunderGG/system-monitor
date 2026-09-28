@@ -136,7 +136,7 @@ void DashboardView::updateMemoryCard(const domain::SystemSnapshot &snapshot)
 void DashboardView::updateDiskCard(const domain::SystemSnapshot &snapshot)
 {
     m_diskCard->setStatus(snapshot.health.disk);
-    const auto *fullest = fullestVolume(snapshot.disks);
+    const auto *fullest = snapshot.disks ? fullestVolume(*snapshot.disks) : nullptr;
     if (fullest == nullptr) {
         recordSample(m_diskHistory, m_diskSparkline, std::nullopt);
         m_diskCard->setValue(kNotAvailable);
@@ -145,8 +145,8 @@ void DashboardView::updateDiskCard(const domain::SystemSnapshot &snapshot)
     recordSample(m_diskHistory, m_diskSparkline, fullest->usagePercent);
     QString detail = QString("%1 %2 free").arg(QString::fromStdString(fullest->volumeName),
                                                formatBytes(fullest->freeBytes));
-    if (snapshot.disks.size() > 1) {
-        detail += QString(" (fullest of %1 volumes)").arg(snapshot.disks.size());
+    if (snapshot.disks->size() > 1) {
+        detail += QString(" (fullest of %1 volumes)").arg(snapshot.disks->size());
     }
     m_diskCard->setValue(formatPercent(fullest->usagePercent), detail);
 }
@@ -156,13 +156,21 @@ void DashboardView::updateNetworkCard(const domain::SystemSnapshot &snapshot)
     m_networkCard->setStatus(snapshot.health.network);
     const QString connectivity = connectivityText(snapshot.connectivity);
 
-    const auto totals = sumActiveThroughput(snapshot.networks);
+    // No adapter data at all (no collector, or the query failed): nothing is known
+    // about the adapters, so do not claim that none is active.
+    if (!snapshot.networks) {
+        recordSample(m_networkHistory, m_networkSparkline, std::nullopt);
+        m_networkCard->setValue(kNotAvailable, connectivity);
+        return;
+    }
+
+    const auto totals = sumActiveThroughput(*snapshot.networks);
     // The sparkline charts combined (in + out) throughput.
     recordSample(m_networkHistory, m_networkSparkline,
                  totals ? std::optional<float>{static_cast<float>(totals->inBytesPerSec + totals->outBytesPerSec)}
                         : std::nullopt);
 
-    if (!hasActiveAdapter(snapshot.networks)) {
+    if (!hasActiveAdapter(*snapshot.networks)) {
         m_networkCard->setValue("No active adapter", connectivity);
         return;
     }

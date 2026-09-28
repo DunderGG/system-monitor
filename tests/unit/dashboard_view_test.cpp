@@ -26,11 +26,11 @@ SystemSnapshot populatedSnapshot()
         .availableBytes = 17'179'869'184ULL, // 16 GiB
         .usagePercent = 50.0f,
     };
-    snapshot.disks = {
+    snapshot.disks = std::vector<DiskSample>{
         DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .freeBytes = 250, .usagePercent = 75.0f},
         DiskSample{.volumeName = "D:\\", .totalBytes = 1000, .freeBytes = 900, .usagePercent = 10.0f},
     };
-    snapshot.networks = {NetworkSample{
+    snapshot.networks = std::vector<NetworkSample>{NetworkSample{
         .adapterName = "Ethernet",
         .inBytesPerSec = 2048,
         .outBytesPerSec = 1024,
@@ -132,18 +132,31 @@ TEST(DashboardView, UpdateSnapshot_NoActiveAdapter_SaysSo)
 {
     DashboardView dashboard;
     auto snapshot = populatedSnapshot();
-    snapshot.networks[0].operationalStatus = OperationalStatus::Down;
+    (*snapshot.networks)[0].operationalStatus = OperationalStatus::Down;
 
     dashboard.updateSnapshot(snapshot);
 
     EXPECT_EQ(dashboard.networkCard()->valueText(), "No active adapter");
 }
 
+TEST(DashboardView, UpdateSnapshot_NoNetworkData_ShowsNotAvailableNotNoAdapter)
+{
+    DashboardView dashboard;
+    auto snapshot = populatedSnapshot();
+    snapshot.networks.reset(); // e.g. GetIfTable2 failed
+
+    dashboard.updateSnapshot(snapshot);
+
+    EXPECT_EQ(dashboard.networkCard()->valueText(), "N/A");
+    EXPECT_EQ(dashboard.networkCard()->detailText(), "Internet access");
+    EXPECT_FALSE(dashboard.networkSparkline()->samples().back().has_value());
+}
+
 TEST(DashboardView, UpdateSnapshot_ThroughputNotYetAvailable_ShowsNotAvailable)
 {
     DashboardView dashboard;
     auto snapshot = populatedSnapshot();
-    snapshot.networks[0].inBytesPerSec.reset();
+    (*snapshot.networks)[0].inBytesPerSec.reset();
 
     dashboard.updateSnapshot(snapshot);
 

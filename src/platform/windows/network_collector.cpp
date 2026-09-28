@@ -341,15 +341,15 @@ NetworkCollector::NetworkCollector(NetworkAdaptersReader adaptersReader, SteadyC
 
 NetworkCollector::~NetworkCollector() = default;
 
-std::vector<domain::NetworkSample> NetworkCollector::collect()
+std::optional<std::vector<domain::NetworkSample>> NetworkCollector::collect()
 {
     if (!m_adaptersReader) {
-        return {};
+        return std::nullopt;
     }
 
     const auto rawAdapters = m_adaptersReader();
     if (!rawAdapters.has_value()) {
-        return {};
+        return std::nullopt;
     }
 
     const auto now = m_clockReader ? m_clockReader() : std::chrono::steady_clock::now();
