@@ -274,8 +274,10 @@ function Find-ClangFormat
     $vswherePath = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path -LiteralPath $vswherePath)
     {
-        $found = & $vswherePath -products * -sort -find "VC\Tools\Llvm\x64\bin\clang-format.exe" |
-            Select-Object -First 1
+        # Collect all output first: piping into Select-Object -First stops
+        # vswhere early, which often leaves $LASTEXITCODE at -1.
+        $foundPaths = @(& $vswherePath -products * -sort -find "VC\Tools\Llvm\x64\bin\clang-format.exe")
+        $found = $foundPaths | Select-Object -First 1
         if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($found))
         {
             return $found.Trim()

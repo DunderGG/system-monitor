@@ -20,9 +20,12 @@ any test fails. Combine with -NoRun to build and test without launching.
 .PARAMETER Format
 Formats every C++ source and header under src/ and tests/ in place with
 clang-format, using the repository's .clang-format, then exits without building.
+New files count even before they are added to git; files ignored by .gitignore
+do not.
 
 .PARAMETER CheckFormat
-Checks that every C++ source and header under src/ and tests/ matches
+Checks that every C++ source and header under src/ and tests/ (the same files
+as -Format) matches
 .clang-format, without changing files, then exits without building. Fails and
 lists the differences if any file needs formatting. CI runs this check.
 
@@ -129,9 +132,11 @@ function Find-ClangFormat
     if (Test-Path -LiteralPath $vswherePath)
     {
         # Search every instance, newest first: the newest (e.g. Build Tools) may
-        # not include the LLVM tools while another installation does.
-        $found = & $vswherePath -products * -sort -find "VC\Tools\Llvm\x64\bin\clang-format.exe" |
-            Select-Object -First 1
+        # not include the LLVM tools while another installation does. Collect all
+        # output before taking the first line: piping into Select-Object -First
+        # stops vswhere early, which often leaves $LASTEXITCODE at -1.
+        $foundPaths = @(& $vswherePath -products * -sort -find "VC\Tools\Llvm\x64\bin\clang-format.exe")
+        $found = $foundPaths | Select-Object -First 1
         if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($found))
         {
             return $found.Trim()
@@ -147,7 +152,8 @@ function Find-ClangFormat
     throw "clang-format was not found. Run .\scripts\bootstrap.ps1 -InstallMissing, or set CLANG_FORMAT to its path."
 }
 
-# Formats (-Format) or checks (-CheckFormat) all tracked C++ files, then returns.
+# Formats (-Format) or checks (-CheckFormat) all C++ files that are tracked or
+# new and not ignored, then returns.
 function Invoke-ClangFormat
 {
     param(
@@ -175,11 +181,15 @@ function Invoke-ClangFormat
     Push-Location $projectRoot
     try
     {
-        $files = @(& git ls-files -- "src/*.h" "src/*.cpp" "tests/*.h" "tests/*.cpp")
+        # Tracked files plus new files not yet added (but not ignored ones), so
+        # files created since the last commit are formatted before they are
+        # committed. Tracked files deleted from the working tree are skipped.
+        $files = @(& git ls-files --cached --others --exclude-standard -- "src/*.h" "src/*.cpp" "tests/*.h" "tests/*.cpp")
         if ($LASTEXITCODE -ne 0)
         {
             throw "git ls-files failed with exit code $LASTEXITCODE."
         }
+        $files = @($files | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
 
         # Batches keep each command line well below the Windows length limit.
         $batchSize = 50
