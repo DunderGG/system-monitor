@@ -6,6 +6,8 @@
 #include <QVBoxLayout>
 
 #include "ui/performance_formatting.h"
+#include "ui/performance_readouts.h"
+#include "ui/readout_grid.h"
 
 namespace sysmon::ui
 {
@@ -14,6 +16,7 @@ namespace
 {
 
 constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
+constexpr int kReadoutColumns = 3;
 
 } // namespace
 
@@ -22,6 +25,10 @@ DiskPerformancePage::DiskPerformancePage(QWidget* parent) : PerformancePage("Dis
     contentLayout()->addWidget(new QLabel("Space used per volume", this));
     m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, this);
     contentLayout()->addWidget(m_usageChart, 1);
+
+    m_readouts = new ReadoutGrid(kReadoutColumns, this);
+    m_readouts->setReadouts(placeholderReadouts(diskReadouts(std::nullopt)));
+    contentLayout()->addWidget(m_readouts);
 }
 
 void DiskPerformancePage::recordSamples(const domain::SystemSnapshot& snapshot)
@@ -59,6 +66,9 @@ DiskPerformancePage::VolumeHistory& DiskPerformancePage::volumeHistory(const std
 
 void DiskPerformancePage::refresh()
 {
+    if (recordedCount() > 0) {
+        m_readouts->setReadouts(diskReadouts(m_latest));
+    }
     m_usageChart->setSeriesCount(std::max<std::size_t>(1, m_volumes.size()));
     if (m_volumes.empty()) {
         m_usageChart->setSeriesLabel(0, QString{});
@@ -79,6 +89,11 @@ QString DiskPerformancePage::summary() const
 charts::SparklineWidget* DiskPerformancePage::usageChart() const
 {
     return m_usageChart;
+}
+
+ReadoutGrid* DiskPerformancePage::readouts() const
+{
+    return m_readouts;
 }
 
 std::vector<std::string> DiskPerformancePage::volumeNames() const

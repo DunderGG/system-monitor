@@ -10,6 +10,8 @@
 #include <QVBoxLayout>
 
 #include "ui/performance_formatting.h"
+#include "ui/performance_readouts.h"
+#include "ui/readout_grid.h"
 
 namespace sysmon::ui
 {
@@ -18,6 +20,7 @@ namespace
 {
 
 constexpr int kAdapterChartMinimumHeight = 160;
+constexpr int kReadoutColumns = 5;
 
 std::optional<float> toChartValue(const std::optional<uint64_t>& bytesPerSecond)
 {
@@ -93,6 +96,11 @@ void NetworkPerformancePage::refresh()
         }
         for (std::size_t index = 0; index < charted.size(); ++index) {
             m_chartTitles[index]->setText(adapterDisplayName(*charted[index]));
+            m_readoutGrids[index]->setReadouts(adapterReadouts(*charted[index]));
+        }
+    } else {
+        for (auto* readoutGrid : m_readoutGrids) {
+            readoutGrid->setReadouts(adapterReadouts(std::nullopt));
         }
     }
 
@@ -122,6 +130,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>
 
     std::vector<QLabel*> titles;
     std::vector<charts::SparklineWidget*> adapterCharts;
+    std::vector<ReadoutGrid*> readoutGrids;
     for (std::size_t index = 0; index < adapterNames.size(); ++index) {
         auto* title = new QLabel(list);
         QFont titleFont = title->font();
@@ -136,8 +145,12 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>
         chart->setSeriesLabel(1, "Send");
         listLayout->addWidget(chart, 1);
 
+        auto* readoutGrid = new ReadoutGrid(kReadoutColumns, list);
+        listLayout->addWidget(readoutGrid);
+
         titles.push_back(title);
         adapterCharts.push_back(chart);
+        readoutGrids.push_back(readoutGrid);
     }
     if (adapterNames.empty()) {
         listLayout->addStretch();
@@ -148,6 +161,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>
     m_chartedNames = adapterNames;
     m_chartTitles = std::move(titles);
     m_charts = std::move(adapterCharts);
+    m_readoutGrids = std::move(readoutGrids);
 }
 
 QString NetworkPerformancePage::summary() const
@@ -170,6 +184,12 @@ QString NetworkPerformancePage::adapterTitle(std::size_t index) const
 {
     assert(index < m_chartTitles.size() && "adapter chart index out of range");
     return m_chartTitles[index]->text();
+}
+
+ReadoutGrid* NetworkPerformancePage::adapterReadoutGrid(std::size_t index) const
+{
+    assert(index < m_readoutGrids.size() && "adapter chart index out of range");
+    return m_readoutGrids[index];
 }
 
 QString NetworkPerformancePage::placeholderText() const

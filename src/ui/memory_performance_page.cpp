@@ -4,6 +4,8 @@
 #include <QVBoxLayout>
 
 #include "ui/performance_formatting.h"
+#include "ui/performance_readouts.h"
+#include "ui/readout_grid.h"
 
 namespace sysmon::ui
 {
@@ -12,6 +14,7 @@ namespace
 {
 
 constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
+constexpr int kReadoutColumns = 4;
 
 } // namespace
 
@@ -24,6 +27,10 @@ MemoryPerformancePage::MemoryPerformancePage(QWidget* parent) : PerformancePage(
     contentLayout()->addWidget(new QLabel("Committed (percent of commit limit)", this));
     m_commitChart = createHistoryChart(kPercentRange, formatChartPercent, this);
     contentLayout()->addWidget(m_commitChart, 1);
+
+    m_readouts = new ReadoutGrid(kReadoutColumns, this);
+    m_readouts->setReadouts(placeholderReadouts(memoryReadouts(std::nullopt)));
+    contentLayout()->addWidget(m_readouts);
 }
 
 void MemoryPerformancePage::recordSamples(const domain::SystemSnapshot& snapshot)
@@ -37,6 +44,9 @@ void MemoryPerformancePage::refresh()
 {
     showHistory(m_usageChart, 0, m_usageHistory);
     showHistory(m_commitChart, 0, m_commitHistory);
+    if (recordedCount() > 0) {
+        m_readouts->setReadouts(memoryReadouts(m_latest));
+    }
 }
 
 QString MemoryPerformancePage::summary() const
@@ -52,6 +62,11 @@ charts::SparklineWidget* MemoryPerformancePage::usageChart() const
 charts::SparklineWidget* MemoryPerformancePage::commitChart() const
 {
     return m_commitChart;
+}
+
+ReadoutGrid* MemoryPerformancePage::readouts() const
+{
+    return m_readouts;
 }
 
 } // namespace sysmon::ui

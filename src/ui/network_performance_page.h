@@ -16,13 +16,16 @@ class QScrollArea;
 namespace sysmon::ui
 {
 
+class ReadoutGrid;
+
 /**
  * Network page of the Performance tab: a throughput chart per active adapter
  * (see chartedAdapters()), each with a receive and a send series on an
  * auto-scaled byte-rate axis. History is recorded for every adapter in the
  * snapshots, so an adapter that comes up shows what it did while it was
  * down. An adapter that leaves the snapshots records gaps and is dropped once
- * its history holds no samples.
+ * its history holds no samples. Each chart has the adapter's readouts below it
+ * (see adapterReadouts()).
  */
 class NetworkPerformancePage : public PerformancePage
 {
@@ -39,6 +42,7 @@ public:
     [[nodiscard]] const std::vector<std::string>& chartedAdapterNames() const;
     [[nodiscard]] charts::SparklineWidget* adapterChart(std::size_t index) const;
     [[nodiscard]] QString adapterTitle(std::size_t index) const;
+    [[nodiscard]] ReadoutGrid* adapterReadoutGrid(std::size_t index) const;
 
     /** Text shown in place of the charts when there are none, e.g. "No active network adapters". */
     [[nodiscard]] QString placeholderText() const;
@@ -62,6 +66,7 @@ private:
     std::vector<std::string> m_chartedNames;
     std::vector<QLabel*> m_chartTitles;
     std::vector<charts::SparklineWidget*> m_charts;
+    std::vector<ReadoutGrid*> m_readoutGrids;
 
     std::vector<AdapterHistory> m_adapters;
     std::optional<std::vector<domain::NetworkSample>> m_latest;

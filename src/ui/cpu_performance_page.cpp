@@ -12,6 +12,8 @@
 #include <QVBoxLayout>
 
 #include "ui/performance_formatting.h"
+#include "ui/performance_readouts.h"
+#include "ui/readout_grid.h"
 
 namespace sysmon::ui
 {
@@ -20,6 +22,7 @@ namespace
 {
 
 constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
+constexpr int kReadoutColumns = 4;
 constexpr int kCoreGridSpacing = 4;
 
 // A near-square grid: 4 columns for 16 cores, 3 for 8, 12 for 128.
@@ -36,6 +39,10 @@ CpuPerformancePage::CpuPerformancePage(QWidget* parent) : PerformancePage("CPU",
     m_totalChart = createHistoryChart(kPercentRange, formatChartPercent, this);
     contentLayout()->addWidget(m_totalChart, 3);
 
+    m_readouts = new ReadoutGrid(kReadoutColumns, this);
+    m_readouts->setReadouts(placeholderReadouts(cpuReadouts(std::nullopt, std::nullopt, std::nullopt)));
+    contentLayout()->addWidget(m_readouts);
+
     m_coresLabel = new QLabel("Logical processors", this);
     m_coresLabel->hide();
     contentLayout()->addWidget(m_coresLabel);
@@ -47,6 +54,8 @@ CpuPerformancePage::CpuPerformancePage(QWidget* parent) : PerformancePage("CPU",
 void CpuPerformancePage::recordSamples(const domain::SystemSnapshot& snapshot)
 {
     m_latest = snapshot.cpu;
+    m_latestActivity = snapshot.activity;
+    m_latestUptime = snapshot.uptime;
     m_totalHistory.push(snapshot.cpu ? std::optional<float>{snapshot.cpu->totalUsagePercent} : std::nullopt);
 
     // An empty per-core list means per-core data is unavailable this tick: record gaps.
@@ -63,6 +72,9 @@ void CpuPerformancePage::recordSamples(const domain::SystemSnapshot& snapshot)
 void CpuPerformancePage::refresh()
 {
     showHistory(m_totalChart, 0, m_totalHistory);
+    if (recordedCount() > 0) {
+        m_readouts->setReadouts(cpuReadouts(m_latest, m_latestActivity, m_latestUptime));
+    }
     if (m_coreCharts.size() != m_coreHistories.size()) {
         rebuildCoreCharts();
     }
@@ -122,6 +134,11 @@ charts::SparklineWidget* CpuPerformancePage::coreChart(std::size_t core) const
 {
     assert(core < m_coreCharts.size() && "core chart index out of range");
     return m_coreCharts[core];
+}
+
+ReadoutGrid* CpuPerformancePage::readouts() const
+{
+    return m_readouts;
 }
 
 } // namespace sysmon::ui

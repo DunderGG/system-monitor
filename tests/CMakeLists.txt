@@ -14,6 +14,7 @@ add_executable(system_monitor_tests
     unit/dashboard_formatting_test.cpp
     unit/performance_view_test.cpp
     unit/performance_formatting_test.cpp
+    unit/performance_readouts_test.cpp
     unit/sparkline_widget_test.cpp
     unit/cpu_collector_test.cpp
     unit/memory_collector_test.cpp

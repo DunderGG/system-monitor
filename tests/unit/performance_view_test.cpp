@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -15,6 +16,7 @@
 #include "ui/memory_performance_page.h"
 #include "ui/network_performance_page.h"
 #include "ui/performance_view.h"
+#include "ui/readout_grid.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
@@ -333,4 +335,65 @@ TEST(MainWindow, OnSnapshotReady_ForwardsToPerformanceView)
     mainWindow.onSnapshotReady(populatedSnapshot());
 
     EXPECT_EQ(mainWindow.performanceView()->cpuPage()->recordedCount(), 1u);
+}
+
+TEST(CpuPerformancePage, Readouts_PlaceholdersUntilFirstSnapshotThenValues)
+{
+    CpuPerformancePage page;
+    EXPECT_EQ(page.readouts()->value("Handles"), "--");
+    auto snapshot = populatedSnapshot();
+    snapshot.activity = SystemActivitySample{.processCount = 367, .threadCount = 8350, .handleCount = 200'157};
+    snapshot.uptime = std::chrono::minutes{12};
+
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    EXPECT_EQ(page.readouts()->value("Utilization"), "42.5%");
+    EXPECT_EQ(page.readouts()->value("Handles"), "200,157");
+    EXPECT_EQ(page.readouts()->value("Up time"), "12m 0s");
+}
+
+TEST(MemoryPerformancePage, Readouts_ShowLatestSample)
+{
+    MemoryPerformancePage page;
+
+    page.recordSnapshot(populatedSnapshot());
+    page.refresh();
+
+    EXPECT_EQ(page.readouts()->value("Committed"), "8.0/32.0 GiB");
+    EXPECT_EQ(page.readouts()->value("Cached"), "N/A");
+}
+
+TEST(DiskPerformancePage, Readouts_OnePerVolume)
+{
+    DiskPerformancePage page;
+
+    page.recordSnapshot(populatedSnapshot());
+    page.refresh();
+
+    EXPECT_EQ(page.readouts()->readouts().size(), 2u);
+    EXPECT_EQ(page.readouts()->value("C:\\"), "750/1000 B used (75.0%)\n250 B free");
+}
+
+TEST(NetworkPerformancePage, Readouts_PerChartedAdapter)
+{
+    NetworkPerformancePage page;
+
+    page.recordSnapshot(populatedSnapshot());
+    page.refresh();
+
+    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Receive"), "2.0 KiB/s");
+    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Type"), "Hardware");
+}
+
+TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)
+{
+    NetworkPerformancePage page;
+    page.recordSnapshot(populatedSnapshot());
+    page.refresh();
+
+    page.recordSnapshot(SystemSnapshot{});
+    page.refresh();
+
+    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Receive"), "N/A");
 }

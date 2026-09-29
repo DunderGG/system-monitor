@@ -13,11 +13,14 @@
 namespace sysmon::ui
 {
 
+class ReadoutGrid;
+
 /**
  * Disk page of the Performance tab: one chart of space used, with a labelled
  * series per volume, ordered by volume name. A volume that stops appearing in
  * the snapshots records gaps, and is dropped once its history holds no
- * samples.
+ * samples. Below the chart, a readout per volume shows its used, free, and
+ * total space (see diskReadouts()).
  */
 class DiskPerformancePage : public PerformancePage
 {
@@ -31,6 +34,7 @@ public:
     [[nodiscard]] QString summary() const override;
 
     [[nodiscard]] charts::SparklineWidget* usageChart() const;
+    [[nodiscard]] ReadoutGrid* readouts() const;
 
     /** Names of the volumes with history, in series order. */
     [[nodiscard]] std::vector<std::string> volumeNames() const;
@@ -49,6 +53,7 @@ private:
     VolumeHistory& volumeHistory(const std::string& name);
 
     charts::SparklineWidget* m_usageChart{nullptr};
+    ReadoutGrid* m_readouts{nullptr};
 
     std::vector<VolumeHistory> m_volumes;
     std::optional<std::vector<domain::DiskSample>> m_latest;

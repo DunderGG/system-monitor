@@ -21,10 +21,14 @@ add_library(sysmon_ui STATIC
     performance_formatting.h
     performance_page.cpp
     performance_page.h
+    performance_readouts.cpp
+    performance_readouts.h
     performance_view.cpp
     performance_view.h
     processes_view.cpp
     processes_view.h
+    readout_grid.cpp
+    readout_grid.h
     resource_card.cpp
     resource_card.h
 )
