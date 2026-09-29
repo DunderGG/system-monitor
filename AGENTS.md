@@ -28,7 +28,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 
 - **Module boundaries are strict.** The `ui` module never includes Windows headers or calls Windows APIs directly. The `domain` module has no Qt or Windows dependencies. All Windows API calls live in `platform/windows/`.
 - **Data flows through immutable snapshots.** Collectors produce data on background threads. The UI receives `SystemSnapshot` values via `Qt::QueuedConnection`. No shared mutable state crosses thread boundaries.
-- **Use the correct Windows APIs.** Use `NtQuerySystemInformation` for process enumeration, `GetSystemTimes` for CPU, `GlobalMemoryStatusEx` for memory, `GetIfTable2` for network, `GetNetworkConnectivityHint` for connectivity. Do not use PDH for core metrics. Do not use Tool Help for process enumeration. Do not poll WMI.
+- **Use the correct Windows APIs.** Use `NtQuerySystemInformation` for process enumeration, `GetSystemTimes` for CPU, `GlobalMemoryStatusEx` for memory (plus `GetPerformanceInfo` for cache, pool, and process/thread/handle counts), `GetIfTable2` for network, `GetNetworkConnectivityHint` for connectivity. Do not use PDH for core metrics. Do not use Tool Help for process enumeration. Do not poll WMI.
 - **Process identity is `(PID, creation time)`.** Never use PID alone.
 
 ## Code style rules

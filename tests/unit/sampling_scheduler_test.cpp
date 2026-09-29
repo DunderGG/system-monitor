@@ -245,3 +245,37 @@ TEST(SamplingScheduler, SampleOnce_EvaluatesHealthWithConfiguredThresholds)
 
     EXPECT_EQ(snapshot.health.cpu, sysmon::domain::HealthLevel::Warning);
 }
+
+namespace
+{
+
+class FakeSystemActivityCollector : public sysmon::monitoring::ISystemActivityCollector
+{
+public:
+    [[nodiscard]] std::optional<sysmon::domain::SystemActivitySample> collect() override
+    {
+        return sysmon::domain::SystemActivitySample{.processCount = 3, .threadCount = 30, .handleCount = 300};
+    }
+};
+
+} // namespace
+
+TEST(SamplingScheduler, SampleOnce_SystemActivityCollectorRegistered_SetsActivity)
+{
+    SamplingScheduler scheduler;
+    scheduler.setSystemActivityCollector(std::make_unique<FakeSystemActivityCollector>());
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    ASSERT_TRUE(snapshot.activity.has_value());
+    EXPECT_EQ(snapshot.activity->handleCount, 300u);
+}
+
+TEST(SamplingScheduler, SampleOnce_NoSystemActivityCollector_ActivityIsNullopt)
+{
+    SamplingScheduler scheduler;
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_FALSE(snapshot.activity.has_value());
+}

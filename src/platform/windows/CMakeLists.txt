@@ -15,8 +15,12 @@ add_library(sysmon_platform_windows STATIC
     memory_collector.h
     network_collector.cpp
     network_collector.h
+    performance_info_reader.cpp
+    performance_info_reader.h
     repeated_failure_log.h
     steady_clock_reader.h
+    system_activity_collector.cpp
+    system_activity_collector.h
     uptime_collector.cpp
     uptime_collector.h
 )

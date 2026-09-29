@@ -18,7 +18,7 @@ Do not invoke `cmake` or `ctest` directly: `build.ps1` initializes the x64 MSVC 
 ### Architecture
 - Module boundaries are strict: `ui/` has no Windows headers, `domain/` has no Qt or Windows headers, `platform/windows/` has no Qt headers. Among tests, only `tests/platform/` (SDK types, no API calls) and `tests/integration/` may include Windows headers.
 - Data flows through immutable `SystemSnapshot` values via `Qt::QueuedConnection`.
-- Use `NtQuerySystemInformation` for processes, `GetSystemTimes` for CPU, `GlobalMemoryStatusEx` for memory, `GetIfTable2` for network, `GetNetworkConnectivityHint` for connectivity.
+- Use `NtQuerySystemInformation` for processes, `GetSystemTimes` for CPU, `GlobalMemoryStatusEx` for memory (plus `GetPerformanceInfo` for cache, pool, and process/thread/handle counts), `GetIfTable2` for network, `GetNetworkConnectivityHint` for connectivity.
 - Do NOT use PDH for core metrics, Tool Help for processes, or WMI for polling.
 
 ### Code style

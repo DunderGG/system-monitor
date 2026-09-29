@@ -13,7 +13,8 @@
 namespace sysmon::platform
 {
 
-std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData& data)
+std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData& data,
+                                                          const std::optional<PerformanceInfoData>& performance)
 {
     if (data.totalPhys == 0) {
         return std::nullopt;
@@ -28,13 +29,20 @@ std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData
     const uint64_t commitAvail = std::min(data.availPageFile, commitLimit);
     const uint64_t commitCurrent = commitLimit - commitAvail;
 
-    return domain::MemorySample{
+    domain::MemorySample sample{
         .totalBytes = total,
         .availableBytes = available,
         .usagePercent = usagePercent,
         .commitLimit = commitLimit,
         .commitCurrent = commitCurrent,
     };
+    // A zero page size would turn every page count into a false 0 bytes.
+    if (performance && performance->pageSize > 0) {
+        sample.cachedBytes = performance->systemCachePages * performance->pageSize;
+        sample.pagedPoolBytes = performance->kernelPagedPages * performance->pageSize;
+        sample.nonPagedPoolBytes = performance->kernelNonPagedPages * performance->pageSize;
+    }
+    return sample;
 }
 
 MemoryCollector::MemoryCollector()
@@ -52,10 +60,13 @@ MemoryCollector::MemoryCollector()
           data.totalPageFile = memStatus.ullTotalPageFile;
           data.availPageFile = memStatus.ullAvailPageFile;
           return true;
-      })
+      }),
+      m_performanceReader(makePerformanceInfoReader())
 {}
 
-MemoryCollector::MemoryCollector(MemoryStatusReader reader) : m_reader(std::move(reader)) {}
+MemoryCollector::MemoryCollector(MemoryStatusReader reader, PerformanceInfoReader performanceReader)
+    : m_reader(std::move(reader)), m_performanceReader(std::move(performanceReader))
+{}
 
 std::optional<domain::MemorySample> MemoryCollector::collect()
 {
@@ -63,7 +74,11 @@ std::optional<domain::MemorySample> MemoryCollector::collect()
     if (!m_reader || !m_reader(data)) {
         return std::nullopt;
     }
-    return calculateMemorySample(data);
+    std::optional<PerformanceInfoData> performance;
+    if (PerformanceInfoData performanceData{}; m_performanceReader && m_performanceReader(performanceData)) {
+        performance = performanceData;
+    }
+    return calculateMemorySample(data, performance);
 }
 
 } // namespace sysmon::platform

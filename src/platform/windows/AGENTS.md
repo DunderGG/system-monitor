@@ -12,7 +12,7 @@ This module contains all Windows API wrappers. It is the only module that includ
 
 - Use `NtQuerySystemInformation(SystemProcessInformation)` for process enumeration. Do not use `CreateToolhelp32Snapshot`.
 - Use `GetSystemTimes` for total CPU. Use `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` for per-core CPU.
-- Use `GlobalMemoryStatusEx` for memory. Use `GetDiskFreeSpaceExW` for disk space.
+- Use `GlobalMemoryStatusEx` for memory, and `GetPerformanceInfo` for the cache and kernel pool sizes and the system-wide process, thread, and handle counts. Use `GetDiskFreeSpaceExW` for disk space.
 - Use `GetIfTable2` for network throughput (64-bit counters). Never use legacy `GetIfTable` (32-bit counters that overflow).
 - Use `GetNetworkConnectivityHint` for connectivity status.
 - Use PDH only for advanced per-instance counters where no direct Win32 alternative exists. Always use `PdhAddEnglishCounterW`.

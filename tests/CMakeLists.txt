@@ -24,6 +24,7 @@ add_executable(system_monitor_tests
     unit/log_capture.h
     unit/connectivity_collector_test.cpp
     unit/uptime_collector_test.cpp
+    unit/system_activity_collector_test.cpp
     unit/health_evaluator_test.cpp
     integration/cpu_collector_test.cpp
     integration/memory_collector_test.cpp
@@ -31,6 +32,7 @@ add_executable(system_monitor_tests
     integration/network_collector_test.cpp
     integration/connectivity_collector_test.cpp
     integration/uptime_collector_test.cpp
+    integration/system_activity_collector_test.cpp
     integration/app_logging_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest

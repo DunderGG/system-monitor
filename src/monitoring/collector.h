@@ -11,6 +11,7 @@
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
 #include "domain/process_info.h"
+#include "domain/system_activity_sample.h"
 
 namespace sysmon::monitoring
 {
@@ -53,5 +54,6 @@ using INetworkCollector = ICollector<std::optional<std::vector<domain::NetworkSa
 using IConnectivityCollector = ICollector<domain::ConnectivityStatus>;
 using IUptimeCollector = ICollector<std::chrono::milliseconds>;
 using IProcessCollector = ICollector<std::optional<std::vector<domain::ProcessInfo>>>;
+using ISystemActivityCollector = ICollector<std::optional<domain::SystemActivitySample>>;
 
 } // namespace sysmon::monitoring

@@ -8,6 +8,7 @@
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
 #include "domain/process_info.h"
+#include "domain/system_activity_sample.h"
 #include "domain/system_snapshot.h"
 
 using namespace sysmon::domain;
@@ -50,6 +51,22 @@ TEST(MemorySample, DefaultConstruction_ZeroValues)
     EXPECT_FLOAT_EQ(s.usagePercent, 0.0f);
     EXPECT_EQ(s.commitLimit, 0u);
     EXPECT_EQ(s.commitCurrent, 0u);
+    EXPECT_FALSE(s.cachedBytes.has_value());
+    EXPECT_FALSE(s.pagedPoolBytes.has_value());
+    EXPECT_FALSE(s.nonPagedPoolBytes.has_value());
+}
+
+// ---------------------------------------------------------------------------
+// SystemActivitySample
+// ---------------------------------------------------------------------------
+
+TEST(SystemActivitySample, DesignatedInit_FieldsRoundTrip)
+{
+    SystemActivitySample s{.processCount = 300, .threadCount = 4000, .handleCount = 150'000};
+
+    EXPECT_EQ(s.processCount, 300u);
+    EXPECT_EQ(s.threadCount, 4000u);
+    EXPECT_EQ(s.handleCount, 150'000u);
 }
 
 TEST(MemorySample, DesignatedInit_FieldsRoundTrip)
@@ -286,6 +303,7 @@ TEST(SystemSnapshot, DefaultConstruction_NoOptionalData)
     EXPECT_FALSE(snap.cpu.has_value());
     EXPECT_FALSE(snap.memory.has_value());
     EXPECT_FALSE(snap.uptime.has_value());
+    EXPECT_FALSE(snap.activity.has_value());
     EXPECT_EQ(snap.health, SystemHealth{});
 }
 

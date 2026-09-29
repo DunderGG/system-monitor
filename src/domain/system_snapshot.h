@@ -11,6 +11,7 @@
 #include "memory_sample.h"
 #include "network_sample.h"
 #include "process_info.h"
+#include "system_activity_sample.h"
 
 namespace sysmon::domain
 {
@@ -46,6 +47,7 @@ struct SystemSnapshot
     std::optional<std::chrono::milliseconds> uptime;
     SystemHealth health;
     std::optional<std::vector<ProcessInfo>> processes;
+    std::optional<SystemActivitySample> activity;
 };
 
 } // namespace sysmon::domain

@@ -93,3 +93,21 @@ TEST(MemoryCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics
         EXPECT_LE(lastSnapshot.memory->usagePercent, 100.0f);
     }
 }
+
+TEST(MemoryCollectorIntegration, RealHost_CacheAndPoolSizesArePlausible)
+{
+    MemoryCollector collector;
+
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    ASSERT_TRUE(sample->cachedBytes.has_value());
+    ASSERT_TRUE(sample->pagedPoolBytes.has_value());
+    ASSERT_TRUE(sample->nonPagedPoolBytes.has_value());
+    // The kernel always has some pool memory; the cache and pools fit in RAM
+    // plus the commit limit, however they are counted.
+    EXPECT_GT(*sample->pagedPoolBytes, 0u);
+    EXPECT_GT(*sample->nonPagedPoolBytes, 0u);
+    EXPECT_LE(*sample->cachedBytes, sample->totalBytes);
+    EXPECT_LE(*sample->nonPagedPoolBytes, sample->totalBytes);
+}

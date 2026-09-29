@@ -117,3 +117,81 @@ TEST(MemoryCollector, Collect_ReaderFails_ReturnsNullopt)
 
     EXPECT_FALSE(sample.has_value());
 }
+
+TEST(MemoryCollector, CalculateMemorySample_WithPerformanceInfo_ConvertsPagesToBytes)
+{
+    const MemoryStatusData data{.totalPhys = 16ULL << 30, .availPhys = 8ULL << 30};
+    const PerformanceInfoData performance{
+        .pageSize = 4096,
+        .systemCachePages = 1000,
+        .kernelPagedPages = 200,
+        .kernelNonPagedPages = 30,
+    };
+
+    const auto sample = calculateMemorySample(data, performance);
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_EQ(sample->cachedBytes, 4'096'000u);
+    EXPECT_EQ(sample->pagedPoolBytes, 819'200u);
+    EXPECT_EQ(sample->nonPagedPoolBytes, 122'880u);
+}
+
+TEST(MemoryCollector, CalculateMemorySample_WithoutPerformanceInfo_LeavesDetailsEmpty)
+{
+    const MemoryStatusData data{.totalPhys = 16ULL << 30, .availPhys = 8ULL << 30};
+
+    const auto sample = calculateMemorySample(data);
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FALSE(sample->cachedBytes.has_value());
+    EXPECT_FALSE(sample->pagedPoolBytes.has_value());
+    EXPECT_FALSE(sample->nonPagedPoolBytes.has_value());
+}
+
+TEST(MemoryCollector, CalculateMemorySample_ZeroPageSize_LeavesDetailsEmptyNotZero)
+{
+    const MemoryStatusData data{.totalPhys = 16ULL << 30, .availPhys = 8ULL << 30};
+    const PerformanceInfoData performance{.pageSize = 0, .systemCachePages = 1000};
+
+    const auto sample = calculateMemorySample(data, performance);
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FALSE(sample->cachedBytes.has_value());
+}
+
+TEST(MemoryCollector, Collect_PerformanceReaderFails_StillReportsMemory)
+{
+    MemoryCollector collector(
+        [](MemoryStatusData& data) {
+            data.totalPhys = 16ULL << 30;
+            data.availPhys = 8ULL << 30;
+            return true;
+        },
+        [](PerformanceInfoData& /*data*/) { return false; });
+
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FLOAT_EQ(sample->usagePercent, 50.0f);
+    EXPECT_FALSE(sample->cachedBytes.has_value());
+}
+
+TEST(MemoryCollector, Collect_PerformanceReaderSucceeds_ReportsDetails)
+{
+    MemoryCollector collector(
+        [](MemoryStatusData& data) {
+            data.totalPhys = 16ULL << 30;
+            data.availPhys = 8ULL << 30;
+            return true;
+        },
+        [](PerformanceInfoData& data) {
+            data.pageSize = 4096;
+            data.kernelPagedPages = 10;
+            return true;
+        });
+
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_EQ(sample->pagedPoolBytes, 40'960u);
+}

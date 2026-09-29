@@ -70,6 +70,7 @@ public:
     void setNetworkCollector(std::unique_ptr<INetworkCollector> collector);
     void setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector);
     void setUptimeCollector(std::unique_ptr<IUptimeCollector> collector);
+    void setSystemActivityCollector(std::unique_ptr<ISystemActivityCollector> collector);
 
     /**
      * Sets the thresholds used to evaluate SystemSnapshot::health on each tick.
@@ -106,6 +107,7 @@ private:
     std::unique_ptr<INetworkCollector> m_networkCollector;
     std::unique_ptr<IConnectivityCollector> m_connectivityCollector;
     std::unique_ptr<IUptimeCollector> m_uptimeCollector;
+    std::unique_ptr<ISystemActivityCollector> m_systemActivityCollector;
     HealthThresholds m_healthThresholds;
     std::unique_ptr<IProcessCollector> m_processCollector;
 };

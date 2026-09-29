@@ -68,8 +68,9 @@ System Monitor uses direct Windows APIs for accurate, low-overhead data collecti
 
 | Data | API |
 | --- | --- |
-| CPU usage | `GetSystemTimes`, `NtQuerySystemInformation` |
-| Memory | `GlobalMemoryStatusEx` |
+| CPU usage | `GetSystemTimes`, `NtQuerySystemInformation`, `CallNtPowerInformation` (base speed) |
+| Memory | `GlobalMemoryStatusEx`, `GetPerformanceInfo` (cache and kernel pools) |
+| Process, thread, and handle counts | `GetPerformanceInfo` |
 | Disk space | `GetDiskFreeSpaceExW` |
 | Processes | `NtQuerySystemInformation` (same API Task Manager uses) |
 | Network throughput | `GetIfTable2` (64-bit counters) |
