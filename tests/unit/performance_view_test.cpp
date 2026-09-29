@@ -7,7 +7,14 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QCoreApplication>
+#include <QLabel>
+#include <QPoint>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QSize>
 #include <QString>
+#include <QTabWidget>
 
 #include "domain/system_snapshot.h"
 #include "ui/charts/sparkline_widget.h"
@@ -63,6 +70,44 @@ SystemSnapshot populatedSnapshot()
     };
     return snapshot;
 }
+
+// What the fullest real pages hold: 256 logical processors, and adapters with
+// long descriptions, IPv6 addresses, and DNS server lists.
+SystemSnapshot demandingSnapshot()
+{
+    auto snapshot = populatedSnapshot();
+    snapshot.cpu->coreUsagePercents.assign(256, 50.0f);
+    snapshot.cpu->coreCount = 256;
+
+    NetworkSample wired = adapter("Ethernet", OperationalStatus::Up);
+    wired.description = "Realtek Gaming 2.5GbE Family Controller #2";
+    wired.linkSpeedBps = 2'500'000'000;
+    wired.ipAddresses = {"192.168.1.23", "fd44:555c:2315:4176:c6d0:77e0:5d11:3727", "fe80::4a1c:9d2e:77b0:1f3a%12"};
+    wired.dnsServers = {"fd44:555c:2315:4176:c6d0:77e0:5d11:1", "2001:4860:4860::8888", "192.168.1.1"};
+    wired.inBytesTotal = 987'654'321'098;
+    wired.outBytesTotal = 123'456'789'012;
+    NetworkSample tunnel = adapter("Mullvad", OperationalStatus::Up);
+    tunnel.description = "Mullvad Tunnel (WireGuard) Virtual Network Adapter";
+    tunnel.isHardwareInterface = false;
+    tunnel.ipAddresses = {"10.64.12.34", "fc00:bbbb:bbbb:bb01:d:0:1c:2f45"};
+    tunnel.dnsServers = {"10.64.0.1"};
+    snapshot.networks = std::vector<NetworkSample>{wired, tunnel};
+    return snapshot;
+}
+
+// A main window at 800x600, the smallest size its content must fit, showing
+// the Performance tab without opening a window on screen.
+class SmallMainWindow : public MainWindow
+{
+public:
+    SmallMainWindow()
+    {
+        setAttribute(Qt::WA_DontShowOnScreen);
+        resize(800, 600);
+        show();
+        tabWidget()->setCurrentWidget(performanceView());
+    }
+};
 
 // A view that counts as visible without opening a window on screen.
 class ShownPerformanceView : public PerformanceView
@@ -337,6 +382,68 @@ TEST(MainWindow, OnSnapshotReady_ForwardsToPerformanceView)
     mainWindow.onSnapshotReady(populatedSnapshot());
 
     EXPECT_EQ(mainWindow.performanceView()->cpuPage()->recordedCount(), 1u);
+}
+
+TEST(MainWindow, DemandingSnapshot_MinimumSizeStaysWithin800x600)
+{
+    SmallMainWindow mainWindow;
+    auto* view = mainWindow.performanceView();
+
+    view->updateSnapshot(demandingSnapshot());
+    view->setCurrentPage(PerformanceView::Page::Network);
+    QCoreApplication::processEvents();
+
+    ASSERT_EQ(view->cpuPage()->coreChartCount(), 256u);
+    ASSERT_EQ(view->networkPage()->chartedAdapterNames().size(), 2u);
+    const QSize minimum = mainWindow.minimumSizeHint();
+    EXPECT_LE(minimum.width(), 800);
+    EXPECT_LE(minimum.height(), 600);
+    EXPECT_EQ(mainWindow.size(), QSize(800, 600));
+}
+
+TEST(CpuPerformancePage, SmallWindowWith256Cores_CoreGridFitsItsWidth)
+{
+    SmallMainWindow mainWindow;
+    auto* view = mainWindow.performanceView();
+
+    view->updateSnapshot(demandingSnapshot());
+    QCoreApplication::processEvents();
+
+    const auto* scrollArea = view->cpuPage()->findChild<QScrollArea*>();
+    ASSERT_NE(scrollArea, nullptr);
+    ASSERT_NE(scrollArea->widget(), nullptr);
+    ASSERT_EQ(view->cpuPage()->coreChartCount(), 256u);
+    // The scroll area squeezes a grid that is too wide rather than scrolling it.
+    EXPECT_LE(scrollArea->widget()->minimumSizeHint().width(), scrollArea->viewport()->width());
+    EXPECT_LE(view->cpuPage()->readouts()->minimumSizeHint().width(), view->cpuPage()->width());
+}
+
+TEST(NetworkPerformancePage, SmallWindow_ReadoutsFitWithoutHorizontalScrolling)
+{
+    SmallMainWindow mainWindow;
+    auto* view = mainWindow.performanceView();
+    view->setCurrentPage(PerformanceView::Page::Network);
+
+    view->updateSnapshot(demandingSnapshot());
+    QCoreApplication::processEvents();
+
+    const auto* scrollArea = view->networkPage()->findChild<QScrollArea*>();
+    ASSERT_NE(scrollArea, nullptr);
+    ASSERT_EQ(view->networkPage()->chartedAdapterNames().size(), 2u);
+    // With horizontal scrolling off, the scroll area squeezes content that is
+    // too wide instead of scrolling it, so check the content's minimum width
+    // and that no label is narrower than its text.
+    EXPECT_EQ(scrollArea->horizontalScrollBar()->maximum(), 0);
+    EXPECT_LE(scrollArea->widget()->minimumSizeHint().width(), scrollArea->viewport()->width());
+    EXPECT_LE(scrollArea->widget()->width(), scrollArea->viewport()->width());
+    for (std::size_t index = 0; index < 2; ++index) {
+        const ReadoutGrid* grid = view->networkPage()->adapterReadoutGrid(index);
+        EXPECT_LE(grid->mapTo(scrollArea->viewport(), QPoint(grid->width(), 0)).x(), scrollArea->viewport()->width());
+        for (const auto* label : grid->findChildren<QLabel*>()) {
+            EXPECT_GE(label->width(), label->sizeHint().width()) << label->text().toStdString();
+            EXPECT_LE(label->x() + label->width(), grid->width()) << label->text().toStdString();
+        }
+    }
 }
 
 TEST(CpuPerformancePage, Readouts_PlaceholdersUntilFirstSnapshotThenValues)

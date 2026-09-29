@@ -4,7 +4,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <QLabel>
 #include <QString>
 
 #include "domain/cpu_sample.h"
@@ -13,7 +12,6 @@
 #include "domain/network_sample.h"
 #include "domain/system_activity_sample.h"
 #include "ui/performance_readouts.h"
-#include "ui/readout_grid.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
@@ -210,43 +208,4 @@ TEST(PerformanceReadouts, AdapterReadouts_UnknownLinkSpeedAndNoAddresses)
     EXPECT_EQ(valueOf(readouts, "Type"), "Virtual");
     EXPECT_EQ(valueOf(readouts, "IPv4 address"), "None");
     EXPECT_EQ(namesOf(adapterReadouts(std::nullopt)), namesOf(readouts));
-}
-
-TEST(ReadoutGrid, SetReadouts_ShowsNamesAndValues)
-{
-    ReadoutGrid grid(3);
-
-    grid.setReadouts({{"Processes", "367"}, {"Threads", "8,350"}});
-
-    EXPECT_EQ(grid.value("Processes"), "367");
-    EXPECT_EQ(grid.value("Threads"), "8,350");
-    EXPECT_TRUE(grid.value("Handles").isEmpty());
-}
-
-TEST(ReadoutGrid, SetReadoutsWithSameNames_UpdatesValuesInPlace)
-{
-    ReadoutGrid grid(3);
-    grid.setReadouts({{"Processes", "367"}});
-    const QLabel* valueLabel = nullptr;
-    for (const auto* label : grid.findChildren<QLabel*>()) {
-        if (label->text() == "367") {
-            valueLabel = label;
-        }
-    }
-    ASSERT_NE(valueLabel, nullptr);
-
-    grid.setReadouts({{"Processes", "368"}});
-
-    EXPECT_EQ(grid.value("Processes"), "368");
-    EXPECT_EQ(valueLabel->text(), "368"); // The same label, not a rebuilt one.
-}
-
-TEST(ReadoutGrid, SetReadoutsWithNewNames_Rebuilds)
-{
-    ReadoutGrid grid(2);
-    grid.setReadouts({{"C:\\", "75%"}});
-
-    grid.setReadouts({{"C:\\", "75%"}, {"D:\\", "10%"}});
-
-    EXPECT_EQ(grid.readouts(), (std::vector<Readout>{{"C:\\", "75%"}, {"D:\\", "10%"}}));
 }

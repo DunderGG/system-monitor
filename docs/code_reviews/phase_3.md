@@ -64,7 +64,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
-| [F-20](#f-20-performance-pages-do-not-fit-the-default-window) | Performance pages do not fit the default window | Medium | Open |
+| [F-20](#f-20-performance-pages-do-not-fit-the-default-window) | Performance pages do not fit the default window | Medium | Resolved |
 | [F-21](#f-21-network-page-charts-hidden-wan-miniport-adapters) | Network page charts hidden WAN Miniport adapters | Medium | Open |
 | [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Open |
 | [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Open |
@@ -117,7 +117,7 @@ On a 256-thread workstation, the window can no longer be made smaller than 948×
 
 **Recommendation:** Fix before Phase 4. It affects every user at the default size, and the Phase 4 process table will face the same width limits.
 
-**Status:** Open.
+**Status:** Resolved (2026-09-29). Items 1 to 5 are done. `ReadoutGrid` now lays out its labels with its own height-for-width `QLayout`. The layout uses as many columns as fit, up to the page's maximum, and its minimum width is the widest readout. A cell keeps the widest width it has reached, so changing values do not make the column count flip. The network page's scroll area and a new scroll area around the per-core grid scroll vertically only. Per-core charts have a 12×12 minimum, so a 256-core grid fits the page width. `MainWindow` opens at 1024×720, limited to 90% of the screen, and the content still has to fit 800×600. There are 5 new `ReadoutGrid` tests. Three widget tests show `MainWindow` at 800×600 with 256 cores and two adapters that have long IPv6 addresses, descriptions and DNS lists. They check the window's minimum size, that the per-core grid and the network readouts fit their viewports, and that no readout label is narrower than its text. A scroll area with horizontal scrolling turned off squeezes content that is too wide, so it shows no scroll range; the tests therefore compare the content's minimum width with the viewport instead. See the design decision "Performance pages fit an 800×600 window".
 
 ---
 

@@ -3,12 +3,13 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <memory>
 #include <utility>
 
+#include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
-#include <QLayoutItem>
+#include <QScrollArea>
+#include <QSize>
 #include <QVBoxLayout>
 
 #include "ui/performance_formatting.h"
@@ -24,6 +25,8 @@ namespace
 constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
 constexpr int kReadoutColumns = 4;
 constexpr int kCoreGridSpacing = 4;
+// Small enough that the 16 columns of a 256-core grid fit the default window.
+constexpr QSize kCoreChartMinimumSize{12, 12};
 
 // A near-square grid: 4 columns for 16 cores, 3 for 8, 12 for 128.
 int coreGridColumns(std::size_t coreCount)
@@ -47,8 +50,13 @@ CpuPerformancePage::CpuPerformancePage(QWidget* parent) : PerformancePage("CPU",
     m_coresLabel->hide();
     contentLayout()->addWidget(m_coresLabel);
 
-    m_coreGrid = new QWidget(this);
-    contentLayout()->addWidget(m_coreGrid, 2);
+    // The per-core grid scrolls vertically, so its minimum size, which grows
+    // with the core count, does not become the window's.
+    m_coreScrollArea = new QScrollArea(this);
+    m_coreScrollArea->setWidgetResizable(true);
+    m_coreScrollArea->setFrameShape(QFrame::NoFrame);
+    m_coreScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    contentLayout()->addWidget(m_coreScrollArea, 2);
 }
 
 void CpuPerformancePage::recordSamples(const domain::SystemSnapshot& snapshot)
@@ -92,7 +100,7 @@ void CpuPerformancePage::rebuildCoreCharts()
 {
     // Build the new grid in a fresh container and swap it in, so the old
     // charts and their grid positions go away together.
-    auto* grid = new QWidget(this);
+    auto* grid = new QWidget(m_coreScrollArea);
     auto* gridLayout = new QGridLayout(grid);
     gridLayout->setContentsMargins(0, 0, 0, 0);
     gridLayout->setSpacing(kCoreGridSpacing);
@@ -105,17 +113,14 @@ void CpuPerformancePage::rebuildCoreCharts()
         chart->setFixedRange(kPercentRange);
         chart->setGridVisible(true);
         chart->setToolTip(QString("CPU %1").arg(core));
+        chart->setMinimumSize(kCoreChartMinimumSize);
         const int index = static_cast<int>(core);
         gridLayout->addWidget(chart, index / columns, index % columns);
         coreCharts.push_back(chart);
     }
 
-    // replaceWidget() hands back the old layout item, which is not a QObject.
-    const std::unique_ptr<QLayoutItem> oldItem{contentLayout()->replaceWidget(m_coreGrid, grid)};
-    assert(oldItem && "core grid must be in the content layout");
-    m_coreGrid->hide();
-    m_coreGrid->deleteLater();
-    m_coreGrid = grid;
+    // setWidget() deletes the previous grid together with its charts.
+    m_coreScrollArea->setWidget(grid);
     m_coreCharts = std::move(coreCharts);
     m_coresLabel->setVisible(!m_coreCharts.empty());
 }

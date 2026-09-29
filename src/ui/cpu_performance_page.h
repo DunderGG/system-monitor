@@ -12,6 +12,7 @@
 #include "ui/performance_page.h"
 
 class QLabel;
+class QScrollArea;
 
 namespace sysmon::ui
 {
@@ -21,9 +22,9 @@ class ReadoutGrid;
 /**
  * CPU page of the Performance tab: a total utilization chart and its readouts
  * (see cpuReadouts()) above a grid of small per-core charts, one per logical
- * processor. The grid is rebuilt when the number of cores in the samples
- * changes, and the per-core history restarts then, because core indices no
- * longer line up.
+ * processor. The grid scrolls vertically when there are too many cores for the
+ * page. It is rebuilt when the number of cores in the samples changes, and the
+ * per-core history restarts then, because core indices no longer line up.
  */
 class CpuPerformancePage : public PerformancePage
 {
@@ -50,7 +51,7 @@ private:
     charts::SparklineWidget* m_totalChart{nullptr};
     ReadoutGrid* m_readouts{nullptr};
     QLabel* m_coresLabel{nullptr};
-    QWidget* m_coreGrid{nullptr};
+    QScrollArea* m_coreScrollArea{nullptr};
     std::vector<charts::SparklineWidget*> m_coreCharts;
 
     SampleHistory m_totalHistory{kHistoryCapacity};

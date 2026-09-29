@@ -1,5 +1,8 @@
 #include "ui/main_window.h"
 
+#include <QRect>
+#include <QScreen>
+#include <QSize>
 #include <QTabWidget>
 
 #include "ui/dashboard_view.h"
@@ -10,10 +13,25 @@
 namespace sysmon::ui
 {
 
+namespace
+{
+
+// Wide enough for several readout columns on the Performance pages. The
+// window still fits its content at 800x600.
+constexpr QSize kDefaultSize{1024, 720};
+// The largest share of the screen's available area the window opens at.
+constexpr double kMaxScreenShare = 0.9;
+
+} // namespace
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
     setWindowTitle("System Monitor");
-    resize(800, 600);
+    QSize size = kDefaultSize;
+    if (const QScreen* current = screen()) {
+        size = size.boundedTo(current->availableGeometry().size() * kMaxScreenShare);
+    }
+    resize(size);
 
     m_tabWidget = new QTabWidget(this);
 
