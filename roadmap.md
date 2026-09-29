@@ -110,7 +110,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Show detailed numeric readouts alongside each chart (e.g., speed, processes, uptime, handles for CPU; total, cached, paged pool for memory).
 - [x] Use a left sidebar or selector to switch between CPU, memory, disk, and network detail views.
 - [x] Verify smooth 1 Hz updates with 5–30 minutes of history.
-- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
+- [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. See the [Phase 3 code review](docs/code_reviews/phase_3.md); fix F-20 to F-22 before starting Phase 4.
 
 ---
 
