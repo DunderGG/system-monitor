@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -8,6 +9,7 @@
 #include <QColor>
 #include <QImage>
 #include <QPoint>
+#include <QPointF>
 #include <QRect>
 #include <QRectF>
 #include <QRegion>
@@ -162,6 +164,41 @@ TEST(SparklineSegments, ValuesOutsideRange_Clamped)
     ASSERT_EQ(segments.size(), 1u);
     EXPECT_DOUBLE_EQ(segments[0][0].y(), 50.0);
     EXPECT_DOUBLE_EQ(segments[0][1].y(), 0.0);
+}
+
+TEST(SparklineSegments, MoreSlotsThanPixels_AtMostTwoPointsPerColumnInTimeOrder)
+{
+    // 1000 slots across 100 pixels: about ten samples per pixel column.
+    const auto segments = sparklineSegments(sineSamples(1000), 1000, kArea, kPercent);
+
+    ASSERT_EQ(segments.size(), 1u);
+    const auto& line = segments[0];
+    EXPECT_LE(line.size(), 2 * 101);
+    for (qsizetype i = 1; i < line.size(); ++i) {
+        EXPECT_LT(line[i - 1].x(), line[i].x());
+    }
+}
+
+TEST(SparklineSegments, MoreSlotsThanPixels_KeepsSingleSampleSpike)
+{
+    Samples samples(1000, 10.0f);
+    samples[500] = 90.0f;
+
+    const auto segments = sparklineSegments(samples, 1000, kArea, kPercent);
+
+    ASSERT_EQ(segments.size(), 1u);
+    const auto highest = std::ranges::min_element(segments[0], {}, &QPointF::y);
+    EXPECT_DOUBLE_EQ(highest->y(), 5.0); // 90% of a 50-pixel-high area.
+}
+
+TEST(SparklineSegments, MoreSlotsThanPixels_GapStillSplitsSegments)
+{
+    Samples samples(1000, 50.0f);
+    samples[500] = std::nullopt;
+
+    const auto segments = sparklineSegments(samples, 1000, kArea, kPercent);
+
+    EXPECT_EQ(segments.size(), 2u);
 }
 
 TEST(SparklineSegments, CapacityOne_PlacesSampleAtRightEdge)
@@ -331,9 +368,16 @@ TEST_P(SparklineBufferSize, FullSyntheticHistory_ProducesOneSegmentAcrossWidth)
 
     const auto segments = sparklineSegments(samples, size, kArea, kPercent);
 
+    // Up to 100 samples, one point each; beyond the 100-pixel width, at most
+    // two per pixel column (101 columns including the right edge).
     ASSERT_EQ(segments.size(), 1u);
-    EXPECT_EQ(static_cast<std::size_t>(segments[0].size()), size);
-    EXPECT_DOUBLE_EQ(segments[0].front().x(), kArea.left());
+    const auto pointCount = static_cast<std::size_t>(segments[0].size());
+    if (size <= 100) {
+        EXPECT_EQ(pointCount, size);
+    }
+    EXPECT_LE(pointCount, 2u * 101u);
+    EXPECT_GE(segments[0].front().x(), kArea.left());
+    EXPECT_LT(segments[0].front().x(), kArea.left() + 1.0);
     EXPECT_DOUBLE_EQ(segments[0].back().x(), kArea.right());
 }
 
@@ -579,6 +623,18 @@ TEST(SparklineWidget, AnnotationsWithoutSamples_ShowNotAvailable)
     EXPECT_TRUE(hasPaintedPixel(image, QRect(0, 0, widget.width(), plot.top() - 8)));
 }
 
+TEST(SparklineWidget, MoreSlotsThanPixels_StillFillsBelowTheLine)
+{
+    SparklineWidget widget;
+    widget.resize(200, 100);
+    widget.setCapacity(1000);
+    widget.setSamples(sineSamples(1000));
+    const QRect plot = widget.plotArea().toAlignedRect();
+    const QRect bottomBand(plot.left(), plot.bottom() - 5, plot.width(), 5);
+
+    EXPECT_TRUE(hasPaintedPixel(renderWidget(widget), bottomBand)); // Gradient fill reaches the bottom.
+}
+
 TEST(SparklineWidget, UnfilledSeries_PaintsOnlyNearTheLine)
 {
     SparklineWidget widget;
@@ -592,4 +648,21 @@ TEST(SparklineWidget, UnfilledSeries_PaintsOnlyNearTheLine)
     widget.setSeriesFilled(0, false);
 
     EXPECT_FALSE(hasPaintedPixel(renderWidget(widget), lowerHalf));
+}
+
+// ---------------------------------------------------------------------------
+// upperEnvelope
+// ---------------------------------------------------------------------------
+
+TEST(SparklineEnvelope, KeepsHighestPointPerPixelColumn)
+{
+    const QPolygonF line{QPointF{0.2, 40.0}, QPointF{0.6, 10.0}, QPointF{1.1, 30.0}, QPointF{1.9, 45.0}};
+
+    const QPolygonF envelope = upperEnvelope(line, kArea);
+
+    ASSERT_EQ(envelope.size(), 2);
+    EXPECT_DOUBLE_EQ(envelope[0].x(), 0.2);
+    EXPECT_DOUBLE_EQ(envelope[0].y(), 10.0);
+    EXPECT_DOUBLE_EQ(envelope[1].x(), 1.1);
+    EXPECT_DOUBLE_EQ(envelope[1].y(), 30.0);
 }

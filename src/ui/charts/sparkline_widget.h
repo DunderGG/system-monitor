@@ -52,10 +52,21 @@ struct SeriesSummary
  * capacity horizontal slots and the newest sample sits at the right edge, so a
  * partially filled history grows in from the right. A std::nullopt sample ends
  * the current segment, leaving a visible gap instead of a fake zero. Values
- * outside range are clamped. Pure function for unit testing.
+ * outside range are clamped. When capacity exceeds the area's width in
+ * pixels, each segment keeps only the lowest and highest point of every pixel
+ * column, in time order, so long histories paint at a cost bounded by the
+ * width while spikes stay visible. Pure function for unit testing.
  */
 [[nodiscard]] std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> samples,
                                                        std::size_t capacity, const QRectF& area, YRange range);
+
+/**
+ * Returns the top of line in each pixel column of area: one point per column,
+ * at the column's first point's X and highest point's Y (lowest widget Y).
+ * Filling below it matches filling below a line that zigzags within columns,
+ * at a fraction of the rasterizing cost. Pure function for unit testing.
+ */
+[[nodiscard]] QPolygonF upperEnvelope(const QPolygonF& line, const QRectF& area);
 
 /**
  * Returns the X positions of the vertical grid lines within area. Lines sit on
@@ -210,6 +221,8 @@ private:
     };
 
     [[nodiscard]] bool hasDarkSurface() const;
+    // True when there are more slots than pixel columns in area.
+    [[nodiscard]] bool isDense(const QRectF& area) const;
     void paintGrid(QPainter& painter, const QRectF& area) const;
     void paintSeries(QPainter& painter, const Series& series, const QColor& color, const QRectF& area,
                      YRange range) const;

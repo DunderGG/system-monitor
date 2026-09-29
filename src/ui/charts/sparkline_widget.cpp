@@ -24,6 +24,8 @@ namespace
 constexpr float kAutoRangeHeadroom = 1.1f;
 constexpr int kFillTopAlpha = 90;
 constexpr qreal kLineWidth = 1.5;
+// Line width when there are more slots than pixel columns (see paintSeries()).
+constexpr qreal kDenseLineWidth = 1.0;
 
 // Grid: vertical lines every capacity / kVerticalGridDivisions samples, fixed
 // horizontal lines at quarters of the range. Hairlines in the text colour at
@@ -94,6 +96,36 @@ double valueY(float value, const QRectF& area, YRange range)
     return area.bottom() - (clamped - range.min) / static_cast<double>(range.max - range.min) * area.height();
 }
 
+// The lowest and highest value that fall into one pixel column while
+// decimating. In widget coordinates the lowest value has the largest y.
+struct ColumnExtremes
+{
+    long long pixelColumn{0};
+    QPointF low;
+    QPointF high;
+
+    void add(const QPointF& point)
+    {
+        if (point.y() > low.y()) {
+            low = point;
+        }
+        if (point.y() < high.y()) {
+            high = point;
+        }
+    }
+
+    // Appends the extremes in time order (left to right), once if they are the same sample.
+    void appendTo(QPolygonF& polygon) const
+    {
+        if (low == high) {
+            polygon.append(low);
+            return;
+        }
+        polygon.append(low.x() < high.x() ? low : high);
+        polygon.append(low.x() < high.x() ? high : low);
+    }
+};
+
 QColor withAlpha(QColor color, qreal alpha)
 {
     color.setAlphaF(alpha);
@@ -129,22 +161,66 @@ std::vector<QPolygonF> sparklineSegments(std::span<const std::optional<float>> s
     const auto visible = visibleSamples(samples, capacity);
     const std::size_t firstSlot = capacity - visible.size();
 
+    // With more slots than pixel columns, several samples land in the same
+    // column. Keep only each column's lowest and highest point, in time order:
+    // the drawn shape is the same (spikes survive), but a segment has at most
+    // two points per column, so painting cost stays bounded by the width.
+    const bool decimate = static_cast<double>(capacity) > area.width();
     QPolygonF current;
+    std::optional<ColumnExtremes> column;
+    const auto flushColumn = [&current, &column] {
+        if (column) {
+            column->appendTo(current);
+            column.reset();
+        }
+    };
+    const auto endSegment = [&segments, &current, &flushColumn] {
+        flushColumn();
+        if (!current.isEmpty()) {
+            segments.push_back(std::move(current));
+            current = QPolygonF{};
+        }
+    };
+
     for (std::size_t i = 0; i < visible.size(); ++i) {
         const auto& sample = visible[i];
         if (!sample) {
-            if (!current.isEmpty()) {
-                segments.push_back(std::move(current));
-                current = QPolygonF{};
-            }
+            endSegment();
             continue;
         }
-        current.append(QPointF{slotX(firstSlot + i, capacity, area), valueY(*sample, area, range)});
+        const QPointF point{slotX(firstSlot + i, capacity, area), valueY(*sample, area, range)};
+        if (!decimate) {
+            current.append(point);
+            continue;
+        }
+        const auto pixelColumn = static_cast<long long>(std::floor(point.x() - area.left()));
+        if (column && column->pixelColumn != pixelColumn) {
+            flushColumn();
+        }
+        if (!column) {
+            column = ColumnExtremes{.pixelColumn = pixelColumn, .low = point, .high = point};
+        } else {
+            column->add(point);
+        }
     }
-    if (!current.isEmpty()) {
-        segments.push_back(std::move(current));
-    }
+    endSegment();
     return segments;
+}
+
+QPolygonF upperEnvelope(const QPolygonF& line, const QRectF& area)
+{
+    QPolygonF envelope;
+    long long lastColumn = 0;
+    for (const auto& point : line) {
+        const auto column = static_cast<long long>(std::floor(point.x() - area.left()));
+        if (!envelope.isEmpty() && column == lastColumn) {
+            envelope.back().setY(std::min(envelope.back().y(), point.y()));
+            continue;
+        }
+        envelope.append(point);
+        lastColumn = column;
+    }
+    return envelope;
 }
 
 std::vector<double> verticalGridLines(std::size_t capacity, std::uint64_t newestSampleIndex, const QRectF& area)
@@ -507,21 +583,40 @@ void SparklineWidget::paintSeries(QPainter& painter, const Series& series, const
         }
 
         if (series.filled) {
+            // A dense line zigzags within each pixel column. Filling below it
+            // only needs the column's top, and that polygon is far cheaper to
+            // rasterize than the zigzag.
+            const QPolygonF& outline = isDense(area) ? upperEnvelope(segment, area) : segment;
             QPainterPath fill;
-            fill.moveTo(segment.front().x(), area.bottom());
-            for (const auto& point : segment) {
+            fill.moveTo(outline.front().x(), area.bottom());
+            for (const auto& point : outline) {
                 fill.lineTo(point);
             }
-            fill.lineTo(segment.back().x(), area.bottom());
+            fill.lineTo(outline.back().x(), area.bottom());
             fill.closeSubpath();
             painter.fillPath(fill, gradient);
         }
 
+        if (isDense(area)) {
+            // A cosmetic pen of at most one pixel takes the raster engine's
+            // fast stroker; a wider pen outlines every joint first, which
+            // costs tens of milliseconds for a 30-minute history.
+            QPen pen(color, kDenseLineWidth);
+            pen.setCosmetic(true);
+            painter.setPen(pen);
+            painter.drawPolyline(segment);
+            continue;
+        }
         QPainterPath line;
         line.addPolygon(segment);
         painter.setPen(QPen(color, kLineWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         painter.drawPath(line);
     }
+}
+
+bool SparklineWidget::isDense(const QRectF& area) const
+{
+    return static_cast<double>(m_capacity) > area.width();
 }
 
 void SparklineWidget::paintAxisLabels(QPainter& painter, const QRectF& area, YRange range) const
