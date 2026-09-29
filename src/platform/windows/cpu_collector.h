@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "domain/cpu_sample.h"
@@ -35,6 +36,14 @@ struct SystemTimesData
                                                      std::chrono::nanoseconds monotonicElapsed);
 
 /**
+ * Returns the base speed from each logical processor's rated maximum clock
+ * speed in MHz: the highest value, so hybrid designs report their performance
+ * cores. Returns std::nullopt when the list is empty or all values are zero.
+ * Pure function for deterministic testing.
+ */
+[[nodiscard]] std::optional<uint32_t> baseSpeedFromMaxMhz(std::span<const uint32_t> maxMhzPerProcessor);
+
+/**
  * Total and per-core CPU usage collector for Windows using GetSystemTimes
  * and NtQuerySystemInformation(SystemProcessorPerformanceInformation).
  *
@@ -48,6 +57,10 @@ struct SystemTimesData
  * collect() returns std::nullopt when both queries fail or when no rate can be
  * computed yet (the first sample only establishes a baseline). Per-core values
  * are omitted (empty) rather than zero-filled when they cannot be computed.
+ *
+ * The base speed does not change while the system runs, so the default
+ * constructor reads it once with CallNtPowerInformation(ProcessorInformation)
+ * and every sample carries it.
  */
 class CpuCollector : public monitoring::ICpuCollector
 {
@@ -58,7 +71,7 @@ public:
     CpuCollector();
     CpuCollector(SystemTimesReader timesReader, SteadyClockReader clockReader, int coreCount);
     CpuCollector(SystemTimesReader timesReader, CorePerformanceReader coreReader, SteadyClockReader clockReader,
-                 int coreCount, int processorGroupCount = 1);
+                 int coreCount, int processorGroupCount = 1, std::optional<uint32_t> baseSpeedMhz = std::nullopt);
     ~CpuCollector() override = default;
 
     [[nodiscard]] std::optional<domain::CpuSample> collect() override;
@@ -81,6 +94,7 @@ private:
     SteadyClockReader m_clockReader;
     int m_coreCount{1};
     bool m_isMultiGroup{false};
+    std::optional<uint32_t> m_baseSpeedMhz;
 
     SystemTimesData m_previousTimes{};
     std::vector<SystemTimesData> m_previousCoreTimes{};

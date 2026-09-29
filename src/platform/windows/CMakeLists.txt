@@ -35,6 +35,7 @@ target_link_libraries(sysmon_platform_windows
     PRIVATE
         spdlog::spdlog
         iphlpapi
+        powrprof
         ws2_32
 )
 

@@ -165,3 +165,18 @@ TEST(CpuCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics)
         EXPECT_LE(lastSnapshot.cpu->totalUsagePercent, 100.0f);
     }
 }
+
+TEST(CpuCollectorIntegration, RealHost_BaseSpeedIsPlausibleWhenReported)
+{
+    CpuCollector collector;
+    std::this_thread::sleep_for(std::chrono::milliseconds{50});
+
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    // Some virtual machines report no rated speed; the collector must then say so rather than report 0.
+    if (sample->baseSpeedMhz) {
+        EXPECT_GT(*sample->baseSpeedMhz, 100u);
+        EXPECT_LT(*sample->baseSpeedMhz, 20'000u);
+    }
+}

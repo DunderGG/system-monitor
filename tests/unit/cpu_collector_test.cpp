@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cstdint>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -565,4 +566,55 @@ TEST(CpuCollector, Collect_MultiGroupCoreQueryFails_ReturnsNulloptNotOneGroup)
 
     // GetSystemTimes alone covers only one group, so no total is reported.
     EXPECT_FALSE(collector.collect().has_value());
+}
+
+TEST(CpuCollector, BaseSpeedFromMaxMhz_ReturnsHighestRatedSpeed)
+{
+    const std::vector<uint32_t> hybrid{2400, 3600, 3600, 2400};
+
+    EXPECT_EQ(baseSpeedFromMaxMhz(hybrid), 3600u);
+}
+
+TEST(CpuCollector, BaseSpeedFromMaxMhz_EmptyOrAllZero_ReturnsNullopt)
+{
+    EXPECT_FALSE(baseSpeedFromMaxMhz(std::vector<uint32_t>{}).has_value());
+    EXPECT_FALSE(baseSpeedFromMaxMhz(std::vector<uint32_t>{0, 0}).has_value());
+}
+
+TEST(CpuCollector, Collect_InjectedBaseSpeed_CarriedInEverySample)
+{
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
+    std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
+    auto timesReader = [&](SystemTimesData& out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return simulatedNow; };
+    CpuCollector collector(timesReader, nullptr, clockReader, 4, 1, 3600u);
+
+    simulatedNow += std::chrono::milliseconds{1000};
+    simulatedTimes.kernelTime += 100;
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_EQ(sample->baseSpeedMhz, 3600u);
+}
+
+TEST(CpuCollector, Collect_NoBaseSpeedInjected_ReportsUnknownNotZero)
+{
+    SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};
+    std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
+    auto timesReader = [&](SystemTimesData& out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto clockReader = [&]() { return simulatedNow; };
+    CpuCollector collector(timesReader, clockReader, 4);
+
+    simulatedNow += std::chrono::milliseconds{1000};
+    simulatedTimes.kernelTime += 100;
+    const auto sample = collector.collect();
+
+    ASSERT_TRUE(sample.has_value());
+    EXPECT_FALSE(sample->baseSpeedMhz.has_value());
 }

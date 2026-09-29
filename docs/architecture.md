@@ -186,6 +186,7 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 | --- | --- |
 | Total CPU | `GetSystemTimes` |
 | Per-core CPU | `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` |
+| CPU base speed | `CallNtPowerInformation(ProcessorInformation)` (once at startup) |
 | Physical memory | `GlobalMemoryStatusEx` |
 | Disk space | `GetDiskFreeSpaceExW` |
 | Network throughput | `GetIfTable2` (64-bit counters; release with `FreeMibTable`) |

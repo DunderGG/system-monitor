@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <windows.h>
+#include <powerbase.h>
 
 #include <spdlog/spdlog.h>
 
@@ -265,7 +266,51 @@ SystemTimesData aggregateCoreTimes(const std::vector<SystemTimesData>& coreTimes
     return sum;
 }
 
+// Documented as the output of CallNtPowerInformation(ProcessorInformation),
+// one per logical processor, but not declared in the SDK headers.
+struct PROCESSOR_POWER_INFORMATION
+{
+    ULONG Number;
+    ULONG MaxMhz;
+    ULONG CurrentMhz;
+    ULONG MhzLimit;
+    ULONG MaxIdleState;
+    ULONG CurrentIdleState;
+};
+
+// Reads the rated speed of every logical processor. CurrentMhz is not used:
+// on current processors it reports the rated speed rather than the actual
+// clock (see docs/design_decisions.md).
+std::optional<uint32_t> readBaseSpeedMhz(int processorCount)
+{
+    std::vector<PROCESSOR_POWER_INFORMATION> processors(static_cast<std::size_t>(std::max(1, processorCount)));
+    const auto bufferSize = static_cast<ULONG>(processors.size() * sizeof(PROCESSOR_POWER_INFORMATION));
+    const NTSTATUS status = ::CallNtPowerInformation(ProcessorInformation, nullptr, 0, processors.data(), bufferSize);
+    if (status != kStatusSuccess) {
+        spdlog::warn("CallNtPowerInformation(ProcessorInformation) failed with status 0x{:08X}; "
+                     "CPU base speed unavailable",
+                     static_cast<uint32_t>(status));
+        return std::nullopt;
+    }
+
+    std::vector<uint32_t> maxMhz;
+    maxMhz.reserve(processors.size());
+    for (const auto& processor : processors) {
+        maxMhz.push_back(processor.MaxMhz);
+    }
+    return baseSpeedFromMaxMhz(maxMhz);
+}
+
 } // namespace
+
+std::optional<uint32_t> baseSpeedFromMaxMhz(std::span<const uint32_t> maxMhzPerProcessor)
+{
+    const auto highest = std::ranges::max_element(maxMhzPerProcessor);
+    if (highest == maxMhzPerProcessor.end() || *highest == 0) {
+        return std::nullopt;
+    }
+    return *highest;
+}
 
 std::optional<float> calculateCpuUsage(const SystemTimesData& previous, const SystemTimesData& current,
                                        std::chrono::nanoseconds monotonicElapsed)
@@ -314,7 +359,7 @@ CpuCollector::CpuCollector()
           return true;
       }),
       m_clockReader([] { return std::chrono::steady_clock::now(); }), m_coreCount(detectLogicalCoreCount()),
-      m_isMultiGroup(::GetActiveProcessorGroupCount() > 1)
+      m_isMultiGroup(::GetActiveProcessorGroupCount() > 1), m_baseSpeedMhz(readBaseSpeedMhz(m_coreCount))
 {
     const auto funcs = resolveNtdllProcessorFunctions();
     const int initialCores = m_coreCount;
@@ -331,9 +376,10 @@ CpuCollector::CpuCollector(SystemTimesReader timesReader, SteadyClockReader cloc
 {}
 
 CpuCollector::CpuCollector(SystemTimesReader timesReader, CorePerformanceReader coreReader,
-                           SteadyClockReader clockReader, int coreCount, int processorGroupCount)
+                           SteadyClockReader clockReader, int coreCount, int processorGroupCount,
+                           std::optional<uint32_t> baseSpeedMhz)
     : m_timesReader(std::move(timesReader)), m_coreReader(std::move(coreReader)), m_clockReader(std::move(clockReader)),
-      m_coreCount(std::max(1, coreCount)), m_isMultiGroup(processorGroupCount > 1)
+      m_coreCount(std::max(1, coreCount)), m_isMultiGroup(processorGroupCount > 1), m_baseSpeedMhz(baseSpeedMhz)
 {
     if (m_clockReader) {
         establishBaseline();
@@ -430,6 +476,7 @@ std::optional<domain::CpuSample> CpuCollector::collect()
         .totalUsagePercent = *totalUsage,
         .coreUsagePercents = std::move(coreUsages),
         .coreCount = coreCount,
+        .baseSpeedMhz = m_baseSpeedMhz,
     };
 }
 
