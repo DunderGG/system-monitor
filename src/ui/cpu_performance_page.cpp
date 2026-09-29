@@ -101,7 +101,7 @@ void CpuPerformancePage::rebuildCoreCharts()
     const int columns = coreGridColumns(m_coreHistories.size());
     for (std::size_t core = 0; core < m_coreHistories.size(); ++core) {
         auto* chart = new charts::SparklineWidget(grid);
-        chart->setCapacity(kHistoryCapacity);
+        chart->setCapacity(visibleWindow());
         chart->setFixedRange(kPercentRange);
         chart->setGridVisible(true);
         chart->setToolTip(QString("CPU %1").arg(core));

@@ -39,8 +39,11 @@ class PerformancePage : public QWidget
     Q_OBJECT
 
 public:
-    /** Samples of history kept per series: one minute at the default 1 Hz sampling rate. */
-    static constexpr std::size_t kHistoryCapacity = 60;
+    /** Samples of history kept per series: 30 minutes at the default 1 Hz sampling rate. */
+    static constexpr std::size_t kHistoryCapacity = 1800;
+
+    /** Samples the charts show until setVisibleWindow() is called: one minute at 1 Hz. */
+    static constexpr std::size_t kDefaultVisibleWindow = 60;
 
     explicit PerformancePage(const QString& title, QWidget* parent = nullptr);
     ~PerformancePage() override = default;
@@ -59,6 +62,14 @@ public:
     /** Number of snapshots recorded so far, the running index that scrolls the chart grids. */
     [[nodiscard]] std::uint64_t recordedCount() const;
 
+    /**
+     * Sets how many of the newest samples the charts show, from 1 to
+     * kHistoryCapacity. The full history is kept either way. Takes effect on
+     * the next refresh().
+     */
+    void setVisibleWindow(std::size_t samples);
+    [[nodiscard]] std::size_t visibleWindow() const;
+
 protected:
     /** Appends the snapshot's samples to the subclass's history. */
     virtual void recordSamples(const domain::SystemSnapshot& snapshot) = 0;
@@ -74,13 +85,19 @@ protected:
                                                                      charts::SparklineWidget::ValueFormatter formatter,
                                                                      QWidget* parent);
 
-    /** Shows history as the given series of chart and scrolls the chart's grid to the newest sample. */
+    /**
+     * Shows the visible window of history as the given series of chart, sizes
+     * the chart to the window, and scrolls its grid to the newest sample. Only
+     * the window is passed to the chart, so an auto-scaled Y axis follows the
+     * samples on screen.
+     */
     void showHistory(charts::SparklineWidget* chart, std::size_t series, const SampleHistory& history) const;
 
 private:
     QString m_title;
     QVBoxLayout* m_contentLayout{nullptr};
     std::uint64_t m_recordedCount{0};
+    std::size_t m_visibleWindow{kDefaultVisibleWindow};
 };
 
 } // namespace sysmon::ui

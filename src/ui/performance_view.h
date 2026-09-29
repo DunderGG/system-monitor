@@ -8,6 +8,7 @@
 
 #include "domain/system_snapshot.h"
 
+class QComboBox;
 class QListWidget;
 class QShowEvent;
 class QStackedWidget;
@@ -30,6 +31,9 @@ class PerformancePage;
  * complete whenever they are shown. The widgets themselves (the selected
  * page and the sidebar summaries) are refreshed only while this view is
  * visible, and again when it is shown or another page is selected.
+ *
+ * Pages keep 30 minutes of history. A selector below the sidebar picks how
+ * much of it the charts show (kHistoryWindows); one minute by default.
  */
 class PerformanceView : public QWidget
 {
@@ -45,6 +49,9 @@ public:
         Network,
     };
 
+    /** Chart windows the selector offers, in samples: 1, 5, and 30 minutes at the default 1 Hz. */
+    static constexpr std::array<std::size_t, 3> kHistoryWindows{60, 300, 1800};
+
     explicit PerformanceView(QWidget* parent = nullptr);
     ~PerformanceView() override = default;
 
@@ -53,6 +60,10 @@ public:
 
     void setCurrentPage(Page page);
     [[nodiscard]] Page currentPage() const;
+
+    /** Selects how many samples the charts show. Must be one of kHistoryWindows. */
+    void setHistoryWindow(std::size_t samples);
+    [[nodiscard]] std::size_t historyWindow() const;
 
     /** Returns the sidebar entry for page: its title and summary on separate lines. */
     [[nodiscard]] QString sidebarText(Page page) const;
@@ -71,6 +82,7 @@ private:
     void refreshVisible();
 
     QListWidget* m_sidebar{nullptr};
+    QComboBox* m_windowSelector{nullptr};
     QStackedWidget* m_stack{nullptr};
     CpuPerformancePage* m_cpuPage{nullptr};
     MemoryPerformancePage* m_memoryPage{nullptr};

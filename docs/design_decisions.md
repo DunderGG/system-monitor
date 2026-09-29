@@ -495,3 +495,21 @@ The text comes from pure functions in `ui/performance_readouts.h` (`cpuReadouts(
 Charts that are not dense look exactly as before.
 
 **Rationale:** With 30 minutes of history, a Release build took about 210 ms per tick on the CPU page (16 cores) and 145 ms on the network page. That was measured with synthetic worst-case data that swings across most of the range every 20 samples, and it is far too long for a 1 Hz UI thread. Decimation alone barely helped, because the cost was not the number of points. It was Qt's general stroker, which builds a round-joined outline for every vertex of a pen wider than one pixel, and the scanline cost of filling a polygon whose top edge zigzags. Qt's raster engine has a fast path for cosmetic pens up to one pixel wide, which cut the worst page to about 60 ms. The envelope fill, which covers the same pixels as filling under the zigzag because the line is drawn over each column's span, brought it to about 27 ms (see the measurements in the next entry). Min/max decimation is kept because it bounds the work by the chart's width, and unlike averaging it keeps one-sample spikes visible. A one-pixel line also suits a dense chart better, because a thicker one would merge neighbouring columns.
+
+### 30 minutes of performance history, a chart-window selector, and the measured tick cost
+
+**Decision:** Each Performance page keeps 30 minutes of history (`PerformancePage::kHistoryCapacity` = 1800 samples at 1 Hz). A "Chart history" selector below the sidebar sets how much of it the charts show: 1 minute (the default, as in Task Manager), 5 minutes, or 30 minutes. `showHistory()` passes the chart only the newest window of samples and sets the chart's capacity to match. The selection is not saved yet, because persisting it belongs with the Phase 6 settings file. Windows are counted in samples, which equals seconds at the fixed 1 Hz sampling rate. A configurable refresh interval will need to convert them.
+
+The tick cost was measured with a throwaway benchmark (not committed) in a Release build (`build.ps1 -Release`) on the development machine, a 16-thread 4.7 GHz desktop. The benchmark shows a 1280x800 window on the Performance tab and records 1800 synthetic snapshots. It then times 20 more snapshots, each forwarded by `MainWindow` and followed by a synchronous repaint of the window. The data is a worst case: every series swings across most of its range every 20 to 30 samples.
+
+| Page | 1 min | 5 min | 30 min |
+| --- | --- | --- | --- |
+| CPU, 16 cores | 6.2 ms | 9.8 ms | 26.9 ms |
+| CPU, 64 cores | 12.1 ms | 15.7 ms | 20.4 ms |
+| Memory | 2.4 ms | 4.9 ms | 8.2 ms |
+| Disk | 1.3 ms | 1.3 ms | 1.6 ms |
+| Network, 2 adapters | 3.8 ms | 12.5 ms | 36.6 ms |
+
+The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its per-core charts are smaller. A Release build of the app run on the same machine used about 41 MiB of working set.
+
+**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. At the default window, every page costs under 13 ms per second, about 1% of the UI thread. Even the synthetic worst case at 30 minutes stays under 40 ms, one short frame per second, and real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in the previous entry. Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.

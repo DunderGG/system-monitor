@@ -109,7 +109,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Create a performance view with full-size sparkline charts for CPU (total and per-core), memory (usage and commit), disk (space per volume), and network (throughput per adapter). Extend `MainWindow::onSnapshotReady` to forward snapshots to this view, and decide on visible-tab-only updates (see [code review Finding F-4](docs/code_reviews/phase_1.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview)).
 - [x] Show detailed numeric readouts alongside each chart (e.g., speed, processes, uptime, handles for CPU; total, cached, paged pool for memory).
 - [x] Use a left sidebar or selector to switch between CPU, memory, disk, and network detail views.
-- [ ] Verify smooth 1 Hz updates with 5–30 minutes of history.
+- [x] Verify smooth 1 Hz updates with 5–30 minutes of history.
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---

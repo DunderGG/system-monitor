@@ -1,12 +1,18 @@
 #include "ui/performance_view.h"
 
 #include <cassert>
+#include <chrono>
 
+#include <QComboBox>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QListWidget>
 #include <QShowEvent>
 #include <QStackedWidget>
+#include <QVariant>
+#include <QVBoxLayout>
 
+#include "ui/charts/sparkline_widget.h"
 #include "ui/cpu_performance_page.h"
 #include "ui/disk_performance_page.h"
 #include "ui/memory_performance_page.h"
@@ -34,10 +40,24 @@ PerformanceView::PerformanceView(QWidget* parent) : QWidget(parent)
     layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(12);
 
+    auto* sidebarColumn = new QVBoxLayout();
+    sidebarColumn->setSpacing(4);
     m_sidebar = new QListWidget(this);
     m_sidebar->setFixedWidth(kSidebarWidth);
     m_sidebar->setSpacing(kSidebarItemSpacing);
-    layout->addWidget(m_sidebar);
+    sidebarColumn->addWidget(m_sidebar, 1);
+
+    auto* windowLabel = new QLabel("Chart history", this);
+    sidebarColumn->addWidget(windowLabel);
+    m_windowSelector = new QComboBox(this);
+    m_windowSelector->setFixedWidth(kSidebarWidth);
+    for (const std::size_t samples : kHistoryWindows) {
+        const QString label = charts::formatHistoryWindow(std::chrono::seconds{static_cast<long long>(samples)});
+        m_windowSelector->addItem(label, QVariant::fromValue(samples));
+    }
+    windowLabel->setBuddy(m_windowSelector);
+    sidebarColumn->addWidget(m_windowSelector);
+    layout->addLayout(sidebarColumn);
 
     m_stack = new QStackedWidget(this);
     layout->addWidget(m_stack, 1);
@@ -63,6 +83,32 @@ PerformanceView::PerformanceView(QWidget* parent) : QWidget(parent)
         }
     });
     m_sidebar->setCurrentRow(0);
+
+    connect(m_windowSelector, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        const auto samples = m_windowSelector->itemData(index).value<std::size_t>();
+        for (auto* page : m_pages) {
+            page->setVisibleWindow(samples);
+        }
+        if (isVisible()) {
+            refreshVisible();
+        }
+    });
+    setHistoryWindow(PerformancePage::kDefaultVisibleWindow);
+}
+
+void PerformanceView::setHistoryWindow(std::size_t samples)
+{
+    const int index = m_windowSelector->findData(QVariant::fromValue(samples));
+    assert(index >= 0 && "history window must be one of kHistoryWindows");
+    m_windowSelector->setCurrentIndex(index);
+}
+
+std::size_t PerformanceView::historyWindow() const
+{
+    return m_windowSelector->currentData().value<std::size_t>();
 }
 
 void PerformanceView::updateSnapshot(const domain::SystemSnapshot& snapshot)

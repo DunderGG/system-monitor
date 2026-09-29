@@ -1,3 +1,4 @@
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <optional>
@@ -15,6 +16,7 @@
 #include "ui/main_window.h"
 #include "ui/memory_performance_page.h"
 #include "ui/network_performance_page.h"
+#include "ui/performance_page.h"
 #include "ui/performance_view.h"
 #include "ui/readout_grid.h"
 
@@ -396,4 +398,57 @@ TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)
     page.refresh();
 
     EXPECT_EQ(page.adapterReadoutGrid(0)->value("Receive"), "N/A");
+}
+
+TEST(PerformanceView, HistoryWindow_DefaultsToOneMinuteAndOffersFiveAndThirty)
+{
+    PerformanceView view;
+
+    EXPECT_EQ(view.historyWindow(), 60u);
+    EXPECT_EQ(PerformanceView::kHistoryWindows, (std::array<std::size_t, 3>{60, 300, 1800}));
+    EXPECT_EQ(PerformancePage::kHistoryCapacity, 1800u);
+}
+
+TEST(PerformanceView, SetHistoryWindow_ChartsShowThatManyNewestSamples)
+{
+    ShownPerformanceView view;
+    auto snapshot = populatedSnapshot();
+    for (int i = 0; i < 400; ++i) {
+        snapshot.cpu->totalUsagePercent = static_cast<float>(i % 100);
+        view.updateSnapshot(snapshot);
+    }
+    const auto* chart = view.cpuPage()->totalChart();
+    EXPECT_EQ(chart->capacity(), 60u);
+    EXPECT_EQ(chart->samples().size(), 60u);
+
+    view.setHistoryWindow(300);
+
+    EXPECT_EQ(chart->capacity(), 300u);
+    ASSERT_EQ(chart->samples().size(), 300u);
+    EXPECT_EQ(chart->samples().back(), 99.0f); // Sample 399.
+
+    view.setHistoryWindow(1800);
+
+    EXPECT_EQ(chart->capacity(), 1800u);
+    EXPECT_EQ(chart->samples().size(), 400u); // All recorded so far.
+    EXPECT_EQ(view.cpuPage()->coreChart(0)->capacity(), 1800u);
+}
+
+TEST(PerformanceView, HistoryWindow_AutoRangeFollowsVisibleSamplesOnly)
+{
+    ShownPerformanceView view;
+    view.setCurrentPage(PerformanceView::Page::Network);
+    auto snapshot = populatedSnapshot();
+    (*snapshot.networks)[0].inBytesPerSec = 1'000'000; // An old spike...
+    view.updateSnapshot(snapshot);
+    (*snapshot.networks)[0].inBytesPerSec = 1000;
+    for (int i = 0; i < 100; ++i) {
+        view.updateSnapshot(snapshot); // ...followed by 100 quiet samples.
+    }
+    const auto* chart = view.networkPage()->adapterChart(0);
+    EXPECT_LT(chart->effectiveRange().max, 10'000.0f);
+
+    view.setHistoryWindow(300);
+
+    EXPECT_GT(chart->effectiveRange().max, 1'000'000.0f);
 }
