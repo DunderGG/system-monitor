@@ -48,6 +48,14 @@ cmake --build --preset default
 ctest --preset default
 ```
 
+A `release` configure, build, and test preset inherits everything from
+`default` except `CMAKE_BUILD_TYPE=Release`, and builds in `build/release`.
+Use it to measure performance: the Debug Qt libraries that `default` links are
+many times slower, especially for painting. `.\scripts\build.ps1 -Release`
+selects it. vcpkg installs release and debug libraries for the `x64-windows`
+triplet, so the second build directory restores its dependencies from the binary
+cache instead of rebuilding them.
+
 `vcpkg.json` is the dependency manifest. It lists the packages the project
 needs, including Qt, spdlog, GoogleTest, and nlohmann-json. It disables Qt's
 default features and requests only Qt GUI, Network, and Widgets support to keep

@@ -8,6 +8,7 @@ The rules below are self-contained. For deeper context, see `docs/architecture.m
 - Build: `.\scripts\build.ps1 -NoRun`
 - Build and launch: `.\scripts\build.ps1`
 - Build and test: `.\scripts\build.ps1 -NoRun -Test`
+- Release build, for measuring performance (Debug Qt paints many times slower): add `-Release`, e.g. `.\scripts\build.ps1 -NoRun -Test -Release`
 - Format C++ files: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code)
 - Check formatting only: `.\scripts\build.ps1 -CheckFormat`
 

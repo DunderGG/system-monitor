@@ -3,9 +3,10 @@
 Configures, builds, and optionally runs the System Monitor desktop application.
 
 .DESCRIPTION
-Runs CMake's default preset, which uses vcpkg to resolve project dependencies
-and Ninja/MSVC to compile the executable. Unless -NoRun is supplied, the script
-launches the executable after a successful build.
+Runs CMake's default (Debug) preset, or the release preset with -Release, which
+use vcpkg to resolve project dependencies and Ninja/MSVC to compile the
+executable. Unless -NoRun is supplied, the script launches the executable after
+a successful build.
 
 Run scripts/bootstrap.ps1 first to install prerequisites and configure the
 VCPKG_ROOT environment variable.
@@ -17,6 +18,11 @@ Configures and builds the application without launching it.
 Runs the test suite with CTest after a successful build. The script fails if
 any test fails. Combine with -NoRun to build and test without launching.
 
+.PARAMETER Release
+Builds (and tests or runs) the optimized Release configuration in build\release
+instead of the Debug one in build\default. Use it to measure performance; Debug
+Qt libraries are many times slower, especially for painting.
+
 .PARAMETER Format
 Formats every C++ source and header under src/ and tests/ in place with
 clang-format, using the repository's .clang-format, then exits without building.
@@ -25,9 +31,9 @@ do not.
 
 .PARAMETER CheckFormat
 Checks that every C++ source and header under src/ and tests/ (the same files
-as -Format) matches
-.clang-format, without changing files, then exits without building. Fails and
-lists the differences if any file needs formatting. CI runs this check.
+as -Format) matches .clang-format, without changing files, then exits without
+building. Fails and lists the differences if any file needs formatting. CI runs
+this check.
 
 clang-format is taken from the CLANG_FORMAT environment variable if set, then
 PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
@@ -44,6 +50,9 @@ version is an error; locally it is a warning.
 .\scripts\build.ps1 -NoRun -Test
 
 .EXAMPLE
+.\scripts\build.ps1 -NoRun -Test -Release
+
+.EXAMPLE
 .\scripts\build.ps1 -Format
 
 .EXAMPLE
@@ -53,6 +62,7 @@ version is an error; locally it is a warning.
 param(
     [switch]$NoRun,
     [switch]$Test,
+    [switch]$Release,
     [switch]$Format,
     [switch]$CheckFormat
 )
@@ -96,7 +106,9 @@ function Invoke-NativeCommand
 # Resolve paths from this script's location so it can be invoked from any
 # PowerShell working directory.
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$applicationPath = Join-Path $projectRoot "build\default\src\app\system_monitor.exe"
+# CMakePresets.json defines each preset's build directory as build\<preset name>.
+$preset = if ($Release) { "release" } else { "default" }
+$applicationPath = Join-Path $projectRoot "build\$preset\src\app\system_monitor.exe"
 
 # Refresh process PATH from User and Machine values so that any tools installed
 # by bootstrap.ps1 (such as ninja) are visible in the current session.
@@ -241,7 +253,7 @@ if ($Format -or $CheckFormat)
     return
 }
 
-# The default CMake preset reads this variable to locate vcpkg's CMake toolchain.
+# The CMake presets read this variable to locate vcpkg's CMake toolchain.
 # Check user/machine environment variables if not yet set in the current process.
 if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
 {
@@ -306,15 +318,15 @@ try
 {
     # Configure generates Ninja build files and causes vcpkg to restore missing
     # dependencies from its binary cache or build them as needed.
-    Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", "default")
+    Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", $preset)
 
-    # Build the default target defined by the project's default build preset.
-    Invoke-NativeCommand -Description "CMake build" -FilePath "cmake" -Arguments @("--build", "--preset", "default")
+    # Build the default target with the matching build preset.
+    Invoke-NativeCommand -Description "CMake build" -FilePath "cmake" -Arguments @("--build", "--preset", $preset)
 
     if ($Test)
     {
         Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
-            -Arguments @("--preset", "default", "--output-on-failure")
+            -Arguments @("--preset", $preset, "--output-on-failure")
     }
 
     if ($NoRun)
