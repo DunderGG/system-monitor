@@ -19,6 +19,8 @@ add_library(sysmon_platform_windows STATIC
     performance_info_reader.h
     process_collector.cpp
     process_collector.h
+    process_identity_cache.cpp
+    process_identity_cache.h
     repeated_failure_log.h
     steady_clock_reader.h
     system_activity_collector.cpp

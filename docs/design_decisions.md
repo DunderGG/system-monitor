@@ -85,6 +85,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 - [Phase 4 — Process collector (`src/platform/windows/`)](#phase-4--process-collector-srcplatformwindows)
   - [DC-70](#dc-70-process-list-read-into-a-kept-growing-buffer-through-an-injected-query): Process list read into a kept, growing buffer through an injected query
   - [DC-71](#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh): Process list parsed through a full `SYSTEM_PROCESS_INFORMATION` layout checked against `winternl.h`
+  - [DC-72](#dc-72-processdetailsstatus-replaces-processinfoaccessdenied): `ProcessDetailsStatus` replaces `ProcessInfo::accessDenied`
+  - [DC-73](#dc-73-process-details-cached-by-pid-creation-time-with-a-domain-processidentity-key): Process details cached by `(PID, creation time)` with a domain `ProcessIdentity` key
 
 ---
 
@@ -193,6 +195,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 **Decision:** `ProcessInfo` includes an `accessDenied` bool rather than being omitted from the snapshot or replaced with an error variant at the `vector<ProcessInfo>` level.
 
 **Rationale:** Even when a process cannot be fully introspected, `NtQuerySystemInformation` returns its name and PID. Omitting the process from the snapshot entirely would silently hide it from the user (wrong: Task Manager shows all processes). A separate error list alongside `vector<ProcessInfo>` would force all UI code to merge two collections. The in-band flag keeps the snapshot a single coherent list and lets the UI render a partial row — image name visible, metrics showing `—` — which is the same pattern used by Task Manager and Process Explorer.
+
+**Superseded in part by [DC-72](#dc-72-processdetailsstatus-replaces-processinfoaccessdenied):** the status stays in-band, but the bool became the `ProcessDetailsStatus` enum `detailsStatus`, because `NtQuerySystemInformation` never fails to return a process's metrics; only the image path and command line can be missing.
 
 ---
 
@@ -714,3 +718,26 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 UTF-16 to UTF-8 conversion moved to `platform/windows/utf8_conversion.h` as `wideToUtf8(std::wstring_view)`, written in portable C++. The network collector uses it too, in place of its own `WideCharToMultiByte` wrapper. Unpaired surrogates become U+FFFD, as with `WideCharToMultiByte`.
 
 **Rationale:** `winternl.h` hides the creation time, user and kernel times, parent PID, and I/O counters in `Reserved` fields, and the collector needs all of them. A complete definition names them, and the `static_assert`s catch a layout mistake at compile time instead of as wrong numbers at run time. Copying each entry avoids reading through a cast pointer and any dependence on the buffer's alignment. The bounds checks stop a corrupt list from reading past the buffer. The parser's tests build lists from SDK types (`UNICODE_STRING`, `SYSTEM_THREAD_INFORMATION`), so they live in `tests/platform/`, which may not call Windows APIs, and the parser calls the conversion. A conversion in plain C++ keeps those tests free of OS calls and can be unit tested directly. `PrivatePageCount` is the field `VM_COUNTERS_EX` calls `PrivateUsage`, the documented commit charge. The transfer counts are the only I/O byte counters the list has, so the comments describe what they include rather than calling them disk I/O.
+
+---
+
+### DC-72: `ProcessDetailsStatus` replaces `ProcessInfo::accessDenied`
+
+**Decision:** `ProcessInfo::accessDenied` is replaced by `ProcessDetailsStatus detailsStatus`, which says whether the image path and command line could be read and, if not, why:
+
+- `NotQueried` (the default): the process is never opened (`lsass.exe`, `csrss.exe`), or the `ProcessInfo` did not come from a collector that reads details.
+- `Available`: both details were read.
+- `AccessDenied`: Windows denied opening the process or reading a detail.
+- `Unavailable`: a detail could not be read for another reason, such as a process that exited before it was queried, or a kernel process with no image file or command line (System, Registry).
+
+A detail that could be read is set whatever the status, so the status describes the query as a whole. This supersedes the flag in [DC-13](#dc-13-processinfoaccessdenied-flag-kept-in-band); the process still stays in the list.
+
+**Rationale:** The flag was defined as "the process metrics could not be retrieved at all", which never happens: `NtQuerySystemInformation` returns the metrics of every process, protected ones included, without opening any ([DC-01](#dc-01-process-enumeration-ntquerysysteminformation-over-tool-help)). Only the details read by opening the process can be missing, and for several reasons the UI should tell apart. A process the monitor deliberately never opens is not one that refused access, and neither is a kernel process that has no command line. An enum is the error variant the domain rules ask for, and `NotQueried` as the default means a `ProcessInfo` never claims a query that did not happen.
+
+---
+
+### DC-73: Process details cached by `(PID, creation time)` with a domain `ProcessIdentity` key
+
+**Decision:** `domain/process_identity.h` defines `ProcessIdentity` (`pid`, `creationTime`) with `ProcessIdentityHash`, and `ProcessInfo::identity()` returns it. `ProcessIdentityCache` (`platform/windows`, no Windows types) maps identities to `ProcessDetails`. `ProcessCollector` passes it every new list. For each process, the cache uses its entry if it has one and otherwise calls the injected `ProcessDetailsReader` once, caching the result whatever its status. It then erases every entry the list did not mention, using a generation counter instead of rebuilding the map. Without a details reader, every process's details stay `NotQueried`.
+
+**Rationale:** Opening a process and reading its path and command line costs a few system calls per process, and the details cannot change while the process lives, so [architecture.md](architecture.md#windows-api-choices) asks for them to be read lazily and cached by `(PID, creation time)`. Keying by PID alone would show a previous process's path and command line for a new process that reused its PID. Erasing on every refresh bounds the cache by the process list and removes an exited process's entry before its PID can come back. Caching failures too means a process that denies access is not opened again every refresh; the cost is that a rare transient failure lasts until the process exits. The identity type is in `domain` because the CPU usage baselines and the Phase 4 process table need the same key. The cache takes the reader as a function, as the other collectors take their readers, so its tests cover PID reuse and eviction without Windows.

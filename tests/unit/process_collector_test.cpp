@@ -26,6 +26,45 @@ TEST(ProcessCollector, Collect_ListRead_ReturnsProcesses)
     EXPECT_EQ((*processes)[1].imageName, "app.exe");
 }
 
+TEST(ProcessCollector, Collect_WithDetailsReader_ReadsEachProcessOnce)
+{
+    int detailReads = 0;
+    ProcessCollector collector(
+        [] {
+            return std::vector<ProcessInfo>{
+                ProcessInfo{.pid = 1234, .imageName = "app.exe"},
+                ProcessInfo{.pid = 5678, .imageName = "tool.exe"},
+            };
+        },
+        [&detailReads](const ProcessInfo& process) {
+            ++detailReads;
+            return ProcessDetails{
+                .imagePath = "C:\\Apps\\" + process.imageName,
+                .commandLine = process.imageName,
+                .status = ProcessDetailsStatus::Available,
+            };
+        });
+
+    (void)collector.collect();
+    const auto processes = collector.collect();
+
+    EXPECT_EQ(detailReads, 2);
+    ASSERT_TRUE(processes.has_value());
+    EXPECT_EQ((*processes)[1].imagePath, "C:\\Apps\\tool.exe");
+    EXPECT_EQ((*processes)[1].detailsStatus, ProcessDetailsStatus::Available);
+}
+
+TEST(ProcessCollector, Collect_NoDetailsReader_DetailsNotQueried)
+{
+    ProcessCollector collector([] { return std::vector<ProcessInfo>{ProcessInfo{.pid = 1234}}; });
+
+    const auto processes = collector.collect();
+
+    ASSERT_TRUE(processes.has_value());
+    EXPECT_FALSE((*processes)[0].imagePath.has_value());
+    EXPECT_EQ((*processes)[0].detailsStatus, ProcessDetailsStatus::NotQueried);
+}
+
 TEST(ProcessCollector, Collect_ListReadFails_ReturnsNullopt)
 {
     ProcessCollector collector([]() -> std::optional<std::vector<ProcessInfo>> { return std::nullopt; });

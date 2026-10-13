@@ -6,6 +6,7 @@
 
 #include "domain/process_info.h"
 #include "monitoring/collector.h"
+#include "platform/windows/process_identity_cache.h"
 
 namespace sysmon::platform
 {
@@ -25,6 +26,10 @@ using ProcessListReader = std::function<std::optional<std::vector<domain::Proces
  * every process, including protected and elevated ones, without opening any
  * of them. collect() returns std::nullopt when the list cannot be read.
  *
+ * The image path and command line come from a ProcessDetailsReader, called
+ * once per process identity through a ProcessIdentityCache. Without a details
+ * reader they stay std::nullopt with ProcessDetailsStatus::NotQueried.
+ *
  * Not thread-safe; collect() must be called from one thread at a time.
  */
 class ProcessCollector : public monitoring::IProcessCollector
@@ -33,8 +38,8 @@ public:
     /** Reads the process list with NtQuerySystemInformation. */
     ProcessCollector();
 
-    /** Reads the process list with an injected reader, for unit testing. */
-    explicit ProcessCollector(ProcessListReader listReader);
+    /** Reads the process list and details with injected readers, for unit testing. */
+    explicit ProcessCollector(ProcessListReader listReader, ProcessDetailsReader detailsReader = nullptr);
 
     ~ProcessCollector() override = default;
 
@@ -42,6 +47,7 @@ public:
 
 private:
     ProcessListReader m_listReader;
+    ProcessIdentityCache m_identityCache;
 };
 
 } // namespace sysmon::platform

@@ -35,14 +35,22 @@ ProcessCollector::ProcessCollector()
       })
 {}
 
-ProcessCollector::ProcessCollector(ProcessListReader listReader) : m_listReader(std::move(listReader)) {}
+ProcessCollector::ProcessCollector(ProcessListReader listReader, ProcessDetailsReader detailsReader)
+    : m_listReader(std::move(listReader)), m_identityCache(std::move(detailsReader))
+{}
 
 std::optional<std::vector<domain::ProcessInfo>> ProcessCollector::collect()
 {
     if (!m_listReader) {
         return std::nullopt;
     }
-    return m_listReader();
+
+    auto processes = m_listReader();
+    if (!processes) {
+        return std::nullopt;
+    }
+    m_identityCache.apply(*processes);
+    return processes;
 }
 
 } // namespace sysmon::platform

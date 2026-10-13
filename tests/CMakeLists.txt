@@ -29,6 +29,7 @@ add_executable(system_monitor_tests
     unit/system_activity_collector_test.cpp
     unit/system_process_information_reader_test.cpp
     unit/process_collector_test.cpp
+    unit/process_identity_cache_test.cpp
     unit/utf8_conversion_test.cpp
     unit/health_evaluator_test.cpp
     integration/cpu_collector_test.cpp

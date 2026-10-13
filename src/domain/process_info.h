@@ -5,27 +5,50 @@
 #include <optional>
 #include <string>
 
+#include "process_identity.h"
+
 namespace sysmon::domain
 {
 
 /**
- * Uniquely identifies a process as (pid, creationTime).
- * Windows reuses PIDs, so PID alone is insufficient for stable identity.
- * creationTime is sourced from SYSTEM_PROCESS_INFORMATION.CreateTime
- * (a FILETIME value), converted to system_clock at the platform boundary.
+ * Whether ProcessInfo::imagePath and ::commandLine could be read and, if not,
+ * why. Reading them requires opening the process. Everything else in
+ * ProcessInfo comes from the system process list, which covers every process
+ * without opening any, so it is always present.
+ */
+enum class ProcessDetailsStatus
+{
+    // Not queried: a process the collector never opens (lsass.exe and
+    // csrss.exe, see architecture.md, "Antivirus and EDR considerations"), or
+    // a ProcessInfo that did not come from a collector that reads details.
+    NotQueried,
+    // The image path and the command line were both read.
+    Available,
+    // Windows denied opening the process or reading a detail. Details that
+    // could be read are still set.
+    AccessDenied,
+    // A detail could not be read for another reason: the process exited before
+    // it was queried, or it has no image file or command line (System,
+    // Registry, and similar kernel processes). Details that could be read are
+    // still set.
+    Unavailable,
+};
+
+/**
+ * One process in the system process list.
+ *
+ * The process is identified by (pid, creationTime); see identity().
+ * creationTime is sourced from SYSTEM_PROCESS_INFORMATION.CreateTime (a
+ * FILETIME value), converted to system_clock at the platform boundary.
  *
  * CPU time fields (cpuUserTimeMs, cpuKernelTimeMs) are cumulative totals in
  * milliseconds. Rate calculation (CPU %) is done by the collector using deltas
  * between successive snapshots over measured steady_clock intervals.
  *
- * imagePath and commandLine are optional because:
- *   - They are queried lazily (on first detection of a new PID+creationTime).
- *   - They may be unavailable for protected or system processes even with
- *     PROCESS_QUERY_LIMITED_INFORMATION.
- *
- * accessDenied is set when the process metrics could not be retrieved at all.
- * The struct is still present in the snapshot so the UI can show the process
- * name with a clear indicator rather than silently omitting it.
+ * imagePath and commandLine are optional because they are read by opening the
+ * process, once per identity, and that can fail; detailsStatus says why a
+ * detail is missing. The process itself is never omitted, so the UI can show
+ * it with a clear indicator.
  */
 struct ProcessInfo
 {
@@ -46,7 +69,13 @@ struct ProcessInfo
     uint64_t ioWriteBytes{0};
     uint32_t threadCount{0};
     uint32_t handleCount{0};
-    bool accessDenied{false};
+    ProcessDetailsStatus detailsStatus{ProcessDetailsStatus::NotQueried};
+
+    /** Returns the (pid, creationTime) pair that identifies this process. */
+    [[nodiscard]] ProcessIdentity identity() const
+    {
+        return ProcessIdentity{.pid = pid, .creationTime = creationTime};
+    }
 };
 
 } // namespace sysmon::domain

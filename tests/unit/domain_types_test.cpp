@@ -7,6 +7,7 @@
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "domain/process_identity.h"
 #include "domain/process_info.h"
 #include "domain/system_activity_sample.h"
 #include "domain/system_snapshot.h"
@@ -216,7 +217,7 @@ TEST(ConnectivityLevel, EnumValues_AreDistinct)
 // ProcessInfo
 // ---------------------------------------------------------------------------
 
-TEST(ProcessInfo, DefaultConstruction_ZeroAndFalse)
+TEST(ProcessInfo, DefaultConstruction_ZeroAndNotQueried)
 {
     ProcessInfo p;
     EXPECT_EQ(p.pid, 0u);
@@ -232,7 +233,7 @@ TEST(ProcessInfo, DefaultConstruction_ZeroAndFalse)
     EXPECT_EQ(p.ioWriteBytes, 0u);
     EXPECT_EQ(p.threadCount, 0u);
     EXPECT_EQ(p.handleCount, 0u);
-    EXPECT_FALSE(p.accessDenied);
+    EXPECT_EQ(p.detailsStatus, ProcessDetailsStatus::NotQueried);
 }
 
 TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
@@ -255,7 +256,7 @@ TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
         .ioWriteBytes = 500,
         .threadCount = 24,
         .handleCount = 512,
-        .accessDenied = false,
+        .detailsStatus = ProcessDetailsStatus::Available,
     };
 
     EXPECT_EQ(p.pid, 1234u);
@@ -273,7 +274,7 @@ TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
     EXPECT_EQ(p.ioWriteBytes, 500u);
     EXPECT_EQ(p.threadCount, 24u);
     EXPECT_EQ(p.handleCount, 512u);
-    EXPECT_FALSE(p.accessDenied);
+    EXPECT_EQ(p.detailsStatus, ProcessDetailsStatus::Available);
 }
 
 // Two ProcessInfo values with the same PID but different creation times are
@@ -291,8 +292,25 @@ TEST(ProcessInfo, SamePidDifferentCreationTime_DifferentIdentity)
 
     // Same PID — but different identity
     EXPECT_EQ(a.pid, b.pid);
-    EXPECT_NE(a.creationTime, b.creationTime);
-    EXPECT_NE(a.imageName, b.imageName);
+    EXPECT_NE(a.identity(), b.identity());
+}
+
+TEST(ProcessInfo, SamePidAndCreationTime_SameIdentityAndHash)
+{
+    const auto created = std::chrono::system_clock::time_point{std::chrono::seconds{1000}};
+    ProcessInfo before{.pid = 42, .creationTime = created, .threadCount = 3};
+    ProcessInfo after{.pid = 42, .creationTime = created, .threadCount = 9};
+
+    EXPECT_EQ(before.identity(), after.identity());
+    EXPECT_EQ(ProcessIdentityHash{}(before.identity()), ProcessIdentityHash{}(after.identity()));
+}
+
+TEST(ProcessIdentity, DifferentPidSameCreationTime_NotEqual)
+{
+    const auto created = std::chrono::system_clock::time_point{std::chrono::seconds{1000}};
+
+    EXPECT_NE((ProcessIdentity{.pid = 1, .creationTime = created}),
+              (ProcessIdentity{.pid = 2, .creationTime = created}));
 }
 
 // ---------------------------------------------------------------------------
