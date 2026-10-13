@@ -146,7 +146,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& i
         title->setFont(titleFont);
         listLayout->addWidget(title);
 
-        auto* chart = createHistoryChart(std::nullopt, formatChartByteRate, list);
+        auto* chart = createHistoryChart(std::nullopt, formatChartByteRate, formatChartByteRate, list);
         chart->setMinimumHeight(kAdapterChartMinimumHeight);
         chart->setSeriesCount(2);
         chart->setSeriesLabel(0, "Receive");

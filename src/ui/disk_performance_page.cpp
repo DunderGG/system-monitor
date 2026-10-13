@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+#include "ui/dashboard_formatting.h"
 #include "ui/performance_formatting.h"
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
@@ -23,7 +24,7 @@ constexpr int kReadoutColumns = 3;
 DiskPerformancePage::DiskPerformancePage(QWidget* parent) : PerformancePage("Disk", parent)
 {
     contentLayout()->addWidget(new QLabel("Space used per volume", this));
-    m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, this);
+    m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_usageChart, 1);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);
@@ -61,7 +62,13 @@ DiskPerformancePage::VolumeHistory& DiskPerformancePage::volumeHistory(const std
     if (position != m_volumes.end() && position->name == name) {
         return *position;
     }
-    return *m_volumes.insert(position, VolumeHistory{.name = name});
+    // Volumes keep their colour while others come and go, so a slot is
+    // assigned once rather than following the volume's position.
+    std::size_t slot = 0;
+    while (std::ranges::find(m_volumes, slot, &VolumeHistory::colorSlot) != m_volumes.end()) {
+        ++slot;
+    }
+    return *m_volumes.insert(position, VolumeHistory{.name = name, .colorSlot = slot});
 }
 
 void DiskPerformancePage::refresh()
@@ -77,6 +84,7 @@ void DiskPerformancePage::refresh()
     }
     for (std::size_t index = 0; index < m_volumes.size(); ++index) {
         m_usageChart->setSeriesLabel(index, QString::fromStdString(m_volumes[index].name));
+        m_usageChart->setSeriesColorSlot(index, m_volumes[index].colorSlot);
         showHistory(m_usageChart, index, m_volumes[index].usage);
     }
 }
@@ -104,6 +112,16 @@ std::vector<std::string> DiskPerformancePage::volumeNames() const
         names.push_back(volume.name);
     }
     return names;
+}
+
+std::vector<std::size_t> DiskPerformancePage::volumeColorSlots() const
+{
+    std::vector<std::size_t> colorSlots;
+    colorSlots.reserve(m_volumes.size());
+    for (const auto& volume : m_volumes) {
+        colorSlots.push_back(volume.colorSlot);
+    }
+    return colorSlots;
 }
 
 } // namespace sysmon::ui

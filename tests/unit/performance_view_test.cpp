@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QColor>
 #include <QCoreApplication>
 #include <QLabel>
 #include <QPoint>
@@ -265,6 +266,17 @@ TEST(MemoryPerformancePage, Refresh_ChartsUsageAndCommitPercent)
     EXPECT_EQ(page.commitChart()->samples()[0], 25.0f);
 }
 
+TEST(PerformancePage, PercentCharts_AnnotationsMatchReadoutPrecision)
+{
+    CpuPerformancePage cpuPage;
+    MemoryPerformancePage memoryPage;
+
+    for (const auto* chart : {cpuPage.totalChart(), memoryPage.usageChart(), memoryPage.commitChart()}) {
+        EXPECT_EQ(chart->formatValue(7.5f), "8%");
+        EXPECT_EQ(chart->formatAnnotationValue(7.5f), "7.5%");
+    }
+}
+
 TEST(DiskPerformancePage, Refresh_LabelledSeriesPerVolumeInNameOrder)
 {
     DiskPerformancePage page;
@@ -300,6 +312,27 @@ TEST(DiskPerformancePage, VolumeDisappears_RecordsGapsThenDropsIt)
 
     EXPECT_EQ(page.volumeNames(), (std::vector<std::string>{"C:\\"}));
     EXPECT_EQ(page.usageChart()->seriesCount(), 1u);
+}
+
+TEST(DiskPerformancePage, VolumeAdded_OtherVolumesKeepTheirColors)
+{
+    const auto volume = [](const char* name) {
+        return DiskSample{.volumeName = name, .totalBytes = 1000, .freeBytes = 500, .usagePercent = 50.0f};
+    };
+    DiskPerformancePage page;
+    SystemSnapshot snapshot;
+    snapshot.disks = std::vector<DiskSample>{volume("C:\\"), volume("E:\\")};
+    page.recordSnapshot(snapshot);
+    page.refresh();
+    const QColor colorOfE = page.usageChart()->seriesColor(1);
+
+    snapshot.disks->push_back(volume("D:\\"));
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    ASSERT_EQ(page.volumeNames(), (std::vector<std::string>{"C:\\", "D:\\", "E:\\"}));
+    EXPECT_EQ(page.volumeColorSlots(), (std::vector<std::size_t>{0, 2, 1}));
+    EXPECT_EQ(page.usageChart()->seriesColor(2), colorOfE);
 }
 
 TEST(NetworkPerformancePage, Refresh_ChartsActiveAdaptersWithReceiveAndSend)

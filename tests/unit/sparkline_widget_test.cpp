@@ -539,6 +539,58 @@ TEST(SparklineWidget, ValueFormatter_UsedForLabels)
     EXPECT_EQ(widget.formatValue(42.0f), "42%");
 }
 
+TEST(SparklineWidget, AnnotationFormatter_DefaultsToValueFormatter)
+{
+    SparklineWidget widget;
+    widget.setValueFormatter(wholeNumber);
+    EXPECT_EQ(widget.formatAnnotationValue(7.5f), "8");
+
+    widget.setAnnotationFormatter([](float value) { return QString::number(value, 'f', 1); });
+    EXPECT_EQ(widget.formatAnnotationValue(7.5f), "7.5");
+    EXPECT_EQ(widget.formatValue(7.5f), "8");
+
+    widget.setAnnotationFormatter({});
+    EXPECT_EQ(widget.formatAnnotationValue(7.5f), "8");
+}
+
+TEST(SparklineWidget, ExtremesText_SingleSeriesUsesAnnotationFormatter)
+{
+    SparklineWidget widget;
+    widget.setValueFormatter(wholeNumber);
+    widget.setAnnotationFormatter([](float value) { return QString::number(value, 'f', 1); });
+    EXPECT_TRUE(widget.extremesText().isEmpty());
+
+    widget.setSamples(Samples{12.5f, std::nullopt, 7.26f});
+
+    EXPECT_EQ(widget.extremesText(), "Min 7.3  Max 12.5");
+}
+
+TEST(SparklineWidget, ExtremesText_LegendNamesPrimarySeries)
+{
+    SparklineWidget widget;
+    widget.setValueFormatter(wholeNumber);
+    widget.setSeriesCount(2);
+    widget.setSeriesLabel(0, "Receive");
+    widget.setSeriesLabel(1, "Send");
+    widget.setSeriesSamples(0, Samples{1.0f, 4.0f});
+    widget.setSeriesSamples(1, Samples{90.0f, 99.0f});
+
+    EXPECT_EQ(widget.extremesText(), "Receive min 1  max 4");
+}
+
+TEST(SparklineWidget, SeriesColorSlot_UsesThatSlotsDefaultColor)
+{
+    SparklineWidget widget;
+    widget.setSeriesCount(3);
+    const QColor slotOneColor = widget.seriesColor(1);
+
+    widget.setSeriesColorSlot(2, 1);
+
+    EXPECT_EQ(widget.seriesColor(2), slotOneColor);
+    widget.setSeriesColor(2, Qt::black);
+    EXPECT_EQ(widget.seriesColor(2), QColor(Qt::black));
+}
+
 TEST(SparklineWidget, PlotArea_LabelsAndAnnotationsReserveSpace)
 {
     SparklineWidget widget;
@@ -708,7 +760,7 @@ TEST(SparklineWidget, UnfilledSeries_PaintsOnlyNearTheLine)
 // upperEnvelope
 // ---------------------------------------------------------------------------
 
-TEST(SparklineEnvelope, KeepsHighestPointPerPixelColumn)
+TEST(SparklineEnvelope, ZigzagWithinColumns_KeepsHighestPointPerColumn)
 {
     const QPolygonF line{QPointF{0.2, 40.0}, QPointF{0.6, 10.0}, QPointF{1.1, 30.0}, QPointF{1.9, 45.0}};
 

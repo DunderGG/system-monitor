@@ -147,7 +147,18 @@ public:
     /** Overrides the colour of series; the fill uses the same colour fading to transparent. */
     void setSeriesColor(std::size_t series, const QColor& color);
 
-    /** Returns the colour series is painted with: its override, or its default for the current palette. */
+    /**
+     * Gives series the default colour of palette slot instead of its own
+     * position's (see defaultSeriesColor()), so a caller can keep a series'
+     * colour when series are added or removed before it. The colour still
+     * follows the light or dark surface.
+     */
+    void setSeriesColorSlot(std::size_t series, std::size_t slot);
+
+    /**
+     * Returns the colour series is painted with: its override, else the default
+     * colour of its colour slot (its position unless set) for the current palette.
+     */
     [[nodiscard]] QColor seriesColor(std::size_t series) const;
 
     /** Names series in the legend. Unlabelled series are left out of the legend. */
@@ -183,9 +194,26 @@ public:
     /** Returns the Y range used for painting: the fixed range, or the auto range of all series. */
     [[nodiscard]] YRange effectiveRange() const;
 
-    /** Sets how values are formatted in axis labels and annotations. Must not be empty. */
+    /** Sets how values are formatted in axis labels, and in annotations unless set separately. Must not be empty. */
     void setValueFormatter(ValueFormatter formatter);
     [[nodiscard]] QString formatValue(float value) const;
+
+    /**
+     * Sets how the annotations format values (current, min, and max), e.g. with
+     * one decimal where the axis shows whole numbers, so they match readouts
+     * elsewhere. An empty formatter makes annotations use the value formatter
+     * again, as they do by default.
+     */
+    void setAnnotationFormatter(ValueFormatter formatter);
+    [[nodiscard]] QString formatAnnotationValue(float value) const;
+
+    /**
+     * Returns the min and max text the annotations show on the right, or an
+     * empty string when the primary series has no values. With a legend, it
+     * names the primary series, e.g. "Receive min 1.0 KiB/s  max 4.0 KiB/s",
+     * because the extremes describe that series only.
+     */
+    [[nodiscard]] QString extremesText() const;
 
     /** Shows a scrolling grid and a frame behind the series. */
     void setGridVisible(bool visible);
@@ -227,11 +255,14 @@ private:
     {
         std::vector<std::optional<float>> samples;
         std::optional<QColor> color;
+        std::optional<std::size_t> colorSlot;
         QString label;
         bool filled{false};
     };
 
     [[nodiscard]] bool hasDarkSurface() const;
+    // True when there are several series and at least one has a label.
+    [[nodiscard]] bool hasLegend() const;
     // True when there are more slots than pixel columns in area.
     [[nodiscard]] bool isDense(const QRectF& area) const;
     void paintGrid(QPainter& painter, const QRectF& area) const;
@@ -246,6 +277,7 @@ private:
     std::chrono::milliseconds m_sampleInterval{std::chrono::seconds{1}};
     std::optional<YRange> m_fixedRange{YRange{}};
     ValueFormatter m_formatter;
+    ValueFormatter m_annotationFormatter;
     QStringList m_axisLabelTemplates;
     bool m_gridVisible{false};
     bool m_axisLabelsVisible{false};

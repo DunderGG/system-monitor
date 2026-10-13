@@ -70,7 +70,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Resolved |
 | [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Resolved |
 | [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Resolved |
-| [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Open |
+| [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Resolved |
 | [F-27](#f-27-documentation-out-of-date) | Documentation out of date | Low | Open |
 | [F-28](#f-28-duplicated-constants-and-helpers) | Duplicated constants and helpers | Cosmetic | Open |
 
@@ -302,7 +302,14 @@ Commit the benchmark as an opt-in executable, for example `benchmarks/performanc
 
 **Recommendation:** Fix when convenient. The link-speed item is a small fix with a test, and can be done at any time.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). All five items are done:
+- **Link speed:** `formatLinkSpeed()` rounds to three significant digits before choosing the unit, and has a Tbps unit. The boundary cases have their own test, `FormatLinkSpeed_UnitBoundaries_NoExponent`.
+- **Annotation precision:** `SparklineWidget::setAnnotationFormatter()` lets percentage charts annotate at the readouts' precision ("7.5%") while the axis keeps whole percentages.
+- **Named extremes:** on a chart with a legend, the min/max text names the primary series ("Receive min … max …"), through the testable `extremesText()`.
+- **Disk colours:** `setSeriesColorSlot()` lets the disk page give each volume a colour slot when it first appears, which it keeps.
+- **Test name:** the envelope test is now `ZigzagWithinColumns_KeepsHighestPointPerColumn`.
+
+See [DC-67](../design_decisions.md#dc-67-chart-annotations-at-readout-precision-named-extremes-and-stable-volume-colours-code-review-f-26).
 
 ---
 

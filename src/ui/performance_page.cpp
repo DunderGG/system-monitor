@@ -66,9 +66,10 @@ QVBoxLayout* PerformancePage::contentLayout() const
     return m_contentLayout;
 }
 
-charts::SparklineWidget* PerformancePage::createHistoryChart(std::optional<charts::YRange> fixedRange,
-                                                             charts::SparklineWidget::ValueFormatter formatter,
-                                                             QWidget* parent)
+charts::SparklineWidget*
+PerformancePage::createHistoryChart(std::optional<charts::YRange> fixedRange,
+                                    charts::SparklineWidget::ValueFormatter axisFormatter,
+                                    charts::SparklineWidget::ValueFormatter annotationFormatter, QWidget* parent)
 {
     auto* chart = new charts::SparklineWidget(parent);
     chart->setCapacity(kDefaultVisibleWindow);
@@ -77,7 +78,8 @@ charts::SparklineWidget* PerformancePage::createHistoryChart(std::optional<chart
     } else {
         chart->setAutoRange();
     }
-    chart->setValueFormatter(std::move(formatter));
+    chart->setValueFormatter(std::move(axisFormatter));
+    chart->setAnnotationFormatter(std::move(annotationFormatter));
     chart->setGridVisible(true);
     chart->setAxisLabelsVisible(true);
     chart->setAnnotationsVisible(true);

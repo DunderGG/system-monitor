@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+#include "ui/dashboard_formatting.h"
 #include "ui/performance_formatting.h"
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
@@ -21,11 +22,11 @@ constexpr int kReadoutColumns = 4;
 MemoryPerformancePage::MemoryPerformancePage(QWidget* parent) : PerformancePage("Memory", parent)
 {
     contentLayout()->addWidget(new QLabel("Memory usage", this));
-    m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, this);
+    m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_usageChart, 1);
 
     contentLayout()->addWidget(new QLabel("Committed (percent of commit limit)", this));
-    m_commitChart = createHistoryChart(kPercentRange, formatChartPercent, this);
+    m_commitChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_commitChart, 1);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);

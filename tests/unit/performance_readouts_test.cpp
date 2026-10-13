@@ -69,6 +69,18 @@ TEST(PerformanceReadouts, FormatLinkSpeed_DecimalUnits)
     EXPECT_EQ(formatLinkSpeed(300ULL), "300 bps");
 }
 
+TEST(PerformanceReadouts, FormatLinkSpeed_UnitBoundaries_NoExponent)
+{
+    // Values that round up to the next unit take that unit.
+    EXPECT_EQ(formatLinkSpeed(999'950'000ULL), "1 Gbps");
+    EXPECT_EQ(formatLinkSpeed(999'999ULL), "1 Mbps");
+    EXPECT_EQ(formatLinkSpeed(9'999ULL), "10 Kbps");
+    EXPECT_EQ(formatLinkSpeed(999ULL), "999 bps");
+    EXPECT_EQ(formatLinkSpeed(1'000ULL), "1 Kbps");
+    EXPECT_EQ(formatLinkSpeed(1'000'000'000'000ULL), "1 Tbps");
+    EXPECT_EQ(formatLinkSpeed(2'000'000'000'000'000ULL), "2000 Tbps");
+}
+
 TEST(PerformanceReadouts, PlaceholderReadouts_KeepsNamesAndBlanksValues)
 {
     const auto readouts = placeholderReadouts({{"Handles", "1,000"}, {"Threads", "N/A"}});

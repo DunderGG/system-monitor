@@ -39,6 +39,9 @@ public:
     /** Names of the volumes with history, in series order. */
     [[nodiscard]] std::vector<std::string> volumeNames() const;
 
+    /** Colour slot of each volume with history, in series order (see SparklineWidget::setSeriesColorSlot()). */
+    [[nodiscard]] std::vector<std::size_t> volumeColorSlots() const;
+
 protected:
     void recordSamples(const domain::SystemSnapshot& snapshot) override;
 
@@ -46,10 +49,13 @@ private:
     struct VolumeHistory
     {
         std::string name;
+        // Chart colour slot, kept for as long as the volume has history.
+        std::size_t colorSlot{0};
         SampleHistory usage{kHistoryCapacity};
     };
 
     // Returns the history for name, inserting it in name order if it is new.
+    // A new volume takes the lowest colour slot no other volume uses.
     VolumeHistory& volumeHistory(const std::string& name);
 
     charts::SparklineWidget* m_usageChart{nullptr};

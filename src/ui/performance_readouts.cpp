@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <string>
 
 #include <QStringList>
@@ -89,12 +90,24 @@ QString formatLinkSpeed(uint64_t bitsPerSecond)
         double scale;
         const char* suffix;
     };
-    constexpr std::array kUnits{Unit{1e9, "Gbps"}, Unit{1e6, "Mbps"}, Unit{1e3, "Kbps"}};
+    constexpr std::array kUnits{Unit{1e12, "Tbps"}, Unit{1e9, "Gbps"}, Unit{1e6, "Mbps"}, Unit{1e3, "Kbps"}};
+    constexpr int kSignificantDigits = 3;
 
-    const auto value = static_cast<double>(bitsPerSecond);
+    if (bitsPerSecond < 1000) {
+        return QString("%1 bps").arg(bitsPerSecond);
+    }
+    // Round to three significant digits before choosing the unit, so a value
+    // just below a unit boundary shows as "1 Gbps" rather than "1e+03 Mbps".
+    const auto exact = static_cast<double>(bitsPerSecond);
+    const double step = std::pow(10.0, std::floor(std::log10(exact)) - (kSignificantDigits - 1));
+    const double value = std::round(exact / step) * step;
     for (const auto& unit : kUnits) {
         if (value >= unit.scale) {
-            return QString("%1 %2").arg(QString::number(value / unit.scale, 'g', 3), unit.suffix);
+            const double scaled = value / unit.scale;
+            // Only the largest unit can reach 1000, where 'g' would switch to an exponent.
+            const QString number =
+                scaled < 1000.0 ? QString::number(scaled, 'g', kSignificantDigits) : QString::number(scaled, 'f', 0);
+            return QString("%1 %2").arg(number, unit.suffix);
         }
     }
     return QString("%1 bps").arg(bitsPerSecond);

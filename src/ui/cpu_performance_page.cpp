@@ -12,6 +12,7 @@
 #include <QSize>
 #include <QVBoxLayout>
 
+#include "ui/dashboard_formatting.h"
 #include "ui/performance_formatting.h"
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
@@ -39,7 +40,7 @@ int coreGridColumns(std::size_t coreCount)
 CpuPerformancePage::CpuPerformancePage(QWidget* parent) : PerformancePage("CPU", parent)
 {
     contentLayout()->addWidget(new QLabel("Utilization", this));
-    m_totalChart = createHistoryChart(kPercentRange, formatChartPercent, this);
+    m_totalChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_totalChart, 3);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);

@@ -334,11 +334,18 @@ void SparklineWidget::setSeriesColor(std::size_t series, const QColor& color)
     update();
 }
 
+void SparklineWidget::setSeriesColorSlot(std::size_t series, std::size_t slot)
+{
+    assert(series < m_series.size() && "sparkline series index out of range");
+    m_series[series].colorSlot = slot;
+    update();
+}
+
 QColor SparklineWidget::seriesColor(std::size_t series) const
 {
     assert(series < m_series.size() && "sparkline series index out of range");
-    const auto& color = m_series[series].color;
-    return color ? *color : defaultSeriesColor(series, hasDarkSurface());
+    const auto& entry = m_series[series];
+    return entry.color ? *entry.color : defaultSeriesColor(entry.colorSlot.value_or(series), hasDarkSurface());
 }
 
 void SparklineWidget::setSeriesLabel(std::size_t series, const QString& label)
@@ -444,6 +451,32 @@ QString SparklineWidget::formatValue(float value) const
     return m_formatter(value);
 }
 
+void SparklineWidget::setAnnotationFormatter(ValueFormatter formatter)
+{
+    m_annotationFormatter = std::move(formatter);
+    update();
+}
+
+QString SparklineWidget::formatAnnotationValue(float value) const
+{
+    return m_annotationFormatter ? m_annotationFormatter(value) : formatValue(value);
+}
+
+QString SparklineWidget::extremesText() const
+{
+    const auto primary = summarizeSeries(m_series.front().samples, m_capacity);
+    if (!primary.minimum || !primary.maximum) {
+        return {};
+    }
+    const QString minimum = formatAnnotationValue(primary.minimum->value);
+    const QString maximum = formatAnnotationValue(primary.maximum->value);
+    const QString& label = m_series.front().label;
+    if (hasLegend() && !label.isEmpty()) {
+        return QString("%1 min %2  max %3").arg(label, minimum, maximum);
+    }
+    return QString("Min %1  Max %2").arg(minimum, maximum);
+}
+
 void SparklineWidget::setGridVisible(bool visible)
 {
     m_gridVisible = visible;
@@ -524,6 +557,12 @@ QSize SparklineWidget::minimumSizeHint() const
 bool SparklineWidget::hasDarkSurface() const
 {
     return palette().color(backgroundRole()).lightnessF() < 0.5;
+}
+
+bool SparklineWidget::hasLegend() const
+{
+    return m_series.size() > 1 &&
+           std::ranges::any_of(m_series, [](const Series& series) { return !series.label.isEmpty(); });
 }
 
 void SparklineWidget::paintEvent(QPaintEvent* /*event*/)
@@ -662,9 +701,7 @@ void SparklineWidget::paintAnnotations(QPainter& painter, const QRectF& area, YR
 
     // Right: min and max of the primary series.
     qreal extremesWidth = 0.0;
-    if (primary.minimum && primary.maximum) {
-        const QString extremes =
-            QString("Min %1  Max %2").arg(formatValue(primary.minimum->value), formatValue(primary.maximum->value));
+    if (const QString extremes = extremesText(); !extremes.isEmpty()) {
         extremesWidth = metrics.horizontalAdvance(extremes) + kLegendEntryGap;
         painter.setPen(withAlpha(palette().color(foregroundRole()), kMutedTextAlpha));
         painter.drawText(band, Qt::AlignRight | Qt::AlignVCenter, extremes);
@@ -675,11 +712,9 @@ void SparklineWidget::paintAnnotations(QPainter& painter, const QRectF& area, YR
     painter.setClipRect(band.adjusted(0.0, 0.0, -extremesWidth, 0.0));
     const QColor ink = palette().color(foregroundRole());
     const auto currentText = [this](const std::optional<float>& value) {
-        return value ? formatValue(*value) : kNotAvailable;
+        return value ? formatAnnotationValue(*value) : kNotAvailable;
     };
-    const bool hasLegend = m_series.size() > 1 &&
-                           std::ranges::any_of(m_series, [](const Series& series) { return !series.label.isEmpty(); });
-    if (!hasLegend) {
+    if (!hasLegend()) {
         painter.setPen(ink);
         painter.drawText(band, Qt::AlignLeft | Qt::AlignVCenter, currentText(primary.current));
     } else {

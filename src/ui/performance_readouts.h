@@ -39,7 +39,7 @@ struct Readout
 /** Formats a clock speed: "4.70 GHz" from 1000 MHz, otherwise "800 MHz". */
 [[nodiscard]] QString formatClockSpeed(uint32_t megahertz);
 
-/** Formats a link speed in decimal bits per second, e.g. "2.5 Gbps", "100 Mbps". */
+/** Formats a link speed in decimal bits per second to three significant digits, e.g. "2.5 Gbps", "100 Mbps". */
 [[nodiscard]] QString formatLinkSpeed(uint64_t bitsPerSecond);
 
 /** CPU page: utilization, base speed, logical processors, processes, threads, handles, and up time. */

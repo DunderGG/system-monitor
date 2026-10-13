@@ -80,10 +80,12 @@ protected:
     /**
      * Creates a full-size history chart with a scrolling grid, axis labels, and
      * annotations. A fixedRange of std::nullopt scales the Y axis to the data.
+     * axisFormatter formats the axis labels, and annotationFormatter the
+     * current, min, and max values, which should match the page's readouts.
      */
-    [[nodiscard]] static charts::SparklineWidget* createHistoryChart(std::optional<charts::YRange> fixedRange,
-                                                                     charts::SparklineWidget::ValueFormatter formatter,
-                                                                     QWidget* parent);
+    [[nodiscard]] static charts::SparklineWidget*
+    createHistoryChart(std::optional<charts::YRange> fixedRange, charts::SparklineWidget::ValueFormatter axisFormatter,
+                       charts::SparklineWidget::ValueFormatter annotationFormatter, QWidget* parent);
 
     /**
      * Shows the visible window of history as the given series of chart, sizes
