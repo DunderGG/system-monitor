@@ -87,6 +87,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-71](#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh): Process list parsed through a full `SYSTEM_PROCESS_INFORMATION` layout checked against `winternl.h`
   - [DC-72](#dc-72-processdetailsstatus-replaces-processinfoaccessdenied): `ProcessDetailsStatus` replaces `ProcessInfo::accessDenied`
   - [DC-73](#dc-73-process-details-cached-by-pid-creation-time-with-a-domain-processidentity-key): Process details cached by `(PID, creation time)` with a domain `ProcessIdentity` key
+  - [DC-74](#dc-74-lsassexe-and-csrssexe-recognised-by-image-name-and-filtered-before-any-details-reader): `lsass.exe` and `csrss.exe` recognised by image name and filtered before any details reader
 
 ---
 
@@ -741,3 +742,11 @@ A detail that could be read is set whatever the status, so the status describes 
 **Decision:** `domain/process_identity.h` defines `ProcessIdentity` (`pid`, `creationTime`) with `ProcessIdentityHash`, and `ProcessInfo::identity()` returns it. `ProcessIdentityCache` (`platform/windows`, no Windows types) maps identities to `ProcessDetails`. `ProcessCollector` passes it every new list. For each process, the cache uses its entry if it has one and otherwise calls the injected `ProcessDetailsReader` once, caching the result whatever its status. It then erases every entry the list did not mention, using a generation counter instead of rebuilding the map. Without a details reader, every process's details stay `NotQueried`.
 
 **Rationale:** Opening a process and reading its path and command line costs a few system calls per process, and the details cannot change while the process lives, so [architecture.md](architecture.md#windows-api-choices) asks for them to be read lazily and cached by `(PID, creation time)`. Keying by PID alone would show a previous process's path and command line for a new process that reused its PID. Erasing on every refresh bounds the cache by the process list and removes an exited process's entry before its PID can come back. Caching failures too means a process that denies access is not opened again every refresh; the cost is that a rare transient failure lasts until the process exits. The identity type is in `domain` because the CPU usage baselines and the Phase 4 process table need the same key. The cache takes the reader as a function, as the other collectors take their readers, so its tests cover PID reuse and eviction without Windows.
+
+---
+
+### DC-74: `lsass.exe` and `csrss.exe` recognised by image name and filtered before any details reader
+
+**Decision:** `isNeverOpenedProcess()` (`platform/windows/process_access_policy.h`) matches `lsass.exe` and `csrss.exe` by image name, ignoring ASCII case. `ProcessCollector` wraps every details reader it is given with `skippingNeverOpenedProcesses()`, so the reader is never called for those processes. They get `ProcessDetailsStatus::NotQueried` with no path or command line, and keep every metric from the process list. The filter went in before the `OpenProcess` reader, so no commit contains code that would open them.
+
+**Rationale:** Opening either process, even with `PROCESS_QUERY_LIMITED_INFORMATION`, trips credential-theft heuristics in most EDR products ([architecture.md — Antivirus and EDR considerations](architecture.md#antivirus-and-edr-considerations)). `NtQuerySystemInformation` already returns their metrics without a handle, so only the details are lost, and an unelevated query would usually be refused anyway. Filtering in the collector, rather than inside the Windows reader only, makes the rule hold for any reader and lets unit tests show with a fake that the reader never sees these processes. Matching by name alone also skips any other process with one of these names. That costs only that process's path and command line, and never risks opening the real one, whose path does not need to be known.

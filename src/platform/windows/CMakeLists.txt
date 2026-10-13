@@ -17,6 +17,8 @@ add_library(sysmon_platform_windows STATIC
     network_collector.h
     performance_info_reader.cpp
     performance_info_reader.h
+    process_access_policy.cpp
+    process_access_policy.h
     process_collector.cpp
     process_collector.h
     process_identity_cache.cpp

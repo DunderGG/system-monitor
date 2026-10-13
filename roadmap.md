@@ -122,7 +122,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Parse the linked list of `SYSTEM_PROCESS_INFORMATION` structs to extract PID, parent PID, creation time, image name, thread count, handle count, working set, private bytes, I/O counters, and CPU times.
 - [x] Implement the process identity cache keyed by `(PID, creation time)`.
 - [ ] On new process detection, query `QueryFullProcessImageNameW` and `NtQueryInformationProcess(ProcessCommandLineInformation)` via `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`. Cache the result.
-- [ ] Skip opening handles to `lsass.exe` and `csrss.exe` to avoid EDR false positives. Use data from `NtQuerySystemInformation` directly for these.
+- [x] Skip opening handles to `lsass.exe` and `csrss.exe` to avoid EDR false positives. Use data from `NtQuerySystemInformation` directly for these.
 - [ ] Calculate per-process CPU usage percent from CPU time deltas and monotonic elapsed time.
 - [ ] Run the process collector on a slow-collector thread (every 2–5 seconds). Move the connectivity collector (including its polling fallback) onto the same thread. Resolves [D-1 and D-2](docs/known_deviations.md).
 - [ ] Write integration tests verifying enumeration, cache behavior, and access-denied handling.

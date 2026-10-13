@@ -6,6 +6,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "platform/windows/process_access_policy.h"
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/system_process_information_reader.h"
@@ -36,7 +37,7 @@ ProcessCollector::ProcessCollector()
 {}
 
 ProcessCollector::ProcessCollector(ProcessListReader listReader, ProcessDetailsReader detailsReader)
-    : m_listReader(std::move(listReader)), m_identityCache(std::move(detailsReader))
+    : m_listReader(std::move(listReader)), m_identityCache(skippingNeverOpenedProcesses(std::move(detailsReader)))
 {}
 
 std::optional<std::vector<domain::ProcessInfo>> ProcessCollector::collect()

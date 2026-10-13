@@ -28,7 +28,9 @@ using ProcessListReader = std::function<std::optional<std::vector<domain::Proces
  *
  * The image path and command line come from a ProcessDetailsReader, called
  * once per process identity through a ProcessIdentityCache. Without a details
- * reader they stay std::nullopt with ProcessDetailsStatus::NotQueried.
+ * reader they stay std::nullopt with ProcessDetailsStatus::NotQueried. The
+ * reader is never called for lsass.exe or csrss.exe (isNeverOpenedProcess()),
+ * whose details stay NotQueried.
  *
  * Not thread-safe; collect() must be called from one thread at a time.
  */
