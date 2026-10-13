@@ -21,6 +21,7 @@
 
 #include "platform/windows/adapter_details_cache.h"
 #include "platform/windows/repeated_failure_log.h"
+#include "platform/windows/utf8_conversion.h"
 
 namespace sysmon::platform
 {
@@ -32,24 +33,6 @@ namespace
 constexpr ULONG kInitialAdapterBufferSize = 15 * 1024;
 // The required size can grow between calls, so the documented pattern retries a few times.
 constexpr int kMaxAdapterQueryAttempts = 3;
-
-std::string wideToUtf8(const WCHAR* wideStr)
-{
-    if (!wideStr || wideStr[0] == L'\0') {
-        return {};
-    }
-    const int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, nullptr, 0, nullptr, nullptr);
-    if (sizeNeeded <= 1) {
-        return {};
-    }
-    std::string result(static_cast<size_t>(sizeNeeded - 1), '\0');
-    // result has room for the terminating null that WideCharToMultiByte writes.
-    if (WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, result.data(), sizeNeeded, nullptr, nullptr) == 0) {
-        spdlog::debug("WideCharToMultiByte failed with error code {}", ::GetLastError());
-        return {};
-    }
-    return result;
-}
 
 // Formats an IPv4 or IPv6 socket address as text; std::nullopt for other families or on failure.
 std::optional<std::string> sockaddrToString(const SOCKADDR* address)

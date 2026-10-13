@@ -28,6 +28,8 @@ add_executable(system_monitor_tests
     unit/uptime_collector_test.cpp
     unit/system_activity_collector_test.cpp
     unit/system_process_information_reader_test.cpp
+    unit/process_collector_test.cpp
+    unit/utf8_conversion_test.cpp
     unit/health_evaluator_test.cpp
     integration/cpu_collector_test.cpp
     integration/memory_collector_test.cpp
@@ -37,6 +39,7 @@ add_executable(system_monitor_tests
     integration/uptime_collector_test.cpp
     integration/system_activity_collector_test.cpp
     integration/system_process_information_reader_test.cpp
+    integration/process_collector_test.cpp
     integration/app_logging_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
@@ -78,6 +81,7 @@ gtest_discover_tests(system_monitor_tests)
 # separate target so tests/unit/ stays free of Windows headers. No Qt needed.
 add_executable(system_monitor_platform_tests
     platform/connectivity_hint_mapping_test.cpp
+    platform/system_process_information_test.cpp
 )
 
 target_link_libraries(system_monitor_platform_tests

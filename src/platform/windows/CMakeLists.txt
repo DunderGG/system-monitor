@@ -17,14 +17,20 @@ add_library(sysmon_platform_windows STATIC
     network_collector.h
     performance_info_reader.cpp
     performance_info_reader.h
+    process_collector.cpp
+    process_collector.h
     repeated_failure_log.h
     steady_clock_reader.h
     system_activity_collector.cpp
     system_activity_collector.h
+    system_process_information.cpp
+    system_process_information.h
     system_process_information_reader.cpp
     system_process_information_reader.h
     uptime_collector.cpp
     uptime_collector.h
+    utf8_conversion.cpp
+    utf8_conversion.h
 )
 
 target_include_directories(sysmon_platform_windows

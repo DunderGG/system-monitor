@@ -84,6 +84,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-69](#dc-69-buildps1-retries-a-failed-configure-once-from-a-clean-cache): `build.ps1` retries a failed configure once from a clean cache
 - [Phase 4 — Process collector (`src/platform/windows/`)](#phase-4--process-collector-srcplatformwindows)
   - [DC-70](#dc-70-process-list-read-into-a-kept-growing-buffer-through-an-injected-query): Process list read into a kept, growing buffer through an injected query
+  - [DC-71](#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh): Process list parsed through a full `SYSTEM_PROCESS_INFORMATION` layout checked against `winternl.h`
 
 ---
 
@@ -697,3 +698,19 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 **Decision:** `SystemProcessInformationReader` calls `NtQuerySystemInformation(SystemProcessInformation)`, resolved from `ntdll.dll`, in a resizing-buffer loop. When the call returns `STATUS_INFO_LENGTH_MISMATCH` or `STATUS_BUFFER_TOO_SMALL`, the buffer grows to the reported size plus an eighth (or doubles when no size is reported) and the call is repeated, up to five calls in all. The buffer starts at 256 KiB, is kept between reads, and never shrinks. A reported size above 64 MiB fails the read instead of being allocated. The query is a `std::function` that takes a `std::span<std::byte>` and returns the NTSTATUS as an `int32_t`, so unit tests can fake it without Windows headers. `resolveSystemProcessInformationQuery()` returns the real one.
 
 **Rationale:** The list's size is not known in advance and changes between calls, so the API reports the size it needs and the caller retries. The headroom covers processes and threads created between the failed call and the retry, so one retry is normally enough. A desktop's list is a few hundred KiB: 256 bytes per process, 80 per thread, plus the image names. Keeping the buffer therefore costs little and saves an allocation and a failed call on every refresh. The 64 MiB cap is far above any real list, but it stops a corrupt reported size from exhausting memory, which would end the process because exceptions are not used. With the fake query, unit tests cover retry paths that a real machine rarely takes, as [architecture.md — Testing strategy](architecture.md#testing-strategy) asks for buffer resizing. An integration test starts the real query from a 1 KiB buffer to force the loop.
+
+---
+
+### DC-71: Process list parsed through a full `SYSTEM_PROCESS_INFORMATION` layout checked against `winternl.h`
+
+**Decision:** `platform/windows/system_process_information.h` defines `FullSystemProcessInformation`, the complete entry layout with the field names Windows uses. `static_assert`s tie its size and field offsets to the partial `SYSTEM_PROCESS_INFORMATION` in `winternl.h`. `parseSystemProcessInformation()` follows `NextEntryOffset` from the start of the buffer. It copies each entry out with `memcpy` and turns it into a `ProcessInfo`, and returns `std::nullopt` if an entry does not fit in the buffer. Image names are read with their `Length` (they need not be null-terminated), and only when they lie inside the buffer; otherwise the name is empty. The field mapping:
+
+- `privateBytes` is `PrivatePageCount`, the commit charge (Process Explorer's "Private Bytes", Task Manager's "Commit size").
+- `ioReadBytes` and `ioWriteBytes` are `ReadTransferCount` and `WriteTransferCount`. They count all of the process's read and write I/O, including pipes and devices, not only disk. The domain field comments say so.
+- CPU times are truncated from 100 ns units to whole milliseconds, the domain unit ([DC-14](#dc-14-cpu-times-stored-as-cumulative-milliseconds-not-percentages)).
+- The creation time converts from the FILETIME epoch to `system_clock` with fixed arithmetic ([DC-08](#dc-08-processinfocreationtime-type-stdchronosystem_clocktime_point)).
+- The Idle process (PID 0) has no image name in the list, and its `imageName` stays empty. Naming it is left to the UI.
+
+UTF-16 to UTF-8 conversion moved to `platform/windows/utf8_conversion.h` as `wideToUtf8(std::wstring_view)`, written in portable C++. The network collector uses it too, in place of its own `WideCharToMultiByte` wrapper. Unpaired surrogates become U+FFFD, as with `WideCharToMultiByte`.
+
+**Rationale:** `winternl.h` hides the creation time, user and kernel times, parent PID, and I/O counters in `Reserved` fields, and the collector needs all of them. A complete definition names them, and the `static_assert`s catch a layout mistake at compile time instead of as wrong numbers at run time. Copying each entry avoids reading through a cast pointer and any dependence on the buffer's alignment. The bounds checks stop a corrupt list from reading past the buffer. The parser's tests build lists from SDK types (`UNICODE_STRING`, `SYSTEM_THREAD_INFORMATION`), so they live in `tests/platform/`, which may not call Windows APIs, and the parser calls the conversion. A conversion in plain C++ keeps those tests free of OS calls and can be unit tested directly. `PrivatePageCount` is the field `VM_COUNTERS_EX` calls `PrivateUsage`, the documented commit charge. The transfer counts are the only I/O byte counters the list has, so the comments describe what they include rather than calling them disk I/O.

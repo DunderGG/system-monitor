@@ -38,7 +38,10 @@ struct ProcessInfo
     uint64_t cpuUserTimeMs{0};
     uint64_t cpuKernelTimeMs{0};
     uint64_t workingSetBytes{0};
+    // Commit charge: the private memory committed for the process.
     uint64_t privateBytes{0};
+    // Cumulative bytes moved by the process's read and write I/O operations,
+    // which include files, pipes, and devices, not only disk.
     uint64_t ioReadBytes{0};
     uint64_t ioWriteBytes{0};
     uint32_t threadCount{0};

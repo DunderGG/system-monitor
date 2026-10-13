@@ -119,7 +119,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 ### Process collector (`src/platform/windows/`)
 
 - [x] Implement process enumeration using `NtQuerySystemInformation(SystemProcessInformation)`. Dynamically resolve from `ntdll.dll`. Use the resizing-buffer loop pattern.
-- [ ] Parse the linked list of `SYSTEM_PROCESS_INFORMATION` structs to extract PID, parent PID, creation time, image name, thread count, handle count, working set, private bytes, I/O counters, and CPU times.
+- [x] Parse the linked list of `SYSTEM_PROCESS_INFORMATION` structs to extract PID, parent PID, creation time, image name, thread count, handle count, working set, private bytes, I/O counters, and CPU times.
 - [ ] Implement the process identity cache keyed by `(PID, creation time)`.
 - [ ] On new process detection, query `QueryFullProcessImageNameW` and `NtQueryInformationProcess(ProcessCommandLineInformation)` via `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`. Cache the result.
 - [ ] Skip opening handles to `lsass.exe` and `csrss.exe` to avoid EDR false positives. Use data from `NtQuerySystemInformation` directly for these.
