@@ -10,6 +10,7 @@
 #include "ui/charts/sparkline_widget.h"
 #include "ui/dashboard_formatting.h"
 #include "ui/resource_card.h"
+#include "ui/view_metrics.h"
 
 namespace sysmon::ui
 {
@@ -18,8 +19,6 @@ namespace
 {
 
 constexpr int kCardColumns = 3;
-constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
-const QString kNotAvailable = "N/A";
 
 QString overallStatusLine(domain::HealthLevel level)
 {
@@ -52,12 +51,12 @@ void recordSample(domain::RingBuffer<std::optional<float>>& history, charts::Spa
 DashboardView::DashboardView(QWidget* parent) : QWidget(parent)
 {
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(kViewMargin, kViewMargin, kViewMargin, kViewMargin);
+    layout->setSpacing(kSectionSpacing);
 
     auto* titleLabel = new QLabel("Dashboard", this);
     QFont titleFont = titleLabel->font();
-    titleFont.setPointSize(16);
+    titleFont.setPointSize(kTitlePointSize);
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
     layout->addWidget(titleLabel);
@@ -75,13 +74,13 @@ DashboardView::DashboardView(QWidget* parent) : QWidget(parent)
     m_uptimeCard = new ResourceCard("Uptime", this);
     m_uptimeCard->setStatus(std::nullopt); // Uptime has no health dimension.
 
-    m_cpuSparkline = addSparkline(m_cpuCard, kPercentRange);
-    m_memorySparkline = addSparkline(m_memoryCard, kPercentRange);
-    m_diskSparkline = addSparkline(m_diskCard, kPercentRange);
+    m_cpuSparkline = addSparkline(m_cpuCard, charts::kPercentRange);
+    m_memorySparkline = addSparkline(m_memoryCard, charts::kPercentRange);
+    m_diskSparkline = addSparkline(m_diskCard, charts::kPercentRange);
     m_networkSparkline = addSparkline(m_networkCard, std::nullopt); // Throughput has no natural maximum.
 
     auto* grid = new QGridLayout();
-    grid->setSpacing(12);
+    grid->setSpacing(kSectionSpacing);
     const std::array cards{m_cpuCard, m_memoryCard, m_diskCard, m_networkCard, m_uptimeCard};
     for (int index = 0; index < static_cast<int>(cards.size()); ++index) {
         grid->addWidget(cards[static_cast<std::size_t>(index)], index / kCardColumns, index % kCardColumns);
@@ -126,8 +125,7 @@ void DashboardView::updateMemoryCard(const domain::SystemSnapshot& snapshot)
     }
     const auto& memory = *snapshot.memory;
     recordSample(m_memoryHistory, m_memorySparkline, memory.usagePercent);
-    const uint64_t usedBytes =
-        (memory.totalBytes > memory.availableBytes) ? (memory.totalBytes - memory.availableBytes) : 0ULL;
+    const uint64_t usedBytes = usedMemoryBytes(memory);
     m_memoryCard->setValue(formatPercent(memory.usagePercent),
                            QString("%1 of %2 used").arg(formatBytes(usedBytes), formatBytes(memory.totalBytes)));
 }

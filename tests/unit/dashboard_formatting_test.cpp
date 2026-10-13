@@ -7,6 +7,7 @@
 #include "domain/connectivity_status.h"
 #include "domain/disk_sample.h"
 #include "domain/health_status.h"
+#include "domain/memory_sample.h"
 #include "domain/network_sample.h"
 #include "ui/dashboard_formatting.h"
 
@@ -29,6 +30,17 @@ NetworkSample adapter(OperationalStatus status, std::optional<uint64_t> in, std:
 }
 
 } // namespace
+
+TEST(DashboardFormatting, UsedMemoryBytes_TotalMinusAvailableNeverNegative)
+{
+    EXPECT_EQ(usedMemoryBytes(MemorySample{.totalBytes = 16, .availableBytes = 6}), 10u);
+    EXPECT_EQ(usedMemoryBytes(MemorySample{.totalBytes = 16, .availableBytes = 20}), 0u);
+}
+
+TEST(DashboardFormatting, NotAvailable_IsNA)
+{
+    EXPECT_EQ(kNotAvailable, "N/A");
+}
 
 TEST(DashboardFormatting, FormatPercent_OneDecimal)
 {

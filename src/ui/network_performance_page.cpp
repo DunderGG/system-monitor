@@ -9,9 +9,11 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
+#include "ui/dashboard_formatting.h"
 #include "ui/performance_formatting.h"
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
+#include "ui/view_metrics.h"
 
 namespace sysmon::ui
 {
@@ -124,7 +126,7 @@ void NetworkPerformancePage::refresh()
     }
 
     if (m_charts.empty()) {
-        m_placeholderLabel->setText(m_latest ? "No active network adapters" : "N/A");
+        m_placeholderLabel->setText(m_latest ? "No active network adapters" : kNotAvailable);
     }
     m_placeholderLabel->setVisible(m_charts.empty());
 }
@@ -134,7 +136,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& i
     auto* list = new QWidget(m_scrollArea);
     auto* listLayout = new QVBoxLayout(list);
     listLayout->setContentsMargins(0, 0, 0, 0);
-    listLayout->setSpacing(12);
+    listLayout->setSpacing(kSectionSpacing);
 
     std::vector<QLabel*> titles;
     std::vector<charts::SparklineWidget*> adapterCharts;

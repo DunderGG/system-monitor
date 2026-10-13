@@ -117,6 +117,22 @@ TEST(PerformanceFormatting, ChartedAdapters_UpOnlyHardwareFirstThenByName)
     EXPECT_EQ(charted[2]->friendlyName, "vEthernet");
 }
 
+TEST(PerformanceFormatting, ChartedAdapters_NamesSortedIgnoringCase)
+{
+    const std::vector<NetworkSample> networks{
+        adapter("wi-fi", OperationalStatus::Up, true),
+        adapter("Ethernet", OperationalStatus::Up, true),
+        adapter("bridge", OperationalStatus::Up, true),
+    };
+
+    const auto charted = chartedAdapters(networks);
+
+    ASSERT_EQ(charted.size(), 3u);
+    EXPECT_EQ(charted[0]->friendlyName, "bridge");
+    EXPECT_EQ(charted[1]->friendlyName, "Ethernet");
+    EXPECT_EQ(charted[2]->friendlyName, "wi-fi");
+}
+
 TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted)
 {
     NetworkSample vpn = adapter("Mullvad", OperationalStatus::Up, false);

@@ -4,13 +4,15 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+#include "ui/view_metrics.h"
+
 namespace sysmon::ui
 {
 
 ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
 {
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setContentsMargins(kViewMargin, kViewMargin, kViewMargin, kViewMargin);
 
     auto* label = new QLabel("Processes view placeholder (Phase 4)", this);
     QFont font = label->font();

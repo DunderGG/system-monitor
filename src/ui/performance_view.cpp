@@ -17,6 +17,7 @@
 #include "ui/disk_performance_page.h"
 #include "ui/memory_performance_page.h"
 #include "ui/network_performance_page.h"
+#include "ui/view_metrics.h"
 
 namespace sysmon::ui
 {
@@ -26,6 +27,8 @@ namespace
 
 constexpr int kSidebarWidth = 200;
 constexpr int kSidebarItemSpacing = 4;
+// Space between the sidebar list and the chart-history selector below it.
+constexpr int kSidebarColumnSpacing = 4;
 
 QString sidebarEntry(const PerformancePage& page)
 {
@@ -37,11 +40,11 @@ QString sidebarEntry(const PerformancePage& page)
 PerformanceView::PerformanceView(QWidget* parent) : QWidget(parent)
 {
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->setSpacing(12);
+    layout->setContentsMargins(kViewMargin, kViewMargin, kViewMargin, kViewMargin);
+    layout->setSpacing(kSectionSpacing);
 
     auto* sidebarColumn = new QVBoxLayout();
-    sidebarColumn->setSpacing(4);
+    sidebarColumn->setSpacing(kSidebarColumnSpacing);
     m_sidebar = new QListWidget(this);
     m_sidebar->setFixedWidth(kSidebarWidth);
     m_sidebar->setSpacing(kSidebarItemSpacing);

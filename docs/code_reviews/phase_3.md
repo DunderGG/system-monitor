@@ -72,7 +72,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Resolved |
 | [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Resolved |
 | [F-27](#f-27-documentation-out-of-date) | Documentation out of date | Low | Resolved |
-| [F-28](#f-28-duplicated-constants-and-helpers) | Duplicated constants and helpers | Cosmetic | Open |
+| [F-28](#f-28-duplicated-constants-and-helpers) | Duplicated constants and helpers | Cosmetic | Resolved |
 
 **Open findings from earlier reviews:** none. [F-4](phase_1.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) was implemented in `d12d097`, but its status still says "Deferred to Phase 3" (see F-27).
 
@@ -351,7 +351,15 @@ See [DC-67](../design_decisions.md#dc-67-chart-annotations-at-readout-precision-
 
 **Recommendation:** Fix when convenient, ideally in the same commits that touch these files for F-20 to F-22.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13), in its own commit, because each finding was fixed separately. All six items are done:
+- **Percent range:** one `charts::kPercentRange`.
+- **"N/A":** one `kNotAvailable` in `dashboard_formatting.h`, also used for the network page's placeholder. The charts library keeps its own copy.
+- **Used memory:** one `usedMemoryBytes()`, used by the dashboard card, the sidebar summary and the "Used" readout.
+- **Wrappers:** `countText`, `bytesText` and `rateText` are gone. `valueOr()` already took any callable, so the formatters are passed directly.
+- **Layout literals:** the shared margins, spacing and title size are named in the new `view_metrics.h`, and the dashboard, performance view, pages and placeholder views use them. The 120-pixel chart minimum is a named constant.
+- **Adapter sort:** `chartedAdapters()` sorts with `QString::compare(…, Qt::CaseInsensitive)`.
+
+New tests cover `usedMemoryBytes()`, `kNotAvailable` and the case-insensitive adapter order. See [DC-68](../design_decisions.md#dc-68-shared-ui-constants-and-helpers-where-each-one-lives-code-review-f-28).
 
 ---
 

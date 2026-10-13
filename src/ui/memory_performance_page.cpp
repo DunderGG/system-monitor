@@ -14,7 +14,6 @@ namespace sysmon::ui
 namespace
 {
 
-constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
 constexpr int kReadoutColumns = 4;
 
 } // namespace
@@ -22,11 +21,11 @@ constexpr int kReadoutColumns = 4;
 MemoryPerformancePage::MemoryPerformancePage(QWidget* parent) : PerformancePage("Memory", parent)
 {
     contentLayout()->addWidget(new QLabel("Memory usage", this));
-    m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
+    m_usageChart = createHistoryChart(charts::kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_usageChart, 1);
 
     contentLayout()->addWidget(new QLabel("Committed (percent of commit limit)", this));
-    m_commitChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
+    m_commitChart = createHistoryChart(charts::kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_commitChart, 1);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);

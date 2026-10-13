@@ -6,6 +6,11 @@
 namespace sysmon::ui
 {
 
+uint64_t usedMemoryBytes(const domain::MemorySample& memory)
+{
+    return memory.totalBytes > memory.availableBytes ? memory.totalBytes - memory.availableBytes : 0ULL;
+}
+
 QString formatPercent(float percent)
 {
     return QString("%1%").arg(static_cast<double>(percent), 0, 'f', 1);

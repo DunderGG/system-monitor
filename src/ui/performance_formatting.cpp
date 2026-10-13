@@ -12,8 +12,6 @@ namespace sysmon::ui
 namespace
 {
 
-const QString kNotAvailable = "N/A";
-
 bool isUp(const domain::NetworkSample& adapter)
 {
     return adapter.operationalStatus == domain::OperationalStatus::Up;
@@ -105,7 +103,7 @@ std::vector<const domain::NetworkSample*> chartedAdapters(const std::vector<doma
         if (left->isHardwareInterface != right->isHardwareInterface) {
             return left->isHardwareInterface;
         }
-        return adapterDisplayName(*left).localeAwareCompare(adapterDisplayName(*right)) < 0;
+        return QString::compare(adapterDisplayName(*left), adapterDisplayName(*right), Qt::CaseInsensitive) < 0;
     });
     return charted;
 }
@@ -120,8 +118,7 @@ QString memorySummary(const std::optional<domain::MemorySample>& memory)
     if (!memory) {
         return kNotAvailable;
     }
-    const uint64_t usedBytes =
-        (memory->totalBytes > memory->availableBytes) ? (memory->totalBytes - memory->availableBytes) : 0ULL;
+    const uint64_t usedBytes = usedMemoryBytes(*memory);
     return QString("%1 (%2)").arg(formatBytesOfTotal(usedBytes, memory->totalBytes),
                                   formatPercent(memory->usagePercent));
 }

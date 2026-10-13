@@ -8,8 +8,17 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+#include "ui/view_metrics.h"
+
 namespace sysmon::ui
 {
+
+namespace
+{
+
+constexpr int kHistoryChartMinimumHeight = 120;
+
+} // namespace
 
 bool hasAnyValue(const SampleHistory& history)
 {
@@ -20,17 +29,17 @@ PerformancePage::PerformancePage(const QString& title, QWidget* parent) : QWidge
 {
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
+    layout->setSpacing(kItemSpacing);
 
     auto* heading = new QLabel(title, this);
     QFont headingFont = heading->font();
-    headingFont.setPointSize(16);
+    headingFont.setPointSize(kTitlePointSize);
     headingFont.setBold(true);
     heading->setFont(headingFont);
     layout->addWidget(heading);
 
     m_contentLayout = new QVBoxLayout();
-    m_contentLayout->setSpacing(8);
+    m_contentLayout->setSpacing(kItemSpacing);
     layout->addLayout(m_contentLayout, 1);
 }
 
@@ -83,7 +92,7 @@ PerformancePage::createHistoryChart(std::optional<charts::YRange> fixedRange,
     chart->setGridVisible(true);
     chart->setAxisLabelsVisible(true);
     chart->setAnnotationsVisible(true);
-    chart->setMinimumHeight(120);
+    chart->setMinimumHeight(kHistoryChartMinimumHeight);
     return chart;
 }
 

@@ -23,7 +23,6 @@ namespace sysmon::ui
 namespace
 {
 
-constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
 constexpr int kReadoutColumns = 4;
 constexpr int kCoreGridSpacing = 4;
 // Small enough that the 16 columns of a 256-core grid fit the default window.
@@ -40,7 +39,7 @@ int coreGridColumns(std::size_t coreCount)
 CpuPerformancePage::CpuPerformancePage(QWidget* parent) : PerformancePage("CPU", parent)
 {
     contentLayout()->addWidget(new QLabel("Utilization", this));
-    m_totalChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
+    m_totalChart = createHistoryChart(charts::kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_totalChart, 3);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);
@@ -111,7 +110,7 @@ void CpuPerformancePage::rebuildCoreCharts()
     for (std::size_t core = 0; core < m_coreHistories.size(); ++core) {
         auto* chart = new charts::SparklineWidget(grid);
         chart->setCapacity(visibleWindow());
-        chart->setFixedRange(kPercentRange);
+        chart->setFixedRange(charts::kPercentRange);
         chart->setGridVisible(true);
         chart->setToolTip(QString("CPU %1").arg(core));
         chart->setMinimumSize(kCoreChartMinimumSize);

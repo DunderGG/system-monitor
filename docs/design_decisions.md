@@ -80,6 +80,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-65](#dc-65-y-axis-gutter-sized-from-caller-supplied-label-templates-code-review-f-24): Y-axis gutter sized from caller-supplied label templates (code review F-24)
   - [DC-66](#dc-66-a-committed-tick-cost-benchmark-run-with-buildps1--benchmark-code-review-f-25): A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
   - [DC-67](#dc-67-chart-annotations-at-readout-precision-named-extremes-and-stable-volume-colours-code-review-f-26): Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
+  - [DC-68](#dc-68-shared-ui-constants-and-helpers-where-each-one-lives-code-review-f-28): Shared UI constants and helpers: where each one lives (code review F-28)
 
 ---
 
@@ -667,3 +668,13 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 - **Link speeds:** `formatLinkSpeed()` rounds to three significant digits before choosing the unit, and has a Tbps unit, so "1e+03 Mbps" becomes "1 Gbps".
 
 **Rationale:** The annotation and the readout below it showed the same value at different precision ("8%" and "7.5%"), which looks like a disagreement. Whole percentages still suit the axis, where they are scale marks rather than readings, so the two get separate formatters instead of one shared precision. Byte rates already have one decimal and use the same formatter for both. The extremes describe series 0 only ([DC-50](#dc-50-multiple-series-share-one-time-axis-and-y-range-with-series-0-as-the-primary)), and with a legend nothing said so. Naming the series fixes that and keeps the extremes, which the network charts' Receive series needs, instead of dropping them from multi-series charts. Colours used to follow sort position, so a new volume changed the colour of every volume after it. A fixed `setSeriesColor()` override would lose the light and dark steps of [DC-52](#dc-52-sparkline-series-colours-a-validated-five-hue-palette-without-status-hues), so the widget takes a palette slot instead. Reusing the lowest free slot keeps colours within the five hues while there are at most five volumes. `QString::number(…, 'g', 3)` switches to an exponent once rounding reaches 1000, and choosing the unit after rounding avoids that at every boundary.
+
+### DC-68: Shared UI constants and helpers: where each one lives (code review F-28)
+
+**Decision:**
+- `charts::kPercentRange` sits next to `YRange` in `sparkline_widget.h`.
+- `kNotAvailable` ("N/A") and `usedMemoryBytes()` are in `dashboard_formatting.h`, which the dashboard and the Performance tab's helpers already include.
+- `view_metrics.h` names the margins, spacing and title size the views share (`kViewMargin`, `kSectionSpacing`, `kItemSpacing`, `kTitlePointSize`). Values used by one file stay local named constants there, such as `kHistoryChartMinimumHeight` in `performance_page.cpp`.
+- `chartedAdapters()` orders names with `QString::compare(…, Qt::CaseInsensitive)`.
+
+**Rationale:** Each value had several copies that could drift apart. Moving them into an existing header that every user already includes avoids a new header for one or two declarations. `dashboard_formatting.h` already holds the formatting both tabs share (`formatPercent()`, `formatBytes()`). The charts library keeps its own "N/A", because `ui/charts` must not depend on `ui` ([DC-51](#dc-51-axis-labels-and-annotations-reserve-space-outside-the-plot)). One `usedMemoryBytes()` gives the dashboard card, the sidebar summary and the "Used" readout the same definition, which [DC-63](#dc-63-memory-readouts-name-what-getperformanceinfo-reports-not-task-managers-figures-code-review-f-22) documents. The layout metrics get their own header because no existing one is about layout, and sharing them keeps the tabs aligned when one changes. `localeAwareCompare()` made a pure function's result depend on the machine's locale, which the readouts already avoid for counts ([DC-57](#dc-57-performance-readouts-pure-builders-with-stable-names-shown-in-a-readoutgrid)). Case-insensitive comparison gives the same order for adapter names, which are almost always ASCII.

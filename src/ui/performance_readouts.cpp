@@ -16,26 +16,10 @@ namespace sysmon::ui
 namespace
 {
 
-const QString kNotAvailable = "N/A";
-
+// Formats value with format, which may be any callable taking a T, or returns "N/A".
 template <typename T, typename Format> QString valueOr(const std::optional<T>& value, Format format)
 {
     return value ? format(*value) : kNotAvailable;
-}
-
-QString countText(uint64_t count)
-{
-    return formatCount(count);
-}
-
-QString bytesText(uint64_t bytes)
-{
-    return formatBytes(bytes);
-}
-
-QString rateText(uint64_t bytesPerSecond)
-{
-    return formatByteRate(bytesPerSecond);
 }
 
 // Joins addresses one per line, or "None" when there are none.
@@ -126,7 +110,7 @@ std::vector<Readout> cpuReadouts(const std::optional<domain::CpuSample>& cpu,
     return {
         {"Utilization", cpu ? formatPercent(cpu->totalUsagePercent) : kNotAvailable},
         {"Base speed", valueOr(baseSpeed, formatClockSpeed)},
-        {"Logical processors", valueOr(coreCount, countText)},
+        {"Logical processors", valueOr(coreCount, formatCount)},
         {"Processes", count(&domain::SystemActivitySample::processCount)},
         {"Threads", count(&domain::SystemActivitySample::threadCount)},
         {"Handles", count(&domain::SystemActivitySample::handleCount)},
@@ -143,16 +127,15 @@ std::vector<Readout> memoryReadouts(const std::optional<domain::MemorySample>& m
             {"Non-paged pool", kNotAvailable},
         };
     }
-    const uint64_t usedBytes =
-        (memory->totalBytes > memory->availableBytes) ? (memory->totalBytes - memory->availableBytes) : 0ULL;
+    const uint64_t usedBytes = usedMemoryBytes(*memory);
     return {
         {"Used", QString("%1 (%2)").arg(formatBytes(usedBytes), formatPercent(memory->usagePercent))},
         {"Available", formatBytes(memory->availableBytes)},
         {"Total", formatBytes(memory->totalBytes)},
         {"Committed", formatBytesOfTotal(memory->commitCurrent, memory->commitLimit)},
-        {"System cache", valueOr(memory->systemCacheBytes, bytesText)},
-        {"Paged pool", valueOr(memory->pagedPoolBytes, bytesText)},
-        {"Non-paged pool", valueOr(memory->nonPagedPoolBytes, bytesText)},
+        {"System cache", valueOr(memory->systemCacheBytes, formatBytes)},
+        {"Paged pool", valueOr(memory->pagedPoolBytes, formatBytes)},
+        {"Non-paged pool", valueOr(memory->nonPagedPoolBytes, formatBytes)},
     };
 }
 
@@ -203,8 +186,8 @@ std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>&
     // A link speed of 0 means the adapter did not report one.
     const auto linkSpeed = adapter->linkSpeedBps > 0 ? std::optional<uint64_t>{adapter->linkSpeedBps} : std::nullopt;
     return {
-        {"Receive", valueOr(adapter->inBytesPerSec, rateText)},
-        {"Send", valueOr(adapter->outBytesPerSec, rateText)},
+        {"Receive", valueOr(adapter->inBytesPerSec, formatByteRate)},
+        {"Send", valueOr(adapter->outBytesPerSec, formatByteRate)},
         {"Link speed", valueOr(linkSpeed, formatLinkSpeed)},
         {"Type", adapter->isHardwareInterface ? "Hardware" : "Virtual"},
         {"Adapter", adapter->description.empty() ? kNotAvailable : QString::fromStdString(adapter->description)},

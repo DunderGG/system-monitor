@@ -25,6 +25,9 @@ struct YRange
     float max{100.0f};
 };
 
+/** The fixed range of percentage charts. */
+inline constexpr YRange kPercentRange{.min = 0.0f, .max = 100.0f};
+
 /** A sample value and its index within the visible window (0 = oldest visible sample). */
 struct SampleExtremum
 {

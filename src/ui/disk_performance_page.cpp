@@ -16,7 +16,6 @@ namespace sysmon::ui
 namespace
 {
 
-constexpr charts::YRange kPercentRange{.min = 0.0f, .max = 100.0f};
 constexpr int kReadoutColumns = 3;
 
 } // namespace
@@ -24,7 +23,7 @@ constexpr int kReadoutColumns = 3;
 DiskPerformancePage::DiskPerformancePage(QWidget* parent) : PerformancePage("Disk", parent)
 {
     contentLayout()->addWidget(new QLabel("Space used per volume", this));
-    m_usageChart = createHistoryChart(kPercentRange, formatChartPercent, formatPercent, this);
+    m_usageChart = createHistoryChart(charts::kPercentRange, formatChartPercent, formatPercent, this);
     contentLayout()->addWidget(m_usageChart, 1);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);

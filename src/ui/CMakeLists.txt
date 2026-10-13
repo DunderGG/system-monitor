@@ -31,6 +31,7 @@ add_library(sysmon_ui STATIC
     readout_grid.h
     resource_card.cpp
     resource_card.h
+    view_metrics.h
 )
 
 set_target_properties(sysmon_ui PROPERTIES

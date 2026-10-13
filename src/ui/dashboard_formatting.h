@@ -10,6 +10,7 @@
 #include "domain/connectivity_status.h"
 #include "domain/disk_sample.h"
 #include "domain/health_status.h"
+#include "domain/memory_sample.h"
 #include "domain/network_sample.h"
 
 namespace sysmon::ui
@@ -17,7 +18,17 @@ namespace sysmon::ui
 
 // Pure presentation helpers for the dashboard. They take domain values and
 // return display text, so they can be unit tested without widgets. Byte
-// quantities use binary (IEC) units: KiB, MiB, GiB, TiB.
+// quantities use binary (IEC) units: KiB, MiB, GiB, TiB. The Performance tab's
+// helpers build on them.
+
+/** Text shown for a value that could not be read, everywhere in the UI. Never shown as zero. */
+inline const QString kNotAvailable = QStringLiteral("N/A");
+
+/**
+ * Returns used physical memory: total minus available, or 0 if a reading
+ * reports more available than total. Includes the modified page list.
+ */
+[[nodiscard]] uint64_t usedMemoryBytes(const domain::MemorySample& memory);
 
 /** Formats a percentage with one decimal, e.g. "42.5%". */
 [[nodiscard]] QString formatPercent(float percent);
