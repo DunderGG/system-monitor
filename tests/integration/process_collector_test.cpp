@@ -104,6 +104,33 @@ TEST(ProcessCollectorIntegration, RealHost_CsrssAndLsass_NotQueried)
     EXPECT_GE(csrssCount, 1);
 }
 
+TEST(ProcessCollectorIntegration, RealHost_BusyThread_ReportsCpuUsageForThisProcess)
+{
+    ProcessCollector collector;
+    const auto first = collector.collect();
+    ASSERT_TRUE(first.has_value());
+    EXPECT_TRUE(
+        std::ranges::none_of(*first, [](const ProcessInfo& process) { return process.cpuUsagePercent.has_value(); }));
+
+    // Keep this thread busy so the process accumulates CPU time.
+    const auto busyUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds{300};
+    while (std::chrono::steady_clock::now() < busyUntil) {
+    }
+    const auto second = collector.collect();
+
+    ASSERT_TRUE(second.has_value());
+    const ProcessInfo* self = findPid(*second, ::GetCurrentProcessId());
+    ASSERT_NE(self, nullptr);
+    ASSERT_TRUE(self->cpuUsagePercent.has_value());
+    EXPECT_GT(*self->cpuUsagePercent, 0.0f);
+    for (const auto& process : *second) {
+        if (process.cpuUsagePercent) {
+            EXPECT_GE(*process.cpuUsagePercent, 0.0f) << process.imageName;
+            EXPECT_LE(*process.cpuUsagePercent, 100.0f) << process.imageName;
+        }
+    }
+}
+
 TEST(ProcessCollectorIntegration, RealHost_ListsIdleAndSystemProcesses)
 {
     ProcessCollector collector;

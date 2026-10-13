@@ -227,6 +227,7 @@ TEST(ProcessInfo, DefaultConstruction_ZeroAndNotQueried)
     EXPECT_FALSE(p.commandLine.has_value());
     EXPECT_EQ(p.cpuUserTimeMs, 0u);
     EXPECT_EQ(p.cpuKernelTimeMs, 0u);
+    EXPECT_FALSE(p.cpuUsagePercent.has_value());
     EXPECT_EQ(p.workingSetBytes, 0u);
     EXPECT_EQ(p.privateBytes, 0u);
     EXPECT_EQ(p.ioReadBytes, 0u);

@@ -42,8 +42,11 @@ enum class ProcessDetailsStatus
  * FILETIME value), converted to system_clock at the platform boundary.
  *
  * CPU time fields (cpuUserTimeMs, cpuKernelTimeMs) are cumulative totals in
- * milliseconds. Rate calculation (CPU %) is done by the collector using deltas
- * between successive snapshots over measured steady_clock intervals.
+ * milliseconds. The collector derives cpuUsagePercent from their change since
+ * its previous refresh over measured steady_clock time, as a share of all
+ * logical processors (100% means every processor was busy with this process).
+ * It is std::nullopt when no rate exists: the first time a process is seen, or
+ * when its CPU time went backwards.
  *
  * imagePath and commandLine are optional because they are read by opening the
  * process, once per identity, and that can fail; detailsStatus says why a
@@ -60,6 +63,7 @@ struct ProcessInfo
     std::optional<std::string> commandLine;
     uint64_t cpuUserTimeMs{0};
     uint64_t cpuKernelTimeMs{0};
+    std::optional<float> cpuUsagePercent;
     uint64_t workingSetBytes{0};
     // Commit charge: the private memory committed for the process.
     uint64_t privateBytes{0};
