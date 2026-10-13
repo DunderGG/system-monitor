@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <QString>
+#include <QStringList>
 
 #include "domain/cpu_sample.h"
 #include "domain/disk_sample.h"
@@ -24,6 +25,14 @@ namespace sysmon::ui
 
 /** Formats a chart axis or annotation value as a byte rate, e.g. "1.5 MiB/s". Negative values show as 0 B/s. */
 [[nodiscard]] QString formatChartByteRate(float bytesPerSecond);
+
+/**
+ * Returns the widest texts formatChartByteRate() produces in each unit up to
+ * GiB/s, e.g. "1024.0 MiB/s" (a value just below the next unit rounds up), for
+ * SparklineWidget::setAxisLabelTemplates(). Byte-rate charts that share them
+ * keep a fixed plot position and line up with each other.
+ */
+[[nodiscard]] QStringList chartByteRateAxisTemplates();
 
 /**
  * Formats a used and a total byte count in the total's binary unit, e.g.

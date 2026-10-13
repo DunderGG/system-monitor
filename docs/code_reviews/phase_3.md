@@ -68,7 +68,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | [F-21](#f-21-network-page-charts-hidden-wan-miniport-adapters) | Network page charts hidden WAN Miniport adapters | Medium | Resolved |
 | [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Resolved |
 | [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Resolved |
-| [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Open |
+| [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Resolved |
 | [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Open |
 | [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Open |
 | [F-27](#f-27-documentation-out-of-date) | Documentation out of date | Low | Open |
@@ -249,7 +249,7 @@ Give the gutter a width that does not depend on the current values. For example,
 
 **Recommendation:** Fix when convenient. Doing it together with F-20 avoids adjusting the network page's layout twice.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). `SparklineWidget::setAxisLabelTemplates()` takes a list of templates, because unit letters differ in width. The gutter is the widest of the templates and the current labels, so a label wider than every template still fits. The network charts share `chartByteRateAxisTemplates()`, which formats one byte below each unit boundary up to GiB/s ("1024.0 MiB/s"). Percentage charts have a fixed range and so already had a fixed gutter. New tests check that the plot's left edge stays put when the auto range changes, that it still moves without templates, that a label wider than the templates widens the gutter, the template texts, and that an idle and a busy network chart line up. See [DC-65](../design_decisions.md#dc-65-y-axis-gutter-sized-from-caller-supplied-label-templates-code-review-f-24).
 
 ---
 

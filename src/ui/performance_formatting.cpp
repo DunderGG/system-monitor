@@ -39,6 +39,18 @@ QString formatChartByteRate(float bytesPerSecond)
     return formatByteRate(static_cast<uint64_t>(std::llround(std::max(0.0f, bytesPerSecond))));
 }
 
+QStringList chartByteRateAxisTemplates()
+{
+    // One byte below each unit boundary: the most digits each unit shows.
+    constexpr uint64_t kKiB = 1024;
+    return {
+        formatByteRate(kKiB - 1),
+        formatByteRate(kKiB * kKiB - 1),
+        formatByteRate(kKiB * kKiB * kKiB - 1),
+        formatByteRate(kKiB * kKiB * kKiB * kKiB - 1),
+    };
+}
+
 QString formatBytesOfTotal(uint64_t used, uint64_t total)
 {
     constexpr std::array kUnits{"B", "KiB", "MiB", "GiB", "TiB", "PiB"};

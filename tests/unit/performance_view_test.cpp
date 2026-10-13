@@ -408,6 +408,21 @@ TEST(NetworkPerformancePage, TwoAdaptersShareAName_SeparateChartsAndHistories)
     EXPECT_EQ(secondReceive[0], 200.0f);
 }
 
+TEST(NetworkPerformancePage, IdleAndBusyAdapters_PlotsLineUp)
+{
+    NetworkPerformancePage page;
+    auto snapshot = populatedSnapshot();
+    (*snapshot.networks)[0].inBytesPerSec = 0;
+    (*snapshot.networks)[0].outBytesPerSec = 0;
+    (*snapshot.networks)[1] = adapter("Wi-Fi", OperationalStatus::Up, 12'000'000, 900'000);
+
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    ASSERT_EQ(page.chartedAdapterNames().size(), 2u);
+    EXPECT_DOUBLE_EQ(page.adapterChart(0)->plotArea().left(), page.adapterChart(1)->plotArea().left());
+}
+
 TEST(NetworkPerformancePage, AdapterRenamed_KeepsChartAndHistory)
 {
     NetworkPerformancePage page;

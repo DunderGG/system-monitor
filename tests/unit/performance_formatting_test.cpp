@@ -62,6 +62,13 @@ TEST(PerformanceFormatting, FormatChartByteRate_UsesBinaryUnitsAndClampsNegative
     EXPECT_EQ(formatChartByteRate(-5.0f), "0 B/s");
 }
 
+TEST(PerformanceFormatting, ChartByteRateAxisTemplates_WidestTextPerUnit)
+{
+    EXPECT_EQ(chartByteRateAxisTemplates(), (QStringList{"1023 B/s", "1024.0 KiB/s", "1024.0 MiB/s", "1024.0 GiB/s"}));
+    // A value just below a unit boundary rounds up to "1024.0" in the unit below.
+    EXPECT_EQ(formatChartByteRate(1'048'575.0f), "1024.0 KiB/s");
+}
+
 TEST(PerformanceFormatting, FormatBytesOfTotal_UsesTotalsUnitForBoth)
 {
     EXPECT_EQ(formatBytesOfTotal(8 * kGiB, 16 * kGiB), "8.0/16.0 GiB");

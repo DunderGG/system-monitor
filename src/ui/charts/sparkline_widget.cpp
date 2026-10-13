@@ -466,6 +466,17 @@ bool SparklineWidget::areAxisLabelsVisible() const
     return m_axisLabelsVisible;
 }
 
+void SparklineWidget::setAxisLabelTemplates(QStringList templates)
+{
+    m_axisLabelTemplates = std::move(templates);
+    update();
+}
+
+const QStringList& SparklineWidget::axisLabelTemplates() const
+{
+    return m_axisLabelTemplates;
+}
+
 void SparklineWidget::setAnnotationsVisible(bool visible)
 {
     m_annotationsVisible = visible;
@@ -487,8 +498,11 @@ QRectF SparklineWidget::plotArea() const
     }
     if (m_axisLabelsVisible) {
         const YRange range = effectiveRange();
-        const qreal labelWidth = std::max(metrics.horizontalAdvance(formatValue(range.max)),
-                                          metrics.horizontalAdvance(formatValue(range.min)));
+        qreal labelWidth = std::max(metrics.horizontalAdvance(formatValue(range.max)),
+                                    metrics.horizontalAdvance(formatValue(range.min)));
+        for (const QString& text : m_axisLabelTemplates) {
+            labelWidth = std::max(labelWidth, metrics.horizontalAdvance(text));
+        }
         area.setLeft(area.left() + labelWidth + kLabelGap);
         area.setBottom(area.bottom() - textBand);
     }

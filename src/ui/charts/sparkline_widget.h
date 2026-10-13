@@ -12,6 +12,7 @@
 #include <QPolygonF>
 #include <QRectF>
 #include <QString>
+#include <QStringList>
 #include <QWidget>
 
 namespace sysmon::ui::charts
@@ -195,6 +196,16 @@ public:
     [[nodiscard]] bool areAxisLabelsVisible() const;
 
     /**
+     * Sets texts as wide as the widest Y-axis labels expected, e.g. "1024.0
+     * MiB/s". The label gutter is at least as wide as the widest of them, so on
+     * an auto-ranged chart the plot does not move sideways as the range
+     * changes, and charts that share templates line up. A label wider than
+     * every template still widens the gutter rather than being clipped.
+     */
+    void setAxisLabelTemplates(QStringList templates);
+    [[nodiscard]] const QStringList& axisLabelTemplates() const;
+
+    /**
      * Shows a line above the chart with the current value (or, for several
      * series, a legend of labelled series with their current values) and the
      * primary series' min and max, which are also marked on its line.
@@ -235,6 +246,7 @@ private:
     std::chrono::milliseconds m_sampleInterval{std::chrono::seconds{1}};
     std::optional<YRange> m_fixedRange{YRange{}};
     ValueFormatter m_formatter;
+    QStringList m_axisLabelTemplates;
     bool m_gridVisible{false};
     bool m_axisLabelsVisible{false};
     bool m_annotationsVisible{false};

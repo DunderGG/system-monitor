@@ -151,6 +151,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& i
         chart->setSeriesCount(2);
         chart->setSeriesLabel(0, "Receive");
         chart->setSeriesLabel(1, "Send");
+        chart->setAxisLabelTemplates(chartByteRateAxisTemplates());
         listLayout->addWidget(chart, 1);
 
         auto* readoutGrid = new ReadoutGrid(kReadoutColumns, list);

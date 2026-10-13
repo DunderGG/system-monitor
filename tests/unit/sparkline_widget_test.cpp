@@ -25,6 +25,12 @@ namespace
 using Samples = std::vector<std::optional<float>>;
 
 const QRectF kArea{0.0, 0.0, 100.0, 50.0};
+
+// Plain digits, so label widths depend only on the number of digits.
+QString wholeNumber(float value)
+{
+    return QString::number(std::llround(value));
+}
 // 60 slots one pixel apart, so grid line positions equal slot numbers.
 const QRectF kSlotArea{0.0, 0.0, 59.0, 50.0};
 constexpr YRange kPercent{.min = 0.0f, .max = 100.0f};
@@ -548,6 +554,54 @@ TEST(SparklineWidget, PlotArea_LabelsAndAnnotationsReserveSpace)
     EXPECT_LT(labelled.bottom(), plain.bottom());
     EXPECT_DOUBLE_EQ(labelled.top(), plain.top());
     EXPECT_GT(annotated.top(), labelled.top());
+}
+
+TEST(SparklineWidget, AutoRangeWithoutTemplates_PlotMovesWithLabelWidth)
+{
+    SparklineWidget widget;
+    widget.resize(600, 150);
+    widget.setAutoRange();
+    widget.setValueFormatter(wholeNumber);
+    widget.setAxisLabelsVisible(true);
+    widget.setSamples(Samples{9.0f});
+    const qreal narrowLeft = widget.plotArea().left();
+
+    widget.setSamples(Samples{9'000'000.0f});
+
+    EXPECT_GT(widget.plotArea().left(), narrowLeft);
+}
+
+TEST(SparklineWidget, AxisLabelTemplates_PlotStaysWhenAutoRangeChanges)
+{
+    SparklineWidget widget;
+    widget.resize(600, 150);
+    widget.setAutoRange();
+    widget.setValueFormatter(wholeNumber);
+    widget.setAxisLabelsVisible(true);
+    widget.setAxisLabelTemplates({"88888888", "8888"});
+    widget.setSamples(Samples{9.0f});
+    const qreal left = widget.plotArea().left();
+
+    widget.setSamples(Samples{9'000'000.0f});
+    EXPECT_DOUBLE_EQ(widget.plotArea().left(), left);
+    widget.setSamples(Samples{900.0f});
+    EXPECT_DOUBLE_EQ(widget.plotArea().left(), left);
+}
+
+TEST(SparklineWidget, LabelWiderThanTemplates_GutterStillFitsIt)
+{
+    SparklineWidget widget;
+    widget.resize(600, 150);
+    widget.setAutoRange();
+    widget.setValueFormatter(wholeNumber);
+    widget.setAxisLabelsVisible(true);
+    widget.setAxisLabelTemplates({"8"});
+    widget.setSamples(Samples{9.0f});
+    const qreal left = widget.plotArea().left();
+
+    widget.setSamples(Samples{9'000'000.0f});
+
+    EXPECT_GT(widget.plotArea().left(), left);
 }
 
 TEST(SparklineWidget, NoSamples_PaintsNothing)
