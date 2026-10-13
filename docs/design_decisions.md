@@ -82,6 +82,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-67](#dc-67-chart-annotations-at-readout-precision-named-extremes-and-stable-volume-colours-code-review-f-26): Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
   - [DC-68](#dc-68-shared-ui-constants-and-helpers-where-each-one-lives-code-review-f-28): Shared UI constants and helpers: where each one lives (code review F-28)
   - [DC-69](#dc-69-buildps1-retries-a-failed-configure-once-from-a-clean-cache): `build.ps1` retries a failed configure once from a clean cache
+- [Phase 4 — Process collector (`src/platform/windows/`)](#phase-4--process-collector-srcplatformwindows)
+  - [DC-70](#dc-70-process-list-read-into-a-kept-growing-buffer-through-an-injected-query): Process list read into a kept, growing buffer through an injected query
 
 ---
 
@@ -685,3 +687,13 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 **Decision:** When `cmake --preset` fails and the build directory already had a `CMakeCache.txt`, `build.ps1` warns, removes `CMakeCache.txt` and `CMakeFiles`, and configures once more. `vcpkg_installed` and the Ninja build outputs are kept. A failure without an existing cache, or a second failure, stops the script as before. The configure stamp ([DC-62](#dc-62-buildps1-launch-only-with--run-configure-only-when-needed-and-parallel-tests)) is removed before configuring and written only after success, so a failed configure is always repeated on the next run.
 
 **Rationale:** After a Visual Studio update, the Release build directory's cache recorded a compiler that no longer matched the preset's `cl`. CMake deleted the cache and re-ran itself, the re-run could not find vcpkg's packages, and the cache it left behind failed every later configure in the same way, including with `-Configure`. Deleting the two cache entries by hand fixed it. A cache created for another source directory (a moved or copied checkout) fails in a similar way, and the retry was tested with that case. The presets define every cache variable and the script passes none of its own, so a clean cache loses nothing. Keeping `vcpkg_installed` avoids restoring dependencies again, and in the test Ninja found nothing to rebuild afterwards. Retrying only once, and only when a cache existed, means a genuine error in a `CMakeLists.txt` still fails, after one extra configure of a few seconds. Deleting the whole build directory was rejected, because it would force a full rebuild and a dependency restore for a problem confined to the cache.
+
+---
+
+## Phase 4 — Process collector (`src/platform/windows/`)
+
+### DC-70: Process list read into a kept, growing buffer through an injected query
+
+**Decision:** `SystemProcessInformationReader` calls `NtQuerySystemInformation(SystemProcessInformation)`, resolved from `ntdll.dll`, in a resizing-buffer loop. When the call returns `STATUS_INFO_LENGTH_MISMATCH` or `STATUS_BUFFER_TOO_SMALL`, the buffer grows to the reported size plus an eighth (or doubles when no size is reported) and the call is repeated, up to five calls in all. The buffer starts at 256 KiB, is kept between reads, and never shrinks. A reported size above 64 MiB fails the read instead of being allocated. The query is a `std::function` that takes a `std::span<std::byte>` and returns the NTSTATUS as an `int32_t`, so unit tests can fake it without Windows headers. `resolveSystemProcessInformationQuery()` returns the real one.
+
+**Rationale:** The list's size is not known in advance and changes between calls, so the API reports the size it needs and the caller retries. The headroom covers processes and threads created between the failed call and the retry, so one retry is normally enough. A desktop's list is a few hundred KiB: 256 bytes per process, 80 per thread, plus the image names. Keeping the buffer therefore costs little and saves an allocation and a failed call on every refresh. The 64 MiB cap is far above any real list, but it stops a corrupt reported size from exhausting memory, which would end the process because exceptions are not used. With the fake query, unit tests cover retry paths that a real machine rarely takes, as [architecture.md — Testing strategy](architecture.md#testing-strategy) asks for buffer resizing. An integration test starts the real query from a 1 KiB buffer to force the loop.

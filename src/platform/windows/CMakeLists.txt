@@ -21,6 +21,8 @@ add_library(sysmon_platform_windows STATIC
     steady_clock_reader.h
     system_activity_collector.cpp
     system_activity_collector.h
+    system_process_information_reader.cpp
+    system_process_information_reader.h
     uptime_collector.cpp
     uptime_collector.h
 )
