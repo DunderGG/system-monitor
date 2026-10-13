@@ -39,6 +39,8 @@ struct RawNetworkAdapter
     bool isFilterInterface{false};
     // A physical adapter rather than a tunnel, VPN, or other virtual interface.
     bool isHardwareInterface{false};
+    // Listed by GetAdaptersAddresses, which reports only adapters bound to IP.
+    bool hasIpInterface{false};
 };
 
 /**

@@ -28,6 +28,22 @@ NetworkSample adapter(std::string name, OperationalStatus status, bool isHardwar
         .outBytesPerSec = 1024,
         .operationalStatus = status,
         .isHardwareInterface = isHardware,
+        .hasIpInterface = true,
+    };
+}
+
+// A hidden virtual adapter that Windows keeps Up without binding IP to it, as
+// it does for the WAN Miniports.
+NetworkSample wanMiniport(std::string name)
+{
+    return NetworkSample{
+        .adapterName = name,
+        .friendlyName = std::move(name),
+        .inBytesPerSec = 0,
+        .outBytesPerSec = 0,
+        .operationalStatus = OperationalStatus::Up,
+        .isHardwareInterface = false,
+        .hasIpInterface = false,
     };
 }
 
@@ -92,6 +108,38 @@ TEST(PerformanceFormatting, ChartedAdapters_UpOnlyHardwareFirstThenByName)
     EXPECT_EQ(charted[0]->friendlyName, "Ethernet");
     EXPECT_EQ(charted[1]->friendlyName, "Wi-Fi");
     EXPECT_EQ(charted[2]->friendlyName, "vEthernet");
+}
+
+TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted)
+{
+    NetworkSample vpn = adapter("Mullvad", OperationalStatus::Up, false);
+    vpn.description = "Mullvad Tunnel";
+    vpn.ipAddresses = {"10.64.12.34"};
+    const std::vector<NetworkSample> networks{
+        adapter("Ethernet", OperationalStatus::Up, true),
+        wanMiniport("Local Area Connection* 7"),
+        wanMiniport("Local Area Connection* 8"),
+        vpn,
+    };
+
+    const auto charted = chartedAdapters(networks);
+
+    ASSERT_EQ(charted.size(), 2u);
+    EXPECT_EQ(charted[0]->friendlyName, "Ethernet");
+    EXPECT_EQ(charted[1]->friendlyName, "Mullvad");
+}
+
+TEST(PerformanceFormatting, ChartedAdapters_HardwareWithoutIpInterface_StillCharted)
+{
+    // Adapter details are unavailable (GetAdaptersAddresses failed), or IP is
+    // unbound from a physical adapter: its link can still carry traffic.
+    std::vector<NetworkSample> networks{adapter("Ethernet", OperationalStatus::Up, true)};
+    networks[0].hasIpInterface = false;
+
+    const auto charted = chartedAdapters(networks);
+
+    ASSERT_EQ(charted.size(), 1u);
+    EXPECT_EQ(charted[0]->friendlyName, "Ethernet");
 }
 
 TEST(PerformanceFormatting, Summaries_MissingData_NotAvailable)

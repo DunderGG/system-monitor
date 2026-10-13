@@ -41,6 +41,12 @@ enum class OperationalStatus
  * VPNs, and other virtual interfaces. Traffic through a virtual interface
  * usually also crosses a physical one, so a total across adapters should sum
  * hardware interfaces only.
+ *
+ * hasIpInterface is true when IP is bound to the adapter, so it can carry IP
+ * traffic. Windows keeps some hidden virtual adapters, such as the WAN
+ * Miniports, Up without an IP interface; they never carry traffic. It is also
+ * false for every adapter while the adapter details (names, addresses, DNS
+ * servers) cannot be read.
  */
 struct NetworkSample
 {
@@ -56,6 +62,7 @@ struct NetworkSample
     std::vector<std::string> ipAddresses;
     std::vector<std::string> dnsServers;
     bool isHardwareInterface{false};
+    bool hasIpInterface{false};
 };
 
 } // namespace sysmon::domain

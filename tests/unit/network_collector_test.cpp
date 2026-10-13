@@ -159,6 +159,26 @@ TEST(NetworkCollector, CalculateNetworkSamples_HardwareFlag_PreservedInSample)
     EXPECT_FALSE(samples[1].isHardwareInterface);
 }
 
+TEST(NetworkCollector, CalculateNetworkSamples_IpInterfaceFlag_PreservedInSample)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{.luid = 1, .adapterName = "Mullvad", .hasIpInterface = true},
+        RawNetworkAdapter{.luid = 2,
+                          .adapterName = "Local Area Connection* 7",
+                          .operationalStatus = OperationalStatus::Up,
+                          .hasIpInterface = false},
+    };
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_TRUE(samples[0].hasIpInterface);
+    EXPECT_FALSE(samples[1].hasIpInterface);
+}
+
 TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesUnavailable)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;

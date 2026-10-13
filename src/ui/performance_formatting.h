@@ -42,7 +42,8 @@ namespace sysmon::ui
 
 /**
  * Returns the adapters the network page charts: those whose operational status
- * is Up, hardware adapters first, each group ordered by display name.
+ * is Up and that are either hardware or bound to IP, hardware adapters first,
+ * each group ordered by display name.
  */
 [[nodiscard]] std::vector<const domain::NetworkSample*>
 chartedAdapters(const std::vector<domain::NetworkSample>& networks);

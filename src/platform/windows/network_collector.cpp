@@ -298,6 +298,7 @@ public:
                                       : (!details->adapterName.empty() ? details->adapterName : raw.description);
                 raw.ipAddresses = details->ipAddresses;
                 raw.dnsServers = details->dnsServers;
+                raw.hasIpInterface = true;
             } else {
                 raw.friendlyName = alias;
                 raw.description = desc;
@@ -410,6 +411,7 @@ std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<Raw
             .ipAddresses = adapter.ipAddresses,
             .dnsServers = adapter.dnsServers,
             .isHardwareInterface = adapter.isHardwareInterface,
+            .hasIpInterface = adapter.hasIpInterface,
         };
 
         samples.push_back(std::move(sample));

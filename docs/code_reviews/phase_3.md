@@ -65,7 +65,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
 | [F-20](#f-20-performance-pages-do-not-fit-the-default-window) | Performance pages do not fit the default window | Medium | Resolved |
-| [F-21](#f-21-network-page-charts-hidden-wan-miniport-adapters) | Network page charts hidden WAN Miniport adapters | Medium | Open |
+| [F-21](#f-21-network-page-charts-hidden-wan-miniport-adapters) | Network page charts hidden WAN Miniport adapters | Medium | Resolved |
 | [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Open |
 | [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Open |
 | [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Open |
@@ -162,7 +162,7 @@ Add unit tests with a WAN-Miniport-shaped adapter (virtual, Up, no addresses) an
 
 **Recommendation:** Fix before Phase 4, together with F-20, since both change what the network page lays out.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). `NetworkSample` has the explicit `hasIpInterface` flag, set when `GetAdaptersAddresses` lists the adapter, instead of the `ipAddresses` test. `chartedAdapters()` charts an Up adapter only if it is hardware or has an IP interface. New unit tests cover a WAN-Miniport-shaped adapter (virtual, Up, no IP interface), a VPN-shaped adapter (virtual, Up, bound to IP), a hardware adapter without an IP interface, the page with both kinds, and the collector passing the flag through. An integration check confirms that every adapter with addresses has the flag. The "Performance view" design decision is updated. See the design decision "Network page charts only adapters that can carry traffic".
 
 ---
 

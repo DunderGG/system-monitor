@@ -131,6 +131,7 @@ TEST(NetworkSample, DefaultConstruction_UnknownStatus)
     EXPECT_TRUE(s.ipAddresses.empty());
     EXPECT_TRUE(s.dnsServers.empty());
     EXPECT_FALSE(s.isHardwareInterface);
+    EXPECT_FALSE(s.hasIpInterface);
 }
 
 TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
@@ -148,6 +149,7 @@ TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
         .ipAddresses = {"192.168.1.100", "fe80::1"},
         .dnsServers = {"1.1.1.1", "1.0.0.1"},
         .isHardwareInterface = true,
+        .hasIpInterface = true,
     };
     EXPECT_EQ(s.adapterName, "Ethernet");
     EXPECT_EQ(s.friendlyName, "Ethernet");
@@ -165,6 +167,7 @@ TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
     EXPECT_EQ(s.dnsServers[0], "1.1.1.1");
     EXPECT_EQ(s.dnsServers[1], "1.0.0.1");
     EXPECT_TRUE(s.isHardwareInterface);
+    EXPECT_TRUE(s.hasIpInterface);
 }
 
 TEST(OperationalStatus, EnumValues_AreDistinct)

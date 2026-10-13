@@ -20,7 +20,7 @@ class ReadoutGrid;
 
 /**
  * Network page of the Performance tab: a throughput chart per active adapter
- * (see chartedAdapters()), each with a receive and a send series on an
+ * that can carry traffic (see chartedAdapters()), each with a receive and a send series on an
  * auto-scaled byte-rate axis. History is recorded for every adapter in the
  * snapshots, so an adapter that comes up shows what it did while it was
  * down. An adapter that leaves the snapshots records gaps and is dropped once

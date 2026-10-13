@@ -38,6 +38,12 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
         // Adapter name / friendly name should not indicate loopback
         EXPECT_NE(sample.adapterName, "Loopback");
         EXPECT_NE(sample.friendlyName, "Loopback");
+
+        // Addresses come from the same GetAdaptersAddresses entry that marks
+        // the adapter as bound to IP.
+        if (!sample.ipAddresses.empty()) {
+            EXPECT_TRUE(sample.hasIpInterface) << sample.adapterName;
+        }
     }
 }
 

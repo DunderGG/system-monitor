@@ -45,6 +45,7 @@ NetworkSample adapter(std::string name, OperationalStatus status, std::optional<
         .outBytesPerSec = outRate,
         .operationalStatus = status,
         .isHardwareInterface = true,
+        .hasIpInterface = true,
     };
 }
 
@@ -357,6 +358,28 @@ TEST(NetworkPerformancePage, NoActiveAdapters_ShowsPlaceholder)
 
     EXPECT_TRUE(page.chartedAdapterNames().empty());
     EXPECT_EQ(page.placeholderText(), "No active network adapters");
+}
+
+TEST(NetworkPerformancePage, HiddenVirtualAdaptersUp_ChartsOnlyAdaptersThatCarryTraffic)
+{
+    NetworkPerformancePage page;
+    auto snapshot = populatedSnapshot();
+    NetworkSample tunnel = adapter("Mullvad", OperationalStatus::Up);
+    tunnel.isHardwareInterface = false;
+    tunnel.ipAddresses = {"10.64.12.34"};
+    snapshot.networks->push_back(tunnel);
+    for (const char* name : {"Local Area Connection* 7", "Local Area Connection* 8"}) {
+        NetworkSample miniport = adapter(name, OperationalStatus::Up, 0, 0);
+        miniport.description = "WAN Miniport (IP)";
+        miniport.isHardwareInterface = false;
+        miniport.hasIpInterface = false;
+        snapshot.networks->push_back(miniport);
+    }
+
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    EXPECT_EQ(page.chartedAdapterNames(), (std::vector<std::string>{"{Ethernet}", "{Mullvad}"}));
 }
 
 TEST(NetworkPerformancePage, ReadFails_KeepsChartsAndRecordsGap)

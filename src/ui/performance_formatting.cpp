@@ -19,6 +19,14 @@ bool isUp(const domain::NetworkSample& adapter)
     return adapter.operationalStatus == domain::OperationalStatus::Up;
 }
 
+// A virtual adapter is charted only when it is bound to IP. Hidden adapters
+// such as the WAN Miniports are Up without an IP interface and never carry
+// traffic.
+bool isChartable(const domain::NetworkSample& adapter)
+{
+    return isUp(adapter) && (adapter.isHardwareInterface || adapter.hasIpInterface);
+}
+
 } // namespace
 
 QString formatChartPercent(float percent)
@@ -77,7 +85,7 @@ std::vector<const domain::NetworkSample*> chartedAdapters(const std::vector<doma
 {
     std::vector<const domain::NetworkSample*> charted;
     for (const auto& adapter : networks) {
-        if (isUp(adapter)) {
+        if (isChartable(adapter)) {
             charted.push_back(&adapter);
         }
     }
