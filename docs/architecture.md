@@ -10,7 +10,7 @@ Build a lightweight Windows desktop system monitor inspired by Task Manager. The
 | --- | --- | --- |
 | Language | C++20 | Team experience and direct, low-overhead access to Windows APIs. Leverage `std::jthread`, `std::stop_token`, `std::format`, concepts, and designated initializers. |
 | Desktop UI | Qt 6 Widgets | Productive C++ UI development with strong model/view support. Widgets are the right fit for data-dense monitoring views; QML may be considered for future feature areas. |
-| Charts | Custom `QWidget` sparklines | Task Manager-style rolling charts are simple polyline + gradient fills. A custom `QPainter` implementation is faster (<0.05 ms per frame), dependency-free, and avoids GPL licensing constraints of Qt Charts and QCustomPlot. |
+| Charts | Custom `QWidget` sparklines | Task Manager-style rolling charts are simple polyline + gradient fills. A custom `QPainter` implementation is dependency-free, paints only what the charts need, and avoids GPL licensing constraints of Qt Charts and QCustomPlot. A whole Performance page tick, including repainting the window, costs about 4–15 ms at the default 1-minute window ([DC-66](design_decisions.md#dc-66-a-committed-tick-cost-benchmark-run-with-buildps1--benchmark-code-review-f-25)). |
 | Build | CMake + CMake Presets | Standard, portable build configuration with good IDE support. Presets simplify contributor onboarding. |
 | Dependencies | vcpkg manifest mode | All dependencies, including Qt 6, are declared in `vcpkg.json` for fully reproducible builds. Contributors clone the repo and build without manual dependency installation. |
 | Logging | spdlog | High-performance structured logging with multiple sinks and size-based rotation. |
@@ -216,10 +216,11 @@ See [`design_decisions.md`](design_decisions.md) for the rationale behind each c
 Implement Task Manager-style rolling charts as custom `QWidget` subclasses:
 
 - Override `paintEvent` and draw with `QPainter`.
-- Render a `QPainterPath` polyline from the ring buffer data (typically 60–300 points for 1–5 minutes).
+- Render a polyline from the ring buffer data: 60, 300, or 1800 points per series for the 1, 5, and 30-minute chart windows.
+- When a chart has more points than pixel columns, keep each column's lowest and highest point and draw a one-pixel cosmetic line, so the cost is bounded by the chart's width ([DC-60](design_decisions.md#dc-60-dense-sparklines-minmax-decimation-a-one-pixel-cosmetic-line-and-an-envelope-fill)).
 - Fill below the line with a `QLinearGradient` for the characteristic Task Manager look.
 - Draw a scrolling grid background by offsetting grid lines on each repaint.
-- At 1 Hz refresh with <300 points, each repaint takes well under 1 ms. Double-buffering via `QPixmap` is unlikely to be needed but available if profiling shows benefit.
+- Measured in a Release build with worst-case data, a 1 Hz tick (recording a snapshot, refreshing the page, and repainting the window) costs about 4–15 ms per page at the 1-minute window and up to about 40 ms at 30 minutes. Re-measure with `.\scripts\build.ps1 -Benchmark` ([DC-66](design_decisions.md#dc-66-a-committed-tick-cost-benchmark-run-with-buildps1--benchmark-code-review-f-25)). Double-buffering via `QPixmap` has not been needed.
 - This avoids third-party charting library dependencies and GPL licensing constraints.
 
 ## Configuration and persistence

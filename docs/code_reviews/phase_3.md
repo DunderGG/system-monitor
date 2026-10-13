@@ -71,7 +71,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Resolved |
 | [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Resolved |
 | [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Resolved |
-| [F-27](#f-27-documentation-out-of-date) | Documentation out of date | Low | Open |
+| [F-27](#f-27-documentation-out-of-date) | Documentation out of date | Low | Resolved |
 | [F-28](#f-28-duplicated-constants-and-helpers) | Duplicated constants and helpers | Cosmetic | Open |
 
 **Open findings from earlier reviews:** none. [F-4](phase_1.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview) was implemented in `d12d097`, but its status still says "Deferred to Phase 3" (see F-27).
@@ -327,7 +327,11 @@ See [DC-67](../design_decisions.md#dc-67-chart-annotations-at-readout-precision-
 
 **Recommendation:** Fix together with F-21 and F-22, which change the same entries.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). All four items are done:
+- **Chart cost:** `architecture.md` now states the measured tick cost (about 4–15 ms per page at the 1-minute window, up to about 40 ms at 30 minutes), the 60/300/1800-point windows, and the dense-chart painting. It points to DC-60, DC-66 and `build.ps1 -Benchmark` (F-25).
+- **F-4:** its status in the Phase 1 review is Resolved (2026-09-29, `d12d097`) with a link to DC-54.
+- **`cachedBytes` comment:** rewritten together with the rename to `systemCacheBytes` under F-22.
+- **Performance view decision:** DC-53 was updated under F-21.
 
 ---
 
