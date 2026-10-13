@@ -140,7 +140,7 @@ ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader, Connecti
 
     m_subscription = subscriber([this](domain::ConnectivityStatus status) { storeStatus(status); });
     if (!m_subscription) {
-        // Known deviation D-2 (docs/known_deviations.md): polls on the scheduler thread.
+        // collect() then polls; the scheduler calls it on the slow-collector thread.
         spdlog::warn("Connectivity change notifications unavailable; falling back to polling");
         m_pollingReader = std::move(reader);
     }

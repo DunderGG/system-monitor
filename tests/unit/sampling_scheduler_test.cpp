@@ -1,9 +1,12 @@
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 #include <QObject>
@@ -278,4 +281,224 @@ TEST(SamplingScheduler, SampleOnce_NoSystemActivityCollector_ActivityIsNullopt)
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
     EXPECT_FALSE(snapshot.activity.has_value());
+}
+
+namespace
+{
+
+// Counts its calls and records the thread of the last one.
+class FakeProcessCollector : public sysmon::monitoring::IProcessCollector
+{
+public:
+    [[nodiscard]] std::optional<std::vector<sysmon::domain::ProcessInfo>> collect() override
+    {
+        {
+            std::lock_guard lock(m_mutex);
+            m_lastThread = std::this_thread::get_id();
+        }
+        const int call = ++m_calls;
+        return std::vector<sysmon::domain::ProcessInfo>{
+            sysmon::domain::ProcessInfo{.pid = static_cast<uint32_t>(call), .imageName = "app.exe"}};
+    }
+
+    [[nodiscard]] int calls() const
+    {
+        return m_calls.load();
+    }
+
+    [[nodiscard]] std::thread::id lastThread() const
+    {
+        std::lock_guard lock(m_mutex);
+        return m_lastThread;
+    }
+
+private:
+    std::atomic<int> m_calls{0};
+    mutable std::mutex m_mutex;
+    std::thread::id m_lastThread;
+};
+
+class FakeConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
+{
+public:
+    [[nodiscard]] sysmon::domain::ConnectivityStatus collect() override
+    {
+        ++m_calls;
+        return sysmon::domain::ConnectivityStatus{.level = sysmon::domain::ConnectivityLevel::InternetAccess,
+                                                  .isMetered = false};
+    }
+
+    [[nodiscard]] int calls() const
+    {
+        return m_calls.load();
+    }
+
+private:
+    std::atomic<int> m_calls{0};
+};
+
+// Records the thread each tick runs on.
+class ThreadRecordingCpuCollector : public sysmon::monitoring::ICpuCollector
+{
+public:
+    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
+    {
+        std::lock_guard lock(m_mutex);
+        m_lastThread = std::this_thread::get_id();
+        return sysmon::domain::CpuSample{.totalUsagePercent = 10.0f, .coreCount = 1};
+    }
+
+    [[nodiscard]] std::thread::id lastThread() const
+    {
+        std::lock_guard lock(m_mutex);
+        return m_lastThread;
+    }
+
+private:
+    mutable std::mutex m_mutex;
+    std::thread::id m_lastThread;
+};
+
+} // namespace
+
+TEST(SamplingScheduler, SampleOnce_DoesNotRunSlowCollectors)
+{
+    SamplingScheduler scheduler;
+    auto process = std::make_unique<FakeProcessCollector>();
+    auto connectivity = std::make_unique<FakeConnectivityCollector>();
+    const auto* processPtr = process.get();
+    const auto* connectivityPtr = connectivity.get();
+    scheduler.setProcessCollector(std::move(process));
+    scheduler.setConnectivityCollector(std::move(connectivity));
+
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_EQ(processPtr->calls(), 0);
+    EXPECT_EQ(connectivityPtr->calls(), 0);
+    EXPECT_FALSE(snapshot.processes.has_value());
+    EXPECT_EQ(snapshot.connectivity.level, sysmon::domain::ConnectivityLevel::Unknown);
+}
+
+TEST(SamplingScheduler, RefreshSlowCollectors_NextSnapshotsCarryLatestResults)
+{
+    SamplingScheduler scheduler;
+    auto process = std::make_unique<FakeProcessCollector>();
+    const auto* processPtr = process.get();
+    scheduler.setProcessCollector(std::move(process));
+    scheduler.setConnectivityCollector(std::make_unique<FakeConnectivityCollector>());
+
+    scheduler.refreshSlowCollectors();
+    const SystemSnapshot first = scheduler.sampleOnce();
+    const SystemSnapshot second = scheduler.sampleOnce();
+
+    EXPECT_EQ(processPtr->calls(), 1);
+    ASSERT_TRUE(first.processes.has_value());
+    ASSERT_EQ(first.processes->size(), 1u);
+    EXPECT_EQ((*first.processes)[0].pid, 1u);
+    EXPECT_EQ(first.connectivity.level, sysmon::domain::ConnectivityLevel::InternetAccess);
+    ASSERT_TRUE(second.processes.has_value());
+    EXPECT_EQ((*second.processes)[0].pid, 1u);
+}
+
+TEST(SamplingScheduler, RefreshSlowCollectors_AgainReplacesResults)
+{
+    SamplingScheduler scheduler;
+    scheduler.setProcessCollector(std::make_unique<FakeProcessCollector>());
+
+    scheduler.refreshSlowCollectors();
+    scheduler.refreshSlowCollectors();
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    ASSERT_TRUE(snapshot.processes.has_value());
+    EXPECT_EQ((*snapshot.processes)[0].pid, 2u);
+}
+
+TEST(SamplingScheduler, RefreshSlowCollectors_NoSlowCollectors_NoDataAndUnknownConnectivity)
+{
+    SamplingScheduler scheduler;
+
+    scheduler.refreshSlowCollectors();
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_FALSE(snapshot.processes.has_value());
+    EXPECT_EQ(snapshot.connectivity, sysmon::domain::ConnectivityStatus{});
+}
+
+TEST(SamplingScheduler, SlowInterval_DefaultAndSetter)
+{
+    SamplingScheduler scheduler;
+    EXPECT_EQ(scheduler.slowInterval(), SamplingScheduler::kDefaultSlowInterval);
+
+    scheduler.setSlowInterval(std::chrono::milliseconds{3000});
+
+    EXPECT_EQ(scheduler.slowInterval(), std::chrono::milliseconds{3000});
+}
+
+TEST(SamplingScheduler, Running_SlowCollectorsRunOnTheirOwnThreadAtTheirOwnCadence)
+{
+    SamplingScheduler scheduler(std::chrono::milliseconds{10});
+    scheduler.setSlowInterval(std::chrono::milliseconds{200});
+    auto cpu = std::make_unique<ThreadRecordingCpuCollector>();
+    auto process = std::make_unique<FakeProcessCollector>();
+    const auto* cpuPtr = cpu.get();
+    const auto* processPtr = process.get();
+    scheduler.setCpuCollector(std::move(cpu));
+    scheduler.setProcessCollector(std::move(process));
+
+    std::atomic<int> snapshotCount{0};
+    std::atomic<bool> sawProcesses{false};
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
+        ++snapshotCount;
+        if (snapshot.processes.has_value()) {
+            sawProcesses = true;
+        }
+    });
+
+    scheduler.start();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{3};
+    while ((snapshotCount.load() < 20 || !sawProcesses.load()) && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    scheduler.stop();
+
+    EXPECT_TRUE(sawProcesses.load());
+    EXPECT_GE(snapshotCount.load(), 20);
+    EXPECT_GE(processPtr->calls(), 1);
+    // Ticks run every 10 ms and slow refreshes every 200 ms, so far fewer refreshes than ticks.
+    EXPECT_LT(processPtr->calls(), snapshotCount.load() / 2);
+    EXPECT_NE(processPtr->lastThread(), cpuPtr->lastThread());
+    EXPECT_NE(processPtr->lastThread(), std::this_thread::get_id());
+}
+
+namespace
+{
+
+class SlowProcessCollector : public sysmon::monitoring::IProcessCollector
+{
+public:
+    [[nodiscard]] std::optional<std::vector<sysmon::domain::ProcessInfo>> collect() override
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds{50});
+        return std::vector<sysmon::domain::ProcessInfo>{};
+    }
+};
+
+} // namespace
+
+TEST(SamplingScheduler, Stop_LongSlowInterval_RespondsImmediately)
+{
+    SamplingScheduler scheduler(std::chrono::milliseconds{5000});
+    scheduler.setSlowInterval(std::chrono::milliseconds{60'000});
+    scheduler.setProcessCollector(std::make_unique<SlowProcessCollector>());
+
+    scheduler.start();
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+
+    const auto stopStart = std::chrono::steady_clock::now();
+    scheduler.stop();
+    const auto stopDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - stopStart);
+
+    EXPECT_FALSE(scheduler.isRunning());
+    EXPECT_LT(stopDuration.count(), 1000);
 }

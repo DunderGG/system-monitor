@@ -29,6 +29,7 @@ void SamplingScheduler::start()
     }
 
     m_isRunning = true;
+    m_slowThread = std::jthread([this](std::stop_token stopToken) { runSlowCollectors(stopToken); });
     m_thread = std::jthread([this](std::stop_token stopToken) { run(stopToken); });
 }
 
@@ -39,6 +40,7 @@ void SamplingScheduler::stop()
     }
 
     m_thread.request_stop();
+    m_slowThread.request_stop();
     {
         std::lock_guard lock(m_sleepMutex);
         m_sleepCv.notify_all();
@@ -46,6 +48,9 @@ void SamplingScheduler::stop()
 
     if (m_thread.joinable()) {
         m_thread.join();
+    }
+    if (m_slowThread.joinable()) {
+        m_slowThread.join();
     }
 
     m_isRunning = false;
@@ -67,6 +72,19 @@ std::chrono::milliseconds SamplingScheduler::interval() const
 {
     std::lock_guard lock(m_sleepMutex);
     return m_interval;
+}
+
+void SamplingScheduler::setSlowInterval(std::chrono::milliseconds interval)
+{
+    std::lock_guard lock(m_sleepMutex);
+    m_slowInterval = interval;
+    m_sleepCv.notify_all();
+}
+
+std::chrono::milliseconds SamplingScheduler::slowInterval() const
+{
+    std::lock_guard lock(m_sleepMutex);
+    return m_slowInterval;
 }
 
 void SamplingScheduler::setCpuCollector(std::unique_ptr<ICpuCollector> collector)
@@ -134,8 +152,6 @@ void SamplingScheduler::setProcessCollector(std::unique_ptr<IProcessCollector> c
 
 domain::SystemSnapshot SamplingScheduler::sampleOnce()
 {
-    // Known deviation D-1 (docs/known_deviations.md): slow collectors (connectivity,
-    // processes) also run inline here until the slow-collector thread exists.
     domain::SystemSnapshot snapshot;
     snapshot.timestamp = std::chrono::steady_clock::now();
 
@@ -143,11 +159,9 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     IMemoryCollector* memory = nullptr;
     IDiskCollector* disk = nullptr;
     INetworkCollector* network = nullptr;
-    IConnectivityCollector* connectivity = nullptr;
     IUptimeCollector* uptime = nullptr;
     ISystemActivityCollector* systemActivity = nullptr;
     HealthThresholds healthThresholds;
-    IProcessCollector* process = nullptr;
 
     {
         std::lock_guard lock(m_collectorMutex);
@@ -155,11 +169,9 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
         memory = m_memoryCollector.get();
         disk = m_diskCollector.get();
         network = m_networkCollector.get();
-        connectivity = m_connectivityCollector.get();
         uptime = m_uptimeCollector.get();
         systemActivity = m_systemActivityCollector.get();
         healthThresholds = m_healthThresholds;
-        process = m_processCollector.get();
     }
 
     if (cpu) {
@@ -174,22 +186,53 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
     if (network) {
         snapshot.networks = network->collect();
     }
-    if (connectivity) {
-        snapshot.connectivity = connectivity->collect();
-    }
     if (uptime) {
         snapshot.uptime = uptime->collect();
     }
     if (systemActivity) {
         snapshot.activity = systemActivity->collect();
     }
-    if (process) {
-        snapshot.processes = process->collect();
+
+    {
+        // Copied under the lock; the slow-collector thread only moves a finished
+        // result in, so it never waits long.
+        std::lock_guard lock(m_slowResultsMutex);
+        snapshot.connectivity = m_slowResults.connectivity;
+        snapshot.processes = m_slowResults.processes;
     }
 
     snapshot.health = evaluateHealth(snapshot, healthThresholds);
 
     return snapshot;
+}
+
+void SamplingScheduler::refreshSlowCollectors()
+{
+    assert(!m_isRunning.load() && "refreshSlowCollectors must only be called when scheduler is stopped");
+    collectSlowResults();
+}
+
+void SamplingScheduler::collectSlowResults()
+{
+    IConnectivityCollector* connectivity = nullptr;
+    IProcessCollector* process = nullptr;
+    {
+        std::lock_guard lock(m_collectorMutex);
+        connectivity = m_connectivityCollector.get();
+        process = m_processCollector.get();
+    }
+
+    // Collected outside both locks: process enumeration takes milliseconds.
+    SlowResults results;
+    if (connectivity) {
+        results.connectivity = connectivity->collect();
+    }
+    if (process) {
+        results.processes = process->collect();
+    }
+
+    std::lock_guard lock(m_slowResultsMutex);
+    m_slowResults = std::move(results);
 }
 
 void SamplingScheduler::run(std::stop_token stopToken)
@@ -211,6 +254,26 @@ void SamplingScheduler::run(std::stop_token stopToken)
     }
 
     spdlog::info("SamplingScheduler background thread stopped");
+}
+
+void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
+{
+    {
+        std::lock_guard lock(m_sleepMutex);
+        spdlog::info("SamplingScheduler slow-collector thread started (interval: {}ms)", m_slowInterval.count());
+    }
+
+    while (!stopToken.stop_requested()) {
+        const auto refreshStart = std::chrono::steady_clock::now();
+
+        collectSlowResults();
+
+        std::unique_lock lock(m_sleepMutex);
+        const auto nextRefresh = refreshStart + m_slowInterval;
+        m_sleepCv.wait_until(lock, stopToken, nextRefresh, [&stopToken] { return stopToken.stop_requested(); });
+    }
+
+    spdlog::info("SamplingScheduler slow-collector thread stopped");
 }
 
 } // namespace sysmon::monitoring

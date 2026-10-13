@@ -5,8 +5,10 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <stop_token>
 #include <thread>
+#include <vector>
 
 #include <QObject>
 
@@ -24,9 +26,14 @@ namespace sysmon::monitoring
  * SystemSnapshot values via Qt signals across thread boundaries.
  *
  * Threading model:
- * - Owns a background std::jthread running the periodic sampling tick.
- * - Collectors are called synchronously on the background thread.
- * - The assembled snapshot is emitted via snapshotReady signal.
+ * - The tick thread (a std::jthread) runs the fast collectors (CPU, memory,
+ *   disk, network, uptime, system activity) every interval(), assembles the
+ *   snapshot, and emits it via the snapshotReady signal.
+ * - The slow-collector thread (a second std::jthread) runs the slow collectors
+ *   (processes and connectivity) every slowInterval() and stores their results
+ *   under a mutex. Each tick merges the latest stored results, so a snapshot's
+ *   processes and connectivity can be up to slowInterval() old, and are empty
+ *   (std::nullopt, ConnectivityLevel::Unknown) until the first slow refresh.
  * - Clean shutdown is coordinated using std::stop_token and std::condition_variable_any.
  */
 class SamplingScheduler : public QObject
@@ -34,6 +41,8 @@ class SamplingScheduler : public QObject
     Q_OBJECT
 
 public:
+    static constexpr std::chrono::milliseconds kDefaultSlowInterval{2000};
+
     explicit SamplingScheduler(std::chrono::milliseconds interval = std::chrono::milliseconds{1000},
                                QObject* parent = nullptr);
     ~SamplingScheduler() override;
@@ -43,20 +52,26 @@ public:
     SamplingScheduler(SamplingScheduler&&) = delete;
     SamplingScheduler& operator=(SamplingScheduler&&) = delete;
 
-    /** Starts the background sampling thread. */
+    /** Starts the tick thread and the slow-collector thread. */
     void start();
 
-    /** Stops the background sampling thread cooperatively and waits for it to exit. */
+    /** Stops both background threads cooperatively and waits for them to exit. */
     void stop();
 
-    /** Returns true if the background thread is currently running. */
+    /** Returns true if the background threads are currently running. */
     [[nodiscard]] bool isRunning() const;
 
-    /** Sets the sampling interval. Thread-safe. */
+    /** Sets the sampling interval of the fast collectors. Thread-safe. */
     void setInterval(std::chrono::milliseconds interval);
 
-    /** Returns the current sampling interval. */
+    /** Returns the current sampling interval of the fast collectors. */
     [[nodiscard]] std::chrono::milliseconds interval() const;
+
+    /** Sets the interval of the slow collectors (processes, connectivity). Thread-safe. */
+    void setSlowInterval(std::chrono::milliseconds interval);
+
+    /** Returns the current interval of the slow collectors. */
+    [[nodiscard]] std::chrono::milliseconds slowInterval() const;
 
     /**
      * Collector registration.
@@ -80,25 +95,50 @@ public:
     void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
 
     /**
-     * Synchronously collects a sample from all currently registered collectors
-     * and returns the assembled SystemSnapshot. Useful for immediate reads and unit testing.
+     * Synchronously collects a sample from the registered fast collectors,
+     * merges the latest slow-collector results, and returns the assembled
+     * SystemSnapshot. Runs on the tick thread; call it directly (for an
+     * immediate read or a unit test) only while the scheduler is stopped.
      */
     [[nodiscard]] domain::SystemSnapshot sampleOnce();
+
+    /**
+     * Synchronously runs the registered slow collectors and stores their
+     * results for the next sampleOnce(). The slow-collector thread does this
+     * every slowInterval(); call it directly only while the scheduler is
+     * stopped, e.g. in unit tests.
+     */
+    void refreshSlowCollectors();
 
 signals:
     /** Emitted on each sampling tick with the newly assembled snapshot. */
     void snapshotReady(const sysmon::domain::SystemSnapshot& snapshot);
 
 private:
+    // The latest results of the slow collectors. Defaults mean "no data yet".
+    struct SlowResults
+    {
+        domain::ConnectivityStatus connectivity;
+        std::optional<std::vector<domain::ProcessInfo>> processes;
+    };
+
     void run(std::stop_token stopToken);
+    void runSlowCollectors(std::stop_token stopToken);
+    void collectSlowResults();
 
     std::chrono::milliseconds m_interval{1000};
+    std::chrono::milliseconds m_slowInterval{kDefaultSlowInterval};
     std::atomic<bool> m_isRunning{false};
 
     mutable std::mutex m_sleepMutex;
     std::condition_variable_any m_sleepCv;
 
     std::jthread m_thread;
+    std::jthread m_slowThread;
+
+    // Written by the slow-collector thread, read by the tick thread.
+    std::mutex m_slowResultsMutex;
+    SlowResults m_slowResults;
 
     mutable std::mutex m_collectorMutex;
     std::unique_ptr<ICpuCollector> m_cpuCollector;

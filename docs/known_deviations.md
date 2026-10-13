@@ -6,8 +6,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
-| [D-1](#d-1-sampling-scheduler-has-no-slow-collector-thread) | Sampling scheduler has no slow-collector thread | Medium | Open — planned for Phase 4 |
-| [D-2](#d-2-connectivity-fallback-polls-on-the-scheduler-thread) | Connectivity fallback polls on the scheduler thread | Low | Open — blocked on D-1 |
+| [D-1](#d-1-sampling-scheduler-has-no-slow-collector-thread) | Sampling scheduler has no slow-collector thread | Medium | Resolved (2026-10-13) |
+| [D-2](#d-2-connectivity-fallback-polls-on-the-scheduler-thread) | Connectivity fallback polls on the scheduler thread | Low | Resolved (2026-10-13) |
 | [D-3](#d-3-connectivity-updates-arrive-on-an-os-thread-pool-thread) | Connectivity updates arrive on an OS thread-pool thread | Low | Resolved (2026-09-25) |
 | [D-4](#d-4-a-unit-test-includes-windows-sdk-headers) | A unit test includes Windows SDK headers | Low | Resolved (2026-09-25) |
 | [D-5](#d-5-notification-callback-wiring-has-no-unit-test) | Notification callback wiring has no unit test | Low | Resolved (2026-09-25) |
@@ -27,6 +27,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 **Plan:** Build the slow-collector thread and merge in Phase 4 ([roadmap: "Run the process collector on a slow-collector thread"](../roadmap.md#process-collector-srcplatformwindows)), and move connectivity onto it at the same time.
 
+**Status:** Resolved (2026-10-13). `SamplingScheduler` now owns a second `std::jthread` that runs the process and connectivity collectors every `slowInterval()` (2 seconds by default) and stores their results under a mutex. `sampleOnce()` runs only the fast collectors and copies the latest slow results into the snapshot. `refreshSlowCollectors()` runs the slow collectors synchronously for tests. `ProcessCollector` is registered in `main.cpp`. See design decision [DC-77](design_decisions.md#dc-77-a-slow-collector-thread-in-the-scheduler-shared-by-processes-and-connectivity).
+
 ---
 
 ### D-2: Connectivity fallback polls on the scheduler thread
@@ -38,6 +40,8 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 **Files:** `src/platform/windows/connectivity_collector.cpp` — constructor (fallback branch)
 
 **Plan:** Once D-1 is resolved, run the fallback poll on the slow-collector thread at its own cadence. Blocked on D-1.
+
+**Status:** Resolved (2026-10-13) with D-1. The whole connectivity collector is registered as a slow collector, so `collect()`, and with it the polling fallback, runs on the slow-collector thread and never on the tick. On the notification path a change now reaches the snapshot within one slow interval rather than one tick. The comment at the fallback in `connectivity_collector.cpp` now says where it runs.
 
 ---
 

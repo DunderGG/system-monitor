@@ -49,6 +49,8 @@ using ConnectivitySubscriber = std::function<std::unique_ptr<ConnectivitySubscri
  * - Holds the subscription as its last member, so it is cancelled (waiting for
  *   in-flight callbacks) before the cache is destroyed.
  * - If subscribing fails, falls back to polling the reader on every collect().
+ *   The scheduler registers it as a slow collector, so either way collect()
+ *   runs on the slow-collector thread, never on the 1 Hz tick.
  *
  * Missing data is explicit: before the first successful read, or after a failed
  * read, collect() returns ConnectivityLevel::Unknown with isMetered == std::nullopt.

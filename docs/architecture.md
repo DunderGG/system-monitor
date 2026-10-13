@@ -132,10 +132,11 @@ Windows integration layer (platform/windows)
 ┌────────────────────┴────────────────────────────-┐
 │        Slow Collector Thread (std::jthread)       │
 │  - Process enumeration via NtQuerySystemInfo     │
-│    (~0.5–1.5 ms, but includes path cache lookup) │
-│  - Connectivity polling (fallback only; see      │
-│    event-driven collectors below)                │
-│  - Runs at own cadence (e.g. every 2–5 seconds)  │
+│    (~3.5–6 ms for ~400 processes; the first      │
+│    pass, which reads every path, ~18 ms)         │
+│  - Connectivity (notification cache, or polling  │
+│    fallback; see event-driven collectors below)  │
+│  - Runs at own cadence (default every 2 seconds) │
 │  - Posts results for scheduler to pick up         │
 │  - Uses std::stop_token for clean shutdown       │
 └──────────────────────────────────────────────────┘
@@ -144,8 +145,8 @@ Windows integration layer (platform/windows)
 Key threading rules:
 
 - Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in about 1 ms combined; `GetIfTable2` dominates, and its cost grows with the number of interfaces (about 0.7 ms for 42 rows on a desktop). Adapter names, addresses, and DNS servers (`GetAdaptersAddresses`, about 2 ms) are cached and re-read only on change.
-- Slow collectors (process enumeration, and connectivity polling when change notifications are unavailable) run on separate `std::jthread`s at their own cadence. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet.
-- Event-driven collectors receive changes from the OS instead of polling (see below). Their `collect()` only returns a cached value, so it runs on the scheduler tick like a fast collector.
+- Slow collectors (process enumeration and connectivity) run on the scheduler's slow-collector `std::jthread`, every 2 seconds by default (`SamplingScheduler::setSlowInterval()`). Each run stores its results under a mutex, and every tick copies the latest ones into the snapshot. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet. Until the first slow refresh, the snapshot has no process list and `ConnectivityLevel::Unknown`.
+- Event-driven collectors receive changes from the OS instead of polling (see below), so their `collect()` only returns a cached value. Connectivity, the event-driven collector, is still registered as a slow collector so that its polling fallback never runs on the tick; a change reaches the snapshot within one slow interval.
 - Snapshots cross from the scheduler thread to the UI thread via `Qt::QueuedConnection`. The snapshot is an immutable value type; no shared mutable state crosses the boundary.
 - All background threads the application creates are `std::jthread`s and use `std::stop_token` for cooperative cancellation at shutdown.
 
@@ -174,7 +175,7 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 
 - Use a single scheduler thread rather than a timer per chart or widget.
 - Sample aggregate CPU, memory, and network activity about once per second.
-- Refresh the process table at a lower cadence (every 2–5 seconds). With `NtQuerySystemInformation` this takes only 0.5–1.5 ms, but the process view model diff/update is more expensive and does not need per-second refresh.
+- Refresh the process table at a lower cadence (every 2–5 seconds; the default is 2). With `NtQuerySystemInformation` this takes about 3.5–6 ms for 400 processes, most of it in the call itself ([DC-75](design_decisions.md#dc-75-process-details-read-with-a-limited-handle-checked-against-the-identity-and-logged-at-debug)), and the process view model diff/update is more expensive still, so neither needs per-second refresh.
 - Calculate rates (CPU %, network throughput) using monotonic elapsed time from `std::chrono::steady_clock`, not wall-clock time.
 - Keep a fixed-size ring buffer per metric (for example, 300–1800 samples for 5–30 minutes at 1 Hz).
 - Do not write every sample to disk in the MVP.

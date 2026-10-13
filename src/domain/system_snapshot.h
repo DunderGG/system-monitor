@@ -28,6 +28,8 @@ namespace sysmon::domain
  * queued signal/slot mechanism. It must remain copyable. Collectors on the
  * scheduler thread build a new snapshot each tick; the UI thread receives it
  * and discards the previous one. No shared mutable state persists between ticks.
+ * connectivity and processes come from slower collectors that refresh every few
+ * seconds on their own thread; each snapshot carries their latest result.
  *
  * Optional fields are std::nullopt when no collector is registered or no valid
  * sample was available this tick (never a zero-filled placeholder). For the
