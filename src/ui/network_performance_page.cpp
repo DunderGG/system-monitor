@@ -48,24 +48,24 @@ void NetworkPerformancePage::recordSamples(const domain::SystemSnapshot& snapsho
 {
     m_latest = snapshot.networks;
 
-    const auto inSnapshot = [&snapshot](const std::string& adapterName) {
-        return snapshot.networks && std::ranges::any_of(*snapshot.networks, [&adapterName](const auto& adapter) {
-                   return adapter.adapterName == adapterName;
+    const auto inSnapshot = [&snapshot](uint64_t interfaceId) {
+        return snapshot.networks && std::ranges::any_of(*snapshot.networks, [interfaceId](const auto& adapter) {
+                   return adapter.interfaceId == interfaceId;
                });
     };
 
     if (snapshot.networks) {
         for (const auto& adapter : *snapshot.networks) {
-            auto it = std::ranges::find(m_adapters, adapter.adapterName, &AdapterHistory::adapterName);
+            auto it = std::ranges::find(m_adapters, adapter.interfaceId, &AdapterHistory::interfaceId);
             if (it == m_adapters.end()) {
-                it = m_adapters.insert(m_adapters.end(), AdapterHistory{.adapterName = adapter.adapterName});
+                it = m_adapters.insert(m_adapters.end(), AdapterHistory{.interfaceId = adapter.interfaceId});
             }
             it->receive.push(toChartValue(adapter.inBytesPerSec));
             it->send.push(toChartValue(adapter.outBytesPerSec));
         }
     }
     for (auto& history : m_adapters) {
-        if (!inSnapshot(history.adapterName)) {
+        if (!inSnapshot(history.interfaceId)) {
             history.receive.push(std::nullopt);
             history.send.push(std::nullopt);
         }
@@ -73,13 +73,13 @@ void NetworkPerformancePage::recordSamples(const domain::SystemSnapshot& snapsho
     // Adapters still in the snapshot are kept even without values: a new
     // adapter has no rate until its second sample.
     std::erase_if(m_adapters, [&inSnapshot](const AdapterHistory& history) {
-        return !inSnapshot(history.adapterName) && !hasAnyValue(history.receive) && !hasAnyValue(history.send);
+        return !inSnapshot(history.interfaceId) && !hasAnyValue(history.receive) && !hasAnyValue(history.send);
     });
 }
 
-const NetworkPerformancePage::AdapterHistory* NetworkPerformancePage::findHistory(const std::string& adapterName) const
+const NetworkPerformancePage::AdapterHistory* NetworkPerformancePage::findHistory(uint64_t interfaceId) const
 {
-    const auto it = std::ranges::find(m_adapters, adapterName, &AdapterHistory::adapterName);
+    const auto it = std::ranges::find(m_adapters, interfaceId, &AdapterHistory::interfaceId);
     return it != m_adapters.end() ? &*it : nullptr;
 }
 
@@ -89,14 +89,19 @@ void NetworkPerformancePage::refresh()
     // their histories show gaps for this tick.
     if (m_latest) {
         const auto charted = chartedAdapters(*m_latest);
+        std::vector<uint64_t> ids;
         std::vector<std::string> names;
+        ids.reserve(charted.size());
         names.reserve(charted.size());
         for (const auto* adapter : charted) {
+            ids.push_back(adapter->interfaceId);
             names.push_back(adapter->adapterName);
         }
-        if (names != m_chartedNames) {
-            rebuildAdapterCharts(names);
+        // A renamed adapter keeps its chart; only its title changes.
+        if (ids != m_chartedIds) {
+            rebuildAdapterCharts(ids);
         }
+        m_chartedNames = std::move(names);
         for (std::size_t index = 0; index < charted.size(); ++index) {
             m_chartTitles[index]->setText(adapterDisplayName(*charted[index]));
             m_readoutGrids[index]->setReadouts(adapterReadouts(*charted[index]));
@@ -108,7 +113,7 @@ void NetworkPerformancePage::refresh()
     }
 
     for (std::size_t index = 0; index < m_charts.size(); ++index) {
-        const AdapterHistory* history = findHistory(m_chartedNames[index]);
+        const AdapterHistory* history = findHistory(m_chartedIds[index]);
         if (history == nullptr) {
             m_charts[index]->setSeriesSamples(0, {});
             m_charts[index]->setSeriesSamples(1, {});
@@ -124,7 +129,7 @@ void NetworkPerformancePage::refresh()
     m_placeholderLabel->setVisible(m_charts.empty());
 }
 
-void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>& adapterNames)
+void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& interfaceIds)
 {
     auto* list = new QWidget(m_scrollArea);
     auto* listLayout = new QVBoxLayout(list);
@@ -134,7 +139,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>
     std::vector<QLabel*> titles;
     std::vector<charts::SparklineWidget*> adapterCharts;
     std::vector<ReadoutGrid*> readoutGrids;
-    for (std::size_t index = 0; index < adapterNames.size(); ++index) {
+    for (std::size_t index = 0; index < interfaceIds.size(); ++index) {
         auto* title = new QLabel(list);
         QFont titleFont = title->font();
         titleFont.setBold(true);
@@ -155,13 +160,13 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>
         adapterCharts.push_back(chart);
         readoutGrids.push_back(readoutGrid);
     }
-    if (adapterNames.empty()) {
+    if (interfaceIds.empty()) {
         listLayout->addStretch();
     }
 
     // setWidget() deletes the previous list together with its charts.
     m_scrollArea->setWidget(list);
-    m_chartedNames = adapterNames;
+    m_chartedIds = interfaceIds;
     m_chartTitles = std::move(titles);
     m_charts = std::move(adapterCharts);
     m_readoutGrids = std::move(readoutGrids);
@@ -170,6 +175,11 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<std::string>
 QString NetworkPerformancePage::summary() const
 {
     return recordedCount() == 0 ? QString("--") : networkSummary(m_latest);
+}
+
+const std::vector<uint64_t>& NetworkPerformancePage::chartedInterfaceIds() const
+{
+    return m_chartedIds;
 }
 
 const std::vector<std::string>& NetworkPerformancePage::chartedAdapterNames() const

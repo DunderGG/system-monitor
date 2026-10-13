@@ -67,7 +67,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | [F-20](#f-20-performance-pages-do-not-fit-the-default-window) | Performance pages do not fit the default window | Medium | Resolved |
 | [F-21](#f-21-network-page-charts-hidden-wan-miniport-adapters) | Network page charts hidden WAN Miniport adapters | Medium | Resolved |
 | [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Resolved |
-| [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Open |
+| [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Resolved |
 | [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Open |
 | [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Open |
 | [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Open |
@@ -220,7 +220,7 @@ Add a stable identifier to the domain type, for example `uint64_t interfaceId` h
 
 **Recommendation:** Fix before Phase 5, or together with F-21 if the charted-adapter logic is being changed anyway.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). `NetworkSample::interfaceId` carries the collector's key (the LUID, falling back to the interface index). `NetworkPerformancePage` keys its histories and charts by it, and keeps `adapterName` for display. New page tests cover two adapters that share a name (two charts, one sample each after one tick) and a renamed adapter (same chart, new title, history kept). A collector test covers the LUID and interface-index cases, and an integration check confirms the IDs are unique on the real machine. See [DC-64](../design_decisions.md#dc-64-network-adapters-identified-by-interface-luid-not-by-name-code-review-f-23).
 
 ---
 

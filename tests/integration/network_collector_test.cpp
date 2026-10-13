@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <thread>
 #include <vector>
 
@@ -45,6 +46,14 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
             EXPECT_TRUE(sample.hasIpInterface) << sample.adapterName;
         }
     }
+
+    // Interface IDs identify adapters, so no two may share one, even where names repeat.
+    std::vector<uint64_t> ids;
+    for (const auto& sample : *samples) {
+        ids.push_back(sample.interfaceId);
+    }
+    std::ranges::sort(ids);
+    EXPECT_EQ(std::ranges::adjacent_find(ids), ids.end());
 }
 
 TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTime)

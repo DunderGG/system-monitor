@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,7 +39,9 @@ public:
     void refresh() override;
     [[nodiscard]] QString summary() const override;
 
-    /** Adapter names (not display names) of the charted adapters, in display order. */
+    /** Interface IDs of the charted adapters, in display order. Charts and histories are keyed by them. */
+    [[nodiscard]] const std::vector<uint64_t>& chartedInterfaceIds() const;
+    /** Adapter names (not display names) of the charted adapters, in display order, as of the last read. */
     [[nodiscard]] const std::vector<std::string>& chartedAdapterNames() const;
     [[nodiscard]] charts::SparklineWidget* adapterChart(std::size_t index) const;
     [[nodiscard]] QString adapterTitle(std::size_t index) const;
@@ -53,16 +56,17 @@ protected:
 private:
     struct AdapterHistory
     {
-        std::string adapterName;
+        uint64_t interfaceId{0};
         SampleHistory receive{kHistoryCapacity};
         SampleHistory send{kHistoryCapacity};
     };
 
-    [[nodiscard]] const AdapterHistory* findHistory(const std::string& adapterName) const;
-    void rebuildAdapterCharts(const std::vector<std::string>& adapterNames);
+    [[nodiscard]] const AdapterHistory* findHistory(uint64_t interfaceId) const;
+    void rebuildAdapterCharts(const std::vector<uint64_t>& interfaceIds);
 
     QLabel* m_placeholderLabel{nullptr};
     QScrollArea* m_scrollArea{nullptr};
+    std::vector<uint64_t> m_chartedIds;
     std::vector<std::string> m_chartedNames;
     std::vector<QLabel*> m_chartTitles;
     std::vector<charts::SparklineWidget*> m_charts;

@@ -399,6 +399,7 @@ std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<Raw
         };
 
         domain::NetworkSample sample{
+            .interfaceId = key,
             .adapterName = adapter.adapterName,
             .friendlyName = adapter.friendlyName,
             .description = adapter.description,

@@ -26,6 +26,12 @@ enum class OperationalStatus
 /**
  * A single snapshot of one network adapter's traffic counters, throughput, and link state.
  *
+ * interfaceId identifies the interface while it exists: its LUID, which does
+ * not change when the connection is renamed (or, when Windows reports no LUID,
+ * its interface index, and failing that a hash of its name). Samples with the same
+ * interfaceId describe the same interface. adapterName and the other names are
+ * for display only; they can change, and descriptions are not unique.
+ *
  * inBytesTotal and outBytesTotal are cumulative 64-bit byte counters as
  * returned by GetIfTable2.
  *
@@ -50,6 +56,7 @@ enum class OperationalStatus
  */
 struct NetworkSample
 {
+    uint64_t interfaceId{0};
     std::string adapterName;
     std::string friendlyName;
     std::string description;

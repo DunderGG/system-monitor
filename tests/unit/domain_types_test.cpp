@@ -119,6 +119,7 @@ TEST(DiskSample, DesignatedInit_FieldsRoundTrip)
 TEST(NetworkSample, DefaultConstruction_UnknownStatus)
 {
     NetworkSample s;
+    EXPECT_EQ(s.interfaceId, 0u);
     EXPECT_TRUE(s.adapterName.empty());
     EXPECT_TRUE(s.friendlyName.empty());
     EXPECT_TRUE(s.description.empty());
@@ -137,6 +138,7 @@ TEST(NetworkSample, DefaultConstruction_UnknownStatus)
 TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
 {
     NetworkSample s{
+        .interfaceId = 42,
         .adapterName = "Ethernet",
         .friendlyName = "Ethernet",
         .description = "Intel(R) Ethernet Connection I219-V",
@@ -151,6 +153,7 @@ TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
         .isHardwareInterface = true,
         .hasIpInterface = true,
     };
+    EXPECT_EQ(s.interfaceId, 42u);
     EXPECT_EQ(s.adapterName, "Ethernet");
     EXPECT_EQ(s.friendlyName, "Ethernet");
     EXPECT_EQ(s.description, "Intel(R) Ethernet Connection I219-V");

@@ -1,6 +1,8 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <utility>
@@ -39,6 +41,7 @@ NetworkSample adapter(std::string name, OperationalStatus status, std::optional<
                       std::optional<uint64_t> outRate = 1024)
 {
     return NetworkSample{
+        .interfaceId = std::hash<std::string>{}(name),
         .adapterName = "{" + name + "}",
         .friendlyName = std::move(name),
         .inBytesPerSec = inRate,
@@ -380,6 +383,48 @@ TEST(NetworkPerformancePage, HiddenVirtualAdaptersUp_ChartsOnlyAdaptersThatCarry
     page.refresh();
 
     EXPECT_EQ(page.chartedAdapterNames(), (std::vector<std::string>{"{Ethernet}", "{Mullvad}"}));
+}
+
+TEST(NetworkPerformancePage, TwoAdaptersShareAName_SeparateChartsAndHistories)
+{
+    // Descriptions stand in for names when an alias is empty, and they repeat.
+    NetworkSample first = adapter("WAN Miniport (IP)", OperationalStatus::Up, 100, 10);
+    NetworkSample second = adapter("WAN Miniport (IP)", OperationalStatus::Up, 200, 20);
+    first.interfaceId = 1;
+    second.interfaceId = 2;
+    SystemSnapshot snapshot;
+    snapshot.networks = std::vector<NetworkSample>{first, second};
+    NetworkPerformancePage page;
+
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    ASSERT_EQ(page.chartedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+    const auto firstReceive = page.adapterChart(0)->seriesSamples(0);
+    const auto secondReceive = page.adapterChart(1)->seriesSamples(0);
+    ASSERT_EQ(firstReceive.size(), 1u);
+    ASSERT_EQ(secondReceive.size(), 1u);
+    EXPECT_EQ(firstReceive[0], 100.0f);
+    EXPECT_EQ(secondReceive[0], 200.0f);
+}
+
+TEST(NetworkPerformancePage, AdapterRenamed_KeepsChartAndHistory)
+{
+    NetworkPerformancePage page;
+    auto snapshot = populatedSnapshot();
+    page.recordSnapshot(snapshot);
+    page.refresh();
+    const auto* chart = page.adapterChart(0);
+    (*snapshot.networks)[0].adapterName = "{Office LAN}";
+    (*snapshot.networks)[0].friendlyName = "Office LAN";
+
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    ASSERT_EQ(page.chartedAdapterNames(), (std::vector<std::string>{"{Office LAN}"}));
+    EXPECT_EQ(page.adapterChart(0), chart);
+    EXPECT_EQ(page.adapterTitle(0), "Office LAN");
+    EXPECT_EQ(page.adapterChart(0)->seriesSamples(0).size(), 2u);
 }
 
 TEST(NetworkPerformancePage, ReadFails_KeepsChartsAndRecordsGap)

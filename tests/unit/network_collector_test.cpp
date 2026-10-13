@@ -159,6 +159,24 @@ TEST(NetworkCollector, CalculateNetworkSamples_HardwareFlag_PreservedInSample)
     EXPECT_FALSE(samples[1].isHardwareInterface);
 }
 
+TEST(NetworkCollector, CalculateNetworkSamples_InterfaceId_LuidThenIfIndex)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    // Two adapters with the same name stay distinct by their interface.
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{.luid = 0x1234'0000'0001, .ifIndex = 7, .adapterName = "WAN Miniport (IP)"},
+        RawNetworkAdapter{.luid = 0, .ifIndex = 9, .adapterName = "WAN Miniport (IP)"},
+    };
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_EQ(samples[0].interfaceId, 0x1234'0000'0001u);
+    EXPECT_EQ(samples[1].interfaceId, 9u);
+}
+
 TEST(NetworkCollector, CalculateNetworkSamples_IpInterfaceFlag_PreservedInSample)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
