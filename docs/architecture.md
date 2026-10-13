@@ -244,9 +244,9 @@ Use spdlog through vcpkg. Configure in the `app` module at startup.
 | Level | Usage |
 | --- | --- |
 | `trace` | Sampling timing details, raw API return values. |
-| `debug` | Collector lifecycle, cache hits/misses, thread start/stop. |
+| `debug` | Collector lifecycle, cache hits/misses, thread start/stop, a process denying a details query (routine when unelevated). |
 | `info` | Application startup, settings loaded, connectivity state changes. |
-| `warn` | Process access denied, counter unavailable, connectivity probe timeout. |
+| `warn` | Process action denied (e.g. termination), counter unavailable, connectivity probe timeout. |
 | `error` | Collector failure, API error codes, unrecoverable configuration issues. |
 
 Rotate log files by size (5 MB × 3 files). Make the log level configurable in the settings file.

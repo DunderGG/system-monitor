@@ -88,6 +88,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-72](#dc-72-processdetailsstatus-replaces-processinfoaccessdenied): `ProcessDetailsStatus` replaces `ProcessInfo::accessDenied`
   - [DC-73](#dc-73-process-details-cached-by-pid-creation-time-with-a-domain-processidentity-key): Process details cached by `(PID, creation time)` with a domain `ProcessIdentity` key
   - [DC-74](#dc-74-lsassexe-and-csrssexe-recognised-by-image-name-and-filtered-before-any-details-reader): `lsass.exe` and `csrss.exe` recognised by image name and filtered before any details reader
+  - [DC-75](#dc-75-process-details-read-with-a-limited-handle-checked-against-the-identity-and-logged-at-debug): Process details read with a limited handle, checked against the identity, and logged at debug
 
 ---
 
@@ -749,4 +750,22 @@ A detail that could be read is set whatever the status, so the status describes 
 
 **Decision:** `isNeverOpenedProcess()` (`platform/windows/process_access_policy.h`) matches `lsass.exe` and `csrss.exe` by image name, ignoring ASCII case. `ProcessCollector` wraps every details reader it is given with `skippingNeverOpenedProcesses()`, so the reader is never called for those processes. They get `ProcessDetailsStatus::NotQueried` with no path or command line, and keep every metric from the process list. The filter went in before the `OpenProcess` reader, so no commit contains code that would open them.
 
-**Rationale:** Opening either process, even with `PROCESS_QUERY_LIMITED_INFORMATION`, trips credential-theft heuristics in most EDR products ([architecture.md — Antivirus and EDR considerations](architecture.md#antivirus-and-edr-considerations)). `NtQuerySystemInformation` already returns their metrics without a handle, so only the details are lost, and an unelevated query would usually be refused anyway. Filtering in the collector, rather than inside the Windows reader only, makes the rule hold for any reader and lets unit tests show with a fake that the reader never sees these processes. Matching by name alone also skips any other process with one of these names. That costs only that process's path and command line, and never risks opening the real one, whose path does not need to be known.
+**Rationale:** Opening either process, even with `PROCESS_QUERY_LIMITED_INFORMATION`, trips credential-theft heuristics in most EDR products ([architecture.md — Antivirus and EDR considerations](architecture.md#antivirus-and-edr-considerations)). `NtQuerySystemInformation` already returns their metrics without a handle, so only the details are lost, and an unelevated query would usually be refused anyway. Filtering in the collector, rather than inside the Windows reader only, makes the rule hold for any reader and lets unit tests show with a fake that the reader never sees these processes. The Windows reader ([DC-75](#dc-75-process-details-read-with-a-limited-handle-checked-against-the-identity-and-logged-at-debug)) checks the name again just before `OpenProcess`, so code that calls it directly cannot open them either. Matching by name alone also skips any other process with one of these names. That costs only that process's path and command line, and never risks opening the real one, whose path does not need to be known.
+
+---
+
+### DC-75: Process details read with a limited handle, checked against the identity, and logged at debug
+
+**Decision:** `makeWindowsProcessDetailsReader()` returns the production `ProcessDetailsReader`, which `ProcessCollector`'s default constructor uses. For each new process it:
+
+1. Refuses `lsass.exe` and `csrss.exe` by name ([DC-74](#dc-74-lsassexe-and-csrssexe-recognised-by-image-name-and-filtered-before-any-details-reader)).
+2. Opens the process with `PROCESS_QUERY_LIMITED_INFORMATION` only, held in a `std::unique_ptr` that calls `CloseHandle`.
+3. Compares the creation time from `GetProcessTimes` with the identity's. On a mismatch, the details are `Unavailable`.
+4. Reads the image path with `QueryFullProcessImageNameW`, starting at `MAX_PATH` and doubling up to 32,768 characters.
+5. Reads the command line with `NtQueryInformationProcess(ProcessCommandLineInformation)` (class 60, which `winternl.h` does not name), resolved from `ntdll.dll` once when the reader is made. The buffer starts at 1 KiB and grows to the reported size, for up to three calls.
+
+`ERROR_ACCESS_DENIED` and `STATUS_ACCESS_DENIED` map to `AccessDenied`; every other failure maps to `Unavailable`. Each detail keeps its own value, and the combined status is `AccessDenied` if either was denied ([DC-72](#dc-72-processdetailsstatus-replaces-processinfoaccessdenied)). Failures are logged at `debug`, and the architecture's logging table now lists them there.
+
+On the development machine (Release, unelevated, 413 processes) the first `collect()`, which opens every process, took about 18 ms. Later ones took 3.5–6 ms: `NtQuerySystemInformation` itself 2.3–3.8 ms for a 1 MB list, parsing 0.1 ms, and the cache filling in the details about 1 ms. 254 processes returned both details, 155 denied access, 3 were never opened (`lsass.exe` and two `csrss.exe`), and 1 had none (the Idle process).
+
+**Rationale:** `PROCESS_QUERY_LIMITED_INFORMATION` is the only access the security rules allow, and both queries need nothing more. `ProcessCommandLineInformation` reads the command line without `PROCESS_VM_READ`, which the rules forbid and which reading the PEB directly would need. Between reading the list and calling `OpenProcess`, a process can exit and its PID be reused. Without the creation-time check, the new process's path and command line would be cached under the old identity, the PID-alone mistake the identity rule exists to prevent. `GetProcessTimes` needs no access beyond what the handle already has. An unelevated monitor is refused by about a third of the processes on a desktop, every time it starts, so a warning per process would add about 150 warnings, and a log flush for each, to every start. The UI shows the status per process, and `debug` keeps the detail for diagnosis. The measured enumeration cost is higher than the 0.5–1.5 ms the architecture estimated, which confirms that it belongs on the slow-collector thread rather than the 1 Hz tick.

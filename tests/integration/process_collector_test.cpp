@@ -69,6 +69,41 @@ TEST(ProcessCollectorIntegration, RealHost_ListsThisProcessWithItsIdentityAndCou
     EXPECT_GT(self->privateBytes, 0u);
 }
 
+TEST(ProcessCollectorIntegration, RealHost_ThisProcess_HasPathAndCommandLine)
+{
+    ProcessCollector collector;
+
+    const auto processes = collector.collect();
+
+    ASSERT_TRUE(processes.has_value());
+    const ProcessInfo* self = findPid(*processes, ::GetCurrentProcessId());
+    ASSERT_NE(self, nullptr);
+    EXPECT_EQ(self->detailsStatus, ProcessDetailsStatus::Available);
+    ASSERT_TRUE(self->imagePath.has_value());
+    EXPECT_TRUE(self->imagePath->ends_with(thisExecutableName()));
+    EXPECT_EQ(self->commandLine, wideToUtf8(::GetCommandLineW()));
+}
+
+TEST(ProcessCollectorIntegration, RealHost_CsrssAndLsass_NotQueried)
+{
+    ProcessCollector collector;
+
+    const auto processes = collector.collect();
+
+    ASSERT_TRUE(processes.has_value());
+    int csrssCount = 0;
+    for (const auto& process : *processes) {
+        if (process.imageName == "csrss.exe" || process.imageName == "lsass.exe") {
+            csrssCount += process.imageName == "csrss.exe" ? 1 : 0;
+            EXPECT_EQ(process.detailsStatus, ProcessDetailsStatus::NotQueried) << process.imageName;
+            EXPECT_FALSE(process.imagePath.has_value()) << process.imageName;
+            EXPECT_GE(process.threadCount, 1u) << process.imageName;
+        }
+    }
+    // Every Windows session has a csrss.exe.
+    EXPECT_GE(csrssCount, 1);
+}
+
 TEST(ProcessCollectorIntegration, RealHost_ListsIdleAndSystemProcesses)
 {
     ProcessCollector collector;

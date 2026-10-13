@@ -21,6 +21,8 @@ add_library(sysmon_platform_windows STATIC
     process_access_policy.h
     process_collector.cpp
     process_collector.h
+    process_details_reader.cpp
+    process_details_reader.h
     process_identity_cache.cpp
     process_identity_cache.h
     repeated_failure_log.h

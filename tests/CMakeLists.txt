@@ -42,6 +42,7 @@ add_executable(system_monitor_tests
     integration/system_activity_collector_test.cpp
     integration/system_process_information_reader_test.cpp
     integration/process_collector_test.cpp
+    integration/process_details_reader_test.cpp
     integration/app_logging_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest

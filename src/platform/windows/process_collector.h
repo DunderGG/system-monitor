@@ -37,7 +37,10 @@ using ProcessListReader = std::function<std::optional<std::vector<domain::Proces
 class ProcessCollector : public monitoring::IProcessCollector
 {
 public:
-    /** Reads the process list with NtQuerySystemInformation. */
+    /**
+     * Reads the process list with NtQuerySystemInformation and each new
+     * process's details with makeWindowsProcessDetailsReader().
+     */
     ProcessCollector();
 
     /** Reads the process list and details with injected readers, for unit testing. */
