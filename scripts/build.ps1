@@ -5,18 +5,29 @@ Configures, builds, and optionally runs the System Monitor desktop application.
 .DESCRIPTION
 Runs CMake's default (Debug) preset, or the release preset with -Release, which
 use vcpkg to resolve project dependencies and Ninja/MSVC to compile the
-executable. Unless -NoRun is supplied, the script launches the executable after
-a successful build.
+executable. With -Run, the script launches the executable after a successful
+build (and tests, if -Test is also supplied).
+
+Builds are incremental: Ninja recompiles only what changed. The configure step
+runs only when the build directory is not configured yet or a CMake presets file
+changed since the last configure; Ninja re-runs it by itself when a
+CMakeLists.txt or vcpkg.json changes. Use -Configure to force it.
 
 Run scripts/bootstrap.ps1 first to install prerequisites and configure the
 VCPKG_ROOT environment variable.
 
-.PARAMETER NoRun
-Configures and builds the application without launching it.
+.PARAMETER Run
+Launches the application after a successful build. Without it, the script only
+configures and builds (and tests, with -Test).
 
 .PARAMETER Test
-Runs the test suite with CTest after a successful build. The script fails if
-any test fails. Combine with -NoRun to build and test without launching.
+Runs the test suite with CTest after a successful build, one test process per
+logical processor in parallel. The script fails if any test fails. Combine with
+-Run to launch the application after the tests pass.
+
+.PARAMETER Configure
+Runs CMake's configure step even when the build directory looks up to date, for
+example after changing an environment variable that configuration reads.
 
 .PARAMETER Release
 Builds (and tests or runs) the optimized Release configuration in build\release
@@ -44,13 +55,13 @@ version is an error; locally it is a warning.
 .\scripts\build.ps1
 
 .EXAMPLE
-.\scripts\build.ps1 -NoRun
+.\scripts\build.ps1 -Run
 
 .EXAMPLE
-.\scripts\build.ps1 -NoRun -Test
+.\scripts\build.ps1 -Test
 
 .EXAMPLE
-.\scripts\build.ps1 -NoRun -Test -Release
+.\scripts\build.ps1 -Test -Release
 
 .EXAMPLE
 .\scripts\build.ps1 -Format
@@ -60,8 +71,9 @@ version is an error; locally it is a warning.
 #>
 [CmdletBinding()]
 param(
-    [switch]$NoRun,
+    [switch]$Run,
     [switch]$Test,
+    [switch]$Configure,
     [switch]$Release,
     [switch]$Format,
     [switch]$CheckFormat
@@ -108,7 +120,8 @@ function Invoke-NativeCommand
 $projectRoot = Split-Path -Parent $PSScriptRoot
 # CMakePresets.json defines each preset's build directory as build\<preset name>.
 $preset = if ($Release) { "release" } else { "default" }
-$applicationPath = Join-Path $projectRoot "build\$preset\src\app\system_monitor.exe"
+$buildDirectory = Join-Path $projectRoot "build\$preset"
+$applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
 
 # Refresh process PATH from User and Machine values so that any tools installed
 # by bootstrap.ps1 (such as ninja) are visible in the current session.
@@ -300,10 +313,17 @@ function Import-X64DevShell
     # prints "'vswhere.exe' is not recognized" on every run.
     $env:Path = "$(Split-Path -Parent $vswherePath);$env:Path"
 
+    # Visual Studio's vcpkg extension (vsdevcmd\ext\vcpkg.bat) points VCPKG_ROOT
+    # at the vcpkg bundled with Visual Studio. The presets would then use that
+    # toolchain instead of the configured one and fail to find dependencies.
+    $vcpkgRoot = $env:VCPKG_ROOT
+
     $devShellModule = Join-Path $vsInstallPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
     Import-Module $devShellModule
     Enter-VsDevShell -VsInstallPath $vsInstallPath -SkipAutomaticLocation `
         -DevCmdArguments "-arch=x64 -host_arch=x64 -no_logo"
+
+    $env:VCPKG_ROOT = $vcpkgRoot
 
     if ($env:VSCMD_ARG_TGT_ARCH -ne "x64")
     {
@@ -313,23 +333,70 @@ function Import-X64DevShell
 
 Import-X64DevShell
 
+# Configuring takes about 3 seconds even when nothing changed, so it runs only
+# when needed. Ninja re-runs it by itself when a CMakeLists.txt or vcpkg.json
+# changes (vcpkg registers its manifest as a configure dependency), but it does
+# not track the presets files. The script stamps each successful configure
+# itself, because CMake rewrites CMakeCache.txt only when its contents change.
+$configureStampPath = Join-Path $buildDirectory "build_ps1_configure.stamp"
+
+function Test-ConfigureNeeded
+{
+    if ($Configure)
+    {
+        return $true
+    }
+
+    foreach ($requiredPath in @($configureStampPath, (Join-Path $buildDirectory "build.ninja")))
+    {
+        if (-not (Test-Path -LiteralPath $requiredPath))
+        {
+            return $true
+        }
+    }
+
+    $configureTime = (Get-Item -LiteralPath $configureStampPath).LastWriteTimeUtc
+    foreach ($presetsName in @("CMakePresets.json", "CMakeUserPresets.json"))
+    {
+        $presetsPath = Join-Path $projectRoot $presetsName
+        if ((Test-Path -LiteralPath $presetsPath) -and
+            (Get-Item -LiteralPath $presetsPath).LastWriteTimeUtc -gt $configureTime)
+        {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 Push-Location $projectRoot
 try
 {
     # Configure generates Ninja build files and causes vcpkg to restore missing
     # dependencies from its binary cache or build them as needed.
-    Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", $preset)
+    if (Test-ConfigureNeeded)
+    {
+        Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", $preset)
+        Set-Content -LiteralPath $configureStampPath -Value "Last configured by scripts\build.ps1." -Encoding ASCII
+    }
+    else
+    {
+        Write-Host "Skipping CMake configuration: build\$preset is up to date (use -Configure to force it)."
+    }
 
     # Build the default target with the matching build preset.
     Invoke-NativeCommand -Description "CMake build" -FilePath "cmake" -Arguments @("--build", "--preset", $preset)
 
     if ($Test)
     {
+        # Each test runs in its own process and most finish in about 50 ms, so
+        # process startup dominates and running them in parallel cuts the time
+        # several-fold.
         Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
-            -Arguments @("--preset", $preset, "--output-on-failure")
+            -Arguments @("--preset", $preset, "--output-on-failure", "--parallel", [Environment]::ProcessorCount)
     }
 
-    if ($NoRun)
+    if (-not $Run)
     {
         return
     }

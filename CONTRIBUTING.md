@@ -46,16 +46,16 @@ The repository provides PowerShell scripts that automate tool detection, install
 3. **Build from any terminal:**
    ```powershell
    # Build without launching the GUI
-   .\scripts\build.ps1 -NoRun
+   .\scripts\build.ps1
 
    # Or build and launch the application
-   .\scripts\build.ps1
+   .\scripts\build.ps1 -Run
    ```
    `scripts/build.ps1` automatically detects and activates the x64 MSVC developer environment into the running PowerShell process, so it works from any terminal (PowerShell, Windows Terminal, VS Code) without manual environment setup.
 
 4. **Build and run tests:**
    ```powershell
-   .\scripts\build.ps1 -NoRun -Test
+   .\scripts\build.ps1 -Test
    ```
 
 ---
@@ -147,7 +147,7 @@ cmake --preset default -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64"
 
 ### 1. `CMake Error: CMAKE_CXX_COMPILER could not be found: cl`
 - **Cause:** Running `cmake --preset default` in a standard PowerShell or Command Prompt where MSVC (`cl.exe`) is not on `PATH`.
-- **Fix:** Either run `.\scripts\build.ps1 -NoRun` (which initializes the MSVC environment automatically), or run from a **Developer PowerShell for VS 2022** / **x64 Native Tools Command Prompt**.
+- **Fix:** Either run `.\scripts\build.ps1` (which initializes the MSVC environment automatically), or run from a **Developer PowerShell for VS 2022** / **x64 Native Tools Command Prompt**.
 
 ### 2. `undefined reference to 'testing::Test::Test()'` or MinGW/GCC linker errors
 - **Cause:** If MinGW or MSYS2 (`c++.exe`) is on your system `PATH` and you ran `cmake` outside of an MSVC developer environment, CMake may have previously configured the project with GCC. GCC cannot link against MSVC-compiled dependencies from vcpkg.
@@ -157,7 +157,7 @@ cmake --preset default -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64"
      Remove-Item -Path "build/default/CMakeCache.txt", "build/default/build.ninja" -Force
      Remove-Item -Recurse -Path "build/default/CMakeFiles" -Force
      ```
-  2. Rebuild using `.\scripts\build.ps1 -NoRun` or from an x64 Developer PowerShell session.
+  2. Rebuild using `.\scripts\build.ps1` or from an x64 Developer PowerShell session.
 
 ### 3. `VCPKG_ROOT is not set` / Toolchain file not found
 - **Cause:** The `default` preset relies on `$env{VCPKG_ROOT}` to locate vcpkg's CMake toolchain (`$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`).
@@ -278,7 +278,7 @@ over monotonic elapsed intervals.
 Build and run all tests:
 
 ```powershell
-.\scripts\build.ps1 -NoRun -Test
+.\scripts\build.ps1 -Test
 ```
 
 Run a specific test (after building):

@@ -95,7 +95,12 @@ For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well. `scripts/build.ps1` does this
 automatically (via `Enter-VsDevShell`), so it works from any terminal,
 including VS Code's built-in one. Pass `-Test` to run CTest after the build
-(`.\scripts\build.ps1 -NoRun -Test`). The script checks native tools by exit code
+(`.\scripts\build.ps1 -Test`); tests run in parallel, one per logical processor.
+Builds are incremental, and the script runs the configure step only when the
+build directory has not been configured by it yet or a presets file changed
+since; Ninja re-runs configuration itself when a `CMakeLists.txt` or
+`vcpkg.json` changes. Pass `-Configure` to force it, for example after changing
+an environment variable that configuration reads. The script checks native tools by exit code
 rather than stderr output, so redirecting or capturing its output (as CI and
 agents do) cannot turn a CMake warning into a failure. If you invoke `cmake`/`ctest` directly
 instead of going through `build.ps1`, use the **Developer PowerShell for VS 2022**

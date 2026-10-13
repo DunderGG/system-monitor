@@ -38,10 +38,10 @@ The fastest way to get started is using the repository scripts. From PowerShell:
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
 
 # Build from any terminal (automatically initializes the x64 MSVC environment):
-.\scripts\build.ps1 -NoRun
+.\scripts\build.ps1
 
 # Build and run tests:
-.\scripts\build.ps1 -NoRun -Test
+.\scripts\build.ps1 -Test
 ```
 
 ### Manual build
