@@ -106,7 +106,11 @@ Builds are incremental, and the script runs the configure step only when the
 build directory has not been configured by it yet or a presets file changed
 since; Ninja re-runs configuration itself when a `CMakeLists.txt` or
 `vcpkg.json` changes. Pass `-Configure` to force it, for example after changing
-an environment variable that configuration reads. The script checks native tools by exit code
+an environment variable that configuration reads. If configuring fails in a
+build directory that already has a CMake cache, the script removes
+`CMakeCache.txt` and `CMakeFiles` (keeping `vcpkg_installed`) and tries once
+more. A stale cache, such as one from before a Visual Studio update or from a
+moved checkout, therefore does not have to be deleted by hand. The script checks native tools by exit code
 rather than stderr output, so redirecting or capturing its output (as CI and
 agents do) cannot turn a CMake warning into a failure. If you invoke `cmake`/`ctest` directly
 instead of going through `build.ps1`, use the **Developer PowerShell for VS 2022**

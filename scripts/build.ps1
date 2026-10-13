@@ -11,7 +11,10 @@ build (and tests, if -Test is also supplied).
 Builds are incremental: Ninja recompiles only what changed. The configure step
 runs only when the build directory is not configured yet or a CMake presets file
 changed since the last configure; Ninja re-runs it by itself when a
-CMakeLists.txt or vcpkg.json changes. Use -Configure to force it.
+CMakeLists.txt or vcpkg.json changes. Use -Configure to force it. If configuring
+fails in a build directory that already has a CMake cache, the script removes
+CMakeCache.txt and CMakeFiles (keeping vcpkg_installed) and tries once more, so
+a stale cache does not need to be deleted by hand.
 
 Run scripts/bootstrap.ps1 first to install prerequisites and configure the
 VCPKG_ROOT environment variable.
@@ -383,6 +386,53 @@ function Test-ConfigureNeeded
     return $false
 }
 
+# Configures with the preset. A configure can fail on an existing cache that a
+# clean one would accept. A cache created for another source directory (a moved
+# or copied checkout) is one case. Another: when a cached compiler differs from
+# the preset's "cl" (seen after a Visual Studio update), CMake deletes its cache
+# and re-runs, the re-run does not find vcpkg's packages, and the cache it
+# leaves behind fails every later configure the same way. So a failure with an
+# existing cache is retried once from a clean cache. vcpkg_installed is kept,
+# so dependencies are not restored again.
+function Invoke-Configure
+{
+    # A configure that fails must not leave an earlier stamp claiming the build
+    # directory is up to date.
+    if (Test-Path -LiteralPath $configureStampPath)
+    {
+        Remove-Item -LiteralPath $configureStampPath -Force
+    }
+
+    $cachePath = Join-Path $buildDirectory "CMakeCache.txt"
+    $hadCache = Test-Path -LiteralPath $cachePath
+    try
+    {
+        Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", $preset)
+    }
+    catch
+    {
+        if (-not $hadCache)
+        {
+            throw
+        }
+        Write-Warning ("CMake configuration failed with an existing cache in build\$preset. " +
+            "Retrying once with CMakeCache.txt and CMakeFiles removed.")
+        if (Test-Path -LiteralPath $cachePath)
+        {
+            Remove-Item -LiteralPath $cachePath -Force
+        }
+        $cmakeFilesPath = Join-Path $buildDirectory "CMakeFiles"
+        if (Test-Path -LiteralPath $cmakeFilesPath)
+        {
+            Remove-Item -LiteralPath $cmakeFilesPath -Recurse -Force
+        }
+        Invoke-NativeCommand -Description "CMake configuration from a clean cache" -FilePath "cmake" `
+            -Arguments @("--preset", $preset)
+    }
+
+    Set-Content -LiteralPath $configureStampPath -Value "Last configured by scripts\build.ps1." -Encoding ASCII
+}
+
 Push-Location $projectRoot
 try
 {
@@ -390,8 +440,7 @@ try
     # dependencies from its binary cache or build them as needed.
     if (Test-ConfigureNeeded)
     {
-        Invoke-NativeCommand -Description "CMake configuration" -FilePath "cmake" -Arguments @("--preset", $preset)
-        Set-Content -LiteralPath $configureStampPath -Value "Last configured by scripts\build.ps1." -Encoding ASCII
+        Invoke-Configure
     }
     else
     {
