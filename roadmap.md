@@ -109,7 +109,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Create a performance view with full-size sparkline charts for CPU (total and per-core), memory (usage and commit), disk (space per volume), and network (throughput per adapter). Extend `MainWindow::onSnapshotReady` to forward snapshots to this view, and decide on visible-tab-only updates (see [code review Finding F-4](docs/code_reviews/phase_1.md#f-4-mainwindowonsnapshotready-only-updates-dashboardview)).
 - [x] Show detailed numeric readouts alongside each chart (e.g., speed, processes, uptime, handles for CPU; total, cached, paged pool for memory).
 - [x] Use a left sidebar or selector to switch between CPU, memory, disk, and network detail views.
-- [x] Verify smooth 1 Hz updates with 5–30 minutes of history.
+- [x] Verify smooth 1 Hz updates with 5–30 minutes of history. Re-measure with `.\scripts\build.ps1 -Benchmark` (see [DC-66](docs/design_decisions.md#dc-66-a-committed-tick-cost-benchmark-run-with-buildps1--benchmark-code-review-f-25)).
 - [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. See the [Phase 3 code review](docs/code_reviews/phase_3.md); fix F-20 to F-22 before starting Phase 4.
 
 ---
@@ -167,7 +167,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [ ] Add an application icon and window title.
 - [ ] Enable per-monitor DPI awareness in the application manifest (`src/app/system_monitor.manifest`, added for the UTF-8 code page in [code review F-19](docs/code_reviews/phase_2.md#f-19-log-file-path-is-converted-to-the-ansi-code-page)).
 - [ ] Implement sleep/resume detection (`WM_POWERBROADCAST`) — discard first sample and reset rate baselines on resume.
-- [ ] Profile CPU and memory usage of the monitor itself on a lower-end system. Optimize if needed.
+- [ ] Profile CPU and memory usage of the monitor itself on a lower-end system, including the UI tick cost from `.\scripts\build.ps1 -Benchmark`. Optimize if needed.
 - [ ] Set `requestedExecutionLevel` to `asInvoker` explicitly in `src/app/system_monitor.manifest`. (The MSVC linker already adds `asInvoker` by default; stating it in the manifest documents the requirement.)
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 

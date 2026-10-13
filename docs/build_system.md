@@ -52,9 +52,15 @@ A `release` configure, build, and test preset inherits everything from
 `default` except `CMAKE_BUILD_TYPE=Release`, and builds in `build/release`.
 Use it to measure performance: the Debug Qt libraries that `default` links are
 many times slower, especially for painting. `.\scripts\build.ps1 -Release`
-selects it. vcpkg installs release and debug libraries for the `x64-windows`
-triplet, so the second build directory restores its dependencies from the binary
-cache instead of rebuilding them.
+selects it. `.\scripts\build.ps1 -Benchmark` also selects it, then runs
+`system_monitor_benchmark` (`benchmarks/`), which prints the Performance tab's
+cost per tick for each page and chart window. The benchmark is built with every
+preset so it keeps compiling, but it is not registered with CTest and CI does
+not run it, because its timings depend on the machine.
+
+vcpkg installs release and debug libraries for the `x64-windows` triplet, so
+the second build directory restores its dependencies from the binary cache
+instead of rebuilding them.
 
 `vcpkg.json` is the dependency manifest. It lists the packages the project
 needs, including Qt, spdlog, GoogleTest, and nlohmann-json. It disables Qt's
@@ -151,8 +157,8 @@ presets, manifest, and baseline therefore keep developer and CI dependency
 resolution aligned.
 
 A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
-`.\scripts\build.ps1 -CheckFormat`, which fails if any file under `src/` or
-`tests/` differs from `.clang-format`. Run `.\scripts\build.ps1 -Format` locally
+`.\scripts\build.ps1 -CheckFormat`, which fails if any file under `src/`,
+`tests/`, or `benchmarks/` differs from `.clang-format`. Run `.\scripts\build.ps1 -Format` locally
 before pushing. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also

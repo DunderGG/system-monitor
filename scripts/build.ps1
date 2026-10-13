@@ -34,17 +34,24 @@ Builds (and tests or runs) the optimized Release configuration in build\release
 instead of the Debug one in build\default. Use it to measure performance; Debug
 Qt libraries are many times slower, especially for painting.
 
+.PARAMETER Benchmark
+Builds the Release configuration (implies -Release) and runs the Performance
+tab tick-cost benchmark (benchmarks\performance_tick_benchmark.cpp), which
+prints the mean and maximum time per tick for each page and chart window. It
+runs after the tests when -Test is also supplied. Its timings depend on the
+machine, so it is not part of the test suite and CI does not run it.
+
 .PARAMETER Format
-Formats every C++ source and header under src/ and tests/ in place with
-clang-format, using the repository's .clang-format, then exits without building.
-New files count even before they are added to git; files ignored by .gitignore
-do not.
+Formats every C++ source and header under src/, tests/, and benchmarks/ in
+place with clang-format, using the repository's .clang-format, then exits
+without building. New files count even before they are added to git; files
+ignored by .gitignore do not.
 
 .PARAMETER CheckFormat
-Checks that every C++ source and header under src/ and tests/ (the same files
-as -Format) matches .clang-format, without changing files, then exits without
-building. Fails and lists the differences if any file needs formatting. CI runs
-this check.
+Checks that every C++ source and header under src/, tests/, and benchmarks/
+(the same files as -Format) matches .clang-format, without changing files, then
+exits without building. Fails and lists the differences if any file needs
+formatting. CI runs this check.
 
 clang-format is taken from the CLANG_FORMAT environment variable if set, then
 PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
@@ -64,6 +71,9 @@ version is an error; locally it is a warning.
 .\scripts\build.ps1 -Test -Release
 
 .EXAMPLE
+.\scripts\build.ps1 -Benchmark
+
+.EXAMPLE
 .\scripts\build.ps1 -Format
 
 .EXAMPLE
@@ -75,6 +85,7 @@ param(
     [switch]$Test,
     [switch]$Configure,
     [switch]$Release,
+    [switch]$Benchmark,
     [switch]$Format,
     [switch]$CheckFormat
 )
@@ -119,9 +130,11 @@ function Invoke-NativeCommand
 # PowerShell working directory.
 $projectRoot = Split-Path -Parent $PSScriptRoot
 # CMakePresets.json defines each preset's build directory as build\<preset name>.
-$preset = if ($Release) { "release" } else { "default" }
+# Benchmarks are only meaningful with optimized code, so -Benchmark implies -Release.
+$preset = if ($Release -or $Benchmark) { "release" } else { "default" }
 $buildDirectory = Join-Path $projectRoot "build\$preset"
 $applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
+$benchmarkPath = Join-Path $buildDirectory "benchmarks\system_monitor_benchmark.exe"
 
 # Refresh process PATH from User and Machine values so that any tools installed
 # by bootstrap.ps1 (such as ninja) are visible in the current session.
@@ -209,7 +222,8 @@ function Invoke-ClangFormat
         # Tracked files plus new files not yet added (but not ignored ones), so
         # files created since the last commit are formatted before they are
         # committed. Tracked files deleted from the working tree are skipped.
-        $files = @(& git ls-files --cached --others --exclude-standard -- "src/*.h" "src/*.cpp" "tests/*.h" "tests/*.cpp")
+        $files = @(& git ls-files --cached --others --exclude-standard -- "src/*.h" "src/*.cpp" "tests/*.h" "tests/*.cpp" `
+                "benchmarks/*.h" "benchmarks/*.cpp")
         if ($LASTEXITCODE -ne 0)
         {
             throw "git ls-files failed with exit code $LASTEXITCODE."
@@ -394,6 +408,15 @@ try
         # several-fold.
         Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
             -Arguments @("--preset", $preset, "--output-on-failure", "--parallel", [Environment]::ProcessorCount)
+    }
+
+    if ($Benchmark)
+    {
+        if (-not (Test-Path -LiteralPath $benchmarkPath))
+        {
+            throw "The benchmark executable was not found at '$benchmarkPath'."
+        }
+        Invoke-NativeCommand -Description "Benchmark" -FilePath $benchmarkPath
     }
 
     if (-not $Run)

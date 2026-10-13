@@ -50,6 +50,7 @@ add_sysmon_module(src/platform/windows)
 add_sysmon_module(src/persistence)
 add_sysmon_module(src/ui)
 add_sysmon_module(src/ui/charts)
+add_sysmon_module(benchmarks)
 
 if(BUILD_TESTING)
     add_sysmon_module(tests)

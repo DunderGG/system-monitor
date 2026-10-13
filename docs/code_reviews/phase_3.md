@@ -69,7 +69,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Resolved |
 | [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Resolved |
 | [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Resolved |
-| [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Open |
+| [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Resolved |
 | [F-26](#f-26-presentation-and-formatting-items) | Presentation and formatting items | Low | Open |
 | [F-27](#f-27-documentation-out-of-date) | Documentation out of date | Low | Open |
 | [F-28](#f-28-duplicated-constants-and-helpers) | Duplicated constants and helpers | Cosmetic | Open |
@@ -283,7 +283,7 @@ Commit the benchmark as an opt-in executable, for example `benchmarks/performanc
 
 **Recommendation:** Fix before Phase 4. The process table is the next large UI-thread cost, and it should be measured with the same tool.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). `benchmarks/performance_tick_benchmark.cpp` builds `system_monitor_benchmark`, which is built with every preset but kept out of CTest, so CI compiles it without running it. `build.ps1 -Benchmark` implies `-Release` and runs it; its help, `build_system.md`, `CONTRIBUTING.md` and the agent files describe it, and `-Format`/`-CheckFormat` now cover `benchmarks/`. It uses this review's method: a 1280×800 window, 1800 recorded snapshots, then 20 timed ticks, each a forwarded snapshot plus `grab()`, for every page and chart window. It prints the mean and maximum. DC-66 records the data shape and the new table. The 30-minute worst case is about 40 ms, and every page stays under 15 ms at the default window. DC-61 now points to it. The roadmap's 1 Hz and profiling items point to the benchmark as well.
 
 ---
 
