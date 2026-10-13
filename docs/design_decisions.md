@@ -3,11 +3,84 @@
 Rationale for non-obvious implementation choices made during development.
 Each entry links to the relevant roadmap phase and source files.
 
+Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number, even when it is filed under an earlier heading. Numbers are never reused or renumbered, and a superseded entry stays in place with a note pointing to the entry that replaced it.
+
+## Contents
+
+- [Windows API choices](#windows-api-choices)
+  - [DC-01](#dc-01-process-enumeration-ntquerysysteminformation-over-tool-help): Process enumeration: `NtQuerySystemInformation` over Tool Help
+  - [DC-02](#dc-02-core-metrics-direct-win32-apis-over-pdh): Core metrics: direct Win32 APIs over PDH
+  - [DC-03](#dc-03-connectivity-status-getnetworkconnectivityhint-over-ad-hoc-probes): Connectivity status: `GetNetworkConnectivityHint` over ad-hoc probes
+  - [DC-04](#dc-04-wmi-restricted-to-startup-hardware-inventory): WMI restricted to startup hardware inventory
+  - [DC-05](#dc-05-etw-deferred-to-post-mvp): ETW deferred to post-MVP
+  - [DC-06](#dc-06-network-profile-names-inetworklistmanager-lazy-and-cached): Network profile names: `INetworkListManager` lazy and cached
+- [Phase 1 — Domain types (`src/domain/`)](#phase-1--domain-types-srcdomain)
+  - [DC-07](#dc-07-cmake-library-type-interface-header-only): CMake library type: `INTERFACE` (header-only)
+  - [DC-08](#dc-08-processinfocreationtime-type-stdchronosystem_clocktime_point): `ProcessInfo::creationTime` type: `std::chrono::system_clock::time_point`
+  - [DC-09](#dc-09-systemsnapshottimestamp-type-stdchronosteady_clocktime_point): `SystemSnapshot::timestamp` type: `std::chrono::steady_clock::time_point`
+  - [DC-10](#dc-10-networksample-stores-cumulative-byte-counters-not-rates): `NetworkSample` stores cumulative byte counters, not rates
+  - [DC-11](#dc-11-operationalstatus-enum-all-7-if_oper_status-values): `OperationalStatus` enum: all 7 `IF_OPER_STATUS` values
+  - [DC-12](#dc-12-stdoptional-for-processinfoimagepath-and-commandline): `std::optional` for `ProcessInfo::imagePath` and `::commandLine`
+  - [DC-13](#dc-13-processinfoaccessdenied-flag-kept-in-band): `ProcessInfo::accessDenied` flag kept in-band
+  - [DC-14](#dc-14-cpu-times-stored-as-cumulative-milliseconds-not-percentages): CPU times stored as cumulative milliseconds, not percentages
+  - [DC-15](#dc-15-domain-string-encoding-utf-8-stdstring-over-wide-strings-stdwstring): Domain string encoding: UTF-8 (`std::string`) over wide strings (`std::wstring`)
+- [Phase 1 — Monitoring infrastructure (`src/monitoring/`)](#phase-1--monitoring-infrastructure-srcmonitoring)
+  - [DC-16](#dc-16-ringbuffert-mirrored-contiguous-storage-for-zero-copy-stdspan): `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`
+  - [DC-17](#dc-17-samplingscheduler-responsive-cancellation-via-stdcondition_variable_any-with-stdstop_token): `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
+  - [DC-18](#dc-18-icollectort-dual-layer-interface-and-c20-concept): `ICollector<T>`: Dual-layer interface and C++20 concept
+  - [DC-19](#dc-19-samplingscheduler-pointer-snapshotting-during-sampleonce-to-avoid-holding-m_collectormutex-during-collections): `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
+- [Phase 1 — Basic UI shell (`src/ui/`)](#phase-1--basic-ui-shell-srcui)
+  - [DC-20](#dc-20-ui-module-dependency-isolation-and-composition-root-in-srcapp): UI module dependency isolation and composition root in `src/app/`
+  - [DC-21](#dc-21-test_maincpp-test-discovery-without-qapplication-instantiation): `test_main.cpp`: Test discovery without `QApplication` instantiation
+- [Phase 2 — Real Windows collectors and dashboard (`src/platform/windows/`)](#phase-2--real-windows-collectors-and-dashboard-srcplatformwindows)
+  - [DC-22](#dc-22-utf-8-active-code-page-through-an-application-manifest): UTF-8 active code page through an application manifest
+  - [DC-23](#dc-23-formatting-enforced-with-a-pinned-clang-format-and-the-existing-house-style): Formatting enforced with a pinned clang-format and the existing house style
+  - [DC-24](#dc-24-collector-interfaces-in-their-own-qt-free-cmake-target): Collector interfaces in their own Qt-free CMake target
+  - [DC-25](#dc-25-total-cpu-utilization-formula-deltakernel--deltauser---deltaidle--deltakernel--deltauser): Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
+  - [DC-26](#dc-26-encapsulation-of-windows-sdk-headers-strictly-inside-translation-units): Encapsulation of Windows SDK headers strictly inside translation units
+  - [DC-27](#dc-27-deterministic-unit-testing-via-injected-time-and-clock-readers): Deterministic unit testing via injected time and clock readers
+  - [DC-28](#dc-28-per-core-cpu-utilization-ntquerysysteminformationsystemprocessorperformanceinformation-dynamic-resolution-and-resizing-buffer-pattern): Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
+  - [DC-29](#dc-29-multi-processor-group-support-64-logical-cores-ntquerysysteminformationex-iteration-and-total-cpu-aggregation): Multi-processor-group support (>64 logical cores): `NtQuerySystemInformationEx` iteration and total CPU aggregation
+  - [DC-30](#dc-30-cpu-collector-integration-testing-invariant-based-assertions-and-synthetic-load-sensitivity): CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
+  - [DC-31](#dc-31-memory-sampling-globalmemorystatusex-and-commit-charge-calculation): Memory sampling: `GlobalMemoryStatusEx` and commit charge calculation
+  - [DC-32](#dc-32-disk-space-sampling-getdiskfreespaceexw-strictly-filtered-to-drive_fixed): Disk space sampling: `GetDiskFreeSpaceExW` strictly filtered to `DRIVE_FIXED`
+  - [DC-33](#dc-33-deterministic-testing-of-memory-and-disk-collectors-via-reader-injection): Deterministic testing of memory and disk collectors via reader injection
+  - [DC-34](#dc-34-network-adapter-traffic--throughput-getiftable2-with-raii-freemibtable-and-delta-rates): Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
+  - [DC-35](#dc-35-adapter-identity--addresses-correlating-getiftable2-with-getadaptersaddresses): Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
+  - [DC-36](#dc-36-adapter-details-cached-and-re-read-only-on-change): Adapter details cached and re-read only on change
+  - [DC-37](#dc-37-repeated-collector-failures-logged-once-with-the-recovery): Repeated collector failures logged once, with the recovery
+  - [DC-38](#dc-38-deterministic-testing-of-network-collection-via-reader-injection): Deterministic testing of network collection via reader injection
+  - [DC-39](#dc-39-connectivity-status-notifynetworkconnectivityhintchange-with-a-synchronously-seeded-cache): Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
+  - [DC-40](#dc-40-explicit-connectivitylevelunknown-and-optional-ismetered): Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
+  - [DC-41](#dc-41-windows-to-domain-connectivity-mapping-in-a-separate-testable-header): Windows-to-domain connectivity mapping in a separate, testable header
+  - [DC-42](#dc-42-system-uptime-gettickcount64-as-a-fast-collector-with-an-optional-snapshot-field): System uptime: `GetTickCount64` as a fast collector with an optional snapshot field
+  - [DC-43](#dc-43-no-zero-placeholders-for-cpu-and-memory-optional-samples-end-to-end): No zero placeholders for CPU and memory: optional samples end to end
+  - [DC-44](#dc-44-optional-collections-a-failed-query-is-not-an-empty-result): Optional collections: a failed query is not an empty result
+  - [DC-45](#dc-45-health-evaluation-domain-types-a-pure-evaluator-in-monitoring-and-the-result-carried-in-the-snapshot): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
+  - [DC-46](#dc-46-dashboard-cards-resourcecard-widgets-fed-by-pure-formatting-helpers): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
+  - [DC-47](#dc-47-ringbuffert-lives-in-domain-so-the-ui-can-use-it): `RingBuffer<T>` lives in `domain` so the UI can use it
+  - [DC-48](#dc-48-minimal-sparklinewidget-built-early-for-the-dashboard-extended-in-phase-3): Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
+- [Phase 3 — Sparkline charts and performance views (`src/ui/charts/`, `src/ui/`)](#phase-3--sparkline-charts-and-performance-views-srcuicharts-srcui)
+  - [DC-49](#dc-49-sparkline-grid-scrolls-with-a-caller-supplied-sample-index): Sparkline grid scrolls with a caller-supplied sample index
+  - [DC-50](#dc-50-multiple-series-share-one-time-axis-and-y-range-with-series-0-as-the-primary): Multiple series share one time axis and Y range, with series 0 as the primary
+  - [DC-51](#dc-51-axis-labels-and-annotations-reserve-space-outside-the-plot): Axis labels and annotations reserve space outside the plot
+  - [DC-52](#dc-52-sparkline-series-colours-a-validated-five-hue-palette-without-status-hues): Sparkline series colours: a validated five-hue palette without status hues
+  - [DC-53](#dc-53-performance-view-a-sidebar-of-resource-pages-that-each-own-their-history): Performance view: a sidebar of resource pages that each own their history
+  - [DC-54](#dc-54-snapshot-forwarding-every-view-records-every-snapshot-and-hidden-views-skip-repainting-code-review-f-4): Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
+  - [DC-55](#dc-55-cpu-base-speed-from-callntpowerinformation-read-once-no-current-clock-speed): CPU base speed from `CallNtPowerInformation`, read once; no current clock speed
+  - [DC-56](#dc-56-memory-detail-and-system-activity-counts-from-getperformanceinfo-as-fast-collectors): Memory detail and system activity counts from `GetPerformanceInfo`, as fast collectors
+  - [DC-57](#dc-57-performance-readouts-pure-builders-with-stable-names-shown-in-a-readoutgrid): Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
+  - [DC-58](#dc-58-performance-pages-fit-an-800600-window-re-flowing-readouts-and-a-scrolling-per-core-grid-code-review-f-20): Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
+  - [DC-59](#dc-59-network-page-charts-only-adapters-that-can-carry-traffic-networksamplehasipinterface-code-review-f-21): Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
+  - [DC-60](#dc-60-dense-sparklines-minmax-decimation-a-one-pixel-cosmetic-line-and-an-envelope-fill): Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
+  - [DC-61](#dc-61-30-minutes-of-performance-history-a-chart-window-selector-and-the-measured-tick-cost): 30 minutes of performance history, a chart-window selector, and the measured tick cost
+  - [DC-62](#dc-62-buildps1-launch-only-with--run-configure-only-when-needed-and-parallel-tests): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
+
 ---
 
 ## Windows API choices
 
-### Process enumeration: `NtQuerySystemInformation` over Tool Help
+### DC-01: Process enumeration: `NtQuerySystemInformation` over Tool Help
 
 **Decision:** Use `NtQuerySystemInformation(SystemProcessInformation)` for process enumeration, not `CreateToolhelp32Snapshot`.
 
@@ -15,7 +88,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Core metrics: direct Win32 APIs over PDH
+### DC-02: Core metrics: direct Win32 APIs over PDH
 
 **Decision:** Use `GetSystemTimes`, `GlobalMemoryStatusEx`, `GetDiskFreeSpaceExW`, and `GetIfTable2` for core metrics. PDH is reserved only for advanced per-instance counters (e.g. per-physical-disk I/O rates) where no direct Win32 alternative exists.
 
@@ -23,7 +96,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Connectivity status: `GetNetworkConnectivityHint` over ad-hoc probes
+### DC-03: Connectivity status: `GetNetworkConnectivityHint` over ad-hoc probes
 
 **Decision:** Use `GetNetworkConnectivityHint` (and `NotifyNetworkConnectivityHintChange` for async updates) to determine network connectivity state.
 
@@ -31,7 +104,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### WMI restricted to startup hardware inventory
+### DC-04: WMI restricted to startup hardware inventory
 
 **Decision:** WMI is queried at most once at application startup for static hardware information (`Win32_ComputerSystem`, `Win32_Processor`, `Win32_BaseBoard`). WMI is never polled for real-time metrics.
 
@@ -39,7 +112,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### ETW deferred to post-MVP
+### DC-05: ETW deferred to post-MVP
 
 **Decision:** ETW (Event Tracing for Windows) is excluded from the MVP. It will be reconsidered only when per-process network bandwidth tracking or event-level diagnostics are a product requirement.
 
@@ -47,7 +120,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Network profile names: `INetworkListManager` lazy and cached
+### DC-06: Network profile names: `INetworkListManager` lazy and cached
 
 **Decision:** The COM-based Network List Manager (`INetworkListManager`) is used only to retrieve a friendly network name (e.g. "Home-Wi-Fi") for display. It is queried at most once per network change event, never on every refresh tick.
 
@@ -57,7 +130,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ## Phase 1 — Domain types (`src/domain/`)
 
-### CMake library type: `INTERFACE` (header-only)
+### DC-07: CMake library type: `INTERFACE` (header-only)
 
 **Decision:** `sysmon_domain` is declared as a CMake `INTERFACE` library with no compiled sources.
 
@@ -65,7 +138,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `ProcessInfo::creationTime` type: `std::chrono::system_clock::time_point`
+### DC-08: `ProcessInfo::creationTime` type: `std::chrono::system_clock::time_point`
 
 **Decision:** The process creation timestamp is stored as `std::chrono::system_clock::time_point`, not `uint64_t` raw FILETIME or `steady_clock::time_point`.
 
@@ -73,7 +146,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `SystemSnapshot::timestamp` type: `std::chrono::steady_clock::time_point`
+### DC-09: `SystemSnapshot::timestamp` type: `std::chrono::steady_clock::time_point`
 
 **Decision:** `SystemSnapshot::timestamp` uses `steady_clock`, not `system_clock`.
 
@@ -81,7 +154,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `NetworkSample` stores cumulative byte counters, not rates
+### DC-10: `NetworkSample` stores cumulative byte counters, not rates
 
 **Decision:** `inBytesTotal` and `outBytesTotal` are cumulative totals as returned by `GetIfTable2`, not pre-computed bytes/sec rates.
 
@@ -89,7 +162,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `OperationalStatus` enum: all 7 `IF_OPER_STATUS` values
+### DC-11: `OperationalStatus` enum: all 7 `IF_OPER_STATUS` values
 
 **Decision:** `OperationalStatus` includes all seven values from the Windows `IF_OPER_STATUS` enum (`Up`, `Down`, `Testing`, `Unknown`, `Dormant`, `NotPresent`, `LowerLayerDown`), not a trimmed subset.
 
@@ -97,7 +170,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `std::optional` for `ProcessInfo::imagePath` and `::commandLine`
+### DC-12: `std::optional` for `ProcessInfo::imagePath` and `::commandLine`
 
 **Decision:** Image path and command line are `std::optional<std::string>`, not empty strings.
 
@@ -105,7 +178,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `ProcessInfo::accessDenied` flag kept in-band
+### DC-13: `ProcessInfo::accessDenied` flag kept in-band
 
 **Decision:** `ProcessInfo` includes an `accessDenied` bool rather than being omitted from the snapshot or replaced with an error variant at the `vector<ProcessInfo>` level.
 
@@ -113,7 +186,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### CPU times stored as cumulative milliseconds, not percentages
+### DC-14: CPU times stored as cumulative milliseconds, not percentages
 
 **Decision:** `ProcessInfo::cpuUserTimeMs` and `::cpuKernelTimeMs` are cumulative totals in milliseconds, not pre-computed CPU percentages.
 
@@ -121,7 +194,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Domain string encoding: UTF-8 (`std::string`) over wide strings (`std::wstring`)
+### DC-15: Domain string encoding: UTF-8 (`std::string`) over wide strings (`std::wstring`)
 
 **Decision:** All string fields in domain types use `std::string` with UTF-8 encoding. Wide-to-UTF-8 conversion happens at the `platform/windows` boundary.
 
@@ -131,7 +204,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ## Phase 1 — Monitoring infrastructure (`src/monitoring/`)
 
-### `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`
+### DC-16: `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`
 
 **Decision:** `RingBuffer<T>` pre-allocates $2 \times \text{capacity}$ contiguous storage and mirrors every push to both `pos` and `pos + capacity`.
 
@@ -139,7 +212,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
+### DC-17: `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
 
 **Decision:** The scheduler thread tick loop uses `std::condition_variable_any::wait_until` with `std::stop_token` rather than `std::this_thread::sleep_for` or a polling sleep loop.
 
@@ -147,7 +220,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `ICollector<T>`: Dual-layer interface and C++20 concept
+### DC-18: `ICollector<T>`: Dual-layer interface and C++20 concept
 
 **Decision:** Provide `template<typename T> class ICollector` with a pure virtual `collect()` method for dynamic polymorphism in `SamplingScheduler`, paired with a `Collector<C, T>` C++20 concept.
 
@@ -155,7 +228,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
+### DC-19: `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
 
 **Decision:** `sampleOnce()` locks `m_collectorMutex` only long enough to copy raw collector pointers (`get()`), then invokes `collect()` on each collector outside the lock. The invariant that collectors may only be registered before `start()` or after `stop()` is enforced with assertions and documented.
 
@@ -165,7 +238,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ## Phase 1 — Basic UI shell (`src/ui/`)
 
-### UI module dependency isolation and composition root in `src/app/`
+### DC-20: UI module dependency isolation and composition root in `src/app/`
 
 **Decision:** The `ui` module depends exclusively on `Qt6::Widgets` and `sysmon_domain`, with zero dependencies on `sysmon_monitoring` or Windows headers. Wiring between `SamplingScheduler` signals and `MainWindow` slots is handled strictly in `src/app/main.cpp` (the application composition root).
 
@@ -173,7 +246,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `test_main.cpp`: Test discovery without `QApplication` instantiation
+### DC-21: `test_main.cpp`: Test discovery without `QApplication` instantiation
 
 **Decision:** In the test runner (`tests/test_main.cpp`), `QApplication` instantiation is bypassed when `--gtest_list_tests` is passed during CMake's `gtest_discover_tests` step.
 
@@ -183,7 +256,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ## Phase 2 — Real Windows collectors and dashboard (`src/platform/windows/`)
 
-### UTF-8 active code page through an application manifest
+### DC-22: UTF-8 active code page through an application manifest
 
 **Decision:** `src/app/system_monitor.manifest` sets `activeCodePage` to `UTF-8`, and CMake embeds it in `system_monitor.exe` and in `system_monitor_tests.exe`, so tests run under the same code page as the app. Narrow strings passed to Windows and the CRT are therefore UTF-8. The logging setup moved into the `sysmon_app_logging` library so an integration test can configure logging with a path that contains CJK and Cyrillic characters.
 
@@ -191,7 +264,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Formatting enforced with a pinned clang-format and the existing house style
+### DC-23: Formatting enforced with a pinned clang-format and the existing house style
 
 **Decision:** `.clang-format` describes the style the code already followed: indented `case` labels, and a Windows SDK include block whose `SortPriority` keeps the order the SDK requires. Pointers and references bind to the type (`Type* name`, `Type& name`), as in the C++ Core Guidelines (NL.18) and the guideline examples. All files were reformatted once in a formatting-only commit. `build.ps1 -Format` and `-CheckFormat` run clang-format on every C++ file under `src/` and `tests/` that is tracked, or new and not ignored, so files created since the last commit are formatted before they are first committed. A CI job pins clang-format 22.1.3 from PyPI, and `build.ps1` fails in CI (and warns locally) when the major version differs. `bootstrap.ps1` reports clang-format and can install LLVM with `-InstallMissing`, but a missing one is only a warning because building does not need it.
 
@@ -199,7 +272,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Collector interfaces in their own Qt-free CMake target
+### DC-24: Collector interfaces in their own Qt-free CMake target
 
 **Decision:** `monitoring/collector.h` is the header-only `INTERFACE` target `sysmon_collector_interfaces`, which depends only on `sysmon_domain`. `sysmon_monitoring` and `sysmon_platform_windows` both link it publicly. `platform/windows` may include `collector.h` and no other `monitoring` header.
 
@@ -207,15 +280,15 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
+### DC-25: Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
 
 **Decision:** Calculate total CPU utilization by subtracting `deltaIdle` from `(deltaKernel + deltaUser)` and dividing by `(deltaKernel + deltaUser)` over monotonic elapsed time.
 
-**Rationale:** Windows `GetSystemTimes` returns cumulative idle, kernel, and user times in 100 ns `FILETIME` ticks across all logical processors. A key characteristic of Windows kernel accounting is that `lpKernelTime` already includes the execution time of the idle thread. Thus, total system capacity elapsed across all processors is `deltaKernel + deltaUser`, and active busy time is `(deltaKernel + deltaUser) - deltaIdle`. This ratio is mathematically invariant to CPU frequency scaling (Intel SpeedStep / AMD Cool'n'Quiet), processor group topologies, and core count. We guard against multi-core non-atomic counter jitter by clamping usage to $[0.0\%, 100.0\%]$. When no rate can be computed (non-positive elapsed time, a counter that went backwards, or no elapsed CPU time), `calculateCpuUsage` returns `std::nullopt` rather than 0% (see "No zero placeholders for CPU and memory" below).
+**Rationale:** Windows `GetSystemTimes` returns cumulative idle, kernel, and user times in 100 ns `FILETIME` ticks across all logical processors. A key characteristic of Windows kernel accounting is that `lpKernelTime` already includes the execution time of the idle thread. Thus, total system capacity elapsed across all processors is `deltaKernel + deltaUser`, and active busy time is `(deltaKernel + deltaUser) - deltaIdle`. This ratio is mathematically invariant to CPU frequency scaling (Intel SpeedStep / AMD Cool'n'Quiet), processor group topologies, and core count. We guard against multi-core non-atomic counter jitter by clamping usage to $[0.0\%, 100.0\%]$. When no rate can be computed (non-positive elapsed time, a counter that went backwards, or no elapsed CPU time), `calculateCpuUsage` returns `std::nullopt` rather than 0% (see [DC-43](#dc-43-no-zero-placeholders-for-cpu-and-memory-optional-samples-end-to-end)).
 
 ---
 
-### Encapsulation of Windows SDK headers strictly inside translation units
+### DC-26: Encapsulation of Windows SDK headers strictly inside translation units
 
 **Decision:** `cpu_collector.h` contains no `<Windows.h>` or Windows SDK types. All Windows types (`FILETIME`, `DWORD`, etc.) are converted to standard fixed-width integer types (`uint64_t`) in `cpu_collector.cpp`.
 
@@ -223,7 +296,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Deterministic unit testing via injected time and clock readers
+### DC-27: Deterministic unit testing via injected time and clock readers
 
 **Decision:** `CpuCollector` provides a dependency-injected constructor accepting custom `SystemTimesReader` and `SteadyClockReader` lambdas alongside its default Windows constructor, paired with a pure `calculateCpuUsage` function.
 
@@ -231,7 +304,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
+### DC-28: Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
 
 **Decision:** Resolve `NtQuerySystemInformation` dynamically from `ntdll.dll` via `GetModuleHandleW` / `GetProcAddress` and query `SystemProcessorPerformanceInformation` (class 8) using a resizing-buffer loop. Per-core utilization is calculated by applying the same `calculateCpuUsage` logic to each core's `IdleTime`, `KernelTime`, and `UserTime`.
 
@@ -239,7 +312,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Multi-processor-group support (>64 logical cores): `NtQuerySystemInformationEx` iteration and total CPU aggregation
+### DC-29: Multi-processor-group support (>64 logical cores): `NtQuerySystemInformationEx` iteration and total CPU aggregation
 
 **Decision:** Use `NtQuerySystemInformationEx` to iterate through all active processor groups (`0 .. GetActiveProcessorGroupCount() - 1`), with fallback to `NtQuerySystemInformation` for Group 0 if `Ex` resolution or runtime calls fail. When more than one processor group is active (`GetActiveProcessorGroupCount() > 1`), compute total CPU usage by aggregating `idleTime`, `kernelTime`, and `userTime` across all cores rather than relying on `GetSystemTimes`. The decision is keyed on the group count, not the core count, because Windows can form several groups on machines with 64 or fewer logical processors (for example one group per NUMA node, or `bcdedit /set groupsize`). If the per-core query fails on such a system, no total is reported for that tick rather than presenting `GetSystemTimes`' single group as the whole machine ([code review F-15](code_reviews/phase_2.md#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count)).
 
@@ -247,7 +320,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
+### DC-30: CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
 
 **Decision:** Design host integration tests around system and mathematical invariants ($0.0 \le \text{usage} \le 100.0$, topology matching `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)`, non-NaN/Inf) and synthetic workload sensitivity rather than asserting fixed utilization values.
 
@@ -255,7 +328,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Memory sampling: `GlobalMemoryStatusEx` and commit charge calculation
+### DC-31: Memory sampling: `GlobalMemoryStatusEx` and commit charge calculation
 
 **Decision:** Sample physical and virtual memory using `GlobalMemoryStatusEx`. Compute `commitCurrent` as `ullTotalPageFile - ullAvailPageFile`. Clamp memory usage percent defensively to $[0.0\%, 100.0\%]$.
 
@@ -263,7 +336,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Disk space sampling: `GetDiskFreeSpaceExW` strictly filtered to `DRIVE_FIXED`
+### DC-32: Disk space sampling: `GetDiskFreeSpaceExW` strictly filtered to `DRIVE_FIXED`
 
 **Decision:** Enumerate drive letters via `GetLogicalDrives()`, inspect each drive root using `GetDriveTypeW()`, and call `GetDiskFreeSpaceExW` only for drives returning `DRIVE_FIXED`.
 
@@ -271,7 +344,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Deterministic testing of memory and disk collectors via reader injection
+### DC-33: Deterministic testing of memory and disk collectors via reader injection
 
 **Decision:** Provide dependency-injected constructors in `MemoryCollector` and `DiskCollector` accepting reader callbacks (`MemoryStatusReader`, `LogicalDrivesReader`, `DiskSpaceReader`) alongside pure calculation functions `calculateMemorySample` and `calculateDiskSample`.
 
@@ -279,7 +352,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
+### DC-34: Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
 
 **Decision:** Use `GetIfTable2` to read 64-bit cumulative byte counters (`InOctets`, `OutOctets`), negotiated link speed, and operational status. Wrap allocated `MIB_IF_TABLE2` memory in a custom RAII deleter calling `FreeMibTable`. Compute instantaneous throughput rates (`inBytesPerSec`, `outBytesPerSec`) from counter deltas divided by elapsed monotonic time (`std::chrono::steady_clock`).
 
@@ -287,7 +360,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
+### DC-35: Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
 
 **Decision:** Query `GetAdaptersAddresses` (with `AF_UNSPEC` and `GAA_FLAG_INCLUDE_PREFIX`) to retrieve friendly names, device descriptions, IPv4/IPv6 addresses, and DNS servers, correlating them with `GetIfTable2` rows using `NET_LUID::Value` (falling back to `IfIndex`). Filter out loopback interfaces (`IF_TYPE_SOFTWARE_LOOPBACK`) and NDIS filter interfaces (`InterfaceAndOperStatusFlags.FilterInterface`). Carry `InterfaceAndOperStatusFlags.HardwareInterface` into `NetworkSample::isHardwareInterface`.
 
@@ -297,7 +370,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Adapter details cached and re-read only on change
+### DC-36: Adapter details cached and re-read only on change
 
 **Decision:** `NetworkCollector` reads `GetIfTable2` on every tick but keeps the `GetAdaptersAddresses` results (names, descriptions, IP addresses, DNS servers) in an `AdapterDetailsCache`. The cache re-reads them when an address or interface change notification (`NotifyUnicastIpAddressChange`, `NotifyIpInterfaceChange`) has marked it stale, when `GetIfTable2` shows an interface that was not present at the last refresh, or when 30 seconds have passed. A failed re-read clears the details and is retried on the next tick. The production reader, `WindowsAdapterReader`, lives in `network_collector.cpp` and is owned by the collector. The refresh policy is a separate class with no Windows types so `tests/unit/` can test it.
 
@@ -305,7 +378,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Repeated collector failures logged once, with the recovery
+### DC-37: Repeated collector failures logged once, with the recovery
 
 **Decision:** Every OS query a collector repeats on each tick reports failures through a `RepeatedFailureLog` (`platform/windows/repeated_failure_log.h`). The first failure after a success is logged at the level the call site chooses, consecutive repeats are logged at `debug`, and the first success afterwards is logged at `info` with the failure count. The state lives with the query: in the default reader closures (`mutable` lambdas), in `WindowsAdapterReader`, or per volume for `GetDiskFreeSpaceExW`.
 
@@ -313,7 +386,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Deterministic testing of network collection via reader injection
+### DC-38: Deterministic testing of network collection via reader injection
 
 **Decision:** Inject `NetworkAdaptersReader` and `SteadyClockReader` lambdas into `NetworkCollector`, supported by a pure `calculateNetworkSamples` function managing historical baselines and purging disconnected adapters.
 
@@ -321,7 +394,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
+### DC-39: Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
 
 **Decision:** `ConnectivityCollector` seeds a mutex-protected `ConnectivityStatus` cache with `GetNetworkConnectivityHint` in its constructor, then registers `NotifyNetworkConnectivityHintChange` (with `InitialNotification = TRUE`). `collect()` returns the cached value on the scheduler tick. Registration goes through an injected `ConnectivitySubscriber` that returns an RAII `ConnectivitySubscription`. The production `WindowsConnectivitySubscription`, defined in the `.cpp`, calls `CancelMibChangeNotify2` in its destructor. The subscription is the collector's last member, so it is destroyed before the mutex and cache. If registration fails at runtime, the collector falls back to polling `GetNetworkConnectivityHint` in `collect()` (see [known deviation D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread)). `collect()` logs each change of status once at `info`; the notification callback only stores the value.
 
@@ -329,7 +402,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
+### DC-40: Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
 
 **Decision:** Add `ConnectivityLevel::Unknown` as the default level and make `ConnectivityStatus::isMetered` a `std::optional<bool>`. The collector reports `Unknown` / `std::nullopt` before the first successful read, after a failed read, and when Windows reports `NetworkConnectivityLevelHintUnknown`, `NetworkConnectivityLevelHintHidden`, or `NetworkConnectivityCostHintUnknown`. A failed read does not keep the previous value.
 
@@ -337,7 +410,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Windows-to-domain connectivity mapping in a separate, testable header
+### DC-41: Windows-to-domain connectivity mapping in a separate, testable header
 
 **Decision:** The pure conversions `toConnectivityLevel`, `toIsMetered`, and `toConnectivityStatus` live in `platform/windows/connectivity_hint_mapping.h/.cpp`, which exposes Windows SDK types, and are unit tested directly.
 
@@ -345,7 +418,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### System uptime: `GetTickCount64` as a fast collector with an optional snapshot field
+### DC-42: System uptime: `GetTickCount64` as a fast collector with an optional snapshot field
 
 **Decision:** `UptimeCollector` returns `std::chrono::milliseconds` from `GetTickCount64` and runs on the scheduler tick as a fast collector. `SystemSnapshot::uptime` is `std::optional<std::chrono::milliseconds>`, empty when no uptime collector is registered.
 
@@ -353,7 +426,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### No zero placeholders for CPU and memory: optional samples end to end
+### DC-43: No zero placeholders for CPU and memory: optional samples end to end
 
 **Decision:** `ICpuCollector` and `IMemoryCollector` return `std::optional<CpuSample>` / `std::optional<MemorySample>`, and `SystemSnapshot::cpu` / `::memory` are optional. `CpuCollector` returns `std::nullopt` when both queries fail and on the sample that only establishes its baseline. `calculateCpuUsage` returns `std::nullopt` for non-positive elapsed time, any counter that went backwards, or zero elapsed CPU time. Per-core usages are all-or-nothing: an empty `coreUsagePercents` means "unavailable" (after a core-count change or an uncomputable core), never zero-filled. `calculateMemorySample` returns `std::nullopt` for a zero physical-memory total, and `MemoryCollector` returns it when `GlobalMemoryStatusEx` fails. Likewise, `calculateDiskSample` returns `std::nullopt` for a zero-capacity volume and `DiskCollector` skips it, as it already skipped volumes whose query fails ([D-8](known_deviations.md#d-8-zero-capacity-disk-volumes-report-0-usage)). The dashboard shows "N/A" for missing values. Resolves [known deviation D-7](known_deviations.md#d-7-memory-and-cpu-data-report-zeros-when-missing).
 
@@ -361,7 +434,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Optional collections: a failed query is not an empty result
+### DC-44: Optional collections: a failed query is not an empty result
 
 **Decision:** `IDiskCollector`, `INetworkCollector`, and `IProcessCollector` return `std::optional<std::vector<...>>`, and `SystemSnapshot::disks`, `::networks`, and `::processes` are optional. `std::nullopt` means no collector is registered or the query failed. An empty vector means the query succeeded and found nothing. `DiskCollector` returns `std::nullopt` when `GetLogicalDrives` fails, and also when fixed drives exist but none of them could be read. `NetworkCollector` returns it when `GetIfTable2` fails. The dashboard shows "N/A" for missing network data and reserves "No active adapter" for a successful read with no hardware adapter Up.
 
@@ -369,7 +442,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
+### DC-45: Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
 
 **Decision:** `domain/health_status.h` defines `HealthLevel` (Unknown, Healthy, Warning, Critical) and `SystemHealth` (cpu, memory, disk, network, overall). `monitoring/health_evaluator.h` provides the pure function `evaluateHealth(snapshot, HealthThresholds)`, and `SamplingScheduler` calls it at the end of each `sampleOnce()` to fill `SystemSnapshot::health`. Thresholds are strictly "above": warning above 90% and critical above 95% for memory and disk. CPU is critical only above 98%, because short full-load bursts are normal. Disk health is the worst fixed volume. Network health comes from connectivity: InternetAccess is Healthy, any lesser level is Warning. Overall is Critical if any component is Critical, else Warning if any is Warning, else Unknown if any is Unknown, else Healthy. Thresholds are set on the scheduler (`setHealthThresholds`, stopped-only like collector registration) so the Phase 6 settings file can supply them later.
 
@@ -377,7 +450,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
+### DC-46: Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
 
 **Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a colour-coded health status label (hidden for uptime, which has no health dimension), and a fixed-height slot reserved for a mini sparkline. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
 - Byte quantities use binary (IEC) units (KiB, MiB, GiB).
@@ -389,7 +462,7 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### `RingBuffer<T>` lives in `domain` so the UI can use it
+### DC-47: `RingBuffer<T>` lives in `domain` so the UI can use it
 
 **Decision:** Move `RingBuffer<T>` from `monitoring` to `domain` (`domain/ring_buffer.h`, namespace `sysmon::domain`) with no change to its behaviour. The dashboard's mini sparklines keep their own short presentation history in `RingBuffer`s owned by the UI. Longer histories (e.g. for the Performance view or alert rules) may still live in `monitoring`, using the same type.
 
@@ -400,14 +473,14 @@ Each entry links to the relevant roadmap phase and source files.
 
 ---
 
-### Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
+### DC-48: Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
 
 **Decision:** Build a minimal single-series `SparklineWidget` in `src/ui/charts/` (its own `sysmon_ui_charts` library, linked by `sysmon_ui`) for the Phase 2 dashboard, rather than deferring mini sparklines to Phase 3. It has these properties:
 - **Geometry:** a pure `sparklineSegments()` function maps samples to polyline segments and is unit tested without painting. The newest sample sits at the right edge, so a partial history grows in from the right.
 - **Missing data:** samples are `std::optional<float>`, and a missing sample breaks the line (a visible gap) instead of plotting zero.
 - **Y range:** fixed (0–100% for CPU, memory, and disk) or auto-scaled to the data with 10% headroom (network).
 - **Ownership:** the caller owns the history. `DashboardView` keeps a 60-sample `domain::RingBuffer<std::optional<float>>` per card (one minute at 1 Hz) and passes a view of it with `setSamples()` each tick. The network sparkline charts combined in + out throughput.
-- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour. (Phase 3 replaced this blue with the first slot of a theme-aware series palette; see [Sparkline series colours](#sparkline-series-colours-a-validated-five-hue-palette-without-status-hues).)
+- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour. (Phase 3 replaced this blue with the first slot of a theme-aware series palette; see [DC-52](#dc-52-sparkline-series-colours-a-validated-five-hue-palette-without-status-hues).)
 
 **Rationale:** Roadmap item "each card shows a mini sparkline" belongs to Phase 2. The minimal widget covers exactly what the dashboard needs, and Phase 3 extends it (grid, multiple series, axis labels, annotations) rather than replacing it. Rendering from a caller-supplied view keeps the widget reusable for the Performance view's longer histories. Gaps follow the project rule against representing missing data as zero. Copying 60 samples per chart per tick is negligible.
 
@@ -415,55 +488,55 @@ Each entry links to the relevant roadmap phase and source files.
 
 ## Phase 3 — Sparkline charts and performance views (`src/ui/charts/`, `src/ui/`)
 
-### Sparkline grid scrolls with a caller-supplied sample index
+### DC-49: Sparkline grid scrolls with a caller-supplied sample index
 
 **Decision:** `SparklineWidget::setSampleIndex()` takes the running index of the newest sample (e.g. the number of samples recorded so far), and the pure function `verticalGridLines()` places vertical grid lines on every `capacity / 10`th sample of that sequence. Each new sample moves every line one slot to the left, so the grid scrolls with the data as in Task Manager. Horizontal lines are fixed at quarters of the Y range. The grid, like the other decorations, is off by default.
 
 **Rationale:** Once the history is full, the samples span passed to the widget keeps the same length, so the widget cannot tell from the samples alone that time has moved on. Counting `setSamples()` calls inside the widget would break as soon as a series is set twice per tick or the widget is refreshed for other reasons, so the caller passes the index explicitly. Deriving the spacing from the capacity keeps about ten columns whether the chart shows 60, 300, or 1800 samples. Lines are computed with modular arithmetic on the running index, so a short history (index smaller than the capacity) does not underflow. `RingBuffer` was left unchanged; a caller that needs the index keeps its own counter.
 
-### Multiple series share one time axis and Y range, with series 0 as the primary
+### DC-50: Multiple series share one time axis and Y range, with series 0 as the primary
 
 **Decision:** A `SparklineWidget` holds one or more series (`setSeriesCount()`, `setSeriesSamples()`), each with its own colour, optional legend label, and fill flag. All series share the capacity, time axis (newest sample at the right edge), and Y range; the auto range covers every series. Series 0 is the *primary* series: `setSamples()` / `samples()` are shortcuts for it, only it is filled by default, it is painted on top, and the min/max annotations describe it. The existing single-series API is kept, so the dashboard did not change.
 
 **Rationale:** The roadmap asks for several series on one chart (per-core CPU, and network receive/send). One Y scale keeps the chart honest: series of different units or scales belong on separate charts, not a second axis. Filling only the primary series avoids stacked translucent fills turning into a muddy block. Min/max markers for every series would clutter a per-core chart, so they follow the one series the chart is about.
 
-### Axis labels and annotations reserve space outside the plot
+### DC-51: Axis labels and annotations reserve space outside the plot
 
 **Decision:** Two optional decorations: *axis labels* (Y range min and max in a left gutter, the history window, e.g. "1 min", and "now" below the plot) and *annotations* (a line above the plot with the current value, the primary series' min and max, and dot markers at those points on its line). With two or more series and at least one label, the current-value area becomes a legend: a short line in the series colour, then the label and current value in the text colour. Values are formatted by a caller-supplied `ValueFormatter`, so the charts library stays independent of `ui`'s formatting helpers. A missing current value shows "N/A". `plotArea()` exposes the rectangle left for the series, and pure `summarizeSeries()` and `formatHistoryWindow()` functions carry the logic for unit tests.
 
 **Rationale:** Drawing text over the plot would collide with the lines, so labels get their own bands and the plot shrinks instead. Keeping everything off by default lets the same widget stay a bare 36-pixel dashboard sparkline. Text stays in the palette's text colour (dimmed for secondary labels), never the series colour, so it is readable on any theme, and a series is identified by its colour key plus its label, never by colour alone. On ties, the newest occurrence is marked, which keeps the marker close to the live edge on flat data.
 
-### Sparkline series colours: a validated five-hue palette without status hues
+### DC-52: Sparkline series colours: a validated five-hue palette without status hues
 
 **Decision:** Unless the caller overrides a series colour, series 0–4 take fixed hues in this order: blue, orange, aqua, violet, magenta (`defaultSeriesColor()`), with separate light and dark steps. The widget picks the dark steps when its background colour is dark, at paint time, so it follows theme changes. Series 5 and later share a muted grey instead of generated or repeated hues. The grid, frame, and secondary text use the palette's text colour at reduced opacity.
 
-**Rationale:** The hues and steps come from a categorical palette whose order was checked with a colour-vision-deficiency validator: every adjacent pair stays separable under deuteranopia, protanopia, and tritanopia, and has enough contrast against the chart background, in both light and dark mode. Red, amber, and green were removed from that palette because they are the dashboard's Critical, Warning, and Healthy status colours, and a series in those hues would read as a status. The remaining five still pass after re-validation. In light mode, aqua and magenta fall below 3:1 contrast against the background, which is why labelled series always appear in the legend with their values. Repeating or generating hues past the fifth series would make series look alike, so more series (e.g. per-core CPU on a 16-core machine) get a shared de-emphasised grey. The caller can colour them explicitly, highlight a total in the primary colour, or split them across charts. Following the palette rather than the system accent colour keeps the Phase 2 reason for a fixed blue: a red accent would read as Critical.
+**Rationale:** The hues and steps come from a categorical palette whose order was checked with a colour-vision-deficiency validator: every adjacent pair stays separable under deuteranopia, protanopia, and tritanopia, and has enough contrast against the chart background, in both light and dark mode. Red, amber, and green were removed from that palette because they are the dashboard's Critical, Warning, and Healthy status colours, and a series in those hues would read as a status. The remaining five still pass after re-validation. In light mode, aqua and magenta fall below 3:1 contrast against the background, which is why labelled series always appear in the legend with their values. Repeating or generating hues past the fifth series would make series look alike, so more series (e.g. per-core CPU on a 16-core machine) get a shared de-emphasised grey. The caller can colour them explicitly, highlight a total in the primary colour, or split them across charts. Following the palette rather than the system accent colour keeps the reason for a fixed blue in [DC-48](#dc-48-minimal-sparklinewidget-built-early-for-the-dashboard-extended-in-phase-3): a red accent would read as Critical.
 
-### Performance view: a sidebar of resource pages that each own their history
+### DC-53: Performance view: a sidebar of resource pages that each own their history
 
 **Decision:** `PerformanceView` is a sidebar (`QListWidget`) beside a `QStackedWidget` of four pages: CPU, memory, disk, and network. Each sidebar entry shows the page title and a short summary of the latest values. Each page derives from `PerformancePage` and owns the `RingBuffer` histories for its charts:
 - **CPU:** a total utilization chart above a near-square grid of small per-core charts, one per logical processor, which scrolls vertically when the page is too small for it. When the number of cores in the samples changes, the grid is rebuilt and the per-core history restarts, because the core indices no longer line up.
 - **Memory:** physical memory usage and commit charge as percentage charts. Commit charge is a percentage of the commit limit, and the limit can grow with the page file.
 - **Disk:** one space-used chart with a labelled series per volume, in volume-name order.
-- **Network:** one chart per adapter that is Up and can carry traffic: a hardware adapter, or a virtual adapter bound to IP (see the F-21 decision below). Each chart has receive and send series on an auto-scaled byte-rate axis. Hardware adapters come first and are shown in a scroll area.
+- **Network:** one chart per adapter that is Up and can carry traffic: a hardware adapter, or a virtual adapter bound to IP (see [DC-59](#dc-59-network-page-charts-only-adapters-that-can-carry-traffic-networksamplehasipinterface-code-review-f-21)). Each chart has receive and send series on an auto-scaled byte-rate axis. Hardware adapters come first and are shown in a scroll area.
 
 Disk volumes and network adapters are keyed by volume name and adapter name. A key that leaves the snapshots records gaps, and is dropped once its history holds no samples. An adapter still in the snapshot is kept even when it has no values, since a new adapter has no rate until its second sample. Network history is recorded for every adapter, including adapters that are down, so an adapter that comes up shows its history.
 
-**Rationale:** Task Manager's layout (a resource list with one detail page at a time) gives each chart room. It also lets per-core charts use their own small multiples instead of 16 or more overlapping series, which would run out of distinguishable colours after five (see the series colour decision above). The histories stay in the UI, as the dashboard's do, because the UI may not depend on `monitoring`. Keeping each history next to the page that draws it keeps `SystemSnapshot` a per-tick value. Keying by name rather than position keeps a volume's or adapter's line continuous when others appear or disappear.
+**Rationale:** Task Manager's layout (a resource list with one detail page at a time) gives each chart room. It also lets per-core charts use their own small multiples instead of 16 or more overlapping series, which would run out of distinguishable colours after five (see [DC-52](#dc-52-sparkline-series-colours-a-validated-five-hue-palette-without-status-hues)). The histories stay in the UI, as the dashboard's do, because the UI may not depend on `monitoring`. Keeping each history next to the page that draws it keeps `SystemSnapshot` a per-tick value. Keying by name rather than position keeps a volume's or adapter's line continuous when others appear or disappear.
 
-### Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
+### DC-54: Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
 
 **Decision:** `MainWindow::onSnapshotReady` forwards every snapshot to the dashboard and the performance view, whichever tab is current. Recording and display are separate steps. `PerformanceView::updateSnapshot` always appends to each page's history. It refreshes widgets only while the view is visible, and then only for the selected page and the sidebar. `showEvent` and a page change refresh from the recorded history. The Processes and Network views will follow the same pattern when they are implemented.
 
 **Rationale:** Code review F-4 proposed updating only the visible tab. For views with history, that would leave gaps covering the time another tab was open, so the recording step must always run. Recording is only a few `RingBuffer` pushes per tick. The costs worth skipping are copying up to thousands of samples per chart into the widgets and painting them, and those are skipped while the view is hidden. Deciding visibility inside each view, rather than in `MainWindow`, keeps the rule next to the state it protects and also covers pages that are not selected within the view.
 
-### CPU base speed from `CallNtPowerInformation`, read once; no current clock speed
+### DC-55: CPU base speed from `CallNtPowerInformation`, read once; no current clock speed
 
 **Decision:** `CpuSample::baseSpeedMhz` carries the processor's rated clock speed. `CpuCollector`'s default constructor reads it once with `CallNtPowerInformation(ProcessorInformation)`, using a buffer sized for all active logical processors (`GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)`), and reports the highest `MaxMhz` (`baseSpeedFromMaxMhz`). The value is `std::nullopt` when the call fails or every processor reports 0, as some virtual machines do. It feeds the Performance tab's "Base speed" readout. There is no current-speed readout.
 
-**Rationale:** The rated speed does not change while the system runs, so one call at startup is enough. The highest value makes a hybrid processor report its performance cores. A current-speed readout was rejected: on the development machine the same structure's `CurrentMhz` equalled `MaxMhz` (4700 MHz) at idle, which is a known limitation of the field on current processors. Task Manager computes its "Speed" from the "% Processor Performance" counter, which would need PDH, and PDH is not used for core metrics ([Core metrics: direct Win32 APIs over PDH](#core-metrics-direct-win32-apis-over-pdh)). Showing no current speed is better than showing a wrong one. `PROCESSOR_POWER_INFORMATION` is documented but missing from the SDK headers, so `cpu_collector.cpp` declares it, as it already does for `SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION`.
+**Rationale:** The rated speed does not change while the system runs, so one call at startup is enough. The highest value makes a hybrid processor report its performance cores. A current-speed readout was rejected: on the development machine the same structure's `CurrentMhz` equalled `MaxMhz` (4700 MHz) at idle, which is a known limitation of the field on current processors. Task Manager computes its "Speed" from the "% Processor Performance" counter, which would need PDH, and PDH is not used for core metrics ([DC-02](#dc-02-core-metrics-direct-win32-apis-over-pdh)). Showing no current speed is better than showing a wrong one. `PROCESSOR_POWER_INFORMATION` is documented but missing from the SDK headers, so `cpu_collector.cpp` declares it, as it already does for `SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION`.
 
-### Memory detail and system activity counts from `GetPerformanceInfo`, as fast collectors
+### DC-56: Memory detail and system activity counts from `GetPerformanceInfo`, as fast collectors
 
 **Decision:** `GetPerformanceInfo` supplies the Performance tab's memory detail and its process, thread, and handle counts:
 - `MemoryCollector` calls it after `GlobalMemoryStatusEx` and adds `cachedBytes` (`SystemCache`), `pagedPoolBytes`, and `nonPagedPoolBytes` (page counts times `PageSize`) to `MemorySample` as optional fields. If only this call fails, or the page size is 0, the memory sample is still reported, with these fields empty.
@@ -473,7 +546,7 @@ Both run on the scheduler tick as fast collectors. The call is wrapped once in `
 
 **Rationale:** On the development machine (367 processes, about 200,000 handles) `GetPerformanceInfo` took about 19 µs per call, so it reads kernel counters rather than enumerating processes, and it fits the fast-collector budget. It is documented, has no registry or PDH dependency, and provides exactly the counts Task Manager shows, so it follows the direct-Win32 rule for core metrics. `GlobalMemoryStatusEx` stays the source of the core memory figures, as the rules require. Counting processes, threads, and handles from the Phase 4 `SystemProcessInformation` enumeration was rejected: it runs every 2–5 s on the slow-collector thread and does not exist yet, and these readouts should update at 1 Hz. The Phase 4 process list may still report its own totals. Calling `GetPerformanceInfo` from two collectors costs a second 19 µs call per tick. In return, memory detail stays in `MemorySample` and the counts get their own collector, and each collector remains independently testable. Merging them into one collector would either put process counts in a memory type or split one query's results across snapshot fields inside the scheduler.
 
-### Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
+### DC-57: Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
 
 **Decision:** Each page shows numeric readouts next to its charts, in a `ReadoutGrid` with a dimmed name above each value:
 - **CPU:** utilization, base speed, logical processors, processes, threads, handles, and up time.
@@ -485,7 +558,7 @@ The text comes from pure functions in `ui/performance_readouts.h` (`cpuReadouts(
 
 **Rationale:** Keeping the names fixed means a missing value does not change the layout, and the missing value is visible rather than quietly removed. Pure builders keep formatting and edge cases testable without widgets, as `dashboard_formatting.h` does for the dashboard. Updating labels in place avoids rebuilding widgets every second. Counts are grouped with a fixed separator rather than with `QLocale`, so tests do not depend on the machine's locale. Localized number formatting can come with the Phase 6 display-unit settings. Link speeds use decimal units because network rates are conventionally quoted that way, while byte quantities keep the binary units used elsewhere.
 
-### Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
+### DC-58: Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
 
 **Decision:**
 - **Readouts:** `ReadoutGrid` lays out its labels with its own `QLayout` (`ReadoutLayout`, in `readout_grid.cpp`). The constructor's column count is a maximum: the layout uses as many columns as fit the width, reports a height for width, and has the widest readout as its minimum width. Spare width is shared so that columns are equally wide where their content allows. Each cell remembers the widest it has been since the names last changed, so a value that shrinks again does not bring a column back.
@@ -496,13 +569,13 @@ The text comes from pure functions in `ui/performance_readouts.h` (`cpuReadouts(
 
 The per-core grid scrolls instead of shrinking its charts further, because a chart only a few pixels tall shows nothing. Its minimum width still matters: a scroll area with horizontal scrolling turned off squeezes content that is too wide rather than widening the window, and it shows no scroll range, so the tests compare the content's minimum width with the viewport. At the larger default size, the network readouts usually get two or more columns instead of one. Limiting it to the screen keeps the window on screen on a 1366×768 laptop.
 
-### Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
+### DC-59: Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
 
 **Decision:** `NetworkSample` has a `hasIpInterface` flag. The collector sets it when `GetAdaptersAddresses` lists the adapter, which it does only for adapters bound to IP. `chartedAdapters()` charts an Up adapter only if it is hardware or has an IP interface. Virtual adapters without one stay in the snapshots, and their history is still recorded.
 
 **Rationale:** Windows keeps several hidden virtual adapters Up permanently, such as WAN Miniport (IP), (IPv6) and (Network Monitor). They have no IP interface and never carry traffic, yet on the review machine they took three of the network page's five charts. `MIB_IF_ROW2` has no "hidden" flag, and `ConnectorPresent` is false for the WAN Miniports and for VPN tunnels alike, so `GetIfTable2` cannot tell them apart. IP binding can, and the collector already correlates each row with `GetAdaptersAddresses`. The review also suggested testing `ipAddresses` for emptiness. That gives the same result in practice, because link-local addresses are kept, but an explicit flag states the reason, does not depend on an adapter having an address yet, and gives the Phase 5 network view the same distinction. Hardware adapters are charted without an IP interface, because their link can still carry traffic. While `GetAdaptersAddresses` fails, every adapter has the flag cleared, so virtual adapters leave the page until the next successful read and hardware adapters stay. That is acceptable for a chart list.
 
-### Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
+### DC-60: Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
 
 **Decision:** A chart is *dense* when it has more slots (its capacity) than its plot has pixel columns, for example a 30-minute history on an 800-pixel chart or on a small per-core chart. For a dense chart, `SparklineWidget` changes three things:
 - **Decimation:** `sparklineSegments()` keeps only each pixel column's lowest and highest point, in time order. A segment then has at most two points per column. Gaps still split segments.
@@ -511,9 +584,9 @@ The per-core grid scrolls instead of shrinking its charts further, because a cha
 
 Charts that are not dense look exactly as before.
 
-**Rationale:** With 30 minutes of history, a Release build took about 210 ms per tick on the CPU page (16 cores) and 145 ms on the network page. That was measured with synthetic worst-case data that swings across most of the range every 20 samples, and it is far too long for a 1 Hz UI thread. Decimation alone barely helped, because the cost was not the number of points. It was Qt's general stroker, which builds a round-joined outline for every vertex of a pen wider than one pixel, and the scanline cost of filling a polygon whose top edge zigzags. Qt's raster engine has a fast path for cosmetic pens up to one pixel wide, which cut the worst page to about 60 ms. The envelope fill, which covers the same pixels as filling under the zigzag because the line is drawn over each column's span, brought it to about 27 ms (see the measurements in the next entry). Min/max decimation is kept because it bounds the work by the chart's width, and unlike averaging it keeps one-sample spikes visible. A one-pixel line also suits a dense chart better, because a thicker one would merge neighbouring columns.
+**Rationale:** With 30 minutes of history, a Release build took about 210 ms per tick on the CPU page (16 cores) and 145 ms on the network page. That was measured with synthetic worst-case data that swings across most of the range every 20 samples, and it is far too long for a 1 Hz UI thread. Decimation alone barely helped, because the cost was not the number of points. It was Qt's general stroker, which builds a round-joined outline for every vertex of a pen wider than one pixel, and the scanline cost of filling a polygon whose top edge zigzags. Qt's raster engine has a fast path for cosmetic pens up to one pixel wide, which cut the worst page to about 60 ms. The envelope fill, which covers the same pixels as filling under the zigzag because the line is drawn over each column's span, brought it to about 27 ms (see the measurements in [DC-61](#dc-61-30-minutes-of-performance-history-a-chart-window-selector-and-the-measured-tick-cost)). Min/max decimation is kept because it bounds the work by the chart's width, and unlike averaging it keeps one-sample spikes visible. A one-pixel line also suits a dense chart better, because a thicker one would merge neighbouring columns.
 
-### 30 minutes of performance history, a chart-window selector, and the measured tick cost
+### DC-61: 30 minutes of performance history, a chart-window selector, and the measured tick cost
 
 **Decision:** Each Performance page keeps 30 minutes of history (`PerformancePage::kHistoryCapacity` = 1800 samples at 1 Hz). A "Chart history" selector below the sidebar sets how much of it the charts show: 1 minute (the default, as in Task Manager), 5 minutes, or 30 minutes. `showHistory()` passes the chart only the newest window of samples and sets the chart's capacity to match. The selection is not saved yet, because persisting it belongs with the Phase 6 settings file. Windows are counted in samples, which equals seconds at the fixed 1 Hz sampling rate. A configurable refresh interval will need to convert them.
 
@@ -529,9 +602,9 @@ The tick cost was measured with a throwaway benchmark (not committed) in a Relea
 
 The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its per-core charts are smaller. A Release build of the app run on the same machine used about 41 MiB of working set.
 
-**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. At the default window, every page costs under 13 ms per second, about 1% of the UI thread. Even the synthetic worst case at 30 minutes stays under 40 ms, one short frame per second, and real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in the previous entry. Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.
+**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. At the default window, every page costs under 13 ms per second, about 1% of the UI thread. Even the synthetic worst case at 30 minutes stays under 40 ms, one short frame per second, and real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in [DC-60](#dc-60-dense-sparklines-minmax-decimation-a-one-pixel-cosmetic-line-and-an-envelope-fill). Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.
 
-### `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
+### DC-62: `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
 
 **Decision:** `build.ps1` builds (and tests, with `-Test`) without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory has no `build.ninja`, has not been configured by the script yet (a `build_ps1_configure.stamp` file in the build directory records the last successful configure), or a presets file is newer than that stamp. `-Configure` forces it. CTest runs with `--parallel` set to the number of logical processors.
 

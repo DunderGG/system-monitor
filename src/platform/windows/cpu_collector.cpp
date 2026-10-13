@@ -280,7 +280,7 @@ struct PROCESSOR_POWER_INFORMATION
 
 // Reads the rated speed of every logical processor. CurrentMhz is not used:
 // on current processors it reports the rated speed rather than the actual
-// clock (see docs/design_decisions.md).
+// clock (see DC-55 in docs/design_decisions.md).
 std::optional<uint32_t> readBaseSpeedMhz(int processorCount)
 {
     std::vector<PROCESSOR_POWER_INFORMATION> processors(static_cast<std::size_t>(std::max(1, processorCount)));

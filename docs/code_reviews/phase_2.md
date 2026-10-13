@@ -310,7 +310,7 @@ The trade-off is that a change which reverts within one tick is not logged. That
 
 **Description:**
 
-The [multi-group design decision](../design_decisions.md#multi-processor-group-support-64-logical-cores-ntquerysysteminformationex-iteration-and-total-cpu-aggregation) says `GetSystemTimes` reports only the calling thread's processor group, so the collector must add up per-core times across all groups instead. The code decides to aggregate when there are **more than 64 cores**, but the condition that actually matters is **more than one processor group**. Windows can create several groups with 64 or fewer logical processors in total: on some NUMA servers, for example, or when the group size is set with `bcdedit /set groupsize`. On such a machine the collector would use `GetSystemTimes` and, by the design decision's own reasoning, miss the secondary groups.
+The [multi-group design decision](../design_decisions.md#dc-29-multi-processor-group-support-64-logical-cores-ntquerysysteminformationex-iteration-and-total-cpu-aggregation) says `GetSystemTimes` reports only the calling thread's processor group, so the collector must add up per-core times across all groups instead. The code decides to aggregate when there are **more than 64 cores**, but the condition that actually matters is **more than one processor group**. Windows can create several groups with 64 or fewer logical processors in total: on some NUMA servers, for example, or when the group size is set with `bcdedit /set groupsize`. On such a machine the collector would use `GetSystemTimes` and, by the design decision's own reasoning, miss the secondary groups.
 
 **Proposed Solution:**
 
