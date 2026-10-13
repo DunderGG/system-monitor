@@ -47,7 +47,7 @@ struct Readout
                                                const std::optional<domain::SystemActivitySample>& activity,
                                                const std::optional<std::chrono::milliseconds>& uptime);
 
-/** Memory page: in use, available, total, committed, cached, paged pool, and non-paged pool. */
+/** Memory page: used, available, total, committed, system cache, paged pool, and non-paged pool. */
 [[nodiscard]] std::vector<Readout> memoryReadouts(const std::optional<domain::MemorySample>& memory);
 
 /**

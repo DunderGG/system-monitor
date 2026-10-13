@@ -117,18 +117,18 @@ TEST(PerformanceReadouts, MemoryReadouts_AllValues)
         .usagePercent = 62.5f,
         .commitLimit = 40 * kGiB,
         .commitCurrent = 20 * kGiB,
-        .cachedBytes = 9 * kGiB,
+        .systemCacheBytes = 9 * kGiB,
         .pagedPoolBytes = kGiB + kGiB / 2,
         .nonPagedPoolBytes = kGiB / 2,
     };
 
     const auto readouts = memoryReadouts(memory);
 
-    EXPECT_EQ(valueOf(readouts, "In use"), "20.0 GiB (62.5%)");
+    EXPECT_EQ(valueOf(readouts, "Used"), "20.0 GiB (62.5%)");
     EXPECT_EQ(valueOf(readouts, "Available"), "12.0 GiB");
     EXPECT_EQ(valueOf(readouts, "Total"), "32.0 GiB");
     EXPECT_EQ(valueOf(readouts, "Committed"), "20.0/40.0 GiB");
-    EXPECT_EQ(valueOf(readouts, "Cached"), "9.0 GiB");
+    EXPECT_EQ(valueOf(readouts, "System cache"), "9.0 GiB");
     EXPECT_EQ(valueOf(readouts, "Paged pool"), "1.5 GiB");
     EXPECT_EQ(valueOf(readouts, "Non-paged pool"), "512.0 MiB");
 }
@@ -140,10 +140,10 @@ TEST(PerformanceReadouts, MemoryReadouts_MissingDetailOrSample_NotAvailable)
     const auto withoutDetail = memoryReadouts(memory);
     const auto missing = memoryReadouts(std::nullopt);
 
-    EXPECT_EQ(valueOf(withoutDetail, "Cached"), "N/A");
+    EXPECT_EQ(valueOf(withoutDetail, "System cache"), "N/A");
     EXPECT_EQ(valueOf(withoutDetail, "Non-paged pool"), "N/A");
     EXPECT_EQ(namesOf(missing), namesOf(withoutDetail));
-    EXPECT_EQ(valueOf(missing, "In use"), "N/A");
+    EXPECT_EQ(valueOf(missing, "Used"), "N/A");
 }
 
 TEST(PerformanceReadouts, DiskReadouts_OnePerVolumeInNameOrder)

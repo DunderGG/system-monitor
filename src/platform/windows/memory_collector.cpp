@@ -38,7 +38,7 @@ std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData
     };
     // A zero page size would turn every page count into a false 0 bytes.
     if (performance && performance->pageSize > 0) {
-        sample.cachedBytes = performance->systemCachePages * performance->pageSize;
+        sample.systemCacheBytes = performance->systemCachePages * performance->pageSize;
         sample.pagedPoolBytes = performance->kernelPagedPages * performance->pageSize;
         sample.nonPagedPoolBytes = performance->kernelNonPagedPages * performance->pageSize;
     }

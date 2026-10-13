@@ -493,7 +493,7 @@ TEST(MemoryPerformancePage, Readouts_ShowLatestSample)
     page.refresh();
 
     EXPECT_EQ(page.readouts()->value("Committed"), "8.0/32.0 GiB");
-    EXPECT_EQ(page.readouts()->value("Cached"), "N/A");
+    EXPECT_EQ(page.readouts()->value("System cache"), "N/A");
 }
 
 TEST(DiskPerformancePage, Readouts_OnePerVolume)

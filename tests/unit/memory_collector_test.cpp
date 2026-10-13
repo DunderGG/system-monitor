@@ -131,7 +131,7 @@ TEST(MemoryCollector, CalculateMemorySample_WithPerformanceInfo_ConvertsPagesToB
     const auto sample = calculateMemorySample(data, performance);
 
     ASSERT_TRUE(sample.has_value());
-    EXPECT_EQ(sample->cachedBytes, 4'096'000u);
+    EXPECT_EQ(sample->systemCacheBytes, 4'096'000u);
     EXPECT_EQ(sample->pagedPoolBytes, 819'200u);
     EXPECT_EQ(sample->nonPagedPoolBytes, 122'880u);
 }
@@ -143,7 +143,7 @@ TEST(MemoryCollector, CalculateMemorySample_WithoutPerformanceInfo_LeavesDetails
     const auto sample = calculateMemorySample(data);
 
     ASSERT_TRUE(sample.has_value());
-    EXPECT_FALSE(sample->cachedBytes.has_value());
+    EXPECT_FALSE(sample->systemCacheBytes.has_value());
     EXPECT_FALSE(sample->pagedPoolBytes.has_value());
     EXPECT_FALSE(sample->nonPagedPoolBytes.has_value());
 }
@@ -156,7 +156,7 @@ TEST(MemoryCollector, CalculateMemorySample_ZeroPageSize_LeavesDetailsEmptyNotZe
     const auto sample = calculateMemorySample(data, performance);
 
     ASSERT_TRUE(sample.has_value());
-    EXPECT_FALSE(sample->cachedBytes.has_value());
+    EXPECT_FALSE(sample->systemCacheBytes.has_value());
 }
 
 TEST(MemoryCollector, Collect_PerformanceReaderFails_StillReportsMemory)
@@ -173,7 +173,7 @@ TEST(MemoryCollector, Collect_PerformanceReaderFails_StillReportsMemory)
 
     ASSERT_TRUE(sample.has_value());
     EXPECT_FLOAT_EQ(sample->usagePercent, 50.0f);
-    EXPECT_FALSE(sample->cachedBytes.has_value());
+    EXPECT_FALSE(sample->systemCacheBytes.has_value());
 }
 
 TEST(MemoryCollector, Collect_PerformanceReaderSucceeds_ReportsDetails)

@@ -51,7 +51,7 @@ TEST(MemorySample, DefaultConstruction_ZeroValues)
     EXPECT_FLOAT_EQ(s.usagePercent, 0.0f);
     EXPECT_EQ(s.commitLimit, 0u);
     EXPECT_EQ(s.commitCurrent, 0u);
-    EXPECT_FALSE(s.cachedBytes.has_value());
+    EXPECT_FALSE(s.systemCacheBytes.has_value());
     EXPECT_FALSE(s.pagedPoolBytes.has_value());
     EXPECT_FALSE(s.nonPagedPoolBytes.has_value());
 }

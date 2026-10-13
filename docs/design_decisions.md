@@ -75,6 +75,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-60](#dc-60-dense-sparklines-minmax-decimation-a-one-pixel-cosmetic-line-and-an-envelope-fill): Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
   - [DC-61](#dc-61-30-minutes-of-performance-history-a-chart-window-selector-and-the-measured-tick-cost): 30 minutes of performance history, a chart-window selector, and the measured tick cost
   - [DC-62](#dc-62-buildps1-launch-only-with--run-configure-only-when-needed-and-parallel-tests): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
+  - [DC-63](#dc-63-memory-readouts-name-what-getperformanceinfo-reports-not-task-managers-figures-code-review-f-22): Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
 
 ---
 
@@ -539,7 +540,7 @@ Disk volumes and network adapters are keyed by volume name and adapter name. A k
 ### DC-56: Memory detail and system activity counts from `GetPerformanceInfo`, as fast collectors
 
 **Decision:** `GetPerformanceInfo` supplies the Performance tab's memory detail and its process, thread, and handle counts:
-- `MemoryCollector` calls it after `GlobalMemoryStatusEx` and adds `cachedBytes` (`SystemCache`), `pagedPoolBytes`, and `nonPagedPoolBytes` (page counts times `PageSize`) to `MemorySample` as optional fields. If only this call fails, or the page size is 0, the memory sample is still reported, with these fields empty.
+- `MemoryCollector` calls it after `GlobalMemoryStatusEx` and adds `systemCacheBytes` (`SystemCache`; see [DC-63](#dc-63-memory-readouts-name-what-getperformanceinfo-reports-not-task-managers-figures-code-review-f-22)), `pagedPoolBytes`, and `nonPagedPoolBytes` (page counts times `PageSize`) to `MemorySample` as optional fields. If only this call fails, or the page size is 0, the memory sample is still reported, with these fields empty.
 - A new `SystemActivityCollector` reports `SystemActivitySample` (process, thread, and handle counts) in the new `SystemSnapshot::activity` field. It returns `std::nullopt` on failure or for a process count of 0.
 
 Both run on the scheduler tick as fast collectors. The call is wrapped once in `performance_info_reader.h`, and each collector has its own reader, and so its own `RepeatedFailureLog`.
@@ -550,7 +551,7 @@ Both run on the scheduler tick as fast collectors. The call is wrapped once in `
 
 **Decision:** Each page shows numeric readouts next to its charts, in a `ReadoutGrid` with a dimmed name above each value:
 - **CPU:** utilization, base speed, logical processors, processes, threads, handles, and up time.
-- **Memory:** in use, available, total, committed, cached, paged pool, and non-paged pool.
+- **Memory:** used, available, total, committed, system cache, paged pool, and non-paged pool (see [DC-63](#dc-63-memory-readouts-name-what-getperformanceinfo-reports-not-task-managers-figures-code-review-f-22)).
 - **Disk:** used, total, and free space, one readout per volume.
 - **Network:** under each adapter's chart, receive, send, link speed, type (hardware or virtual), adapter description, IPv4 and IPv6 addresses, DNS servers, and bytes received and sent.
 
@@ -609,3 +610,16 @@ The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its p
 **Decision:** `build.ps1` builds (and tests, with `-Test`) without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory has no `build.ninja`, has not been configured by the script yet (a `build_ps1_configure.stamp` file in the build directory records the last successful configure), or a presets file is newer than that stamp. `-Configure` forces it. CTest runs with `--parallel` set to the number of logical processors.
 
 **Rationale:** Builds and test runs far outnumber launches, especially for agents, so launching is the opt-in. Measured on the 16-thread development machine, an edit to one UI file followed by `-Test` took about 26 s: about 3 s re-configuring although nothing had changed, about 4 s compiling and linking, and about 18 s of tests. `gtest_discover_tests` runs each of the 362 tests in its own process at about 50 ms each, so process startup dominates and the tests parallelize well. Together the two changes cut that cycle to about 8 s (tests about 4 s), and a build with nothing to do from about 5 s to under 2 s. Skipping configure is safe because Ninja re-runs CMake itself when a `CMakeLists.txt` changes, and the vcpkg toolchain adds `vcpkg.json` and `vcpkg-configuration.json` to `CMAKE_CONFIGURE_DEPENDS`. Ninja does not track the presets files, hence the stamp. `CMakeCache.txt` cannot serve as the stamp, because CMake rewrites it only when its contents change. Ten consecutive parallel runs passed. The integration tests' timing checks allow up to a second, and the one test that writes a file uses its own directory, so the tests do not interfere with each other.
+
+### DC-63: Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
+
+**Decision:** The memory page's "Cached" readout is renamed "System cache", and `MemorySample::cachedBytes` is renamed `systemCacheBytes`. It still shows `PERFORMANCE_INFORMATION::SystemCache`, and the domain comment now says what that is without claiming it matches Task Manager. "In use" is renamed "Used". It is still total minus available, so it includes the modified page list. The dashboard ("… of … used") and the sidebar summary already used that wording or no label, and are unchanged.
+
+**Rationale:** Task Manager's "Cached" is the standby list plus the modified list, and its "In use" leaves the modified list out. `SystemCache` is neither. Microsoft documents it as the standby list plus the system working set, but it does not measure as that either. Two readings on the development machine, taken from the memory-list performance counters for comparison only:
+
+| Reading | `SystemCache` | Standby | Standby + modified (Task Manager's "Cached") | Standby + system working set |
+| --- | --- | --- | --- | --- |
+| Code review F-22 | 30.59 GiB | 33.83 GiB | 34.37 GiB | 35.09 GiB |
+| This fix | 34.84 GiB | 34.25 GiB | 34.42 GiB | 35.31 GiB |
+
+The difference from Task Manager was 3.8 GiB in the first reading and 0.4 GiB in the second, and in different directions, so no correction can be applied to it. Reproducing Task Manager's figures needs the exact list sizes. `NtQuerySystemInformation(SystemMemoryListInformation)` provides them but requires `SeProfileSingleProcessPrivilege`, which unelevated users do not have. The `\Memory\Standby Cache*` and `\Memory\Modified Page List Bytes` counters would need PDH, which is not used for core metrics ([DC-02](#dc-02-core-metrics-direct-win32-apis-over-pdh)). The readout is kept rather than dropped because the size of the system cache is still useful, and the new name no longer promises a figure the tool cannot provide. "Used" is the plain description of total minus available. If elevated access is added (see "Elevated process termination" in the post-MVP roadmap), an elevated component could read `SystemMemoryListInformation` and provide Task Manager's breakdown.

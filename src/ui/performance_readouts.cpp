@@ -125,19 +125,19 @@ std::vector<Readout> memoryReadouts(const std::optional<domain::MemorySample>& m
 {
     if (!memory) {
         return {
-            {"In use", kNotAvailable},         {"Available", kNotAvailable}, {"Total", kNotAvailable},
-            {"Committed", kNotAvailable},      {"Cached", kNotAvailable},    {"Paged pool", kNotAvailable},
+            {"Used", kNotAvailable},           {"Available", kNotAvailable},    {"Total", kNotAvailable},
+            {"Committed", kNotAvailable},      {"System cache", kNotAvailable}, {"Paged pool", kNotAvailable},
             {"Non-paged pool", kNotAvailable},
         };
     }
     const uint64_t usedBytes =
         (memory->totalBytes > memory->availableBytes) ? (memory->totalBytes - memory->availableBytes) : 0ULL;
     return {
-        {"In use", QString("%1 (%2)").arg(formatBytes(usedBytes), formatPercent(memory->usagePercent))},
+        {"Used", QString("%1 (%2)").arg(formatBytes(usedBytes), formatPercent(memory->usagePercent))},
         {"Available", formatBytes(memory->availableBytes)},
         {"Total", formatBytes(memory->totalBytes)},
         {"Committed", formatBytesOfTotal(memory->commitCurrent, memory->commitLimit)},
-        {"Cached", valueOr(memory->cachedBytes, bytesText)},
+        {"System cache", valueOr(memory->systemCacheBytes, bytesText)},
         {"Paged pool", valueOr(memory->pagedPoolBytes, bytesText)},
         {"Non-paged pool", valueOr(memory->nonPagedPoolBytes, bytesText)},
     };

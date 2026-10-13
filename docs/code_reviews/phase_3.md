@@ -66,7 +66,7 @@ The scores below are lower than in earlier reviews. That reflects these findings
 | --- | --- | --- | --- |
 | [F-20](#f-20-performance-pages-do-not-fit-the-default-window) | Performance pages do not fit the default window | Medium | Resolved |
 | [F-21](#f-21-network-page-charts-hidden-wan-miniport-adapters) | Network page charts hidden WAN Miniport adapters | Medium | Resolved |
-| [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Open |
+| [F-22](#f-22-cached-readout-is-not-the-figure-its-name-and-comment-promise) | "Cached" readout is not the figure its name and comment promise | Medium | Resolved |
 | [F-23](#f-23-adapter-histories-are-keyed-by-display-name) | Adapter histories are keyed by display name | Low | Open |
 | [F-24](#f-24-plot-area-moves-when-the-y-axis-label-width-changes) | Plot area moves when the Y-axis label width changes | Low | Open |
 | [F-25](#f-25-the-1-hz-performance-verification-cannot-be-reproduced) | The 1 Hz performance verification cannot be reproduced | Low | Open |
@@ -198,7 +198,7 @@ The exact standby and modified sizes come from `NtQuerySystemInformation(SystemM
 
 **Recommendation:** Fix before Phase 4. It is a small change, and the readout currently states something that is not true.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-13). Items 1 to 3 are done. The readout is now "System cache" and the field `systemCacheBytes`. The domain comment says what `SystemCache` is, that Microsoft's description does not match measured values, and that it is not Task Manager's "Cached". "In use" is now "Used", and the `MemorySample` comment says that it includes the modified list. The dashboard already said "… of … used", and the sidebar summary has no label, so neither changed. The fix's own reading put `SystemCache` 0.6 GiB above the standby list, where the review's reading was 3.2 GiB below it, which confirms that no fixed correction would reproduce Task Manager's figure. Item 4 is recorded in the design decision as the way to get Task Manager's breakdown. See [DC-63](../design_decisions.md#dc-63-memory-readouts-name-what-getperformanceinfo-reports-not-task-managers-figures-code-review-f-22).
 
 ---
 
