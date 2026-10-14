@@ -31,7 +31,7 @@ Do not invoke `cmake` or `ctest` directly: `build.ps1` initializes the x64 MSVC 
 - spdlog for logging, not qDebug or cout.
 
 ### Security
-- Only `PROCESS_QUERY_LIMITED_INFORMATION` for OpenProcess.
+- Only `PROCESS_QUERY_LIMITED_INFORMATION` for OpenProcess. Exception: process termination (`process_terminator.cpp`) also requests `SYNCHRONIZE`, and `PROCESS_TERMINATE` only for a process the current user owns.
 - Never open handles to lsass.exe or csrss.exe.
 - Run unelevated by default.
 

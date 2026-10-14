@@ -4,10 +4,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <memory>
 #include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -17,7 +15,7 @@
 #include <spdlog/spdlog.h>
 
 #include "platform/windows/process_access_policy.h"
-#include "platform/windows/system_process_information.h"
+#include "platform/windows/process_handle.h"
 #include "platform/windows/utf8_conversion.h"
 
 namespace sysmon::platform
@@ -44,18 +42,6 @@ constexpr std::size_t kInitialCommandLineBufferBytes = 1024;
 constexpr int kMaxCommandLineAttempts = 3;
 
 using NtQueryInformationProcessFn = decltype(&::NtQueryInformationProcess);
-
-struct HandleCloser
-{
-    void operator()(HANDLE handle) const noexcept
-    {
-        if (handle != nullptr) {
-            ::CloseHandle(handle);
-        }
-    }
-};
-
-using ScopedProcessHandle = std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleCloser>;
 
 struct DetailResult
 {
@@ -103,19 +89,14 @@ NtQueryInformationProcessFn resolveNtQueryInformationProcess()
 // be reused, and the new process's details must not be attributed to it.
 std::optional<ProcessDetailsStatus> verifyIdentity(HANDLE handle, const domain::ProcessInfo& process)
 {
-    FILETIME creation{};
-    FILETIME exit{};
-    FILETIME kernel{};
-    FILETIME user{};
-    if (!::GetProcessTimes(handle, &creation, &exit, &kernel, &user)) {
+    const auto creationTime = processCreationTime(handle);
+    if (!creationTime) {
         const DWORD error = ::GetLastError();
         spdlog::debug("GetProcessTimes failed for PID {} ({}) with error {}", process.pid, process.imageName, error);
         return statusForError(error);
     }
 
-    const auto creationTicks =
-        static_cast<int64_t>((static_cast<uint64_t>(creation.dwHighDateTime) << 32) | creation.dwLowDateTime);
-    if (fileTimeToSystemClock(creationTicks) != process.creationTime) {
+    if (*creationTime != process.creationTime) {
         spdlog::debug("PID {} ({}) was reused by another process before its details were read", process.pid,
                       process.imageName);
         return ProcessDetailsStatus::Unavailable;
@@ -219,7 +200,7 @@ ProcessDetails readProcessDetails(NtQueryInformationProcessFn query, const domai
         return ProcessDetails{};
     }
 
-    ScopedProcessHandle handle(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process.pid));
+    ScopedHandle handle(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process.pid));
     if (!handle) {
         const DWORD error = ::GetLastError();
         spdlog::debug("OpenProcess failed for PID {} ({}) with error {}", process.pid, process.imageName, error);

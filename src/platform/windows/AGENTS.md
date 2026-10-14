@@ -20,7 +20,7 @@ This module contains all Windows API wrappers. It is the only module that includ
 
 ## Security rules
 
-- Only request `PROCESS_QUERY_LIMITED_INFORMATION` when calling `OpenProcess`. Never use `PROCESS_ALL_ACCESS` or `PROCESS_VM_READ`.
+- Only request `PROCESS_QUERY_LIMITED_INFORMATION` when calling `OpenProcess`. Never use `PROCESS_ALL_ACCESS` or `PROCESS_VM_READ`. The one exception is `terminateOwnedProcess()` (`process_terminator.cpp`): it opens with `PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE` to check the identity and owner, and adds `PROCESS_TERMINATE` only after confirming that the current user owns the process. No other code may request `PROCESS_TERMINATE`.
 - Never call `OpenProcess` on `lsass.exe` or `csrss.exe` (triggers EDR heuristic alerts).
 - Use `W` (wide/Unicode) variants of all Windows APIs.
 

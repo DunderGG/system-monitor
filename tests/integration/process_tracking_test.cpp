@@ -8,7 +8,6 @@
 #include <set>
 #include <string>
 #include <thread>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -24,28 +23,18 @@
 #include "platform/windows/process_access_policy.h"
 #include "platform/windows/process_collector.h"
 #include "platform/windows/process_details_reader.h"
+#include "platform/windows/process_handle.h"
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/system_process_information_reader.h"
-#include "platform/windows/utf8_conversion.h"
+#include "suspended_child_process.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
 using sysmon::monitoring::SamplingScheduler;
+using sysmon::tests::SuspendedChildProcess;
 
 namespace
 {
-
-struct HandleCloser
-{
-    void operator()(HANDLE handle) const noexcept
-    {
-        if (handle != nullptr) {
-            ::CloseHandle(handle);
-        }
-    }
-};
-
-using ScopedHandle = std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleCloser>;
 
 // A printable, ordered form of a process identity for set comparisons.
 using IdentityKey = std::pair<uint32_t, int64_t>;
@@ -54,92 +43,6 @@ IdentityKey keyOf(const ProcessIdentity& identity)
 {
     return {identity.pid, identity.creationTime.time_since_epoch().count()};
 }
-
-std::chrono::system_clock::time_point creationTimeOf(HANDLE process)
-{
-    FILETIME creation{};
-    FILETIME exit{};
-    FILETIME kernel{};
-    FILETIME user{};
-    ::GetProcessTimes(process, &creation, &exit, &kernel, &user);
-    return fileTimeToSystemClock(
-        static_cast<int64_t>((static_cast<uint64_t>(creation.dwHighDateTime) << 32) | creation.dwLowDateTime));
-}
-
-// A cmd.exe child created suspended, so it never runs, with a command line
-// unique to this test run. Terminated when destroyed.
-class SuspendedChildProcess
-{
-public:
-    SuspendedChildProcess()
-    {
-        std::wstring systemDirectory(MAX_PATH, L'\0');
-        systemDirectory.resize(::GetSystemDirectoryW(systemDirectory.data(), MAX_PATH));
-        m_imagePath = systemDirectory + L"\\cmd.exe";
-        m_commandLine =
-            L"\"" + m_imagePath + L"\" /c exit sysmon-process-tracking-" + std::to_wstring(::GetCurrentProcessId());
-
-        STARTUPINFOW startupInfo{.cb = sizeof(STARTUPINFOW)};
-        PROCESS_INFORMATION processInfo{};
-        std::wstring mutableCommandLine = m_commandLine;
-        if (::CreateProcessW(m_imagePath.c_str(), mutableCommandLine.data(), nullptr, nullptr, FALSE,
-                             CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, nullptr, &startupInfo, &processInfo)) {
-            m_process.reset(processInfo.hProcess);
-            m_thread.reset(processInfo.hThread);
-            m_identity =
-                ProcessIdentity{.pid = processInfo.dwProcessId, .creationTime = creationTimeOf(m_process.get())};
-        }
-    }
-
-    ~SuspendedChildProcess()
-    {
-        terminate();
-    }
-
-    SuspendedChildProcess(const SuspendedChildProcess&) = delete;
-    SuspendedChildProcess& operator=(const SuspendedChildProcess&) = delete;
-    SuspendedChildProcess(SuspendedChildProcess&&) = delete;
-    SuspendedChildProcess& operator=(SuspendedChildProcess&&) = delete;
-
-    [[nodiscard]] bool started() const
-    {
-        return m_process != nullptr;
-    }
-
-    [[nodiscard]] const ProcessIdentity& identity() const
-    {
-        return m_identity;
-    }
-
-    [[nodiscard]] std::string imagePath() const
-    {
-        return wideToUtf8(m_imagePath);
-    }
-
-    [[nodiscard]] std::string commandLine() const
-    {
-        return wideToUtf8(m_commandLine);
-    }
-
-    // Terminates the child and closes the handles, so no handle from this
-    // process keeps it in the process list.
-    void terminate()
-    {
-        if (m_process) {
-            ::TerminateProcess(m_process.get(), 0);
-            ::WaitForSingleObject(m_process.get(), 5000);
-        }
-        m_thread.reset();
-        m_process.reset();
-    }
-
-private:
-    std::wstring m_imagePath;
-    std::wstring m_commandLine;
-    ScopedHandle m_process;
-    ScopedHandle m_thread;
-    ProcessIdentity m_identity;
-};
 
 std::string lowercaseAscii(std::string text)
 {

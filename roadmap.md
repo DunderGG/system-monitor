@@ -139,7 +139,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Process termination (unelevated only)
 
-- [ ] Implement `TerminateProcess` for processes the current user owns.
+- [x] Implement `TerminateProcess` for processes the current user owns.
 - [ ] Show a confirmation dialog before termination with the process name, PID, and a warning.
 - [ ] Handle failure gracefully (process already exited, access denied) with a user-facing message.
 - [ ] Do not attempt to terminate elevated or system processes in the MVP.
