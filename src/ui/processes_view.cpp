@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <optional>
 
+#include <QCheckBox>
 #include <QFont>
 #include <QFontMetrics>
 #include <QHBoxLayout>
@@ -14,6 +15,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#include "domain/process_identity.h"
 #include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 #include "ui/process_model.h"
@@ -85,6 +87,9 @@ ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
     m_filterEdit->setClearButtonEnabled(true);
     m_filterEdit->setMaximumWidth(kFilterMaximumWidth);
     toolbar->addWidget(m_filterEdit, 1);
+    m_treeModeCheckBox = new QCheckBox("Show as tree", this);
+    m_treeModeCheckBox->setToolTip("Show each process under the process that started it");
+    toolbar->addWidget(m_treeModeCheckBox);
     toolbar->addStretch();
     m_summaryLabel = new QLabel(processListSummary(std::nullopt, false), this);
     toolbar->addWidget(m_summaryLabel);
@@ -93,7 +98,6 @@ ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
     m_model = new ProcessModel(this);
     m_proxyModel = new ProcessSortFilterProxyModel(this);
     m_proxyModel->setSourceModel(m_model);
-    connect(m_filterEdit, &QLineEdit::textChanged, m_proxyModel, &QSortFilterProxyModel::setFilterFixedString);
 
     m_treeView = new QTreeView(this);
     m_treeView->setModel(m_proxyModel);
@@ -105,6 +109,34 @@ ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
     m_treeView->sortByColumn(static_cast<int>(ProcessModel::Column::Name), Qt::AscendingOrder);
     sizeColumns(m_treeView);
     layout->addWidget(m_treeView, 1);
+
+    connect(m_filterEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
+        m_proxyModel->setFilterFixedString(text);
+        // Matches deep in the tree would otherwise stay inside collapsed branches.
+        if (m_model->isTreeMode()) {
+            m_treeView->expandAll();
+        }
+    });
+    connect(m_treeModeCheckBox, &QCheckBox::toggled, this, &ProcessesView::applyTreeMode);
+    connect(
+        m_proxyModel, &QAbstractItemModel::rowsInserted, this, [this](const QModelIndex& parent, int first, int last) {
+            // A process that gains its first child is expanded. One with
+            // children already keeps the state it has, which the user may
+            // have chosen.
+            if (m_model->isTreeMode() && parent.isValid() && first == 0 && m_proxyModel->rowCount(parent) == last + 1) {
+                m_treeView->expand(parent);
+            }
+        });
+}
+
+void ProcessesView::setTreeMode(bool enabled)
+{
+    m_treeModeCheckBox->setChecked(enabled);
+}
+
+bool ProcessesView::isTreeMode() const
+{
+    return m_model->isTreeMode();
 }
 
 void ProcessesView::updateSnapshot(const domain::SystemSnapshot& snapshot)
@@ -131,6 +163,35 @@ ProcessSortFilterProxyModel* ProcessesView::proxyModel() const
 QLineEdit* ProcessesView::filterEdit() const
 {
     return m_filterEdit;
+}
+
+QCheckBox* ProcessesView::treeModeCheckBox() const
+{
+    return m_treeModeCheckBox;
+}
+
+void ProcessesView::applyTreeMode(bool enabled)
+{
+    // Switching resets the model, which clears the selection; the selected
+    // process is selected again afterwards.
+    std::optional<domain::ProcessIdentity> selected;
+    if (const auto* process = m_model->process(m_proxyModel->mapToSource(m_treeView->currentIndex()))) {
+        selected = process->identity();
+    }
+
+    m_model->setTreeMode(enabled);
+    m_treeView->setRootIsDecorated(enabled);
+    if (enabled) {
+        m_treeView->expandAll();
+    }
+
+    if (selected) {
+        const QModelIndex index = m_proxyModel->mapFromSource(m_model->indexOf(*selected));
+        if (index.isValid()) {
+            m_treeView->setCurrentIndex(index);
+            m_treeView->scrollTo(index);
+        }
+    }
 }
 
 QTreeView* ProcessesView::treeView() const

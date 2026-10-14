@@ -5,6 +5,8 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QCheckBox>
+#include <QItemSelectionModel>
 #include <QLineEdit>
 #include <QTreeView>
 
@@ -108,4 +110,85 @@ TEST(ProcessesView, UpdateSnapshot_EmptyList_RemovesRows)
 
     EXPECT_EQ(view.model()->rowCount(), 0);
     EXPECT_EQ(view.summaryText(), "Processes: 0");
+}
+
+namespace
+{
+
+ProcessInfo childOf(uint32_t parentPid, uint32_t pid, std::string name)
+{
+    ProcessInfo info = process(pid, std::move(name));
+    info.parentPid = parentPid;
+    return info;
+}
+
+} // namespace
+
+TEST(ProcessesView, SetTreeMode_ShowsBranchesExpanded)
+{
+    ProcessesView view;
+    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+
+    view.setTreeMode(true);
+
+    EXPECT_TRUE(view.isTreeMode());
+    EXPECT_TRUE(view.model()->isTreeMode());
+    EXPECT_TRUE(view.treeModeCheckBox()->isChecked());
+    EXPECT_TRUE(view.treeView()->rootIsDecorated());
+    ASSERT_EQ(view.proxyModel()->rowCount(), 1);
+    const QModelIndex system = view.proxyModel()->index(0, 0);
+    EXPECT_EQ(view.proxyModel()->rowCount(system), 1);
+    EXPECT_TRUE(view.treeView()->isExpanded(system));
+}
+
+TEST(ProcessesView, TreeModeCheckBox_Unchecked_ShowsFlatListAgain)
+{
+    ProcessesView view;
+    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.treeModeCheckBox()->setChecked(true);
+
+    view.treeModeCheckBox()->setChecked(false);
+
+    EXPECT_FALSE(view.isTreeMode());
+    EXPECT_FALSE(view.treeView()->rootIsDecorated());
+    EXPECT_EQ(view.proxyModel()->rowCount(), 2);
+}
+
+TEST(ProcessesView, SetTreeMode_SelectedProcessStaysSelected)
+{
+    ProcessesView view;
+    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    const auto smssIdentity = childOf(4, 100, "smss.exe").identity();
+    view.treeView()->setCurrentIndex(view.proxyModel()->mapFromSource(view.model()->indexOf(smssIdentity)));
+
+    view.setTreeMode(true);
+
+    const QModelIndex current = view.proxyModel()->mapToSource(view.treeView()->currentIndex());
+    ASSERT_NE(view.model()->process(current), nullptr);
+    EXPECT_EQ(view.model()->process(current)->identity(), smssIdentity);
+    EXPECT_TRUE(view.treeView()->selectionModel()->isSelected(view.treeView()->currentIndex()));
+}
+
+TEST(ProcessesView, TreeMode_ProcessGainsFirstChild_Expanded)
+{
+    ProcessesView view;
+    view.setTreeMode(true);
+    view.updateSnapshot(snapshotWith({process(400, "services.exe")}));
+
+    view.updateSnapshot(snapshotWith({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
+
+    EXPECT_TRUE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
+}
+
+TEST(ProcessesView, TreeMode_CollapsedBranch_StaysCollapsedWhenChildrenArrive)
+{
+    ProcessesView view;
+    view.setTreeMode(true);
+    view.updateSnapshot(snapshotWith({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
+    view.treeView()->collapse(view.proxyModel()->index(0, 0));
+
+    view.updateSnapshot(snapshotWith(
+        {process(400, "services.exe"), childOf(400, 500, "svchost.exe"), childOf(400, 600, "spoolsv.exe")}));
+
+    EXPECT_FALSE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
 }

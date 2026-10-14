@@ -1,8 +1,13 @@
 #include "ui/process_model.h"
 
+#include <algorithm>
+#include <cassert>
 #include <cstddef>
+#include <functional>
 #include <optional>
+#include <tuple>
 #include <unordered_set>
+#include <utility>
 
 #include <QGuiApplication>
 #include <QPalette>
@@ -127,39 +132,75 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
         listed.insert(process.identity());
     }
 
-    // From the last row back, so the rows still to be checked keep their numbers.
-    for (int row = static_cast<int>(m_rows.size()) - 1; row >= 0; --row) {
-        if (!listed.contains(m_rows[static_cast<std::size_t>(row)]->process.identity())) {
-            removeNodeAt(row);
+    std::vector<std::pair<int, Node*>> exited;
+    for (const auto& [identity, node] : m_nodes) {
+        if (!listed.contains(identity)) {
+            int depth = 0;
+            for (const Node* ancestor = node->parent; ancestor != nullptr; ancestor = ancestor->parent) {
+                ++depth;
+            }
+            exited.emplace_back(depth, node.get());
         }
     }
+    // Deepest first, so a removed node's remaining children are all still running.
+    std::ranges::sort(exited, std::greater{}, &std::pair<int, Node*>::first);
+    for (const auto& [depth, node] : exited) {
+        removeNode(node);
+    }
 
-    std::vector<std::unique_ptr<Node>> added;
+    std::vector<Node*> added;
     for (const auto& process : processes) {
         const auto identity = process.identity();
         if (const auto it = m_nodes.find(identity); it != m_nodes.end()) {
             it->second->process = process;
         } else if (listed.erase(identity) > 0) {
             // Erasing the identity keeps a duplicate entry in the list from adding a second row.
-            added.push_back(std::make_unique<Node>(Node{.process = process}));
+            auto node = std::make_unique<Node>(Node{.process = process});
+            added.push_back(node.get());
+            m_nodesByPid.emplace(process.pid, node.get());
+            m_nodes.emplace(identity, std::move(node));
         }
     }
-    if (!m_rows.empty()) {
-        emit dataChanged(index(0, kFirstValueColumn), index(static_cast<int>(m_rows.size()) - 1, kColumnCount - 1));
-    }
-    if (added.empty()) {
+    signalValuesChanged();
+    insertNodes(added);
+}
+
+void ProcessModel::setTreeMode(bool enabled)
+{
+    if (m_treeMode == enabled) {
         return;
     }
 
-    const int first = static_cast<int>(m_rows.size());
-    beginInsertRows({}, first, first + static_cast<int>(added.size()) - 1);
-    for (auto& node : added) {
-        const auto identity = node->process.identity();
-        node->row = static_cast<int>(m_rows.size());
-        m_rows.push_back(node.get());
-        m_nodes.insert_or_assign(identity, std::move(node));
+    beginResetModel();
+    m_treeMode = enabled;
+    m_topLevel.clear();
+    std::vector<Node*> nodes;
+    nodes.reserve(m_nodes.size());
+    for (const auto& [identity, node] : m_nodes) {
+        node->parent = nullptr;
+        node->children.clear();
+        nodes.push_back(node.get());
     }
-    endInsertRows();
+    // Oldest first gives the top level a stable order. findParent() sees the
+    // links made so far, which keeps it from making a cycle.
+    std::ranges::sort(nodes, [](const Node* left, const Node* right) {
+        return std::tie(left->process.creationTime, left->process.pid) <
+               std::tie(right->process.creationTime, right->process.pid);
+    });
+    for (Node* node : nodes) {
+        node->parent = findParent(*node);
+    }
+    for (Node* node : nodes) {
+        auto& siblings = siblingsOf(node->parent);
+        node->row = static_cast<int>(siblings.size());
+        siblings.push_back(node);
+    }
+    endResetModel();
+}
+
+bool ProcessModel::isTreeMode() const
+{
+    return m_treeMode;
 }
 
 const domain::ProcessInfo* ProcessModel::process(const QModelIndex& index) const
@@ -174,7 +215,7 @@ QModelIndex ProcessModel::indexOf(const domain::ProcessIdentity& identity, Colum
     if (it == m_nodes.end()) {
         return {};
     }
-    return createIndex(it->second->row, static_cast<int>(column), it->second.get());
+    return indexOfNode(it->second.get(), static_cast<int>(column));
 }
 
 QModelIndex ProcessModel::index(int row, int column, const QModelIndex& parent) const
@@ -182,17 +223,25 @@ QModelIndex ProcessModel::index(int row, int column, const QModelIndex& parent) 
     if (!hasIndex(row, column, parent)) {
         return {};
     }
-    return createIndex(row, column, m_rows[static_cast<std::size_t>(row)]);
+    const Node* parentNode = nodeAt(parent);
+    const auto& siblings = parentNode != nullptr ? parentNode->children : m_topLevel;
+    return createIndex(row, column, siblings[static_cast<std::size_t>(row)]);
 }
 
-QModelIndex ProcessModel::parent(const QModelIndex& /*child*/) const
+QModelIndex ProcessModel::parent(const QModelIndex& child) const
 {
-    return {};
+    const Node* node = nodeAt(child);
+    return node != nullptr ? indexOfNode(node->parent) : QModelIndex{};
 }
 
 int ProcessModel::rowCount(const QModelIndex& parent) const
 {
-    return parent.isValid() ? 0 : static_cast<int>(m_rows.size());
+    if (!parent.isValid()) {
+        return static_cast<int>(m_topLevel.size());
+    }
+    // Only the first column has children, as views expect.
+    const Node* node = nodeAt(parent);
+    return node != nullptr && parent.column() == 0 ? static_cast<int>(node->children.size()) : 0;
 }
 
 int ProcessModel::columnCount(const QModelIndex& /*parent*/) const
@@ -267,18 +316,132 @@ const ProcessModel::Node* ProcessModel::nodeAt(const QModelIndex& index) const
     return static_cast<const Node*>(index.constInternalPointer());
 }
 
-void ProcessModel::removeNodeAt(int row)
+QModelIndex ProcessModel::indexOfNode(const Node* node, int column) const
 {
-    const auto position = m_rows.begin() + row;
-    const auto identity = (*position)->process.identity();
+    return node != nullptr ? createIndex(node->row, column, node) : QModelIndex{};
+}
 
-    beginRemoveRows({}, row, row);
-    m_rows.erase(position);
-    for (auto it = m_rows.begin() + row; it != m_rows.end(); ++it) {
+std::vector<ProcessModel::Node*>& ProcessModel::siblingsOf(Node* parent)
+{
+    return parent != nullptr ? parent->children : m_topLevel;
+}
+
+ProcessModel::Node* ProcessModel::findParent(const Node& node) const
+{
+    const domain::ProcessInfo& child = node.process;
+    // The Idle process reports PID 0 as its own parent, and so does System.
+    if (!m_treeMode || child.parentPid == 0) {
+        return nullptr;
+    }
+
+    // The parent's PID may have been reused by a process created after the
+    // child, which cannot be its parent.
+    Node* parent = nullptr;
+    const auto [first, last] = m_nodesByPid.equal_range(child.parentPid);
+    for (auto it = first; it != last; ++it) {
+        const auto creationTime = it->second->process.creationTime;
+        if (creationTime <= child.creationTime && (parent == nullptr || creationTime > parent->process.creationTime)) {
+            parent = it->second;
+        }
+    }
+
+    // Processes created in the same clock tick can name each other, or a
+    // process itself; either link would make a cycle.
+    for (const Node* ancestor = parent; ancestor != nullptr; ancestor = ancestor->parent) {
+        if (ancestor == &node) {
+            return nullptr;
+        }
+    }
+    return parent;
+}
+
+void ProcessModel::removeNode(Node* node)
+{
+    // A process's children keep running after it exits; they move to the top level.
+    if (!node->children.empty()) {
+        const int count = static_cast<int>(node->children.size());
+        [[maybe_unused]] const bool canMove =
+            beginMoveRows(indexOfNode(node), 0, count - 1, QModelIndex{}, static_cast<int>(m_topLevel.size()));
+        assert(canMove && "moving children to the top level is always valid");
+        for (Node* child : node->children) {
+            child->parent = nullptr;
+            child->row = static_cast<int>(m_topLevel.size());
+            m_topLevel.push_back(child);
+        }
+        node->children.clear();
+        endMoveRows();
+    }
+
+    auto& siblings = siblingsOf(node->parent);
+    const int row = node->row;
+    beginRemoveRows(indexOfNode(node->parent), row, row);
+    siblings.erase(siblings.begin() + row);
+    for (auto it = siblings.begin() + row; it != siblings.end(); ++it) {
         --(*it)->row;
     }
-    m_nodes.erase(identity);
+    const auto [first, last] = m_nodesByPid.equal_range(node->process.pid);
+    for (auto it = first; it != last; ++it) {
+        if (it->second == node) {
+            m_nodesByPid.erase(it);
+            break;
+        }
+    }
+    m_nodes.erase(node->process.identity());
     endRemoveRows();
+}
+
+void ProcessModel::insertNodes(const std::vector<Node*>& added)
+{
+    // Parents are looked up among all nodes, the new ones included, so a
+    // process and its parent that appear in the same list are linked.
+    for (Node* node : added) {
+        node->parent = findParent(*node);
+    }
+
+    // Each parent's new children are inserted with one signal. Parents that
+    // are already shown go first, so a new parent is shown before its children.
+    const std::unordered_set<const Node*> isNew(added.begin(), added.end());
+    std::unordered_map<Node*, std::vector<Node*>> newChildren;
+    std::vector<Node*> ready;
+    for (Node* node : added) {
+        auto& group = newChildren[node->parent];
+        if (group.empty() && !isNew.contains(node->parent)) {
+            ready.push_back(node->parent);
+        }
+        group.push_back(node);
+    }
+
+    while (!ready.empty()) {
+        Node* parent = ready.back();
+        ready.pop_back();
+        const auto& group = newChildren[parent];
+        auto& siblings = siblingsOf(parent);
+        const int first = static_cast<int>(siblings.size());
+        beginInsertRows(indexOfNode(parent), first, first + static_cast<int>(group.size()) - 1);
+        for (Node* node : group) {
+            node->row = static_cast<int>(siblings.size());
+            siblings.push_back(node);
+        }
+        endInsertRows();
+        for (Node* node : group) {
+            if (newChildren.contains(node)) {
+                ready.push_back(node);
+            }
+        }
+    }
+}
+
+void ProcessModel::signalValuesChanged()
+{
+    const auto signalRows = [this](const std::vector<Node*>& rows) {
+        if (!rows.empty()) {
+            emit dataChanged(indexOfNode(rows.front(), kFirstValueColumn), indexOfNode(rows.back(), kColumnCount - 1));
+        }
+    };
+    signalRows(m_topLevel);
+    for (const auto& [identity, node] : m_nodes) {
+        signalRows(node->children);
+    }
 }
 
 } // namespace sysmon::ui

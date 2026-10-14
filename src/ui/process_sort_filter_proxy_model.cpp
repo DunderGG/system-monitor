@@ -80,6 +80,7 @@ std::partial_ordering compareColumn(const domain::ProcessInfo& left, const domai
 ProcessSortFilterProxyModel::ProcessSortFilterProxyModel(QObject* parent) : QSortFilterProxyModel(parent)
 {
     setFilterCaseSensitivity(Qt::CaseInsensitive);
+    setRecursiveFilteringEnabled(true);
 }
 
 bool ProcessSortFilterProxyModel::lessThan(const QModelIndex& sourceLeft, const QModelIndex& sourceRight) const

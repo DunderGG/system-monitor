@@ -16,7 +16,9 @@ namespace sysmon::ui
  * equal values keep a stable order as the values change.
  *
  * setFilterFixedString() keeps the rows whose name or PID contains the text,
- * ignoring case. The source model must be a ProcessModel; rows of any other
+ * ignoring case. In tree mode a row is also kept when one of its descendants
+ * matches, so a match is shown in its place in the tree; siblings sort among
+ * themselves. The source model must be a ProcessModel; rows of any other
  * model are kept and compare equal.
  */
 class ProcessSortFilterProxyModel : public QSortFilterProxyModel

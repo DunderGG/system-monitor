@@ -185,3 +185,46 @@ TEST(ProcessSortFilterProxyModel, Filter_NewMatchingProcess_Appears)
 
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2}));
 }
+
+TEST(ProcessSortFilterProxyModel, Filter_TreeMode_KeepsAncestorsOfMatches)
+{
+    ProcessModel model;
+    model.setTreeMode(true);
+    ProcessInfo services = process(400, "services.exe");
+    ProcessInfo svchost = process(500, "svchost.exe");
+    svchost.parentPid = 400;
+    ProcessInfo spoolsv = process(600, "spoolsv.exe");
+    spoolsv.parentPid = 400;
+    model.updateProcesses({services, svchost, spoolsv, process(700, "other.exe")});
+    ProcessSortFilterProxyModel proxy;
+    proxy.setSourceModel(&model);
+
+    proxy.setFilterFixedString("svchost");
+
+    ASSERT_EQ(proxy.rowCount(), 1);
+    const QModelIndex parent = proxy.index(0, 0);
+    EXPECT_EQ(parent.data().toString(), "services.exe");
+    ASSERT_EQ(proxy.rowCount(parent), 1);
+    EXPECT_EQ(proxy.index(0, 0, parent).data().toString(), "svchost.exe");
+}
+
+TEST(ProcessSortFilterProxyModel, Sort_TreeMode_SortsChildrenAmongThemselves)
+{
+    ProcessModel model;
+    model.setTreeMode(true);
+    ProcessInfo zeta = process(500, "zeta.exe");
+    zeta.parentPid = 400;
+    ProcessInfo alpha = process(600, "alpha.exe");
+    alpha.parentPid = 400;
+    model.updateProcesses({process(400, "services.exe"), zeta, alpha, process(100, "aaa.exe")});
+    ProcessSortFilterProxyModel proxy;
+    proxy.setSourceModel(&model);
+
+    proxy.sort(static_cast<int>(Column::Name), Qt::AscendingOrder);
+
+    ASSERT_EQ(proxy.rowCount(), 2);
+    EXPECT_EQ(proxy.index(0, 0).data().toString(), "aaa.exe");
+    const QModelIndex services = proxy.index(1, 0);
+    EXPECT_EQ(proxy.index(0, 0, services).data().toString(), "alpha.exe");
+    EXPECT_EQ(proxy.index(1, 0, services).data().toString(), "zeta.exe");
+}
