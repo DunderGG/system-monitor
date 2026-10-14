@@ -52,11 +52,14 @@ A `release` configure, build, and test preset inherits everything from
 `default` except `CMAKE_BUILD_TYPE=Release`, and builds in `build/release`.
 Use it to measure performance: the Debug Qt libraries that `default` links are
 many times slower, especially for painting. `.\scripts\build.ps1 -Release`
-selects it. `.\scripts\build.ps1 -Benchmark` also selects it, then runs
-`system_monitor_benchmark` (`benchmarks/`), which prints the Performance tab's
-cost per tick for each page and chart window. The benchmark is built with every
-preset so it keeps compiling, but it is not registered with CTest and CI does
-not run it, because its timings depend on the machine.
+selects it. `.\scripts\build.ps1 -Benchmark` also selects it, then runs the
+two executables in `benchmarks/`: `system_monitor_benchmark`, which prints the
+Performance tab's cost per tick for each page and chart window, and
+`system_monitor_process_benchmark`, which prints the Processes tab's cost per
+tick for flat and tree views of 400 to 2,000 processes. The benchmarks are
+built with every preset so they keep compiling, but they are not registered
+with CTest and CI does not run them, because their timings depend on the
+machine.
 
 vcpkg installs release and debug libraries for the `x64-windows` triplet, so
 the second build directory restores its dependencies from the binary cache

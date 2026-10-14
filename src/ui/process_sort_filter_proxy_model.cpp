@@ -81,6 +81,47 @@ ProcessSortFilterProxyModel::ProcessSortFilterProxyModel(QObject* parent) : QSor
 {
     setFilterCaseSensitivity(Qt::CaseInsensitive);
     setRecursiveFilteringEnabled(true);
+    // filterAcceptsRow() matches names and PIDs, which never change for a row.
+    // With a filter role that value changes never name, Qt does not re-filter
+    // every ancestor of a row whose values changed.
+    setFilterRole(Qt::UserRole);
+}
+
+void ProcessSortFilterProxyModel::setSourceModel(QAbstractItemModel* sourceModel)
+{
+    disconnect(m_valueChangesStartedConnection);
+    disconnect(m_valueChangesEndedConnection);
+    QSortFilterProxyModel::setSourceModel(sourceModel);
+    if (auto* processModel = qobject_cast<ProcessModel*>(sourceModel)) {
+        m_valueChangesStartedConnection = connect(processModel, &ProcessModel::valueChangesStarted, this,
+                                                  &ProcessSortFilterProxyModel::onValueChangesStarted);
+        m_valueChangesEndedConnection = connect(processModel, &ProcessModel::valueChangesEnded, this,
+                                                &ProcessSortFilterProxyModel::onValueChangesEnded);
+    }
+}
+
+void ProcessSortFilterProxyModel::onValueChangesStarted(int firstColumn, int lastColumn, int signalCount)
+{
+    // With dynamic sorting, each dataChanged() that covers the sorted column
+    // re-sorts its parent's children, and each re-sort that moves a row
+    // remaps every persistent index, including one per expanded row in a tree
+    // view. Across many parents that is quadratic, so sorting is switched off
+    // for the batch and done once at the end. A single signal is left to the
+    // dynamic sort, which only re-sorts the rows that changed.
+    const int column = sortColumn();
+    if (dynamicSortFilter() && signalCount > 1 && column >= firstColumn && column <= lastColumn) {
+        setDynamicSortFilter(false);
+        m_isSortDeferred = true;
+    }
+}
+
+void ProcessSortFilterProxyModel::onValueChangesEnded()
+{
+    if (m_isSortDeferred) {
+        m_isSortDeferred = false;
+        // Switching dynamic sorting back on sorts every level once.
+        setDynamicSortFilter(true);
+    }
 }
 
 bool ProcessSortFilterProxyModel::lessThan(const QModelIndex& sourceLeft, const QModelIndex& sourceRight) const

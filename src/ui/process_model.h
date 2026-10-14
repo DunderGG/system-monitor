@@ -26,7 +26,10 @@ namespace sysmon::ui
  * processes that are no longer listed, updates the values of the others, and
  * inserts rows for new ones, so views keep their scroll position, selection,
  * and expanded state. The model is never reset on a refresh; only
- * setTreeMode() resets it.
+ * setTreeMode() resets it. Value changes are signalled only for the cells
+ * whose values changed, as one dataChanged() block per parent naming the
+ * display, tooltip, and foreground roles, so a list that repeats the previous
+ * one signals nothing.
  *
  * In tree mode a process's parent is the latest listed process with its
  * parent PID that was created no later than itself. Windows records only the
@@ -97,6 +100,17 @@ public:
     [[nodiscard]] QVariant headerData(int section, Qt::Orientation orientation,
                                       int role = Qt::DisplayRole) const override;
 
+signals:
+    /**
+     * Emitted by updateProcesses() before the dataChanged() signals for one
+     * refresh's value changes: signalCount signals (one per parent with
+     * changes) covering firstColumn to lastColumn. valueChangesEnded() follows
+     * them. A sorting proxy can sort once afterwards rather than once per
+     * signal.
+     */
+    void valueChangesStarted(int firstColumn, int lastColumn, int signalCount);
+    void valueChangesEnded();
+
 private:
     struct Node
     {
@@ -108,13 +122,26 @@ private:
         int row{0};
     };
 
+    // The smallest block of cells that covers the changed values among one
+    // parent's children.
+    struct ChangedBlock
+    {
+        int firstRow{0};
+        int lastRow{0};
+        int firstColumn{0};
+        int lastColumn{0};
+    };
+
+    // Changed blocks keyed by the parent node, nullptr for the top level.
+    using ChangedBlocks = std::unordered_map<Node*, ChangedBlock>;
+
     [[nodiscard]] const Node* nodeAt(const QModelIndex& index) const;
     [[nodiscard]] QModelIndex indexOfNode(const Node* node, int column = 0) const;
     [[nodiscard]] std::vector<Node*>& siblingsOf(Node* parent);
     [[nodiscard]] Node* findParent(const Node& node) const;
     void removeNode(Node* node);
     void insertNodes(const std::vector<Node*>& added);
-    void signalValuesChanged();
+    void signalValuesChanged(const ChangedBlocks& changed);
 
     // Owns every node. m_topLevel and each node's children hold them in row order.
     std::unordered_map<domain::ProcessIdentity, std::unique_ptr<Node>, domain::ProcessIdentityHash> m_nodes;

@@ -97,6 +97,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-80](#dc-80-process-table-columns-io-rates-from-the-collector-and-na-for-missing-values): Process table columns: I/O rates from the collector, and N/A for missing values
   - [DC-81](#dc-81-sorting-and-filtering-a-proxy-that-compares-domain-values-with-missing-values-lowest): Sorting and filtering: a proxy that compares domain values, with missing values lowest
   - [DC-82](#dc-82-process-tree-parents-matched-by-pid-and-creation-time-orphans-at-the-top-level-and-a-reset-only-on-toggle): Process tree: parents matched by PID and creation time, orphans at the top level, and a reset only on toggle
+  - [DC-83](#dc-83-process-table-updates-only-changed-cells-named-roles-one-sort-per-refresh-and-a-benchmark): Process table updates: only changed cells, named roles, one sort per refresh, and a benchmark
 
 ---
 
@@ -679,6 +680,8 @@ One run on the development machine (16 threads, 4.7 GHz), mean with maximum in p
 
 The new numbers support DC-61's conclusions with slightly higher figures. A tick at the default 1-minute window costs at most about 15 ms (14 ms for 64 cores, against "under 13 ms"). The worst case at 30 minutes averages about 40 ms, with single ticks up to about 49 ms. That is still one short frame per second. Individual pages differ from DC-61 because the data differs: every series here swings, including all three disk volumes, which real disk usage never does, so the disk page is far slower than DC-61's 1.6 ms. The network page is faster than DC-61's 36.6 ms. The throwaway benchmark's data is not recorded in enough detail to say why, which is the reason to commit this one.
 
+**Extended by [DC-83](#dc-83-process-table-updates-only-changed-cells-named-roles-one-sort-per-refresh-and-a-benchmark):** `build.ps1 -Benchmark` also runs `system_monitor_process_benchmark`, which measures the Processes tab.
+
 ### DC-67: Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
 
 **Decision:**
@@ -867,3 +870,30 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 - **Filtering and sorting:** the proxy filters recursively, so a match keeps its ancestors shown, and sorts each process's children among themselves.
 
 **Rationale:** Windows records only the parent's PID, and that PID can belong to a younger process by the time the child is listed. A parent can never be younger than its child, so the creation-time check rejects a reused PID, as process viewers such as Process Explorer do. "No later than" rather than "earlier than" because creation times are recorded at clock-tick granularity, and a process that starts a child at once can share its creation time. Same-tick creation is also why the cycle check is needed. A link never changes because a running process's parent PID never changes, and the process it names either keeps running or exits; it cannot appear later. Moving orphans to the top level is what Process Explorer does, and moving them rather than removing and reinserting them keeps their selection and expanded state. Removing deepest first keeps each move to the processes that outlive their parent. Inserting by parent keeps the signals per refresh to one per parent that gained children, and inserting parents first is required, because a row must exist before rows can be inserted under it. A reset on toggle is simpler than moving every row, and it happens only when the user asks. QTreeView cannot tell a branch the user collapsed from one never expanded, so the view expands a branch automatically only when it gains its first child, which no user can have collapsed yet. A seeded random-churn unit test (300 refreshes of processes starting, exiting, reusing PIDs, and sharing creation ticks) checks the structure, the parent rule, every persistent index, and a sorted proxy on top after each refresh.
+
+---
+
+### DC-83: Process table updates: only changed cells, named roles, one sort per refresh, and a benchmark
+
+**Decision:**
+
+- **Changed cells only:** `updateProcesses()` compares each kept process's raw values with its previous ones, column by column, and signals only what changed: one `dataChanged()` per parent, covering the smallest block of rows and columns that changed under it. A list that repeats the previous one signals nothing.
+- **Named roles:** the signals name the display, tooltip, and foreground roles. The proxy's filter role is `Qt::UserRole`, which no signal names, because the filter matches only names and PIDs, and those never change for a row.
+- **One sort per refresh:** `ProcessModel` emits `valueChangesStarted(firstColumn, lastColumn, signalCount)` before a refresh's value signals and `valueChangesEnded()` after them. When the signals cover the sorted column under more than one parent, `ProcessSortFilterProxyModel` switches dynamic sorting off for the batch and back on afterwards, which sorts every level once. Removals and insertions keep dynamic sorting, so a new row is still placed by binary search.
+- **Benchmark:** `benchmarks/process_table_benchmark.cpp` builds `system_monitor_process_benchmark`, which `build.ps1 -Benchmark` runs after the Performance tab's ([DC-66](#dc-66-a-committed-tick-cost-benchmark-run-with-buildps1--benchmark-code-review-f-25)). It times a Processes tab tick for 400, 1,000, and 2,000 simulated processes in five views, with the tab shown (including a full repaint of a 1280×800 view) and hidden. It reports a refresh, in which 40% of the processes change values and 2 exit and 2 start, separately from a repeat of the same list, which the scheduler sends every other tick.
+
+Measured on the development machine (Release build, tab hidden, 2,000 processes, ms per tick for a refresh / a repeat):
+
+| View | Before | After |
+| --- | --- | --- |
+| Flat, by name | 0.26 / 0.22 | 0.24 / 0.17 |
+| Flat, by CPU | 1.33 / 0.58 | 1.23 / 0.19 |
+| Tree, by name | 4.01 / 2.03 | 2.23 / 0.19 |
+| Tree, by CPU | 27.18 / 1.79 | 2.72 / 0.17 |
+| Tree, by CPU, filtered | 8.55 / 6.77 | 1.93 / 0.18 |
+
+At 400 processes every view now costs under 0.5 ms per refresh and 0.03 ms per repeat. A full repaint of the shown tab adds about 5–6 ms; the CPU-sorted tree of 2,000 processes went from 32.7 to 9.7 ms per refresh with the tab shown.
+
+**Rationale:** Before this change every refresh signalled every kept row, one block per parent, naming no roles. In a tree with recursive filtering, Qt re-filters every ancestor of a block whose signal names no roles or names the filter role, and treats each ancestor as a changed range of its own. That is why a repeat of the same list still cost up to 6.8 ms. Naming the roles and moving the filter role away from them removes that walk, and comparing values makes a repeat signal nothing at all. Raw values are compared rather than display text because a change too small to show can still reorder a sorted view. A block per parent, rather than a signal per changed row, keeps the number of signals to one per parent, and every signal that covers the sorted column can cost a re-sort. Re-checking the unchanged rows inside a block is cheaper.
+
+Re-sorting once per parent was quadratic. Each re-sort that moves a row is a layout change in which the proxy remaps every persistent index, and a tree view holds one for each expanded row. In a 2,000-process tree almost every parent re-sorted, so the CPU-sorted tree cost grew from 1.1 to 6.1 to 24.7 ms as the list grew from 400 to 1,000 to 2,000 processes. One sort per refresh needs one remap pass. Only the value signals are batched. With dynamic sorting off for a whole refresh, Qt appends new rows unsorted, so every refresh that starts a process would need a full sort where a binary insert suffices. A flat list sends a single block, and Qt's dynamic re-sort of one block only moves the rows whose order changed. A general proxy cannot tell where one refresh's signals end, so the model announces the batch and the proxy decides whether to defer.

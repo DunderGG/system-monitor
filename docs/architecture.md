@@ -175,7 +175,7 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 
 - Use a single scheduler thread rather than a timer per chart or widget.
 - Sample aggregate CPU, memory, and network activity about once per second.
-- Refresh the process table at a lower cadence (every 2–5 seconds; the default is 2). With `NtQuerySystemInformation` this takes about 3.5–6 ms for 400 processes, most of it in the call itself ([DC-75](design_decisions.md#dc-75-process-details-read-with-a-limited-handle-checked-against-the-identity-and-logged-at-debug)), and the process view model diff/update is more expensive still, so neither needs per-second refresh.
+- Refresh the process table at a lower cadence (every 2–5 seconds; the default is 2). With `NtQuerySystemInformation` this takes about 3.5–6 ms for 400 processes, most of it in the call itself ([DC-75](design_decisions.md#dc-75-process-details-read-with-a-limited-handle-checked-against-the-identity-and-logged-at-debug)), so it does not need per-second refresh. The process table model applies a refreshed list of 400 processes in under 0.5 ms and signals only the cells that changed, so a snapshot that repeats the previous list costs almost nothing; a repaint of the shown table adds about 5–6 ms ([DC-83](design_decisions.md#dc-83-process-table-updates-only-changed-cells-named-roles-one-sort-per-refresh-and-a-benchmark)).
 - Calculate rates (CPU %, network throughput) using monotonic elapsed time from `std::chrono::steady_clock`, not wall-clock time.
 - Keep a fixed-size ring buffer per metric (for example, 300–1800 samples for 5–30 minutes at 1 Hz).
 - Do not write every sample to disk in the MVP.

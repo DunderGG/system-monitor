@@ -10,6 +10,7 @@
 #include <utility>
 
 #include <QGuiApplication>
+#include <QList>
 #include <QPalette>
 #include <QString>
 
@@ -24,8 +25,35 @@ namespace
 
 using Column = ProcessModel::Column;
 
-// The first column whose values can change while a process runs.
-constexpr int kFirstValueColumn = static_cast<int>(Column::Cpu);
+// Returns the first and last columns whose values differ between two readings
+// of one process, or std::nullopt when none do. Raw values are compared, not
+// display text: a change too small to show can still move the row in a sorted
+// view. Name and PID never change for a process.
+std::optional<std::pair<int, int>> changedColumns(const domain::ProcessInfo& before, const domain::ProcessInfo& after)
+{
+    std::optional<std::pair<int, int>> columns;
+    const auto mark = [&columns](Column column) {
+        const int index = static_cast<int>(column);
+        columns = columns ? std::pair{columns->first, index} : std::pair{index, index};
+    };
+    // In column order, so each mark extends the range to the right.
+    if (before.cpuUsagePercent != after.cpuUsagePercent) {
+        mark(Column::Cpu);
+    }
+    if (before.workingSetBytes != after.workingSetBytes) {
+        mark(Column::Memory);
+    }
+    if (before.ioReadBytesPerSec != after.ioReadBytesPerSec || before.ioWriteBytesPerSec != after.ioWriteBytesPerSec) {
+        mark(Column::Io);
+    }
+    if (before.threadCount != after.threadCount) {
+        mark(Column::Threads);
+    }
+    if (before.handleCount != after.handleCount) {
+        mark(Column::Handles);
+    }
+    return columns;
+}
 
 QString displayText(const domain::ProcessInfo& process, Column column)
 {
@@ -149,10 +177,22 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
     }
 
     std::vector<Node*> added;
+    ChangedBlocks changed;
     for (const auto& process : processes) {
         const auto identity = process.identity();
         if (const auto it = m_nodes.find(identity); it != m_nodes.end()) {
-            it->second->process = process;
+            Node& node = *it->second;
+            if (const auto columns = changedColumns(node.process, process)) {
+                const auto [block, isFirst] =
+                    changed.try_emplace(node.parent, ChangedBlock{node.row, node.row, columns->first, columns->second});
+                if (!isFirst) {
+                    block->second.firstRow = std::min(block->second.firstRow, node.row);
+                    block->second.lastRow = std::max(block->second.lastRow, node.row);
+                    block->second.firstColumn = std::min(block->second.firstColumn, columns->first);
+                    block->second.lastColumn = std::max(block->second.lastColumn, columns->second);
+                }
+            }
+            node.process = process;
         } else if (listed.erase(identity) > 0) {
             // Erasing the identity keeps a duplicate entry in the list from adding a second row.
             auto node = std::make_unique<Node>(Node{.process = process});
@@ -161,7 +201,7 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
             m_nodes.emplace(identity, std::move(node));
         }
     }
-    signalValuesChanged();
+    signalValuesChanged(changed);
     insertNodes(added);
 }
 
@@ -431,17 +471,27 @@ void ProcessModel::insertNodes(const std::vector<Node*>& added)
     }
 }
 
-void ProcessModel::signalValuesChanged()
+void ProcessModel::signalValuesChanged(const ChangedBlocks& changed)
 {
-    const auto signalRows = [this](const std::vector<Node*>& rows) {
-        if (!rows.empty()) {
-            emit dataChanged(indexOfNode(rows.front(), kFirstValueColumn), indexOfNode(rows.back(), kColumnCount - 1));
-        }
-    };
-    signalRows(m_topLevel);
-    for (const auto& [identity, node] : m_nodes) {
-        signalRows(node->children);
+    if (changed.empty()) {
+        return;
     }
+
+    int firstColumn = kColumnCount;
+    int lastColumn = 0;
+    for (const auto& [parent, block] : changed) {
+        firstColumn = std::min(firstColumn, block.firstColumn);
+        lastColumn = std::max(lastColumn, block.lastColumn);
+    }
+
+    static const QList<int> kValueRoles{Qt::DisplayRole, Qt::ToolTipRole, Qt::ForegroundRole};
+    emit valueChangesStarted(firstColumn, lastColumn, static_cast<int>(changed.size()));
+    for (const auto& [parent, block] : changed) {
+        const QModelIndex parentIndex = indexOfNode(parent);
+        emit dataChanged(index(block.firstRow, block.firstColumn, parentIndex),
+                         index(block.lastRow, block.lastColumn, parentIndex), kValueRoles);
+    }
+    emit valueChangesEnded();
 }
 
 } // namespace sysmon::ui

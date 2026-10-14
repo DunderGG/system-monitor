@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QList>
 #include <QObject>
 #include <QPersistentModelIndex>
 #include <QString>
@@ -371,19 +372,85 @@ TEST(ProcessModel, Data_MissingValues_ShowNotAvailableInPlaceholderColour)
     EXPECT_FALSE(model.index(0, static_cast<int>(Column::Name)).data(Qt::ForegroundRole).isValid());
 }
 
-TEST(ProcessModel, UpdateProcesses_ListedProcesses_SignalValueColumnsChanged)
+TEST(ProcessModel, UpdateProcesses_SameValues_SignalsNothing)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    ProcessInfo system = process(4, "System");
+    system.cpuUsagePercent = 1.5f;
+    system.ioReadBytesPerSec = 100;
+    model.updateProcesses({system, process(12, "smss.exe")});
     ModelSignalLog log(model);
 
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    model.updateProcesses({system, process(12, "smss.exe")});
+
+    EXPECT_TRUE(log.changed.empty());
+    EXPECT_TRUE(log.inserted.empty());
+    EXPECT_TRUE(log.removed.empty());
+}
+
+TEST(ProcessModel, UpdateProcesses_OneValueChanged_SignalsOnlyThatCellWithValueRoles)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe"), process(20, "csrss.exe")});
+    ModelSignalLog log(model);
+    QList<int> roles;
+    QObject::connect(
+        &model, &ProcessModel::dataChanged, &model,
+        [&roles](const QModelIndex&, const QModelIndex&, const QList<int>& changedRoles) { roles = changedRoles; });
+
+    ProcessInfo smss = process(12, "smss.exe");
+    smss.cpuUsagePercent = 0.5f;
+    model.updateProcesses({process(4, "System"), smss, process(20, "csrss.exe")});
+
+    ASSERT_EQ(log.changed.size(), 1u);
+    EXPECT_EQ(log.changed[0], (CellRange{.firstRow = 1,
+                                         .lastRow = 1,
+                                         .firstColumn = static_cast<int>(Column::Cpu),
+                                         .lastColumn = static_cast<int>(Column::Cpu)}));
+    EXPECT_TRUE(roles.contains(Qt::DisplayRole));
+    EXPECT_TRUE(roles.contains(Qt::ToolTipRole));
+    EXPECT_TRUE(roles.contains(Qt::ForegroundRole));
+}
+
+TEST(ProcessModel, UpdateProcesses_ChangesInSeveralRows_OneBlockCoveringThem)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe"), process(20, "csrss.exe")});
+    ModelSignalLog log(model);
+
+    ProcessInfo system = process(4, "System");
+    system.workingSetBytes = 8192;
+    ProcessInfo csrss = process(20, "csrss.exe");
+    csrss.handleCount = 900;
+    model.updateProcesses({system, process(12, "smss.exe"), csrss});
 
     ASSERT_EQ(log.changed.size(), 1u);
     EXPECT_EQ(log.changed[0], (CellRange{.firstRow = 0,
-                                         .lastRow = 1,
-                                         .firstColumn = static_cast<int>(Column::Cpu),
-                                         .lastColumn = ProcessModel::kColumnCount - 1}));
+                                         .lastRow = 2,
+                                         .firstColumn = static_cast<int>(Column::Memory),
+                                         .lastColumn = static_cast<int>(Column::Handles)}));
+}
+
+TEST(ProcessModel, UpdateProcesses_EachValueColumn_DetectedOnItsOwn)
+{
+    const auto changedColumnAfter = [](auto change) {
+        ProcessModel model;
+        model.updateProcesses({process(4, "System")});
+        ModelSignalLog log(model);
+        ProcessInfo system = process(4, "System");
+        change(system);
+        model.updateProcesses({system});
+        EXPECT_EQ(log.changed.size(), 1u);
+        EXPECT_TRUE(log.changed.empty() || log.changed[0].firstColumn == log.changed[0].lastColumn);
+        return log.changed.empty() ? -1 : log.changed[0].firstColumn;
+    };
+
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.cpuUsagePercent = 0.0f; }), static_cast<int>(Column::Cpu));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.workingSetBytes = 1; }), static_cast<int>(Column::Memory));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.ioReadBytesPerSec = 0; }), static_cast<int>(Column::Io));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.ioWriteBytesPerSec = 0; }), static_cast<int>(Column::Io));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.threadCount = 1; }), static_cast<int>(Column::Threads));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.handleCount = 1; }), static_cast<int>(Column::Handles));
 }
 
 TEST(ProcessModel, Data_NumbersAlignRightAndNamesDoNot)
@@ -526,22 +593,33 @@ TEST(ProcessModel, TreeMode_ParentAndChildExitTogether_SurvivorsMoveToTopLevel)
     EXPECT_EQ(treeText(model), "c.exe\nd.exe\n");
 }
 
-TEST(ProcessModel, TreeMode_ValuesChange_OneSignalPerParent)
+TEST(ProcessModel, TreeMode_ValuesChange_OneSignalPerParentWithChanges)
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4), child(200, "other.exe", 0)});
+    model.updateProcesses(
+        {child(4, "System", 0), child(100, "smss.exe", 4), child(200, "other.exe", 0), child(300, "quiet.exe", 200)});
     ModelSignalLog log(model);
 
-    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4), child(200, "other.exe", 0)});
+    ProcessInfo system = child(4, "System", 0);
+    system.threadCount = 200;
+    ProcessInfo smss = child(100, "smss.exe", 4);
+    smss.workingSetBytes = 4096;
+    ProcessInfo other = child(200, "other.exe", 0);
+    other.cpuUsagePercent = 1.0f;
+    model.updateProcesses({system, smss, other, child(300, "quiet.exe", 200)});
 
-    // The top level's two rows, and System's one child.
-    std::vector<int> rowCounts;
-    for (const auto& range : log.changed) {
-        rowCounts.push_back(range.lastRow - range.firstRow + 1);
-    }
-    std::ranges::sort(rowCounts);
-    EXPECT_EQ(rowCounts, (std::vector<int>{1, 2}));
+    // The top level's two rows, and System's one child. Nothing changed under other.exe.
+    ASSERT_EQ(log.changed.size(), 2u);
+    std::ranges::sort(log.changed, {}, &CellRange::lastRow);
+    EXPECT_EQ(log.changed[0], (CellRange{.firstRow = 0,
+                                         .lastRow = 0,
+                                         .firstColumn = static_cast<int>(Column::Memory),
+                                         .lastColumn = static_cast<int>(Column::Memory)}));
+    EXPECT_EQ(log.changed[1], (CellRange{.firstRow = 0,
+                                         .lastRow = 1,
+                                         .firstColumn = static_cast<int>(Column::Cpu),
+                                         .lastColumn = static_cast<int>(Column::Threads)}));
 }
 
 TEST(ProcessModel, SetTreeMode_Toggle_ResetsOnceAndRebuilds)

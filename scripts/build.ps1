@@ -38,11 +38,14 @@ instead of the Debug one in build\default. Use it to measure performance; Debug
 Qt libraries are many times slower, especially for painting.
 
 .PARAMETER Benchmark
-Builds the Release configuration (implies -Release) and runs the Performance
-tab tick-cost benchmark (benchmarks\performance_tick_benchmark.cpp), which
-prints the mean and maximum time per tick for each page and chart window. It
-runs after the tests when -Test is also supplied. Its timings depend on the
-machine, so it is not part of the test suite and CI does not run it.
+Builds the Release configuration (implies -Release) and runs the tick-cost
+benchmarks: the Performance tab's (benchmarks\performance_tick_benchmark.cpp),
+which prints the mean and maximum time per tick for each page and chart
+window, then the Processes tab's (benchmarks\process_table_benchmark.cpp),
+which prints the time per tick for flat and tree views of 400 to 2,000
+processes. They run after the tests when -Test is also supplied. Their
+timings depend on the machine, so they are not part of the test suite and CI
+does not run them.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
@@ -137,7 +140,10 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $preset = if ($Release -or $Benchmark) { "release" } else { "default" }
 $buildDirectory = Join-Path $projectRoot "build\$preset"
 $applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
-$benchmarkPath = Join-Path $buildDirectory "benchmarks\system_monitor_benchmark.exe"
+$benchmarkPaths = @(
+    (Join-Path $buildDirectory "benchmarks\system_monitor_benchmark.exe"),
+    (Join-Path $buildDirectory "benchmarks\system_monitor_process_benchmark.exe")
+)
 
 # Refresh process PATH from User and Machine values so that any tools installed
 # by bootstrap.ps1 (such as ninja) are visible in the current session.
@@ -461,11 +467,14 @@ try
 
     if ($Benchmark)
     {
-        if (-not (Test-Path -LiteralPath $benchmarkPath))
+        foreach ($benchmarkPath in $benchmarkPaths)
         {
-            throw "The benchmark executable was not found at '$benchmarkPath'."
+            if (-not (Test-Path -LiteralPath $benchmarkPath))
+            {
+                throw "The benchmark executable was not found at '$benchmarkPath'."
+            }
+            Invoke-NativeCommand -Description "Benchmark" -FilePath $benchmarkPath
         }
-        Invoke-NativeCommand -Description "Benchmark" -FilePath $benchmarkPath
     }
 
     if (-not $Run)

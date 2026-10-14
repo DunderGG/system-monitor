@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QAbstractItemModel>
+#include <QMetaObject>
 #include <QModelIndex>
 #include <QSortFilterProxyModel>
 
@@ -29,9 +31,24 @@ public:
     explicit ProcessSortFilterProxyModel(QObject* parent = nullptr);
     ~ProcessSortFilterProxyModel() override = default;
 
+    /**
+     * Shows sourceModel. With a ProcessModel, a refresh whose value changes
+     * touch the sorted column under more than one parent is re-sorted once,
+     * after all of them, rather than once per parent.
+     */
+    void setSourceModel(QAbstractItemModel* sourceModel) override;
+
 protected:
     [[nodiscard]] bool lessThan(const QModelIndex& sourceLeft, const QModelIndex& sourceRight) const override;
     [[nodiscard]] bool filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const override;
+
+private:
+    void onValueChangesStarted(int firstColumn, int lastColumn, int signalCount);
+    void onValueChangesEnded();
+
+    QMetaObject::Connection m_valueChangesStartedConnection;
+    QMetaObject::Connection m_valueChangesEndedConnection;
+    bool m_isSortDeferred{false};
 };
 
 } // namespace sysmon::ui

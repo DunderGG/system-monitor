@@ -58,7 +58,7 @@ The repository provides PowerShell scripts that automate tool detection, install
    .\scripts\build.ps1 -Test
    ```
 
-5. **Measure UI performance** (optional): `.\scripts\build.ps1 -Benchmark` builds the Release configuration and prints the Performance tab's cost per tick for each page and chart window. Run it before and after changes to charts or pages.
+5. **Measure UI performance** (optional): `.\scripts\build.ps1 -Benchmark` builds the Release configuration and prints the Performance tab's cost per tick for each page and chart window, then the Processes tab's for flat and tree views of 400 to 2,000 processes. Run it before and after changes to charts, pages, or the process table.
 
 ---
 
@@ -199,7 +199,7 @@ system-monitor/
   tests/
     unit/                   # Unit tests (fast, no OS dependencies)
     integration/            # Integration tests (may use real Windows APIs)
-  benchmarks/               # Opt-in performance benchmark (build.ps1 -Benchmark)
+  benchmarks/               # Opt-in performance benchmarks (build.ps1 -Benchmark)
   resources/                # Icons, manifests, and other assets
   docs/                     # Documentation
 ```
