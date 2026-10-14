@@ -24,6 +24,24 @@ TEST(ProcessFormatting, ProcessDisplayName_OtherProcessWithoutName_IsNotAvailabl
     EXPECT_EQ(processDisplayName(ProcessInfo{.pid = 1234}), "N/A");
 }
 
+TEST(ProcessFormatting, ProcessIoBytesPerSec_BothRates_Sum)
+{
+    EXPECT_EQ(processIoBytesPerSec(ProcessInfo{.ioReadBytesPerSec = 3000, .ioWriteBytesPerSec = 500}), 3500u);
+}
+
+TEST(ProcessFormatting, ProcessIoBytesPerSec_EitherRateMissing_Nullopt)
+{
+    EXPECT_FALSE(processIoBytesPerSec(ProcessInfo{.ioReadBytesPerSec = 3000}).has_value());
+    EXPECT_FALSE(processIoBytesPerSec(ProcessInfo{.ioWriteBytesPerSec = 500}).has_value());
+}
+
+TEST(ProcessFormatting, ProcessIoToolTip_ShowsEachRate)
+{
+    EXPECT_EQ(processIoToolTip(ProcessInfo{.ioReadBytesPerSec = 2048, .ioWriteBytesPerSec = 0}),
+              "Read: 2.0 KiB/s\nWrite: 0 B/s");
+    EXPECT_EQ(processIoToolTip(ProcessInfo{}), "Read: N/A\nWrite: N/A");
+}
+
 TEST(ProcessFormatting, ProcessListSummary_WithList_CountsProcesses)
 {
     EXPECT_EQ(processListSummary(std::size_t{1234}, false), "Processes: 1,234");

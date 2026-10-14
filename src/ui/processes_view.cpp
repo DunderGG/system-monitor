@@ -12,6 +12,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 #include "ui/process_model.h"
 #include "ui/view_metrics.h"
@@ -36,6 +37,12 @@ void sizeColumns(QTreeView* treeView)
     };
     const std::array templates{
         ColumnTemplate{ProcessModel::Column::Pid, QStringLiteral("9999999")},
+        ColumnTemplate{ProcessModel::Column::Cpu, QStringLiteral("100.0%")},
+        ColumnTemplate{ProcessModel::Column::Memory, QStringLiteral("1023.9 MiB")},
+        ColumnTemplate{ProcessModel::Column::Io, QStringLiteral("1023.9 MiB/s")},
+        ColumnTemplate{ProcessModel::Column::Network, kNotAvailable},
+        ColumnTemplate{ProcessModel::Column::Threads, QStringLiteral("9,999")},
+        ColumnTemplate{ProcessModel::Column::Handles, QStringLiteral("999,999")},
     };
 
     QHeaderView* header = treeView->header();

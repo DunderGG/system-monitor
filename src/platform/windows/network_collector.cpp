@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
@@ -20,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "platform/windows/adapter_details_cache.h"
+#include "platform/windows/byte_rate.h"
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/utf8_conversion.h"
 
@@ -85,18 +85,6 @@ struct MibNotificationDeleter
 };
 
 using ScopedMibNotification = std::unique_ptr<std::remove_pointer_t<HANDLE>, MibNotificationDeleter>;
-
-// Returns bytes/sec between two cumulative counter readings, or std::nullopt when
-// no meaningful rate exists: non-positive elapsed time, or a counter that went
-// backwards (adapter reset), where the delta across the reset is unknown.
-std::optional<uint64_t> calculateByteRate(uint64_t previousBytes, uint64_t currentBytes, double elapsedSec)
-{
-    if (elapsedSec <= 0.0 || currentBytes < previousBytes) {
-        return std::nullopt;
-    }
-    const double deltaBytes = static_cast<double>(currentBytes - previousBytes);
-    return static_cast<uint64_t>(std::round(deltaBytes / elapsedSec));
-}
 
 domain::OperationalStatus toOperationalStatus(IF_OPER_STATUS status)
 {

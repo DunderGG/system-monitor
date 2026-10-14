@@ -20,9 +20,13 @@ namespace sysmon::ui
  * A row belongs to one ProcessIdentity (PID and creation time), never to a
  * PID alone, so a process that reuses an exited process's PID gets a new row.
  * updateProcesses() changes the rows in place: it removes the rows of
- * processes that are no longer listed and appends rows for new ones, so views
- * keep their scroll position, selection, and expanded state. The model is
- * never reset on a refresh.
+ * processes that are no longer listed, updates the values of the others, and
+ * appends rows for new ones, so views keep their scroll position, selection,
+ * and expanded state. The model is never reset on a refresh.
+ *
+ * Values that are missing (a rate not measured yet, or per-process network
+ * usage, which is not collected) show "N/A" in the placeholder text colour,
+ * never zero. Column headers have tooltips that say what a value counts.
  *
  * Not thread-safe; use only on the UI thread.
  */
@@ -36,9 +40,19 @@ public:
     {
         Name,
         Pid,
+        // Share of all logical processors used since the previous refresh.
+        Cpu,
+        // Working set.
+        Memory,
+        // Read plus write bytes per second, of all I/O, not only disk.
+        Io,
+        // Placeholder until per-process network usage is collected (with ETW).
+        Network,
+        Threads,
+        Handles,
     };
 
-    static constexpr int kColumnCount = 2;
+    static constexpr int kColumnCount = 8;
 
     explicit ProcessModel(QObject* parent = nullptr);
     ~ProcessModel() override = default;

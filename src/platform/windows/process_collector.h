@@ -22,31 +22,37 @@ namespace sysmon::platform
  */
 using ProcessListReader = std::function<std::optional<std::vector<domain::ProcessInfo>>()>;
 
-/** A process's total CPU time (user + kernel) when it was last seen. */
-struct ProcessCpuBaseline
+/** A process's cumulative counters when it was last seen: total CPU time (user + kernel) and I/O bytes. */
+struct ProcessRateBaseline
 {
     uint64_t cpuTimeMs{0};
+    uint64_t ioReadBytes{0};
+    uint64_t ioWriteBytes{0};
     std::chrono::steady_clock::time_point timestamp;
 };
 
-using ProcessCpuBaselines =
-    std::unordered_map<domain::ProcessIdentity, ProcessCpuBaseline, domain::ProcessIdentityHash>;
+using ProcessRateBaselines =
+    std::unordered_map<domain::ProcessIdentity, ProcessRateBaseline, domain::ProcessIdentityHash>;
 
 /**
- * Sets cpuUsagePercent of every process from the change in its user + kernel
- * time since its baseline, over the monotonic time elapsed, as a share of all
- * logical processors: 100% means every processor was busy with the process.
- * Values are clamped to 0-100, since CPU time is accounted at clock-tick
- * granularity.
+ * Sets the rates of every process from the change in its counters since its
+ * baseline, over the monotonic time elapsed:
  *
- * cpuUsagePercent is std::nullopt for a process without a baseline (first
- * seen, or a reused PID with a new creation time), when no time has elapsed,
- * when the process's CPU time went backwards, or when logicalProcessorCount is
- * not positive. The baselines are then replaced by this list's, so exited
- * processes are dropped. Pure function for deterministic unit testing.
+ * - cpuUsagePercent from its user + kernel time, as a share of all logical
+ *   processors: 100% means every processor was busy with the process. Values
+ *   are clamped to 0-100, since CPU time is accounted at clock-tick
+ *   granularity.
+ * - ioReadBytesPerSec and ioWriteBytesPerSec from its I/O byte counters.
+ *
+ * Every rate is std::nullopt for a process without a baseline (first seen, or
+ * a reused PID with a new creation time) and when no time has elapsed. Each is
+ * also std::nullopt when its own counter went backwards, and cpuUsagePercent
+ * when logicalProcessorCount is not positive. The baselines are then replaced
+ * by this list's, so exited processes are dropped. Pure function for
+ * deterministic unit testing.
  */
-void calculateProcessCpuUsage(std::vector<domain::ProcessInfo>& processes, ProcessCpuBaselines& baselines,
-                              std::chrono::steady_clock::time_point now, int logicalProcessorCount);
+void calculateProcessRates(std::vector<domain::ProcessInfo>& processes, ProcessRateBaselines& baselines,
+                           std::chrono::steady_clock::time_point now, int logicalProcessorCount);
 
 /**
  * Collector for the running processes.
@@ -63,10 +69,10 @@ void calculateProcessCpuUsage(std::vector<domain::ProcessInfo>& processes, Proce
  * reader is never called for lsass.exe or csrss.exe (isNeverOpenedProcess()),
  * whose details stay NotQueried.
  *
- * CPU usage is computed against the previous successful collect() with
- * calculateProcessCpuUsage(), so the first collect() reports none. A failed
- * read keeps the baselines, and the next success measures over the longer
- * interval.
+ * CPU usage and I/O rates are computed against the previous successful
+ * collect() with calculateProcessRates(), so the first collect() reports
+ * none. A failed read keeps the baselines, and the next success measures over
+ * the longer interval.
  *
  * Not thread-safe; collect() must be called from one thread at a time.
  */
@@ -96,7 +102,7 @@ private:
     ProcessIdentityCache m_identityCache;
     SteadyClockReader m_clockReader;
     int m_logicalProcessorCount{1};
-    ProcessCpuBaselines m_cpuBaselines;
+    ProcessRateBaselines m_rateBaselines;
 };
 
 } // namespace sysmon::platform

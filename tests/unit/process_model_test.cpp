@@ -33,11 +33,24 @@ ProcessInfo process(uint32_t pid, std::string name, int64_t creationSeconds = -1
     };
 }
 
-// Records the row signals a model emits, as (first, last) ranges.
+// A block of cells named in one dataChanged signal.
+struct CellRange
+{
+    int firstRow{0};
+    int lastRow{0};
+    int firstColumn{0};
+    int lastColumn{0};
+
+    friend bool operator==(const CellRange&, const CellRange&) = default;
+};
+
+// Records the signals a model emits: inserted and removed rows as (first,
+// last) ranges, and changed cells.
 struct ModelSignalLog
 {
     std::vector<std::pair<int, int>> inserted;
     std::vector<std::pair<int, int>> removed;
+    std::vector<CellRange> changed;
     int resets = 0;
 
     explicit ModelSignalLog(ProcessModel& model)
@@ -48,9 +61,22 @@ struct ModelSignalLog
         QObject::connect(
             &model, &ProcessModel::rowsRemoved, &model,
             [this](const QModelIndex& /*parent*/, int first, int last) { removed.emplace_back(first, last); });
+        QObject::connect(&model, &ProcessModel::dataChanged, &model,
+                         [this](const QModelIndex& topLeft, const QModelIndex& bottomRight) {
+                             changed.push_back(CellRange{.firstRow = topLeft.row(),
+                                                         .lastRow = bottomRight.row(),
+                                                         .firstColumn = topLeft.column(),
+                                                         .lastColumn = bottomRight.column()});
+                         });
         QObject::connect(&model, &ProcessModel::modelReset, &model, [this]() { ++resets; });
     }
 };
+
+// Returns the text the model shows for the first row in column.
+QString firstRowText(const ProcessModel& model, Column column, int role = Qt::DisplayRole)
+{
+    return model.index(0, static_cast<int>(column)).data(role).toString();
+}
 
 // Returns the names in the model's rows, top to bottom.
 std::vector<QString> rowNames(const ProcessModel& model)
@@ -200,12 +226,114 @@ TEST(ProcessModel, Structure_RowsAreTopLevelWithoutChildren)
     EXPECT_EQ(model.process(QModelIndex{}), nullptr);
 }
 
-TEST(ProcessModel, HeaderData_NamesColumns)
+TEST(ProcessModel, HeaderData_NamesColumnsInDisplayOrder)
 {
     ProcessModel model;
 
-    EXPECT_EQ(model.headerData(static_cast<int>(Column::Name), Qt::Horizontal).toString(), "Name");
-    EXPECT_EQ(model.headerData(static_cast<int>(Column::Pid), Qt::Horizontal).toString(), "PID");
+    std::vector<QString> titles;
+    for (int section = 0; section < model.columnCount(); ++section) {
+        titles.push_back(model.headerData(section, Qt::Horizontal).toString());
+    }
+
+    EXPECT_EQ(titles, (std::vector<QString>{"Name", "PID", "CPU", "Memory", "I/O", "Network", "Threads", "Handles"}));
+    EXPECT_FALSE(model.headerData(ProcessModel::kColumnCount, Qt::Horizontal).isValid());
+    EXPECT_FALSE(model.headerData(0, Qt::Vertical).isValid());
+}
+
+TEST(ProcessModel, HeaderData_NumericHeadersAlignRightLikeTheirValues)
+{
+    ProcessModel model;
+
+    const auto alignment = [&model](int section) {
+        return model.headerData(section, Qt::Horizontal, Qt::TextAlignmentRole).value<Qt::Alignment>();
+    };
+
+    EXPECT_EQ(alignment(static_cast<int>(Column::Name)), Qt::AlignLeft | Qt::AlignVCenter);
+    for (int section = static_cast<int>(Column::Pid); section < ProcessModel::kColumnCount; ++section) {
+        EXPECT_EQ(alignment(section), Qt::AlignRight | Qt::AlignVCenter) << section;
+    }
+}
+
+TEST(ProcessModel, HeaderData_ToolTipsSayWhatValuesCount)
+{
+    ProcessModel model;
+
+    const auto toolTip = [&model](Column column) {
+        return model.headerData(static_cast<int>(column), Qt::Horizontal, Qt::ToolTipRole).toString();
+    };
+
+    EXPECT_TRUE(toolTip(Column::Cpu).contains("all logical processors"));
+    EXPECT_TRUE(toolTip(Column::Memory).contains("Working set"));
+    EXPECT_TRUE(toolTip(Column::Io).contains("not only disk"));
+    EXPECT_TRUE(toolTip(Column::Network).contains("ETW"));
+}
+
+TEST(ProcessModel, Data_ValueColumns_ShowLatestValuesFormatted)
+{
+    ProcessModel model;
+    ProcessInfo explorer = process(800, "explorer.exe");
+    explorer.cpuUsagePercent = 12.54f;
+    explorer.workingSetBytes = 1'572'864; // 1.5 MiB
+    explorer.ioReadBytesPerSec = 1024;
+    explorer.ioWriteBytesPerSec = 1024;
+    explorer.threadCount = 1234;
+    explorer.handleCount = 56'789;
+
+    model.updateProcesses({explorer});
+
+    EXPECT_EQ(firstRowText(model, Column::Cpu), "12.5%");
+    EXPECT_EQ(firstRowText(model, Column::Memory), "1.5 MiB");
+    EXPECT_EQ(firstRowText(model, Column::Io), "2.0 KiB/s");
+    EXPECT_EQ(firstRowText(model, Column::Threads), "1,234");
+    EXPECT_EQ(firstRowText(model, Column::Handles), "56,789");
+    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), "Read: 1.0 KiB/s\nWrite: 1.0 KiB/s");
+}
+
+TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
+{
+    ProcessModel model;
+    ProcessInfo idle = process(800, "idle.exe");
+    idle.cpuUsagePercent = 0.0f;
+    idle.ioReadBytesPerSec = 0;
+    idle.ioWriteBytesPerSec = 0;
+
+    model.updateProcesses({idle});
+
+    EXPECT_EQ(firstRowText(model, Column::Cpu), "0.0%");
+    EXPECT_EQ(firstRowText(model, Column::Io), "0 B/s");
+    EXPECT_FALSE(model.index(0, static_cast<int>(Column::Cpu)).data(Qt::ForegroundRole).isValid());
+}
+
+TEST(ProcessModel, Data_MissingValues_ShowNotAvailableInPlaceholderColour)
+{
+    ProcessModel model;
+    ProcessInfo firstSeen = process(800, "explorer.exe");
+    firstSeen.ioReadBytesPerSec = 4096;
+
+    model.updateProcesses({firstSeen});
+
+    for (const Column column : {Column::Cpu, Column::Io, Column::Network}) {
+        EXPECT_EQ(firstRowText(model, column), "N/A") << static_cast<int>(column);
+        EXPECT_TRUE(model.index(0, static_cast<int>(column)).data(Qt::ForegroundRole).isValid())
+            << static_cast<int>(column);
+    }
+    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), "Read: 4.0 KiB/s\nWrite: N/A");
+    EXPECT_FALSE(model.index(0, static_cast<int>(Column::Name)).data(Qt::ForegroundRole).isValid());
+}
+
+TEST(ProcessModel, UpdateProcesses_ListedProcesses_SignalValueColumnsChanged)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    ModelSignalLog log(model);
+
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+
+    ASSERT_EQ(log.changed.size(), 1u);
+    EXPECT_EQ(log.changed[0], (CellRange{.firstRow = 0,
+                                         .lastRow = 1,
+                                         .firstColumn = static_cast<int>(Column::Cpu),
+                                         .lastColumn = ProcessModel::kColumnCount - 1}));
 }
 
 TEST(ProcessModel, Data_NumbersAlignRightAndNamesDoNot)
@@ -213,10 +341,10 @@ TEST(ProcessModel, Data_NumbersAlignRightAndNamesDoNot)
     ProcessModel model;
     model.updateProcesses({process(4, "System")});
 
-    const auto alignment = [&model](Column column) {
-        return model.index(0, static_cast<int>(column)).data(Qt::TextAlignmentRole);
-    };
+    const auto alignment = [&model](int column) { return model.index(0, column).data(Qt::TextAlignmentRole); };
 
-    EXPECT_FALSE(alignment(Column::Name).isValid());
-    EXPECT_EQ(alignment(Column::Pid).value<Qt::Alignment>(), Qt::AlignRight | Qt::AlignVCenter);
+    EXPECT_FALSE(alignment(static_cast<int>(Column::Name)).isValid());
+    for (int column = static_cast<int>(Column::Pid); column < ProcessModel::kColumnCount; ++column) {
+        EXPECT_EQ(alignment(column).value<Qt::Alignment>(), Qt::AlignRight | Qt::AlignVCenter) << column;
+    }
 }

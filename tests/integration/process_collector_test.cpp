@@ -2,6 +2,8 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <set>
 #include <string>
 #include <vector>
@@ -129,6 +131,32 @@ TEST(ProcessCollectorIntegration, RealHost_BusyThread_ReportsCpuUsageForThisProc
             EXPECT_LE(*process.cpuUsagePercent, 100.0f) << process.imageName;
         }
     }
+}
+
+TEST(ProcessCollectorIntegration, RealHost_FileWritten_ReportsIoWriteRateForThisProcess)
+{
+    ProcessCollector collector;
+    const auto first = collector.collect();
+    ASSERT_TRUE(first.has_value());
+
+    // Write 1 MiB to a file so the process's write transfer count grows.
+    const auto path =
+        std::filesystem::temp_directory_path() / ("sysmon_io_rate_test_" + std::to_string(::GetCurrentProcessId()));
+    {
+        std::ofstream file(path, std::ios::binary);
+        ASSERT_TRUE(file.is_open());
+        const std::string block(1024 * 1024, 'x');
+        file.write(block.data(), static_cast<std::streamsize>(block.size()));
+    }
+    std::filesystem::remove(path);
+    const auto second = collector.collect();
+
+    ASSERT_TRUE(second.has_value());
+    const ProcessInfo* self = findPid(*second, ::GetCurrentProcessId());
+    ASSERT_NE(self, nullptr);
+    ASSERT_TRUE(self->ioWriteBytesPerSec.has_value());
+    EXPECT_GT(*self->ioWriteBytesPerSec, 0u);
+    EXPECT_TRUE(self->ioReadBytesPerSec.has_value());
 }
 
 TEST(ProcessCollectorIntegration, RealHost_ListsIdleAndSystemProcesses)

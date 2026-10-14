@@ -46,7 +46,9 @@ enum class ProcessDetailsStatus
  * its previous refresh over measured steady_clock time, as a share of all
  * logical processors (100% means every processor was busy with this process).
  * It is std::nullopt when no rate exists: the first time a process is seen, or
- * when its CPU time went backwards.
+ * when its CPU time went backwards. ioReadBytesPerSec and ioWriteBytesPerSec
+ * are derived from the I/O byte counters in the same way, each std::nullopt
+ * when its counter went backwards.
  *
  * imagePath and commandLine are optional because they are read by opening the
  * process, once per identity, and that can fail; detailsStatus says why a
@@ -71,6 +73,10 @@ struct ProcessInfo
     // which include files, pipes, and devices, not only disk.
     uint64_t ioReadBytes{0};
     uint64_t ioWriteBytes{0};
+    // The change in ioReadBytes and ioWriteBytes since the collector's previous
+    // refresh, per second of monotonic time.
+    std::optional<uint64_t> ioReadBytesPerSec;
+    std::optional<uint64_t> ioWriteBytesPerSec;
     uint32_t threadCount{0};
     uint32_t handleCount{0};
     ProcessDetailsStatus detailsStatus{ProcessDetailsStatus::NotQueried};

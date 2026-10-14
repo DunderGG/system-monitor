@@ -232,6 +232,8 @@ TEST(ProcessInfo, DefaultConstruction_ZeroAndNotQueried)
     EXPECT_EQ(p.privateBytes, 0u);
     EXPECT_EQ(p.ioReadBytes, 0u);
     EXPECT_EQ(p.ioWriteBytes, 0u);
+    EXPECT_FALSE(p.ioReadBytesPerSec.has_value());
+    EXPECT_FALSE(p.ioWriteBytesPerSec.has_value());
     EXPECT_EQ(p.threadCount, 0u);
     EXPECT_EQ(p.handleCount, 0u);
     EXPECT_EQ(p.detailsStatus, ProcessDetailsStatus::NotQueried);

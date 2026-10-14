@@ -3,6 +3,8 @@ find_package(spdlog CONFIG REQUIRED)
 add_library(sysmon_platform_windows STATIC
     adapter_details_cache.cpp
     adapter_details_cache.h
+    byte_rate.cpp
+    byte_rate.h
     connectivity_collector.cpp
     connectivity_collector.h
     connectivity_hint_mapping.cpp

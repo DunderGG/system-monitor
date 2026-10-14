@@ -130,12 +130,12 @@ ProcessInfo withCpuTimes(uint32_t pid, int createdSeconds, uint64_t userMs, uint
 
 } // namespace
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_FirstSighting_NoUsageAndBaselineRecorded)
+TEST(ProcessCollector, CalculateProcessRates_FirstSighting_NoUsageAndBaselineRecorded)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> processes{withCpuTimes(100, 1, 300, 200)};
 
-    calculateProcessCpuUsage(processes, baselines, kStart, 4);
+    calculateProcessRates(processes, baselines, kStart, 4);
 
     EXPECT_FALSE(processes[0].cpuUsagePercent.has_value());
     ASSERT_EQ(baselines.size(), 1u);
@@ -143,106 +143,202 @@ TEST(ProcessCollector, CalculateProcessCpuUsage_FirstSighting_NoUsageAndBaseline
     EXPECT_EQ(baselines.begin()->second.timestamp, kStart);
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_SecondRefresh_ShareOfAllProcessors)
+TEST(ProcessCollector, CalculateProcessRates_SecondRefresh_ShareOfAllProcessors)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 300, 200)};
-    calculateProcessCpuUsage(first, baselines, kStart, 2);
+    calculateProcessRates(first, baselines, kStart, 2);
 
     // 600 ms user + 400 ms kernel over 2 s on 2 processors (4000 ms capacity).
     std::vector<ProcessInfo> second{withCpuTimes(100, 1, 900, 600)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{2}, 2);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
 
     ASSERT_TRUE(second[0].cpuUsagePercent.has_value());
     EXPECT_FLOAT_EQ(*second[0].cpuUsagePercent, 25.0f);
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_IdleProcess_ZeroNotMissing)
+TEST(ProcessCollector, CalculateProcessRates_IdleProcess_ZeroNotMissing)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 300, 200)};
-    calculateProcessCpuUsage(first, baselines, kStart, 2);
+    calculateProcessRates(first, baselines, kStart, 2);
 
     std::vector<ProcessInfo> second{withCpuTimes(100, 1, 300, 200)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{2}, 2);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
 
     EXPECT_EQ(second[0].cpuUsagePercent, 0.0f);
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_PidReusedWithNewCreationTime_StartsOver)
+TEST(ProcessCollector, CalculateProcessRates_PidReusedWithNewCreationTime_StartsOver)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 300, 200)};
-    calculateProcessCpuUsage(first, baselines, kStart, 2);
+    calculateProcessRates(first, baselines, kStart, 2);
 
     std::vector<ProcessInfo> second{withCpuTimes(100, 50, 900, 600)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{2}, 2);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
 
     EXPECT_FALSE(second[0].cpuUsagePercent.has_value());
     ASSERT_EQ(baselines.size(), 1u);
     EXPECT_EQ(baselines.begin()->first.creationTime, second[0].creationTime);
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_ProcessExited_BaselineDropped)
+TEST(ProcessCollector, CalculateProcessRates_ProcessExited_BaselineDropped)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 0, 0), withCpuTimes(200, 2, 0, 0)};
-    calculateProcessCpuUsage(first, baselines, kStart, 2);
+    calculateProcessRates(first, baselines, kStart, 2);
 
     std::vector<ProcessInfo> second{withCpuTimes(200, 2, 10, 0)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{2}, 2);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
 
     ASSERT_EQ(baselines.size(), 1u);
     EXPECT_EQ(baselines.begin()->first.pid, 200u);
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_NoElapsedTime_NoUsage)
+TEST(ProcessCollector, CalculateProcessRates_NoElapsedTime_NoUsage)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 300, 200)};
-    calculateProcessCpuUsage(first, baselines, kStart, 2);
+    calculateProcessRates(first, baselines, kStart, 2);
 
     std::vector<ProcessInfo> second{withCpuTimes(100, 1, 400, 200)};
-    calculateProcessCpuUsage(second, baselines, kStart, 2);
+    calculateProcessRates(second, baselines, kStart, 2);
 
     EXPECT_FALSE(second[0].cpuUsagePercent.has_value());
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_CpuTimeWentBackwards_NoUsage)
+TEST(ProcessCollector, CalculateProcessRates_CpuTimeWentBackwards_NoUsage)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 300, 200)};
-    calculateProcessCpuUsage(first, baselines, kStart, 2);
+    calculateProcessRates(first, baselines, kStart, 2);
 
     std::vector<ProcessInfo> second{withCpuTimes(100, 1, 100, 200)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{2}, 2);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
 
     EXPECT_FALSE(second[0].cpuUsagePercent.has_value());
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_MoreThanCapacity_ClampedTo100)
+TEST(ProcessCollector, CalculateProcessRates_MoreThanCapacity_ClampedTo100)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 0, 0)};
-    calculateProcessCpuUsage(first, baselines, kStart, 1);
+    calculateProcessRates(first, baselines, kStart, 1);
 
     // Tick-granular accounting can credit slightly more than the elapsed time.
     std::vector<ProcessInfo> second{withCpuTimes(100, 1, 1016, 0)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{1}, 1);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{1}, 1);
 
     EXPECT_EQ(second[0].cpuUsagePercent, 100.0f);
 }
 
-TEST(ProcessCollector, CalculateProcessCpuUsage_NoProcessorCount_NoUsage)
+TEST(ProcessCollector, CalculateProcessRates_NoProcessorCount_NoUsage)
 {
-    ProcessCpuBaselines baselines;
+    ProcessRateBaselines baselines;
     std::vector<ProcessInfo> first{withCpuTimes(100, 1, 0, 0)};
-    calculateProcessCpuUsage(first, baselines, kStart, 0);
+    calculateProcessRates(first, baselines, kStart, 0);
 
     std::vector<ProcessInfo> second{withCpuTimes(100, 1, 500, 0)};
-    calculateProcessCpuUsage(second, baselines, kStart + std::chrono::seconds{1}, 0);
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{1}, 0);
 
     EXPECT_FALSE(second[0].cpuUsagePercent.has_value());
+}
+
+namespace
+{
+
+ProcessInfo withIoBytes(uint32_t pid, uint64_t readBytes, uint64_t writeBytes)
+{
+    return ProcessInfo{
+        .pid = pid,
+        .creationTime = std::chrono::system_clock::time_point{std::chrono::seconds{1}},
+        .ioReadBytes = readBytes,
+        .ioWriteBytes = writeBytes,
+    };
+}
+
+} // namespace
+
+TEST(ProcessCollector, CalculateProcessRates_FirstSighting_NoIoRatesAndBaselineRecorded)
+{
+    ProcessRateBaselines baselines;
+    std::vector<ProcessInfo> processes{withIoBytes(100, 4096, 1024)};
+
+    calculateProcessRates(processes, baselines, kStart, 2);
+
+    EXPECT_FALSE(processes[0].ioReadBytesPerSec.has_value());
+    EXPECT_FALSE(processes[0].ioWriteBytesPerSec.has_value());
+    ASSERT_EQ(baselines.size(), 1u);
+    EXPECT_EQ(baselines.begin()->second.ioReadBytes, 4096u);
+    EXPECT_EQ(baselines.begin()->second.ioWriteBytes, 1024u);
+}
+
+TEST(ProcessCollector, CalculateProcessRates_SecondRefresh_IoBytesPerSecond)
+{
+    ProcessRateBaselines baselines;
+    std::vector<ProcessInfo> first{withIoBytes(100, 1000, 0)};
+    calculateProcessRates(first, baselines, kStart, 2);
+
+    std::vector<ProcessInfo> second{withIoBytes(100, 5000, 1001)};
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
+
+    EXPECT_EQ(second[0].ioReadBytesPerSec, 2000u);
+    // 500.5 bytes per second rounds to the nearest byte.
+    EXPECT_EQ(second[0].ioWriteBytesPerSec, 501u);
+}
+
+TEST(ProcessCollector, CalculateProcessRates_IdleIo_ZeroNotMissing)
+{
+    ProcessRateBaselines baselines;
+    std::vector<ProcessInfo> first{withIoBytes(100, 1000, 500)};
+    calculateProcessRates(first, baselines, kStart, 2);
+
+    std::vector<ProcessInfo> second{withIoBytes(100, 1000, 500)};
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
+
+    EXPECT_EQ(second[0].ioReadBytesPerSec, 0u);
+    EXPECT_EQ(second[0].ioWriteBytesPerSec, 0u);
+}
+
+TEST(ProcessCollector, CalculateProcessRates_IoCounterWentBackwards_NoRateForThatCounterOnly)
+{
+    ProcessRateBaselines baselines;
+    std::vector<ProcessInfo> first{withIoBytes(100, 1000, 500)};
+    calculateProcessRates(first, baselines, kStart, 2);
+
+    std::vector<ProcessInfo> second{withIoBytes(100, 400, 2500)};
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{2}, 2);
+
+    EXPECT_FALSE(second[0].ioReadBytesPerSec.has_value());
+    EXPECT_EQ(second[0].ioWriteBytesPerSec, 1000u);
+}
+
+TEST(ProcessCollector, CalculateProcessRates_NoElapsedTime_NoIoRates)
+{
+    ProcessRateBaselines baselines;
+    std::vector<ProcessInfo> first{withIoBytes(100, 1000, 500)};
+    calculateProcessRates(first, baselines, kStart, 2);
+
+    std::vector<ProcessInfo> second{withIoBytes(100, 2000, 600)};
+    calculateProcessRates(second, baselines, kStart, 2);
+
+    EXPECT_FALSE(second[0].ioReadBytesPerSec.has_value());
+    EXPECT_FALSE(second[0].ioWriteBytesPerSec.has_value());
+}
+
+TEST(ProcessCollector, CalculateProcessRates_NoProcessorCount_IoRatesStillSet)
+{
+    ProcessRateBaselines baselines;
+    std::vector<ProcessInfo> first{withIoBytes(100, 0, 0)};
+    calculateProcessRates(first, baselines, kStart, 0);
+
+    std::vector<ProcessInfo> second{withIoBytes(100, 300, 100)};
+    calculateProcessRates(second, baselines, kStart + std::chrono::seconds{1}, 0);
+
+    EXPECT_FALSE(second[0].cpuUsagePercent.has_value());
+    EXPECT_EQ(second[0].ioReadBytesPerSec, 300u);
+    EXPECT_EQ(second[0].ioWriteBytesPerSec, 100u);
 }
 
 TEST(ProcessCollector, Collect_FailedReadBetweenRefreshes_MeasuresOverLongerInterval)

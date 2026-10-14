@@ -11,6 +11,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "platform/windows/byte_rate.h"
 #include "platform/windows/process_access_policy.h"
 #include "platform/windows/process_details_reader.h"
 #include "platform/windows/repeated_failure_log.h"
@@ -35,10 +36,9 @@ int activeLogicalProcessorCount()
     return static_cast<int>(count);
 }
 
-std::optional<float> cpuUsagePercent(const ProcessCpuBaseline& baseline, uint64_t cpuTimeMs,
-                                     std::chrono::steady_clock::time_point now, int logicalProcessorCount)
+std::optional<float> cpuUsagePercent(const ProcessRateBaseline& baseline, uint64_t cpuTimeMs,
+                                     std::chrono::duration<double, std::milli> elapsed, int logicalProcessorCount)
 {
-    const auto elapsed = std::chrono::duration<double, std::milli>(now - baseline.timestamp);
     if (elapsed.count() <= 0.0 || cpuTimeMs < baseline.cpuTimeMs || logicalProcessorCount <= 0) {
         return std::nullopt;
     }
@@ -50,21 +50,33 @@ std::optional<float> cpuUsagePercent(const ProcessCpuBaseline& baseline, uint64_
 
 } // namespace
 
-void calculateProcessCpuUsage(std::vector<domain::ProcessInfo>& processes, ProcessCpuBaselines& baselines,
-                              std::chrono::steady_clock::time_point now, int logicalProcessorCount)
+void calculateProcessRates(std::vector<domain::ProcessInfo>& processes, ProcessRateBaselines& baselines,
+                           std::chrono::steady_clock::time_point now, int logicalProcessorCount)
 {
-    ProcessCpuBaselines nextBaselines;
+    ProcessRateBaselines nextBaselines;
     nextBaselines.reserve(processes.size());
 
     for (auto& process : processes) {
-        const uint64_t cpuTimeMs = process.cpuUserTimeMs + process.cpuKernelTimeMs;
+        const ProcessRateBaseline current{
+            .cpuTimeMs = process.cpuUserTimeMs + process.cpuKernelTimeMs,
+            .ioReadBytes = process.ioReadBytes,
+            .ioWriteBytes = process.ioWriteBytes,
+            .timestamp = now,
+        };
         const auto identity = process.identity();
 
         process.cpuUsagePercent.reset();
+        process.ioReadBytesPerSec.reset();
+        process.ioWriteBytesPerSec.reset();
         if (const auto it = baselines.find(identity); it != baselines.end()) {
-            process.cpuUsagePercent = cpuUsagePercent(it->second, cpuTimeMs, now, logicalProcessorCount);
+            const ProcessRateBaseline& previous = it->second;
+            const auto elapsed = std::chrono::duration<double, std::milli>(now - previous.timestamp);
+            const double elapsedSeconds = elapsed.count() / 1000.0;
+            process.cpuUsagePercent = cpuUsagePercent(previous, current.cpuTimeMs, elapsed, logicalProcessorCount);
+            process.ioReadBytesPerSec = calculateByteRate(previous.ioReadBytes, current.ioReadBytes, elapsedSeconds);
+            process.ioWriteBytesPerSec = calculateByteRate(previous.ioWriteBytes, current.ioWriteBytes, elapsedSeconds);
         }
-        nextBaselines.insert_or_assign(identity, ProcessCpuBaseline{.cpuTimeMs = cpuTimeMs, .timestamp = now});
+        nextBaselines.insert_or_assign(identity, current);
     }
 
     baselines = std::move(nextBaselines);
@@ -110,10 +122,10 @@ std::optional<std::vector<domain::ProcessInfo>> ProcessCollector::collect()
     if (!processes) {
         return std::nullopt;
     }
-    // Taken right after the list, so the elapsed time matches the CPU times in it.
+    // Taken right after the list, so the elapsed time matches the counters in it.
     const auto now = m_clockReader ? m_clockReader() : std::chrono::steady_clock::now();
 
-    calculateProcessCpuUsage(*processes, m_cpuBaselines, now, m_logicalProcessorCount);
+    calculateProcessRates(*processes, m_rateBaselines, now, m_logicalProcessorCount);
     m_identityCache.apply(*processes);
     return processes;
 }
