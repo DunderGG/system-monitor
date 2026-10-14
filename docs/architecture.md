@@ -22,7 +22,7 @@ Build a lightweight Windows desktop system monitor inspired by Task Manager. The
 
 All dependencies are managed through vcpkg manifest mode so that a contributor can clone the repository and build with a single CMake configure and build step. The `vcpkg.json` manifest and `CMakePresets.json` file together define the complete build environment.
 
-Disable unnecessary default features for Qt to reduce build time:
+Disable unnecessary default features for Qt to reduce build time. Keep `png`: Qt's Windows platform plugin builds its split, hand, and drag cursors from PNG resources ([DC-86](design_decisions.md#dc-86-qtbase-built-with-png-support-for-qts-own-windows-cursors)).
 
 ```json
 {
@@ -32,7 +32,7 @@ Disable unnecessary default features for Qt to reduce build time:
     {
       "name": "qtbase",
       "default-features": false,
-      "features": ["gui", "widgets", "network"]
+      "features": ["gui", "network", "png", "widgets"]
     },
     "nlohmann-json",
     "gtest",

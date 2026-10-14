@@ -10,6 +10,7 @@
       "features": [
         "gui",
         "network",
+        "png",
         "widgets"
       ]
     },

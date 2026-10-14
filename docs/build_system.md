@@ -67,8 +67,9 @@ instead of rebuilding them.
 
 `vcpkg.json` is the dependency manifest. It lists the packages the project
 needs, including Qt, spdlog, GoogleTest, and nlohmann-json. It disables Qt's
-default features and requests only Qt GUI, Network, and Widgets support to keep
-the dependency build focused. When CMake loads the vcpkg toolchain during
+default features and requests only Qt GUI, Network, PNG, and Widgets support to
+keep the dependency build focused. PNG is needed because Qt's Windows platform
+plugin loads its split, hand, and drag cursors from PNG resources. When CMake loads the vcpkg toolchain during
 configuration, vcpkg reads this manifest, obtains the declared packages, and
 makes them available to CMake's `find_package()` calls.
 
