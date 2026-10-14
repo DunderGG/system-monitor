@@ -50,15 +50,6 @@ std::vector<Readout> placeholderReadouts(std::vector<Readout> readouts)
     return readouts;
 }
 
-QString formatCount(uint64_t count)
-{
-    QString digits = QString::number(count);
-    for (qsizetype position = digits.size() - 3; position > 0; position -= 3) {
-        digits.insert(position, ',');
-    }
-    return digits;
-}
-
 QString formatClockSpeed(uint32_t megahertz)
 {
     if (megahertz >= 1000) {

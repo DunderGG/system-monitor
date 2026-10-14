@@ -1,6 +1,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include <gtest/gtest.h>
 #include <QCoreApplication>
@@ -12,6 +13,8 @@
 #include "monitoring/synthetic_memory_collector.h"
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
+#include "ui/process_model.h"
+#include "ui/processes_view.h"
 #include "ui/resource_card.h"
 
 using sysmon::monitoring::SamplingScheduler;
@@ -35,6 +38,19 @@ TEST(MainWindow, Construction_InitializesFourTabsInExpectedOrder)
     EXPECT_NE(mainWindow.performanceView(), nullptr);
     EXPECT_NE(mainWindow.processesView(), nullptr);
     EXPECT_NE(mainWindow.networkView(), nullptr);
+}
+
+TEST(MainWindow, OnSnapshotReady_ForwardsProcessListToProcessesView)
+{
+    MainWindow mainWindow;
+    sysmon::domain::SystemSnapshot snapshot;
+    snapshot.processes = std::vector<sysmon::domain::ProcessInfo>{
+        sysmon::domain::ProcessInfo{.pid = 4, .imageName = "System"},
+    };
+
+    mainWindow.onSnapshotReady(snapshot);
+
+    EXPECT_EQ(mainWindow.processesView()->model()->rowCount(), 1);
 }
 
 TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)

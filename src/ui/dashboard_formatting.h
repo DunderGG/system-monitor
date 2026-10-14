@@ -33,6 +33,9 @@ inline const QString kNotAvailable = QStringLiteral("N/A");
 /** Formats a percentage with one decimal, e.g. "42.5%". */
 [[nodiscard]] QString formatPercent(float percent);
 
+/** Formats a count with comma thousands separators, e.g. "200,157", whatever the locale. */
+[[nodiscard]] QString formatCount(uint64_t count);
+
 /** Formats a byte count with binary units, e.g. "512 B", "1.5 KiB", "16.0 GiB". */
 [[nodiscard]] QString formatBytes(uint64_t bytes);
 

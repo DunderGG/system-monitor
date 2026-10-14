@@ -33,9 +33,6 @@ struct Readout
 /** Returns readouts with every value replaced by "--", for display before the first snapshot. */
 [[nodiscard]] std::vector<Readout> placeholderReadouts(std::vector<Readout> readouts);
 
-/** Formats a count with comma thousands separators, e.g. "200,157". */
-[[nodiscard]] QString formatCount(uint64_t count);
-
 /** Formats a clock speed: "4.70 GHz" from 1000 MHz, otherwise "800 MHz". */
 [[nodiscard]] QString formatClockSpeed(uint32_t megahertz);
 

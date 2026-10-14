@@ -16,6 +16,15 @@ QString formatPercent(float percent)
     return QString("%1%").arg(static_cast<double>(percent), 0, 'f', 1);
 }
 
+QString formatCount(uint64_t count)
+{
+    QString digits = QString::number(count);
+    for (qsizetype position = digits.size() - 3; position > 0; position -= 3) {
+        digits.insert(position, ',');
+    }
+    return digits;
+}
+
 QString formatBytes(uint64_t bytes)
 {
     constexpr std::array kUnits{"KiB", "MiB", "GiB", "TiB", "PiB"};

@@ -49,6 +49,15 @@ TEST(DashboardFormatting, FormatPercent_OneDecimal)
     EXPECT_EQ(formatPercent(100.0f), "100.0%");
 }
 
+TEST(DashboardFormatting, FormatCount_GroupsThousands)
+{
+    EXPECT_EQ(formatCount(0), "0");
+    EXPECT_EQ(formatCount(999), "999");
+    EXPECT_EQ(formatCount(1000), "1,000");
+    EXPECT_EQ(formatCount(200'157), "200,157");
+    EXPECT_EQ(formatCount(1'234'567), "1,234,567");
+}
+
 TEST(DashboardFormatting, FormatBytes_BelowOneKiB_UsesBytes)
 {
     EXPECT_EQ(formatBytes(0), "0 B");

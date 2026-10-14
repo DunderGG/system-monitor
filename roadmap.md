@@ -129,7 +129,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ### Process explorer view (`src/ui/`)
 
-- [ ] Create a process table using `QTreeView` + a custom `QAbstractItemModel` subclass.
+- [x] Create a process table using `QTreeView` + a custom `QAbstractItemModel` subclass.
 - [ ] Display columns: Name, PID, CPU %, Memory (working set), Disk I/O (read + write bytes/sec), Network (placeholder until ETW), Threads, Handles.
 - [ ] Implement a `QSortFilterProxyModel` for column sorting and text filtering.
 - [ ] Implement process tree view: build parent-child relationships from parent PID. Allow toggling between flat and tree views.

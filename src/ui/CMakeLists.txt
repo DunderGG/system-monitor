@@ -25,6 +25,10 @@ add_library(sysmon_ui STATIC
     performance_readouts.h
     performance_view.cpp
     performance_view.h
+    process_formatting.cpp
+    process_formatting.h
+    process_model.cpp
+    process_model.h
     processes_view.cpp
     processes_view.h
     readout_grid.cpp

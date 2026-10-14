@@ -43,15 +43,6 @@ std::vector<QString> namesOf(const std::vector<Readout>& readouts)
 
 } // namespace
 
-TEST(PerformanceReadouts, FormatCount_GroupsThousands)
-{
-    EXPECT_EQ(formatCount(0), "0");
-    EXPECT_EQ(formatCount(999), "999");
-    EXPECT_EQ(formatCount(1000), "1,000");
-    EXPECT_EQ(formatCount(200'157), "200,157");
-    EXPECT_EQ(formatCount(1'234'567), "1,234,567");
-}
-
 TEST(PerformanceReadouts, FormatClockSpeed_GigahertzFromOneThousandMegahertz)
 {
     EXPECT_EQ(formatClockSpeed(4700), "4.70 GHz");
