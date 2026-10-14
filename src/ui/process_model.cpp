@@ -9,6 +9,9 @@
 #include <unordered_set>
 #include <utility>
 
+#include <QBrush>
+#include <QColor>
+#include <QFont>
 #include <QGuiApplication>
 #include <QList>
 #include <QPalette>
@@ -24,6 +27,11 @@ namespace
 {
 
 using Column = ProcessModel::Column;
+
+// Highlights for new and exited processes. Translucent, so they tint the row
+// colours of light and dark palettes alike and keep the text readable.
+constexpr QColor kStartedColor{46, 160, 67, 90};
+constexpr QColor kExitedColor{218, 54, 51, 90};
 
 // Returns the first and last columns whose values differ between two readings
 // of one process, or std::nullopt when none do. Raw values are compared, not
@@ -152,7 +160,8 @@ QString headerToolTip(Column column)
 
 ProcessModel::ProcessModel(QObject* parent) : QAbstractItemModel(parent) {}
 
-void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& processes)
+void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& processes,
+                                   std::chrono::steady_clock::time_point now)
 {
     std::unordered_set<domain::ProcessIdentity, domain::ProcessIdentityHash> listed;
     listed.reserve(processes.size());
@@ -160,21 +169,20 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
         listed.insert(process.identity());
     }
 
-    std::vector<std::pair<int, Node*>> exited;
+    // A process missing from the list has exited. Its row stays, marked,
+    // until its highlight ends. One that is listed again is running after all.
     for (const auto& [identity, node] : m_nodes) {
-        if (!listed.contains(identity)) {
-            int depth = 0;
-            for (const Node* ancestor = node->parent; ancestor != nullptr; ancestor = ancestor->parent) {
-                ++depth;
-            }
-            exited.emplace_back(depth, node.get());
+        const bool isListed = listed.contains(identity);
+        if (!isListed && !node->exitedAt) {
+            node->exitedAt = now;
+            node->startedAt.reset();
+            signalHighlightChanged(node.get());
+        } else if (isListed && node->exitedAt) {
+            node->exitedAt.reset();
+            signalHighlightChanged(node.get());
         }
     }
-    // Deepest first, so a removed node's remaining children are all still running.
-    std::ranges::sort(exited, std::greater{}, &std::pair<int, Node*>::first);
-    for (const auto& [depth, node] : exited) {
-        removeNode(node);
-    }
+    updateTime(now);
 
     std::vector<Node*> added;
     ChangedBlocks changed;
@@ -196,6 +204,9 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
         } else if (listed.erase(identity) > 0) {
             // Erasing the identity keeps a duplicate entry in the list from adding a second row.
             auto node = std::make_unique<Node>(Node{.process = process});
+            if (m_hasList) {
+                node->startedAt = now;
+            }
             added.push_back(node.get());
             m_nodesByPid.emplace(process.pid, node.get());
             m_nodes.emplace(identity, std::move(node));
@@ -203,6 +214,33 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
     }
     signalValuesChanged(changed);
     insertNodes(added);
+    m_hasList = true;
+}
+
+void ProcessModel::updateTime(std::chrono::steady_clock::time_point now)
+{
+    std::vector<std::pair<int, Node*>> expired;
+    for (const auto& [identity, node] : m_nodes) {
+        if (node->exitedAt && now - *node->exitedAt >= kHighlightDuration) {
+            int depth = 0;
+            for (const Node* ancestor = node->parent; ancestor != nullptr; ancestor = ancestor->parent) {
+                ++depth;
+            }
+            expired.emplace_back(depth, node.get());
+        }
+    }
+    // Deepest first, so each removed node's remaining children outlive it.
+    std::ranges::sort(expired, std::greater{}, &std::pair<int, Node*>::first);
+    for (const auto& [depth, node] : expired) {
+        removeNode(node);
+    }
+
+    for (const auto& [identity, node] : m_nodes) {
+        if (node->startedAt && now - *node->startedAt >= kHighlightDuration) {
+            node->startedAt.reset();
+            signalHighlightChanged(node.get());
+        }
+    }
 }
 
 void ProcessModel::setTreeMode(bool enabled)
@@ -313,6 +351,27 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
         case Qt::ToolTipRole:
             if (column == Column::Io) {
                 return processIoToolTip(node->process);
+            }
+            if (column == Column::Name && node->exitedAt) {
+                return QStringLiteral("This process has exited; its row is removed in a moment.");
+            }
+            if (column == Column::Name && node->startedAt) {
+                return QStringLiteral("This process started in the last few seconds.");
+            }
+            return {};
+        case Qt::BackgroundRole:
+            if (node->exitedAt) {
+                return QBrush(kExitedColor);
+            }
+            if (node->startedAt) {
+                return QBrush(kStartedColor);
+            }
+            return {};
+        case Qt::FontRole:
+            if (node->exitedAt) {
+                QFont font;
+                font.setItalic(true);
+                return font;
             }
             return {};
         default:
@@ -469,6 +528,12 @@ void ProcessModel::insertNodes(const std::vector<Node*>& added)
             }
         }
     }
+}
+
+void ProcessModel::signalHighlightChanged(const Node* node)
+{
+    static const QList<int> kHighlightRoles{Qt::BackgroundRole, Qt::FontRole, Qt::ToolTipRole};
+    emit dataChanged(indexOfNode(node, 0), indexOfNode(node, kColumnCount - 1), kHighlightRoles);
 }
 
 void ProcessModel::signalValuesChanged(const ChangedBlocks& changed)

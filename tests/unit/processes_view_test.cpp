@@ -31,9 +31,10 @@ ProcessInfo process(uint32_t pid, std::string name)
     };
 }
 
-SystemSnapshot snapshotWith(std::vector<ProcessInfo> processes)
+SystemSnapshot snapshotWith(std::vector<ProcessInfo> processes, int atSecond = 0)
 {
     SystemSnapshot snapshot;
+    snapshot.timestamp = std::chrono::steady_clock::time_point{std::chrono::seconds{atSecond}};
     snapshot.processes = std::move(processes);
     return snapshot;
 }
@@ -101,12 +102,27 @@ TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_KeepsLastRows)
     EXPECT_EQ(view.summaryText(), "Processes: N/A (showing the last list read)");
 }
 
-TEST(ProcessesView, UpdateSnapshot_EmptyList_RemovesRows)
+TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_StillEndsHighlights)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System")}));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}, 0));
+    view.updateSnapshot(snapshotWith({process(4, "System")}, 1));
 
-    view.updateSnapshot(snapshotWith({}));
+    SystemSnapshot withoutList;
+    withoutList.timestamp = std::chrono::steady_clock::time_point{std::chrono::seconds{10}};
+    view.updateSnapshot(withoutList);
+
+    EXPECT_EQ(view.model()->rowCount(), 1);
+}
+
+TEST(ProcessesView, UpdateSnapshot_EmptyList_RemovesRowsWhenHighlightsEnd)
+{
+    ProcessesView view;
+    view.updateSnapshot(snapshotWith({process(4, "System")}, 0));
+
+    view.updateSnapshot(snapshotWith({}, 1));
+    EXPECT_EQ(view.model()->rowCount(), 1);
+    view.updateSnapshot(snapshotWith({}, 10));
 
     EXPECT_EQ(view.model()->rowCount(), 0);
     EXPECT_EQ(view.summaryText(), "Processes: 0");

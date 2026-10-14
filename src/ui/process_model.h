@@ -1,7 +1,9 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -22,14 +24,21 @@ namespace sysmon::ui
  *
  * A row belongs to one ProcessIdentity (PID and creation time), never to a
  * PID alone, so a process that reuses an exited process's PID gets a new row.
- * updateProcesses() changes the rows in place: it removes the rows of
- * processes that are no longer listed, updates the values of the others, and
- * inserts rows for new ones, so views keep their scroll position, selection,
- * and expanded state. The model is never reset on a refresh; only
- * setTreeMode() resets it. Value changes are signalled only for the cells
- * whose values changed, as one dataChanged() block per parent naming the
- * display, tooltip, and foreground roles, so a list that repeats the previous
- * one signals nothing.
+ * updateProcesses() changes the rows in place: it updates the values of
+ * listed processes, inserts rows for new ones, and marks processes that are
+ * no longer listed, so views keep their scroll position, selection, and
+ * expanded state. The model is never reset on a refresh; only setTreeMode()
+ * resets it. Value changes are signalled only for the cells whose values
+ * changed, as one dataChanged() block per parent naming the display, tooltip,
+ * and foreground roles, so a list that repeats the previous one signals
+ * nothing.
+ *
+ * Changes are highlighted for kHighlightDuration of the monotonic time passed
+ * to updateProcesses() and updateTime(). A new process has a green
+ * background, except in the first list. A process that exited keeps its row
+ * and last values with a red background and italic text until the highlight
+ * ends, and the row is then removed. Both have a tooltip on the name, so the
+ * state is not told by colour alone.
  *
  * In tree mode a process's parent is the latest listed process with its
  * parent PID that was created no later than itself. Windows records only the
@@ -68,16 +77,28 @@ public:
 
     static constexpr int kColumnCount = 8;
 
+    /** How long a new or exited process is highlighted; an exited process's row is then removed. */
+    static constexpr std::chrono::seconds kHighlightDuration{3};
+
     explicit ProcessModel(QObject* parent = nullptr);
     ~ProcessModel() override = default;
 
     using QObject::parent;
 
     /**
-     * Makes the model show processes, the latest process list. A process keeps
-     * its row while it is listed.
+     * Makes the model show processes, the latest process list, at monotonic
+     * time now (the snapshot's timestamp), and ends the highlights that have
+     * lasted kHighlightDuration by then. A process keeps its row while it is
+     * listed, and for kHighlightDuration after it is not.
      */
-    void updateProcesses(const std::vector<domain::ProcessInfo>& processes);
+    void updateProcesses(const std::vector<domain::ProcessInfo>& processes, std::chrono::steady_clock::time_point now);
+
+    /**
+     * Ends the highlights that have lasted kHighlightDuration by now, and
+     * removes the rows of processes that exited that long ago, without a new
+     * list (for a snapshot that has none).
+     */
+    void updateTime(std::chrono::steady_clock::time_point now);
 
     /**
      * Shows each process under its parent (true) or every process at the top
@@ -120,6 +141,10 @@ private:
         std::vector<Node*> children;
         // Position among its siblings, kept current so indexOf() needs no search.
         int row{0};
+        // When the process first appeared, while it is highlighted as new.
+        std::optional<std::chrono::steady_clock::time_point> startedAt;
+        // When the process was first missing from the list; it has exited.
+        std::optional<std::chrono::steady_clock::time_point> exitedAt;
     };
 
     // The smallest block of cells that covers the changed values among one
@@ -142,12 +167,15 @@ private:
     void removeNode(Node* node);
     void insertNodes(const std::vector<Node*>& added);
     void signalValuesChanged(const ChangedBlocks& changed);
+    void signalHighlightChanged(const Node* node);
 
     // Owns every node. m_topLevel and each node's children hold them in row order.
     std::unordered_map<domain::ProcessIdentity, std::unique_ptr<Node>, domain::ProcessIdentityHash> m_nodes;
     std::unordered_multimap<uint32_t, Node*> m_nodesByPid;
     std::vector<Node*> m_topLevel;
     bool m_treeMode{false};
+    // False until the first list, whose processes are not highlighted as new.
+    bool m_hasList{false};
 };
 
 } // namespace sysmon::ui

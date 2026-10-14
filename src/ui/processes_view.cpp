@@ -143,8 +143,10 @@ void ProcessesView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
     std::optional<std::size_t> listedCount;
     if (snapshot.processes) {
-        m_model->updateProcesses(*snapshot.processes);
+        m_model->updateProcesses(*snapshot.processes, snapshot.timestamp);
         listedCount = snapshot.processes->size();
+    } else {
+        m_model->updateTime(snapshot.timestamp);
     }
     m_summaryLabel->setText(processListSummary(listedCount, m_hasProcessList));
     m_hasProcessList = m_hasProcessList || snapshot.processes.has_value();

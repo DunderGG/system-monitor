@@ -161,6 +161,8 @@ TickTimes timeTicks(const Scenario& scenario, int processCount, bool isShown)
         if (isRefresh) {
             snapshot.processes = simulation.refresh();
         }
+        // One tick per second, so highlights end and exited processes leave the table.
+        snapshot.timestamp = std::chrono::steady_clock::time_point{std::chrono::seconds{tick}};
         const auto start = std::chrono::steady_clock::now();
         view.updateSnapshot(snapshot);
         if (isShown) {

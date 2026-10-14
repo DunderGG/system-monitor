@@ -23,6 +23,9 @@ namespace
 
 using Column = ProcessModel::Column;
 
+// The monotonic time of each refresh, unless a test moves it on.
+const auto kNow = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+
 ProcessInfo process(uint32_t pid, std::string name, std::optional<float> cpu = std::nullopt)
 {
     return ProcessInfo{
@@ -41,7 +44,7 @@ struct SortedModel
 
     explicit SortedModel(const std::vector<ProcessInfo>& processes)
     {
-        model.updateProcesses(processes);
+        model.updateProcesses(processes, kNow);
         proxy.setSourceModel(&model);
     }
 
@@ -134,7 +137,7 @@ TEST(ProcessSortFilterProxyModel, Sort_ValueChanges_Resorts)
     SortedModel sorted({process(1, "a.exe", 50.0f), process(2, "b.exe", 10.0f)});
     sorted.sort(Column::Cpu, Qt::DescendingOrder);
 
-    sorted.model.updateProcesses({process(1, "a.exe", 5.0f), process(2, "b.exe", 60.0f)});
+    sorted.model.updateProcesses({process(1, "a.exe", 5.0f), process(2, "b.exe", 60.0f)}, kNow);
 
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2, 1}));
 }
@@ -183,7 +186,7 @@ TEST(ProcessSortFilterProxyModel, Filter_NewMatchingProcess_Appears)
     SortedModel sorted({process(1, "a.exe")});
     sorted.proxy.setFilterFixedString("notepad");
 
-    sorted.model.updateProcesses({process(1, "a.exe"), process(2, "notepad.exe")});
+    sorted.model.updateProcesses({process(1, "a.exe"), process(2, "notepad.exe")}, kNow);
 
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2}));
 }
@@ -197,7 +200,7 @@ TEST(ProcessSortFilterProxyModel, Filter_TreeMode_KeepsAncestorsOfMatches)
     svchost.parentPid = 400;
     ProcessInfo spoolsv = process(600, "spoolsv.exe");
     spoolsv.parentPid = 400;
-    model.updateProcesses({services, svchost, spoolsv, process(700, "other.exe")});
+    model.updateProcesses({services, svchost, spoolsv, process(700, "other.exe")}, kNow);
     ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
 
@@ -218,7 +221,7 @@ TEST(ProcessSortFilterProxyModel, Sort_TreeMode_SortsChildrenAmongThemselves)
     zeta.parentPid = 400;
     ProcessInfo alpha = process(600, "alpha.exe");
     alpha.parentPid = 400;
-    model.updateProcesses({process(400, "services.exe"), zeta, alpha, process(100, "aaa.exe")});
+    model.updateProcesses({process(400, "services.exe"), zeta, alpha, process(100, "aaa.exe")}, kNow);
     ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
 
@@ -239,14 +242,14 @@ TEST(ProcessSortFilterProxyModel, Filter_TreeMode_ValueChanges_KeepMatchesAndRes
     first.parentPid = 400;
     ProcessInfo second = process(600, "svchost.exe", 2.0f);
     second.parentPid = 400;
-    model.updateProcesses({process(400, "services.exe"), first, second, process(700, "other.exe")});
+    model.updateProcesses({process(400, "services.exe"), first, second, process(700, "other.exe")}, kNow);
     ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
     proxy.setFilterFixedString("svchost");
 
     first.cpuUsagePercent = 9.0f;
-    model.updateProcesses({process(400, "services.exe"), first, second, process(700, "other.exe")});
+    model.updateProcesses({process(400, "services.exe"), first, second, process(700, "other.exe")}, kNow);
 
     ASSERT_EQ(proxy.rowCount(), 1);
     const QModelIndex services = proxy.index(0, 0);
@@ -288,14 +291,14 @@ TEST(ProcessSortFilterProxyModel, Sort_SortedValuesChangeUnderSeveralParents_Sor
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses(twoFamilies(1.0f, 2.0f, 3.0f, 4.0f));
+    model.updateProcesses(twoFamilies(1.0f, 2.0f, 3.0f, 4.0f), kNow);
     ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
     int layoutChanges = 0;
     QObject::connect(&proxy, &QAbstractItemModel::layoutChanged, &proxy, [&layoutChanges] { ++layoutChanges; });
 
-    model.updateProcesses(twoFamilies(9.0f, 2.0f, 3.0f, 8.0f));
+    model.updateProcesses(twoFamilies(9.0f, 2.0f, 3.0f, 8.0f), kNow);
 
     EXPECT_EQ(layoutChanges, 1);
     EXPECT_TRUE(proxy.dynamicSortFilter());
@@ -312,7 +315,7 @@ TEST(ProcessSortFilterProxyModel, Sort_OtherColumnsChange_NoResort)
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses(twoFamilies(1.0f, 2.0f, 3.0f, 4.0f));
+    model.updateProcesses(twoFamilies(1.0f, 2.0f, 3.0f, 4.0f), kNow);
     ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
@@ -323,7 +326,7 @@ TEST(ProcessSortFilterProxyModel, Sort_OtherColumnsChange_NoResort)
     for (auto& info : processes) {
         info.threadCount = 7;
     }
-    model.updateProcesses(processes);
+    model.updateProcesses(processes, kNow);
 
     EXPECT_EQ(layoutChanges, 0);
     EXPECT_TRUE(proxy.dynamicSortFilter());
@@ -333,7 +336,7 @@ TEST(ProcessSortFilterProxyModel, Sort_NewProcessesAfterDeferredSort_InsertedInO
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses(twoFamilies(1.0f, 2.0f, 3.0f, 4.0f));
+    model.updateProcesses(twoFamilies(1.0f, 2.0f, 3.0f, 4.0f), kNow);
     ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
@@ -342,7 +345,7 @@ TEST(ProcessSortFilterProxyModel, Sort_NewProcessesAfterDeferredSort_InsertedInO
     ProcessInfo newcomer = process(950, "newcomer.exe", 5.0f);
     newcomer.parentPid = 700;
     processes.push_back(newcomer);
-    model.updateProcesses(processes);
+    model.updateProcesses(processes, kNow);
 
     const QModelIndex explorer =
         proxy.index(0, 0).data().toString() == "explorer.exe" ? proxy.index(0, 0) : proxy.index(1, 0);

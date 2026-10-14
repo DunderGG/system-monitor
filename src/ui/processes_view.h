@@ -29,10 +29,11 @@ class ProcessSortFilterProxyModel;
  * process stays selected when the mode changes.
  *
  * Every snapshot carries the scheduler's latest process list, which refreshes
- * every few seconds. updateSnapshot() applies it to the model whether or not
- * the tab is shown, so the table is current whenever it is; the view only
- * repaints while visible. A snapshot without a list (before the first one, or
- * after a failed read) keeps the rows of the last list read.
+ * every few seconds. updateSnapshot() applies it to the model at the
+ * snapshot's timestamp whether or not the tab is shown, so the table is
+ * current whenever it is; the view only repaints while visible. A snapshot
+ * without a list (before the first one, or after a failed read) keeps the
+ * rows of the last list read, but still ends highlights that are due.
  */
 class ProcessesView : public QWidget
 {

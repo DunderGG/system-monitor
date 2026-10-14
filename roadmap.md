@@ -134,7 +134,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Implement a `QSortFilterProxyModel` for column sorting and text filtering.
 - [x] Implement process tree view: build parent-child relationships from parent PID. Allow toggling between flat and tree views.
 - [x] Efficiently diff/update the model on each snapshot rather than rebuilding the entire model.
-- [ ] Highlight new processes briefly (e.g., green flash) and mark terminated processes before removal.
+- [x] Highlight new processes briefly (e.g., green flash) and mark terminated processes before removal.
 - [ ] Display an access indicator for processes where path/command-line could not be queried.
 
 ### Process termination (unelevated only)

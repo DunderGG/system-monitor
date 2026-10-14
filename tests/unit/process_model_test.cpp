@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QFont>
 #include <QList>
 #include <QObject>
 #include <QPersistentModelIndex>
@@ -25,6 +27,11 @@ namespace
 {
 
 using Column = ProcessModel::Column;
+
+// The monotonic time of each refresh, unless a test moves it on.
+const auto kNow = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+// When the highlights of changes made at kNow have ended.
+const auto kLater = kNow + ProcessModel::kHighlightDuration;
 
 // A process created creationSeconds after the epoch; by default its PID, so
 // lower PIDs are older.
@@ -129,7 +136,7 @@ TEST(ProcessModel, UpdateProcesses_FirstList_AddsOneRowPerProcessInListOrder)
     ProcessModel model;
     ModelSignalLog log(model);
 
-    model.updateProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}, kNow);
 
     EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "explorer.exe", "smss.exe"}));
     EXPECT_EQ(model.index(1, static_cast<int>(Column::Pid)).data().toString(), "800");
@@ -137,15 +144,19 @@ TEST(ProcessModel, UpdateProcesses_FirstList_AddsOneRowPerProcessInListOrder)
     EXPECT_EQ(log.resets, 0);
 }
 
-TEST(ProcessModel, UpdateProcesses_ExitedProcess_RemovesOnlyItsRow)
+TEST(ProcessModel, UpdateProcesses_ExitedProcess_KeptUntilHighlightEndsThenOnlyItsRowRemoved)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}, kNow);
     const QPersistentModelIndex explorer = model.index(1, 0);
     const QPersistentModelIndex smss = model.index(2, 0);
     ModelSignalLog log(model);
 
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")}, kNow);
+    EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "explorer.exe", "smss.exe"}));
+    EXPECT_TRUE(log.removed.empty());
+
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")}, kLater);
 
     EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "smss.exe"}));
     EXPECT_EQ(log.removed, (std::vector<std::pair<int, int>>{{1, 1}}));
@@ -159,11 +170,11 @@ TEST(ProcessModel, UpdateProcesses_ExitedProcess_RemovesOnlyItsRow)
 TEST(ProcessModel, UpdateProcesses_NewProcess_AppendsRowWithoutReset)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")}, kNow);
     const QPersistentModelIndex system = model.index(0, 0);
     ModelSignalLog log(model);
 
-    model.updateProcesses({process(4, "System"), process(900, "notepad.exe"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe"), process(12, "smss.exe")}, kNow);
 
     EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "smss.exe", "notepad.exe"}));
     EXPECT_EQ(log.inserted, (std::vector<std::pair<int, int>>{{2, 2}}));
@@ -172,13 +183,16 @@ TEST(ProcessModel, UpdateProcesses_NewProcess_AppendsRowWithoutReset)
     EXPECT_EQ(system.row(), 0);
 }
 
-TEST(ProcessModel, UpdateProcesses_ReusedPid_ReplacesRowWithNewProcess)
+TEST(ProcessModel, UpdateProcesses_ReusedPid_NewProcessGetsItsOwnRow)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(900, "notepad.exe", 100)});
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe", 100)}, kNow);
     const QPersistentModelIndex oldNotepad = model.index(1, 0);
 
-    model.updateProcesses({process(4, "System"), process(900, "calc.exe", 200)});
+    model.updateProcesses({process(4, "System"), process(900, "calc.exe", 200)}, kNow);
+    // The exited process is still shown, beside the one that reused its PID.
+    EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "notepad.exe", "calc.exe"}));
+    model.updateTime(kLater);
 
     ASSERT_EQ(model.rowCount(), 2);
     EXPECT_FALSE(oldNotepad.isValid());
@@ -191,12 +205,12 @@ TEST(ProcessModel, UpdateProcesses_ReusedPid_ReplacesRowWithNewProcess)
 TEST(ProcessModel, UpdateProcesses_ListedProcess_KeepsRowAndTakesLatestValues)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System")});
+    model.updateProcesses({process(4, "System")}, kNow);
     const QPersistentModelIndex system = model.index(0, 0);
 
     ProcessInfo updated = process(4, "System");
     updated.threadCount = 250;
-    model.updateProcesses({updated});
+    model.updateProcesses({updated}, kNow);
 
     ASSERT_TRUE(system.isValid());
     const ProcessInfo* shown = model.process(system);
@@ -208,17 +222,19 @@ TEST(ProcessModel, UpdateProcesses_DuplicateIdentityInList_AddsOneRow)
 {
     ProcessModel model;
 
-    model.updateProcesses({process(4, "System"), process(4, "System")});
+    model.updateProcesses({process(4, "System"), process(4, "System")}, kNow);
 
     EXPECT_EQ(model.rowCount(), 1);
 }
 
-TEST(ProcessModel, UpdateProcesses_EmptyList_RemovesEveryRow)
+TEST(ProcessModel, UpdateProcesses_EmptyList_RemovesEveryRowWhenHighlightsEnd)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")}, kNow);
 
-    model.updateProcesses({});
+    model.updateProcesses({}, kNow);
+    EXPECT_EQ(model.rowCount(), 2);
+    model.updateProcesses({}, kLater);
 
     EXPECT_EQ(model.rowCount(), 0);
 }
@@ -226,8 +242,9 @@ TEST(ProcessModel, UpdateProcesses_EmptyList_RemovesEveryRow)
 TEST(ProcessModel, IndexOf_ListedIdentity_ReturnsItsRowInColumn)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")});
-    model.updateProcesses({process(800, "explorer.exe"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}, kNow);
+    model.updateProcesses({process(800, "explorer.exe"), process(12, "smss.exe")}, kNow);
+    model.updateTime(kLater);
 
     const QModelIndex smss = model.indexOf(process(12, "smss.exe").identity(), Column::Pid);
 
@@ -239,7 +256,7 @@ TEST(ProcessModel, IndexOf_ListedIdentity_ReturnsItsRowInColumn)
 TEST(ProcessModel, IndexOf_UnknownIdentity_ReturnsInvalidIndex)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System")});
+    model.updateProcesses({process(4, "System")}, kNow);
 
     EXPECT_FALSE(model.indexOf(ProcessIdentity{.pid = 4}).isValid());
     EXPECT_FALSE(model.indexOf(process(5, "other").identity()).isValid());
@@ -248,7 +265,7 @@ TEST(ProcessModel, IndexOf_UnknownIdentity_ReturnsInvalidIndex)
 TEST(ProcessModel, Structure_RowsAreTopLevelWithoutChildren)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe")});
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")}, kNow);
 
     const QModelIndex first = model.index(0, 0);
 
@@ -330,7 +347,7 @@ TEST(ProcessModel, Data_ValueColumns_ShowLatestValuesFormatted)
     explorer.threadCount = 1234;
     explorer.handleCount = 56'789;
 
-    model.updateProcesses({explorer});
+    model.updateProcesses({explorer}, kNow);
 
     EXPECT_EQ(firstRowText(model, Column::Cpu), "12.5%");
     EXPECT_EQ(firstRowText(model, Column::Memory), "1.5 MiB");
@@ -348,7 +365,7 @@ TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
     idle.ioReadBytesPerSec = 0;
     idle.ioWriteBytesPerSec = 0;
 
-    model.updateProcesses({idle});
+    model.updateProcesses({idle}, kNow);
 
     EXPECT_EQ(firstRowText(model, Column::Cpu), "0.0%");
     EXPECT_EQ(firstRowText(model, Column::Io), "0 B/s");
@@ -361,7 +378,7 @@ TEST(ProcessModel, Data_MissingValues_ShowNotAvailableInPlaceholderColour)
     ProcessInfo firstSeen = process(800, "explorer.exe");
     firstSeen.ioReadBytesPerSec = 4096;
 
-    model.updateProcesses({firstSeen});
+    model.updateProcesses({firstSeen}, kNow);
 
     for (const Column column : {Column::Cpu, Column::Io, Column::Network}) {
         EXPECT_EQ(firstRowText(model, column), "N/A") << static_cast<int>(column);
@@ -378,10 +395,10 @@ TEST(ProcessModel, UpdateProcesses_SameValues_SignalsNothing)
     ProcessInfo system = process(4, "System");
     system.cpuUsagePercent = 1.5f;
     system.ioReadBytesPerSec = 100;
-    model.updateProcesses({system, process(12, "smss.exe")});
+    model.updateProcesses({system, process(12, "smss.exe")}, kNow);
     ModelSignalLog log(model);
 
-    model.updateProcesses({system, process(12, "smss.exe")});
+    model.updateProcesses({system, process(12, "smss.exe")}, kNow);
 
     EXPECT_TRUE(log.changed.empty());
     EXPECT_TRUE(log.inserted.empty());
@@ -391,7 +408,7 @@ TEST(ProcessModel, UpdateProcesses_SameValues_SignalsNothing)
 TEST(ProcessModel, UpdateProcesses_OneValueChanged_SignalsOnlyThatCellWithValueRoles)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe"), process(20, "csrss.exe")});
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe"), process(20, "csrss.exe")}, kNow);
     ModelSignalLog log(model);
     QList<int> roles;
     QObject::connect(
@@ -400,7 +417,7 @@ TEST(ProcessModel, UpdateProcesses_OneValueChanged_SignalsOnlyThatCellWithValueR
 
     ProcessInfo smss = process(12, "smss.exe");
     smss.cpuUsagePercent = 0.5f;
-    model.updateProcesses({process(4, "System"), smss, process(20, "csrss.exe")});
+    model.updateProcesses({process(4, "System"), smss, process(20, "csrss.exe")}, kNow);
 
     ASSERT_EQ(log.changed.size(), 1u);
     EXPECT_EQ(log.changed[0], (CellRange{.firstRow = 1,
@@ -415,14 +432,14 @@ TEST(ProcessModel, UpdateProcesses_OneValueChanged_SignalsOnlyThatCellWithValueR
 TEST(ProcessModel, UpdateProcesses_ChangesInSeveralRows_OneBlockCoveringThem)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(12, "smss.exe"), process(20, "csrss.exe")});
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe"), process(20, "csrss.exe")}, kNow);
     ModelSignalLog log(model);
 
     ProcessInfo system = process(4, "System");
     system.workingSetBytes = 8192;
     ProcessInfo csrss = process(20, "csrss.exe");
     csrss.handleCount = 900;
-    model.updateProcesses({system, process(12, "smss.exe"), csrss});
+    model.updateProcesses({system, process(12, "smss.exe"), csrss}, kNow);
 
     ASSERT_EQ(log.changed.size(), 1u);
     EXPECT_EQ(log.changed[0], (CellRange{.firstRow = 0,
@@ -435,11 +452,11 @@ TEST(ProcessModel, UpdateProcesses_EachValueColumn_DetectedOnItsOwn)
 {
     const auto changedColumnAfter = [](auto change) {
         ProcessModel model;
-        model.updateProcesses({process(4, "System")});
+        model.updateProcesses({process(4, "System")}, kNow);
         ModelSignalLog log(model);
         ProcessInfo system = process(4, "System");
         change(system);
-        model.updateProcesses({system});
+        model.updateProcesses({system}, kNow);
         EXPECT_EQ(log.changed.size(), 1u);
         EXPECT_TRUE(log.changed.empty() || log.changed[0].firstColumn == log.changed[0].lastColumn);
         return log.changed.empty() ? -1 : log.changed[0].firstColumn;
@@ -456,7 +473,7 @@ TEST(ProcessModel, UpdateProcesses_EachValueColumn_DetectedOnItsOwn)
 TEST(ProcessModel, Data_NumbersAlignRightAndNamesDoNot)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System")});
+    model.updateProcesses({process(4, "System")}, kNow);
 
     const auto alignment = [&model](int column) { return model.index(0, column).data(Qt::TextAlignmentRole); };
 
@@ -471,16 +488,18 @@ TEST(ProcessModel, TreeMode_FirstList_ShowsEachProcessUnderItsParent)
     ProcessModel model;
     model.setTreeMode(true);
 
-    model.updateProcesses({
-        child(0, "", 0),
-        child(4, "System", 0),
-        child(100, "smss.exe", 4),
-        child(200, "csrss.exe", 150),
-        child(300, "wininit.exe", 150),
-        child(400, "services.exe", 300),
-        child(500, "svchost.exe", 400),
-        child(600, "svchost.exe", 400),
-    });
+    model.updateProcesses(
+        {
+            child(0, "", 0),
+            child(4, "System", 0),
+            child(100, "smss.exe", 4),
+            child(200, "csrss.exe", 150),
+            child(300, "wininit.exe", 150),
+            child(400, "services.exe", 300),
+            child(500, "svchost.exe", 400),
+            child(600, "svchost.exe", 400),
+        },
+        kNow);
 
     // PID 0 parents nothing, and PID 150 is not listed.
     EXPECT_EQ(treeText(model), "System Idle Process\n"
@@ -498,7 +517,7 @@ TEST(ProcessModel, TreeMode_ChildListedBeforeItsParent_StillUnderIt)
     ProcessModel model;
     model.setTreeMode(true);
 
-    model.updateProcesses({child(500, "svchost.exe", 400), child(400, "services.exe", 300)});
+    model.updateProcesses({child(500, "svchost.exe", 400), child(400, "services.exe", 300)}, kNow);
 
     EXPECT_EQ(treeText(model), "services.exe\n  svchost.exe\n");
 }
@@ -509,7 +528,7 @@ TEST(ProcessModel, TreeMode_ParentPidReusedByYoungerProcess_NotAParent)
     model.setTreeMode(true);
 
     // The orphan's parent exited and PID 400 now belongs to a later process.
-    model.updateProcesses({child(500, "orphan.exe", 400, 500), child(400, "newcomer.exe", 0, 900)});
+    model.updateProcesses({child(500, "orphan.exe", 400, 500), child(400, "newcomer.exe", 0, 900)}, kNow);
 
     EXPECT_EQ(treeText(model), "orphan.exe\nnewcomer.exe\n");
 }
@@ -519,7 +538,7 @@ TEST(ProcessModel, TreeMode_ParentCreatedInSameTick_IsAParent)
     ProcessModel model;
     model.setTreeMode(true);
 
-    model.updateProcesses({child(400, "launcher.exe", 0, 500), child(500, "app.exe", 400, 500)});
+    model.updateProcesses({child(400, "launcher.exe", 0, 500), child(500, "app.exe", 400, 500)}, kNow);
 
     EXPECT_EQ(treeText(model), "launcher.exe\n  app.exe\n");
 }
@@ -529,7 +548,7 @@ TEST(ProcessModel, TreeMode_ProcessesNamingEachOther_NoCycle)
     ProcessModel model;
     model.setTreeMode(true);
 
-    model.updateProcesses({child(10, "a.exe", 20, 5), child(20, "b.exe", 10, 5), child(30, "self.exe", 30)});
+    model.updateProcesses({child(10, "a.exe", 20, 5), child(20, "b.exe", 10, 5), child(30, "self.exe", 30)}, kNow);
 
     EXPECT_EQ(treeText(model), "b.exe\n  a.exe\nself.exe\n");
 }
@@ -538,11 +557,11 @@ TEST(ProcessModel, TreeMode_NewChildOfShownParent_InsertedUnderIt)
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses({child(400, "services.exe", 0)});
+    model.updateProcesses({child(400, "services.exe", 0)}, kNow);
     const QPersistentModelIndex services = model.index(0, 0);
     ModelSignalLog log(model);
 
-    model.updateProcesses({child(400, "services.exe", 0), child(500, "svchost.exe", 400)});
+    model.updateProcesses({child(400, "services.exe", 0), child(500, "svchost.exe", 400)}, kNow);
 
     EXPECT_EQ(treeText(model), "services.exe\n  svchost.exe\n");
     EXPECT_EQ(log.inserted, (std::vector<std::pair<int, int>>{{0, 0}}));
@@ -557,7 +576,8 @@ TEST(ProcessModel, TreeMode_NewParentAndChildren_OneInsertPerParent)
     ModelSignalLog log(model);
 
     model.updateProcesses({child(400, "services.exe", 0), child(500, "svchost.exe", 400),
-                           child(600, "svchost.exe", 400), child(700, "spoolsv.exe", 400)});
+                           child(600, "svchost.exe", 400), child(700, "spoolsv.exe", 400)},
+                          kNow);
 
     EXPECT_EQ(log.inserted, (std::vector<std::pair<int, int>>{{0, 0}, {0, 2}}));
 }
@@ -566,11 +586,14 @@ TEST(ProcessModel, TreeMode_ParentExits_ChildrenMoveToTopLevel)
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4), child(200, "user.exe", 100)});
+    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4), child(200, "user.exe", 100)}, kNow);
     const QPersistentModelIndex user = model.indexOf(child(200, "user.exe", 100).identity());
     ModelSignalLog log(model);
 
-    model.updateProcesses({child(4, "System", 0), child(200, "user.exe", 100)});
+    model.updateProcesses({child(4, "System", 0), child(200, "user.exe", 100)}, kNow);
+    // The exited parent stays, with its child under it, until its highlight ends.
+    EXPECT_EQ(treeText(model), "System\n  smss.exe\n    user.exe\n");
+    model.updateTime(kLater);
 
     EXPECT_EQ(treeText(model), "System\nuser.exe\n");
     EXPECT_EQ(log.moves, 1);
@@ -586,9 +609,10 @@ TEST(ProcessModel, TreeMode_ParentAndChildExitTogether_SurvivorsMoveToTopLevel)
     ProcessModel model;
     model.setTreeMode(true);
     model.updateProcesses(
-        {child(10, "a.exe", 0), child(20, "b.exe", 10), child(30, "c.exe", 20), child(40, "d.exe", 10)});
+        {child(10, "a.exe", 0), child(20, "b.exe", 10), child(30, "c.exe", 20), child(40, "d.exe", 10)}, kNow);
 
-    model.updateProcesses({child(30, "c.exe", 20), child(40, "d.exe", 10)});
+    model.updateProcesses({child(30, "c.exe", 20), child(40, "d.exe", 10)}, kNow);
+    model.updateTime(kLater);
 
     EXPECT_EQ(treeText(model), "c.exe\nd.exe\n");
 }
@@ -598,7 +622,8 @@ TEST(ProcessModel, TreeMode_ValuesChange_OneSignalPerParentWithChanges)
     ProcessModel model;
     model.setTreeMode(true);
     model.updateProcesses(
-        {child(4, "System", 0), child(100, "smss.exe", 4), child(200, "other.exe", 0), child(300, "quiet.exe", 200)});
+        {child(4, "System", 0), child(100, "smss.exe", 4), child(200, "other.exe", 0), child(300, "quiet.exe", 200)},
+        kNow);
     ModelSignalLog log(model);
 
     ProcessInfo system = child(4, "System", 0);
@@ -607,7 +632,7 @@ TEST(ProcessModel, TreeMode_ValuesChange_OneSignalPerParentWithChanges)
     smss.workingSetBytes = 4096;
     ProcessInfo other = child(200, "other.exe", 0);
     other.cpuUsagePercent = 1.0f;
-    model.updateProcesses({system, smss, other, child(300, "quiet.exe", 200)});
+    model.updateProcesses({system, smss, other, child(300, "quiet.exe", 200)}, kNow);
 
     // The top level's two rows, and System's one child. Nothing changed under other.exe.
     ASSERT_EQ(log.changed.size(), 2u);
@@ -625,7 +650,7 @@ TEST(ProcessModel, TreeMode_ValuesChange_OneSignalPerParentWithChanges)
 TEST(ProcessModel, SetTreeMode_Toggle_ResetsOnceAndRebuilds)
 {
     ProcessModel model;
-    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4)});
+    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4)}, kNow);
     ModelSignalLog log(model);
 
     model.setTreeMode(true);
@@ -646,7 +671,7 @@ TEST(ProcessModel, FlatMode_ParentPids_Ignored)
 {
     ProcessModel model;
 
-    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4)});
+    model.updateProcesses({child(4, "System", 0), child(100, "smss.exe", 4)}, kNow);
 
     EXPECT_FALSE(model.isTreeMode());
     EXPECT_EQ(treeText(model), "System\nsmss.exe\n");
@@ -668,8 +693,11 @@ void forEachRow(const Model& model, Visit visit, const QModelIndex& parent = {})
 
 } // namespace
 
-TEST(ProcessModel, TreeMode_RandomChurn_StructureAndPersistentIndexesStayConsistent)
+TEST(ProcessModel, TreeMode_RandomChurn_StructureHighlightsAndPersistentIndexesStayConsistent)
 {
+    using std::chrono::seconds;
+    using std::chrono::steady_clock;
+
     std::mt19937 random(20261014);
     ProcessModel model;
     model.setTreeMode(true);
@@ -679,14 +707,68 @@ TEST(ProcessModel, TreeMode_RandomChurn_StructureAndPersistentIndexesStayConsist
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
 
     std::vector<ProcessInfo> live;
-    int64_t clock = 1;
-    for (int step = 0; step < 300; ++step) {
-        std::vector<std::pair<QPersistentModelIndex, ProcessIdentity>> tracked;
-        for (const auto& info : live) {
-            tracked.emplace_back(model.indexOf(info.identity()), info.identity());
+    // When each process left the list or joined it, as the model was told.
+    std::unordered_map<ProcessIdentity, steady_clock::time_point, ProcessIdentityHash> exitedAt;
+    std::unordered_map<ProcessIdentity, steady_clock::time_point, ProcessIdentityHash> startedAt;
+    std::vector<std::pair<QPersistentModelIndex, ProcessIdentity>> tracked;
+
+    const auto isLive = [&live](const ProcessIdentity& identity) {
+        return std::ranges::any_of(live, [&identity](const ProcessInfo& info) { return info.identity() == identity; });
+    };
+    const auto isRecent = [](const auto& times, const ProcessIdentity& identity, steady_clock::time_point now) {
+        const auto it = times.find(identity);
+        return it != times.end() && now - it->second < ProcessModel::kHighlightDuration;
+    };
+    const auto check = [&](steady_clock::time_point now, int step) {
+        for (const auto& [index, identity] : tracked) {
+            const bool isShown = isLive(identity) || isRecent(exitedAt, identity, now);
+            ASSERT_EQ(index.isValid(), isShown) << "step " << step;
+            if (isShown) {
+                ASSERT_EQ(model.process(index)->identity(), identity) << "step " << step;
+            }
         }
 
-        std::erase_if(live, [&random](const ProcessInfo&) { return random() % 8 == 0; });
+        std::size_t rows = 0;
+        forEachRow(model, [&](const QModelIndex& index) {
+            ++rows;
+            const ProcessInfo* childInfo = model.process(index);
+            ASSERT_EQ(model.indexOf(childInfo->identity()), index);
+            const bool isHighlighted =
+                isRecent(exitedAt, childInfo->identity(), now) ||
+                (isLive(childInfo->identity()) && isRecent(startedAt, childInfo->identity(), now));
+            EXPECT_EQ(index.data(Qt::BackgroundRole).isValid(), isHighlighted) << "step " << step;
+            const QModelIndex parent = model.parent(index);
+            if (parent.isValid()) {
+                const ProcessInfo* parentInfo = model.process(parent);
+                EXPECT_EQ(parentInfo->pid, childInfo->parentPid);
+                EXPECT_LE(parentInfo->creationTime, childInfo->creationTime);
+            }
+        });
+        const auto recentlyExited = std::ranges::count_if(
+            exitedAt, [now](const auto& entry) { return now - entry.second < ProcessModel::kHighlightDuration; });
+        ASSERT_EQ(rows, live.size() + static_cast<std::size_t>(recentlyExited)) << "step " << step;
+
+        std::size_t proxyRows = 0;
+        forEachRow(proxy, [&proxyRows](const QModelIndex&) { ++proxyRows; });
+        ASSERT_EQ(proxyRows, rows) << "step " << step;
+    };
+
+    int64_t clock = 1;
+    for (int step = 0; step < 300; ++step) {
+        // A refresh every 2 seconds and a tick without a list between them, as the scheduler sends them.
+        const auto now = kNow + seconds{2 * step};
+        tracked.clear();
+        forEachRow(model, [&](const QModelIndex& index) {
+            tracked.emplace_back(QPersistentModelIndex(index), model.process(index)->identity());
+        });
+
+        std::erase_if(live, [&](const ProcessInfo& info) {
+            const bool exits = random() % 8 == 0;
+            if (exits) {
+                exitedAt[info.identity()] = now;
+            }
+            return exits;
+        });
         for (auto& info : live) {
             info.cpuUsagePercent = static_cast<float>(random() % 100);
         }
@@ -706,36 +788,168 @@ TEST(ProcessModel, TreeMode_RandomChurn_StructureAndPersistentIndexesStayConsist
                                                                           : static_cast<uint32_t>(4 * (random() % 41));
             ProcessInfo info = child(pid, "p" + std::to_string(pid), parentPid, clock);
             info.cpuUsagePercent = static_cast<float>(random() % 100);
+            if (step > 0) {
+                startedAt[info.identity()] = now;
+            }
             live.push_back(info);
         }
 
-        model.updateProcesses(live);
-
-        for (const auto& [index, identity] : tracked) {
-            const bool isLive =
-                std::ranges::any_of(live, [&identity](const ProcessInfo& info) { return info.identity() == identity; });
-            ASSERT_EQ(index.isValid(), isLive) << "step " << step;
-            if (isLive) {
-                ASSERT_EQ(model.process(index)->identity(), identity) << "step " << step;
-            }
-        }
-
-        std::size_t rows = 0;
-        forEachRow(model, [&](const QModelIndex& index) {
-            ++rows;
-            ASSERT_EQ(model.indexOf(model.process(index)->identity()), index);
-            const QModelIndex parent = model.parent(index);
-            if (parent.isValid()) {
-                const ProcessInfo* childInfo = model.process(index);
-                const ProcessInfo* parentInfo = model.process(parent);
-                EXPECT_EQ(parentInfo->pid, childInfo->parentPid);
-                EXPECT_LE(parentInfo->creationTime, childInfo->creationTime);
-            }
-        });
-        ASSERT_EQ(rows, live.size()) << "step " << step;
-
-        std::size_t proxyRows = 0;
-        forEachRow(proxy, [&proxyRows](const QModelIndex&) { ++proxyRows; });
-        ASSERT_EQ(proxyRows, live.size()) << "step " << step;
+        model.updateProcesses(live, now);
+        check(now, step);
+        model.updateTime(now + seconds{1});
+        check(now + seconds{1}, step);
     }
+}
+
+namespace
+{
+
+bool isHighlighted(const QModelIndex& index)
+{
+    return index.data(Qt::BackgroundRole).isValid();
+}
+
+} // namespace
+
+TEST(ProcessModel, Highlights_FirstList_NothingHighlighted)
+{
+    ProcessModel model;
+
+    model.updateProcesses({process(4, "System"), process(12, "smss.exe")}, kNow);
+
+    EXPECT_FALSE(isHighlighted(model.index(0, 0)));
+    EXPECT_FALSE(isHighlighted(model.index(1, 0)));
+}
+
+TEST(ProcessModel, Highlights_NewProcess_TintedUntilHighlightEnds)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System")}, kNow);
+
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe")}, kNow);
+    const QModelIndex notepad = model.indexOf(process(900, "notepad.exe").identity());
+
+    EXPECT_TRUE(isHighlighted(notepad));
+    EXPECT_TRUE(isHighlighted(model.indexOf(process(900, "notepad.exe").identity(), Column::Handles)));
+    EXPECT_FALSE(isHighlighted(model.index(0, 0)));
+    EXPECT_FALSE(notepad.data(Qt::FontRole).isValid());
+    EXPECT_TRUE(notepad.data(Qt::ToolTipRole).toString().contains("started"));
+
+    model.updateTime(kLater - std::chrono::milliseconds{1});
+    EXPECT_TRUE(isHighlighted(notepad));
+    model.updateTime(kLater);
+    EXPECT_FALSE(isHighlighted(notepad));
+    EXPECT_FALSE(notepad.data(Qt::ToolTipRole).isValid());
+}
+
+TEST(ProcessModel, Highlights_ExitedProcess_TintedItalicWithToolTipThenRemoved)
+{
+    ProcessModel model;
+    ProcessInfo notepad = process(900, "notepad.exe");
+    notepad.threadCount = 7;
+    model.updateProcesses({process(4, "System"), notepad}, kNow);
+
+    model.updateProcesses({process(4, "System")}, kNow);
+    const QPersistentModelIndex row = model.indexOf(notepad.identity());
+
+    ASSERT_TRUE(row.isValid());
+    EXPECT_TRUE(isHighlighted(row));
+    EXPECT_NE(row.data(Qt::BackgroundRole), model.index(0, 0).data(Qt::BackgroundRole));
+    EXPECT_TRUE(row.data(Qt::FontRole).value<QFont>().italic());
+    EXPECT_TRUE(row.data(Qt::ToolTipRole).toString().contains("exited"));
+    // The last values stay on show.
+    EXPECT_EQ(model.process(row)->threadCount, 7u);
+
+    model.updateProcesses({process(4, "System")}, kLater);
+    EXPECT_FALSE(row.isValid());
+    EXPECT_EQ(model.rowCount(), 1);
+}
+
+TEST(ProcessModel, Highlights_StartedAndExitedTintsDiffer)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(900, "old.exe")}, kNow);
+
+    model.updateProcesses({process(4, "System"), process(950, "new.exe")}, kNow);
+
+    const QVariant exited = model.indexOf(process(900, "old.exe").identity()).data(Qt::BackgroundRole);
+    const QVariant started = model.indexOf(process(950, "new.exe").identity()).data(Qt::BackgroundRole);
+    EXPECT_TRUE(exited.isValid());
+    EXPECT_TRUE(started.isValid());
+    EXPECT_NE(exited, started);
+}
+
+TEST(ProcessModel, Highlights_ExitedProcessListedAgain_NoLongerMarked)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe")}, kNow);
+    model.updateProcesses({process(4, "System")}, kNow);
+
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe")}, kNow + std::chrono::seconds{1});
+    model.updateTime(kLater + std::chrono::seconds{10});
+
+    const QModelIndex notepad = model.indexOf(process(900, "notepad.exe").identity());
+    ASSERT_TRUE(notepad.isValid());
+    EXPECT_FALSE(isHighlighted(notepad));
+}
+
+TEST(ProcessModel, Highlights_Changes_SignalledForTheWholeRowWithHighlightRoles)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe")}, kNow);
+    std::vector<std::pair<CellRange, QList<int>>> emitted;
+    QObject::connect(&model, &ProcessModel::dataChanged, &model,
+                     [&emitted](const QModelIndex& topLeft, const QModelIndex& bottomRight, const QList<int>& roles) {
+                         emitted.emplace_back(CellRange{.firstRow = topLeft.row(),
+                                                        .lastRow = bottomRight.row(),
+                                                        .firstColumn = topLeft.column(),
+                                                        .lastColumn = bottomRight.column()},
+                                              roles);
+                     });
+
+    model.updateProcesses({process(4, "System")}, kNow);
+
+    ASSERT_EQ(emitted.size(), 1u);
+    EXPECT_EQ(emitted[0].first,
+              (CellRange{.firstRow = 1, .lastRow = 1, .firstColumn = 0, .lastColumn = ProcessModel::kColumnCount - 1}));
+    EXPECT_TRUE(emitted[0].second.contains(Qt::BackgroundRole));
+    EXPECT_TRUE(emitted[0].second.contains(Qt::FontRole));
+    EXPECT_TRUE(emitted[0].second.contains(Qt::ToolTipRole));
+}
+
+TEST(ProcessModel, UpdateTime_WithoutList_EndsHighlightsAndRemovesExitedRows)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(900, "old.exe")}, kNow);
+    model.updateProcesses({process(4, "System"), process(950, "new.exe")}, kNow);
+
+    model.updateTime(kLater);
+
+    EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "new.exe"}));
+    EXPECT_FALSE(isHighlighted(model.index(1, 0)));
+}
+
+TEST(ProcessModel, TreeMode_ChildOfProcessThatJustExited_ShownUnderIt)
+{
+    ProcessModel model;
+    model.setTreeMode(true);
+    model.updateProcesses({child(4, "System", 0), child(400, "launcher.exe", 4)}, kNow);
+
+    // The launcher started a child and exited between two refreshes.
+    model.updateProcesses({child(4, "System", 0), child(500, "app.exe", 400)}, kNow);
+
+    EXPECT_EQ(treeText(model), "System\n  launcher.exe\n    app.exe\n");
+    model.updateTime(kLater);
+    EXPECT_EQ(treeText(model), "System\napp.exe\n");
+}
+
+TEST(ProcessModel, TreeMode_PidReusedWhileExitedRowShown_ChildFindsTheNewProcess)
+{
+    ProcessModel model;
+    model.setTreeMode(true);
+    model.updateProcesses({child(400, "old.exe", 0, 400)}, kNow);
+
+    model.updateProcesses({child(400, "new.exe", 0, 450), child(500, "app.exe", 400, 460)}, kNow);
+
+    EXPECT_EQ(treeText(model), "old.exe\nnew.exe\n  app.exe\n");
 }
