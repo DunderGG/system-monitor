@@ -5,12 +5,19 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QAbstractButton>
+#include <QAction>
 #include <QCheckBox>
 #include <QItemSelectionModel>
+#include <QKeySequence>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QTreeView>
 
+#include "domain/process_identity.h"
 #include "domain/process_info.h"
+#include "domain/process_termination.h"
 #include "domain/system_snapshot.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
@@ -207,4 +214,216 @@ TEST(ProcessesView, TreeMode_CollapsedBranch_StaysCollapsedWhenChildrenArrive)
         {process(400, "services.exe"), childOf(400, 500, "svchost.exe"), childOf(400, 600, "spoolsv.exe")}));
 
     EXPECT_FALSE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
+}
+
+namespace
+{
+
+// A terminator that records the identity of each process it is asked to end.
+ProcessTerminator recordingTerminator(std::vector<ProcessIdentity>& ended)
+{
+    return [&ended](const ProcessInfo& process) {
+        ended.push_back(process.identity());
+        return ProcessTerminationResult::Terminated;
+    };
+}
+
+void selectProcess(ProcessesView& view, const ProcessIdentity& identity)
+{
+    view.treeView()->setCurrentIndex(view.proxyModel()->mapFromSource(view.model()->indexOf(identity)));
+}
+
+QAbstractButton* endButton(const QMessageBox& dialog)
+{
+    for (auto* button : dialog.buttons()) {
+        if (dialog.buttonRole(button) == QMessageBox::DestructiveRole) {
+            return button;
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
+TEST(ProcessesView, EndProcessAction_NoProcessSelected_Disabled)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+
+    EXPECT_FALSE(view.endProcessAction()->isEnabled());
+    EXPECT_FALSE(view.endProcessButton()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_NoTerminator_Disabled)
+{
+    ProcessesView view;
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+
+    selectProcess(view, process(800, "explorer.exe").identity());
+
+    EXPECT_FALSE(view.endProcessAction()->isEnabled());
+    EXPECT_FALSE(view.endProcessButton()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_ProcessSelected_EnabledWithTheButton)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+
+    selectProcess(view, process(800, "explorer.exe").identity());
+
+    EXPECT_TRUE(view.endProcessAction()->isEnabled());
+    EXPECT_TRUE(view.endProcessButton()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_TerminatorSetAfterSelection_Enabled)
+{
+    ProcessesView view;
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+
+    EXPECT_TRUE(view.endProcessAction()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_SelectedRowRemoved_DisabledWhenNoRowIsLeft)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(800, "explorer.exe")}, 0));
+    selectProcess(view, process(800, "explorer.exe").identity());
+
+    view.updateSnapshot(snapshotWith({}, 1));
+    view.updateSnapshot(snapshotWith({}, 10));
+
+    ASSERT_EQ(view.model()->rowCount(), 0);
+    EXPECT_FALSE(view.endProcessAction()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_SelectedProcessKeptAcrossTreeMode_StaysEnabled)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    selectProcess(view, childOf(4, 100, "smss.exe").identity());
+
+    view.setTreeMode(true);
+
+    EXPECT_TRUE(view.endProcessAction()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_OfferedByContextMenuAndDeleteKeyOnTheTable)
+{
+    ProcessesView view;
+
+    EXPECT_EQ(view.treeView()->contextMenuPolicy(), Qt::ActionsContextMenu);
+    EXPECT_TRUE(view.treeView()->actions().contains(view.endProcessAction()));
+    EXPECT_EQ(view.endProcessAction()->shortcut(), QKeySequence(QKeySequence::Delete));
+    EXPECT_EQ(view.endProcessAction()->shortcutContext(), Qt::WidgetShortcut);
+}
+
+TEST(ProcessesView, EndProcessAction_Triggered_AsksWithNameAndPidAndWarning)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+
+    view.endProcessAction()->trigger();
+
+    const auto* dialog = view.findChild<QMessageBox*>();
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_TRUE(dialog->isVisible());
+    EXPECT_EQ(dialog->icon(), QMessageBox::Warning);
+    EXPECT_EQ(dialog->text(), "Do you want to end explorer.exe (PID 800)?");
+    EXPECT_EQ(dialog->textFormat(), Qt::PlainText);
+    EXPECT_TRUE(dialog->informativeText().contains("unsaved data"));
+    EXPECT_NE(endButton(*dialog), nullptr);
+    EXPECT_EQ(dialog->defaultButton(), dialog->button(QMessageBox::Cancel));
+    EXPECT_EQ(dialog->escapeButton(), dialog->button(QMessageBox::Cancel));
+    EXPECT_TRUE(ended.empty());
+}
+
+TEST(ProcessesView, EndProcessAction_Confirmed_EndsTheSelectedProcess)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+    view.endProcessAction()->trigger();
+    auto* dialog = view.findChild<QMessageBox*>();
+    ASSERT_NE(dialog, nullptr);
+    ASSERT_NE(endButton(*dialog), nullptr);
+
+    endButton(*dialog)->click();
+
+    EXPECT_EQ(ended, std::vector{process(800, "explorer.exe").identity()});
+    EXPECT_FALSE(dialog->isVisible());
+}
+
+TEST(ProcessesView, EndProcessAction_Cancelled_DoesNotEndTheProcess)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+    view.endProcessAction()->trigger();
+    auto* dialog = view.findChild<QMessageBox*>();
+    ASSERT_NE(dialog, nullptr);
+
+    dialog->button(QMessageBox::Cancel)->click();
+
+    EXPECT_TRUE(ended.empty());
+    EXPECT_FALSE(dialog->isVisible());
+}
+
+TEST(ProcessesView, EndProcessAction_ProcessLeavesTheListWhileAsking_EndsTheProcessAskedAbout)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    const ProcessInfo notepad = process(900, "notepad.exe");
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe"), notepad}, 0));
+    selectProcess(view, notepad.identity());
+    view.endProcessAction()->trigger();
+    auto* dialog = view.findChild<QMessageBox*>();
+    ASSERT_NE(dialog, nullptr);
+
+    // Notepad exits and its row is removed; another process becomes current.
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}, 1));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}, 10));
+    ASSERT_FALSE(view.model()->indexOf(notepad.identity()).isValid());
+    const auto* current = view.model()->process(view.proxyModel()->mapToSource(view.treeView()->currentIndex()));
+    ASSERT_NE(current, nullptr);
+    ASSERT_NE(current->identity(), notepad.identity());
+    ASSERT_NE(endButton(*dialog), nullptr);
+    endButton(*dialog)->click();
+
+    EXPECT_EQ(ended, std::vector{notepad.identity()});
+}
+
+TEST(ProcessesView, EndProcessButton_Clicked_Asks)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+
+    view.endProcessButton()->click();
+
+    const auto* dialog = view.findChild<QMessageBox*>();
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_EQ(dialog->text(), "Do you want to end explorer.exe (PID 800)?");
 }

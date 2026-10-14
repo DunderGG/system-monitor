@@ -99,4 +99,10 @@ QString processListSummary(std::optional<std::size_t> listedCount, bool hasEarli
                           : QStringLiteral("Processes: --");
 }
 
+QString processTerminationQuestion(const domain::ProcessInfo& process)
+{
+    // One arg() call, so a "%1" or "%2" in the name stays literal.
+    return QString("Do you want to end %1 (PID %2)?").arg(processDisplayName(process), QString::number(process.pid));
+}
+
 } // namespace sysmon::ui

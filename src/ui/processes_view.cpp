@@ -4,14 +4,21 @@
 #include <array>
 #include <cstddef>
 #include <optional>
+#include <utility>
 
+#include <QAbstractButton>
+#include <QAction>
 #include <QCheckBox>
 #include <QFont>
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QItemSelectionModel>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -32,6 +39,11 @@ namespace
 constexpr int kHeaderPadding = 24;
 // Wide enough for a long image name; the filter box does not need more.
 constexpr int kFilterMaximumWidth = 320;
+
+const QString kEndProcessText = QStringLiteral("End process");
+const QString kEndProcessWarning = QStringLiteral(
+    "Ending a process stops it immediately. Any unsaved data in it is lost, and programs that depend on it may stop "
+    "working.");
 
 // Sizes each value column to fit its widest expected text, so the columns stay
 // put as values change. The name column takes the remaining width.
@@ -93,7 +105,19 @@ ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
     toolbar->addStretch();
     m_summaryLabel = new QLabel(processListSummary(std::nullopt, false), this);
     toolbar->addWidget(m_summaryLabel);
+    m_endProcessButton = new QPushButton(kEndProcessText, this);
+    m_endProcessButton->setToolTip("End the selected process, after you confirm (Delete)");
+    m_endProcessButton->setEnabled(false);
+    toolbar->addWidget(m_endProcessButton);
     layout->addLayout(toolbar);
+
+    // One action for the button, the context menu, and the Delete key. The
+    // key works only while the table has focus, so Delete in the filter box
+    // still edits the text.
+    m_endProcessAction = new QAction(kEndProcessText, this);
+    m_endProcessAction->setShortcut(QKeySequence::Delete);
+    m_endProcessAction->setShortcutContext(Qt::WidgetShortcut);
+    m_endProcessAction->setEnabled(false);
 
     m_model = new ProcessModel(this);
     m_proxyModel = new ProcessSortFilterProxyModel(this);
@@ -107,8 +131,17 @@ ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
     m_treeView->setSelectionMode(QAbstractItemView::SingleSelection);
     m_treeView->setSortingEnabled(true);
     m_treeView->sortByColumn(static_cast<int>(ProcessModel::Column::Name), Qt::AscendingOrder);
+    m_treeView->setContextMenuPolicy(Qt::ActionsContextMenu);
+    m_treeView->addAction(m_endProcessAction);
     sizeColumns(m_treeView);
     layout->addWidget(m_treeView, 1);
+
+    connect(m_endProcessButton, &QPushButton::clicked, m_endProcessAction, &QAction::trigger);
+    connect(m_endProcessAction, &QAction::enabledChanged, m_endProcessButton, &QPushButton::setEnabled);
+    connect(m_endProcessAction, &QAction::triggered, this, &ProcessesView::confirmEndProcess);
+    // The current row also changes when it is removed or filtered out.
+    connect(m_treeView->selectionModel(), &QItemSelectionModel::currentChanged, this,
+            &ProcessesView::updateEndProcessAction);
 
     connect(m_filterEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
         m_proxyModel->setFilterFixedString(text);
@@ -172,12 +205,28 @@ QCheckBox* ProcessesView::treeModeCheckBox() const
     return m_treeModeCheckBox;
 }
 
+QAction* ProcessesView::endProcessAction() const
+{
+    return m_endProcessAction;
+}
+
+QPushButton* ProcessesView::endProcessButton() const
+{
+    return m_endProcessButton;
+}
+
+void ProcessesView::setProcessTerminator(ProcessTerminator terminator)
+{
+    m_terminator = std::move(terminator);
+    updateEndProcessAction();
+}
+
 void ProcessesView::applyTreeMode(bool enabled)
 {
     // Switching resets the model, which clears the selection; the selected
     // process is selected again afterwards.
     std::optional<domain::ProcessIdentity> selected;
-    if (const auto* process = m_model->process(m_proxyModel->mapToSource(m_treeView->currentIndex()))) {
+    if (const auto* process = currentProcess()) {
         selected = process->identity();
     }
 
@@ -194,6 +243,48 @@ void ProcessesView::applyTreeMode(bool enabled)
             m_treeView->scrollTo(index);
         }
     }
+    // The reset cleared the current row without signalling it.
+    updateEndProcessAction();
+}
+
+const domain::ProcessInfo* ProcessesView::currentProcess() const
+{
+    return m_model->process(m_proxyModel->mapToSource(m_treeView->currentIndex()));
+}
+
+void ProcessesView::updateEndProcessAction()
+{
+    m_endProcessAction->setEnabled(m_terminator && currentProcess() != nullptr);
+}
+
+void ProcessesView::confirmEndProcess()
+{
+    const domain::ProcessInfo* current = currentProcess();
+    if (current == nullptr || !m_terminator) {
+        return;
+    }
+
+    auto* dialog = new QMessageBox(QMessageBox::Warning, kEndProcessText, processTerminationQuestion(*current),
+                                   QMessageBox::Cancel, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // The name is the process's own; it must not be read as rich text.
+    dialog->setTextFormat(Qt::PlainText);
+    dialog->setInformativeText(kEndProcessWarning);
+    const QPushButton* endButton = dialog->addButton(kEndProcessText, QMessageBox::DestructiveRole);
+    dialog->setDefaultButton(QMessageBox::Cancel);
+    dialog->setEscapeButton(QMessageBox::Cancel);
+
+    // The table keeps refreshing while the dialog is open, and the current
+    // row can move to another process, so the answer applies to a copy of
+    // the process the dialog names.
+    connect(dialog, &QMessageBox::buttonClicked, this,
+            [this, endButton, process = *current](const QAbstractButton* clicked) {
+                if (clicked == endButton && m_terminator) {
+                    // The terminator logs the outcome.
+                    m_terminator(process);
+                }
+            });
+    dialog->open();
 }
 
 QTreeView* ProcessesView::treeView() const

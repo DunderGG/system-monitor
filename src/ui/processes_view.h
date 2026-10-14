@@ -1,13 +1,19 @@
 #pragma once
 
+#include <functional>
+
 #include <QString>
 #include <QWidget>
 
+#include "domain/process_info.h"
+#include "domain/process_termination.h"
 #include "domain/system_snapshot.h"
 
+class QAction;
 class QCheckBox;
 class QLabel;
 class QLineEdit;
+class QPushButton;
 class QTreeView;
 
 namespace sysmon::ui
@@ -15,6 +21,13 @@ namespace sysmon::ui
 
 class ProcessModel;
 class ProcessSortFilterProxyModel;
+
+/**
+ * Ends the process that a ProcessInfo identifies by (pid, creationTime) and
+ * says what happened. main.cpp passes platform::terminateOwnedProcess(),
+ * which the UI cannot call itself.
+ */
+using ProcessTerminator = std::function<domain::ProcessTerminationResult(const domain::ProcessInfo&)>;
 
 /**
  * Processes tab: a filter box, a "Show as tree" check box, and a summary line
@@ -34,6 +47,15 @@ class ProcessSortFilterProxyModel;
  * current whenever it is; the view only repaints while visible. A snapshot
  * without a list (before the first one, or after a failed read) keeps the
  * rows of the last list read, but still ends highlights that are due.
+ *
+ * The End process action ends the selected process once the user confirms
+ * it in a dialog that names the process and its PID and warns that unsaved
+ * data is lost; Cancel is the dialog's default. The toolbar's End process
+ * button, the table's context menu, and the Delete key (while the table has
+ * focus) all trigger it. It is enabled while a process is selected and a
+ * terminator is set. The dialog keeps a copy of the process it names, so
+ * confirming ends that process, by (PID, creation time), even if the
+ * selection has moved or the process has left the list since it opened.
  */
 class ProcessesView : public QWidget
 {
@@ -55,12 +77,20 @@ public:
     [[nodiscard]] QTreeView* treeView() const;
     [[nodiscard]] QLineEdit* filterEdit() const;
     [[nodiscard]] QCheckBox* treeModeCheckBox() const;
+    [[nodiscard]] QAction* endProcessAction() const;
+    [[nodiscard]] QPushButton* endProcessButton() const;
+
+    /** Sets the function that ends a process once the user confirms. Without one, End process is disabled. */
+    void setProcessTerminator(ProcessTerminator terminator);
 
     /** Returns the summary line above the table, e.g. "Processes: 412". */
     [[nodiscard]] QString summaryText() const;
 
 private:
     void applyTreeMode(bool enabled);
+    [[nodiscard]] const domain::ProcessInfo* currentProcess() const;
+    void updateEndProcessAction();
+    void confirmEndProcess();
 
     ProcessModel* m_model{nullptr};
     ProcessSortFilterProxyModel* m_proxyModel{nullptr};
@@ -68,6 +98,9 @@ private:
     QLineEdit* m_filterEdit{nullptr};
     QCheckBox* m_treeModeCheckBox{nullptr};
     QLabel* m_summaryLabel{nullptr};
+    QAction* m_endProcessAction{nullptr};
+    QPushButton* m_endProcessButton{nullptr};
+    ProcessTerminator m_terminator;
     bool m_hasProcessList{false};
 };
 

@@ -53,4 +53,10 @@ inline constexpr qsizetype kToolTipDetailLength = 2000;
  */
 [[nodiscard]] QString processListSummary(std::optional<std::size_t> listedCount, bool hasEarlierList);
 
+/**
+ * Question in the dialog that confirms ending a process, naming the process
+ * and its PID: "Do you want to end explorer.exe (PID 1234)?"
+ */
+[[nodiscard]] QString processTerminationQuestion(const domain::ProcessInfo& process);
+
 } // namespace sysmon::ui

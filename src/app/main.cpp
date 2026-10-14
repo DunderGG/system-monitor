@@ -17,9 +17,11 @@
 #include "platform/windows/memory_collector.h"
 #include "platform/windows/network_collector.h"
 #include "platform/windows/process_collector.h"
+#include "platform/windows/process_terminator.h"
 #include "platform/windows/system_activity_collector.h"
 #include "platform/windows/uptime_collector.h"
 #include "ui/main_window.h"
+#include "ui/processes_view.h"
 
 int main(int argc, char* argv[])
 {
@@ -62,6 +64,7 @@ int main(int argc, char* argv[])
     scheduler.setProcessCollector(std::make_unique<sysmon::platform::ProcessCollector>());
 
     sysmon::ui::MainWindow mainWindow;
+    mainWindow.processesView()->setProcessTerminator(sysmon::platform::terminateOwnedProcess);
 
     QObject::connect(&scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
                      &sysmon::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);

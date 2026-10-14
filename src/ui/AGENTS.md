@@ -6,6 +6,7 @@ This module contains all Qt Widgets, custom sparkline chart widgets, view models
 
 - **No Windows headers.** This module must not include `<Windows.h>` or any platform-specific headers. It must not call any Windows APIs directly.
 - **No monitoring or platform imports.** This module receives data only through `SystemSnapshot` values and domain types. It does not call collectors or platform wrappers.
+- **Actions arrive as injected functions.** An action that changes the system, such as ending a process, calls a `std::function` typed with domain values (e.g. `ProcessTerminator`) that `main.cpp` sets. The UI never names the platform function behind it. Disable the action while no function is set.
 
 ## Design rules
 

@@ -61,6 +61,18 @@ TEST(ProcessFormatting, ProcessListSummary_ListMissingAfterEarlierOne_SaysNotAva
     EXPECT_EQ(processListSummary(std::nullopt, true), "Processes: N/A (showing the last list read)");
 }
 
+TEST(ProcessFormatting, ProcessTerminationQuestion_NamedProcess_NamesItAndItsPid)
+{
+    EXPECT_EQ(processTerminationQuestion(ProcessInfo{.pid = 1234, .imageName = "explorer.exe"}),
+              "Do you want to end explorer.exe (PID 1234)?");
+}
+
+TEST(ProcessFormatting, ProcessTerminationQuestion_NameWithPlaceholder_KeptLiterally)
+{
+    EXPECT_EQ(processTerminationQuestion(ProcessInfo{.pid = 7, .imageName = "a%2b%1.exe"}),
+              "Do you want to end a%2b%1.exe (PID 7)?");
+}
+
 TEST(ProcessFormatting, ProcessDetailsToolTip_Available_ShowsPathAndCommandLine)
 {
     const ProcessInfo process{
