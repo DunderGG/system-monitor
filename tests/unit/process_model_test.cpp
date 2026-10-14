@@ -10,10 +10,13 @@
 
 #include <gtest/gtest.h>
 #include <QFont>
+#include <QIcon>
+#include <QImage>
 #include <QList>
 #include <QObject>
 #include <QPersistentModelIndex>
 #include <QString>
+#include <QVariant>
 
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
@@ -427,6 +430,7 @@ TEST(ProcessModel, UpdateProcesses_OneValueChanged_SignalsOnlyThatCellWithValueR
     EXPECT_TRUE(roles.contains(Qt::DisplayRole));
     EXPECT_TRUE(roles.contains(Qt::ToolTipRole));
     EXPECT_TRUE(roles.contains(Qt::ForegroundRole));
+    EXPECT_TRUE(roles.contains(Qt::DecorationRole));
 }
 
 TEST(ProcessModel, UpdateProcesses_ChangesInSeveralRows_OneBlockCoveringThem)
@@ -462,6 +466,10 @@ TEST(ProcessModel, UpdateProcesses_EachValueColumn_DetectedOnItsOwn)
         return log.changed.empty() ? -1 : log.changed[0].firstColumn;
     };
 
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.detailsStatus = ProcessDetailsStatus::AccessDenied; }),
+              static_cast<int>(Column::Name));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.imagePath = "C:/app.exe"; }), static_cast<int>(Column::Name));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.commandLine = "app"; }), static_cast<int>(Column::Name));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.cpuUsagePercent = 0.0f; }), static_cast<int>(Column::Cpu));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.workingSetBytes = 1; }), static_cast<int>(Column::Memory));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.ioReadBytesPerSec = 0; }), static_cast<int>(Column::Io));
@@ -839,7 +847,7 @@ TEST(ProcessModel, Highlights_NewProcess_TintedUntilHighlightEnds)
     EXPECT_TRUE(isHighlighted(notepad));
     model.updateTime(kLater);
     EXPECT_FALSE(isHighlighted(notepad));
-    EXPECT_FALSE(notepad.data(Qt::ToolTipRole).isValid());
+    EXPECT_FALSE(notepad.data(Qt::ToolTipRole).toString().contains("started"));
 }
 
 TEST(ProcessModel, Highlights_ExitedProcess_TintedItalicWithToolTipThenRemoved)
@@ -952,4 +960,98 @@ TEST(ProcessModel, TreeMode_PidReusedWhileExitedRowShown_ChildFindsTheNewProcess
     model.updateProcesses({child(400, "new.exe", 0, 450), child(500, "app.exe", 400, 460)}, kNow);
 
     EXPECT_EQ(treeText(model), "old.exe\nnew.exe\n  app.exe\n");
+}
+
+namespace
+{
+
+// The icon's 16-pixel image, as the view draws it at 100% scale.
+QImage iconImage(const QVariant& decoration)
+{
+    return decoration.value<QIcon>().pixmap(16, 16).toImage();
+}
+
+bool hasVisiblePixel(const QImage& image)
+{
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y).alpha() > 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+ProcessInfo withDetails(uint32_t pid, ProcessDetailsStatus status)
+{
+    ProcessInfo info = process(pid, "p" + std::to_string(pid));
+    info.detailsStatus = status;
+    return info;
+}
+
+} // namespace
+
+TEST(ProcessModel, Data_NameColumn_AccessIndicatorPerDetailsStatus)
+{
+    ProcessModel model;
+    model.updateProcesses(
+        {withDetails(1, ProcessDetailsStatus::Available), withDetails(2, ProcessDetailsStatus::AccessDenied),
+         withDetails(3, ProcessDetailsStatus::NotQueried), withDetails(4, ProcessDetailsStatus::Unavailable)},
+        kNow);
+
+    std::vector<QImage> images;
+    for (int row = 0; row < 4; ++row) {
+        const QVariant decoration = model.index(row, static_cast<int>(Column::Name)).data(Qt::DecorationRole);
+        ASSERT_TRUE(decoration.canConvert<QIcon>()) << row;
+        images.push_back(iconImage(decoration));
+        EXPECT_FALSE(model.index(row, static_cast<int>(Column::Pid)).data(Qt::DecorationRole).isValid()) << row;
+    }
+
+    // A blank icon keeps the names of processes with details aligned with the others.
+    EXPECT_EQ(images[0].size(), images[1].size());
+    EXPECT_FALSE(hasVisiblePixel(images[0]));
+    for (std::size_t status = 1; status < images.size(); ++status) {
+        EXPECT_TRUE(hasVisiblePixel(images[status])) << status;
+    }
+    EXPECT_NE(images[1], images[2]);
+    EXPECT_NE(images[1], images[3]);
+    EXPECT_NE(images[2], images[3]);
+}
+
+TEST(ProcessModel, Data_NameToolTip_GivesDetailsOrWhyMissing)
+{
+    ProcessModel model;
+    ProcessInfo available = withDetails(1, ProcessDetailsStatus::Available);
+    available.imagePath = "C:/Apps/p1.exe";
+    available.commandLine = "p1.exe --run";
+    model.updateProcesses({available, withDetails(2, ProcessDetailsStatus::AccessDenied)}, kNow);
+
+    EXPECT_EQ(model.index(0, 0).data(Qt::ToolTipRole).toString(),
+              "<p><b>Path:</b> C:/Apps/p1.exe</p><p><b>Command line:</b> p1.exe --run</p>");
+    EXPECT_TRUE(model.index(1, 0).data(Qt::ToolTipRole).toString().startsWith("<p>Access denied:"));
+}
+
+TEST(ProcessModel, Data_NameToolTip_ExitedProcess_AddsExitedAfterDetails)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), withDetails(2, ProcessDetailsStatus::AccessDenied)}, kNow);
+
+    model.updateProcesses({process(4, "System")}, kNow);
+
+    const QString toolTip =
+        model.indexOf(withDetails(2, ProcessDetailsStatus::AccessDenied).identity()).data(Qt::ToolTipRole).toString();
+    EXPECT_TRUE(toolTip.startsWith("<p>Access denied:"));
+    EXPECT_TRUE(toolTip.endsWith("<p>This process has exited; its row is removed in a moment.</p>"));
+}
+
+TEST(ProcessModel, HeaderData_NameToolTip_ExplainsTheIndicator)
+{
+    ProcessModel model;
+
+    const QString toolTip =
+        model.headerData(static_cast<int>(Column::Name), Qt::Horizontal, Qt::ToolTipRole).toString();
+
+    EXPECT_TRUE(toolTip.contains("icon"));
+    EXPECT_TRUE(toolTip.contains("could not be read"));
 }

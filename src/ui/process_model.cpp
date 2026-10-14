@@ -19,6 +19,7 @@
 
 #include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
+#include "ui/process_icons.h"
 
 namespace sysmon::ui
 {
@@ -44,7 +45,13 @@ std::optional<std::pair<int, int>> changedColumns(const domain::ProcessInfo& bef
         const int index = static_cast<int>(column);
         columns = columns ? std::pair{columns->first, index} : std::pair{index, index};
     };
-    // In column order, so each mark extends the range to the right.
+    // In column order, so each mark extends the range to the right. The
+    // details are read once per process, so they change only if a reader
+    // ever fills them in later; the name column shows them.
+    if (before.detailsStatus != after.detailsStatus || before.imagePath != after.imagePath ||
+        before.commandLine != after.commandLine) {
+        mark(Column::Name);
+    }
     if (before.cpuUsagePercent != after.cpuUsagePercent) {
         mark(Column::Cpu);
     }
@@ -136,7 +143,8 @@ QString headerToolTip(Column column)
 {
     switch (column) {
         case Column::Name:
-            return QStringLiteral("Image name of the process");
+            return QStringLiteral("Image name of the process. An icon before the name means its path and command "
+                                  "line could not be read; point at the name to see why.");
         case Column::Pid:
             return QStringLiteral("Process ID");
         case Column::Cpu:
@@ -158,7 +166,13 @@ QString headerToolTip(Column column)
 
 } // namespace
 
-ProcessModel::ProcessModel(QObject* parent) : QAbstractItemModel(parent) {}
+ProcessModel::ProcessModel(QObject* parent) : QAbstractItemModel(parent)
+{
+    for (const auto status : {domain::ProcessDetailsStatus::NotQueried, domain::ProcessDetailsStatus::Available,
+                              domain::ProcessDetailsStatus::AccessDenied, domain::ProcessDetailsStatus::Unavailable}) {
+        m_detailsIcons[static_cast<std::size_t>(status)] = detailsStatusIcon(status);
+    }
+}
 
 void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& processes,
                                    std::chrono::steady_clock::time_point now)
@@ -352,11 +366,19 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
             if (column == Column::Io) {
                 return processIoToolTip(node->process);
             }
-            if (column == Column::Name && node->exitedAt) {
-                return QStringLiteral("This process has exited; its row is removed in a moment.");
+            if (column == Column::Name) {
+                QString toolTip = processDetailsToolTip(node->process);
+                if (node->exitedAt) {
+                    toolTip += QStringLiteral("<p>This process has exited; its row is removed in a moment.</p>");
+                } else if (node->startedAt) {
+                    toolTip += QStringLiteral("<p>This process started in the last few seconds.</p>");
+                }
+                return toolTip;
             }
-            if (column == Column::Name && node->startedAt) {
-                return QStringLiteral("This process started in the last few seconds.");
+            return {};
+        case Qt::DecorationRole:
+            if (column == Column::Name) {
+                return m_detailsIcons[static_cast<std::size_t>(node->process.detailsStatus)];
             }
             return {};
         case Qt::BackgroundRole:
@@ -549,7 +571,7 @@ void ProcessModel::signalValuesChanged(const ChangedBlocks& changed)
         lastColumn = std::max(lastColumn, block.lastColumn);
     }
 
-    static const QList<int> kValueRoles{Qt::DisplayRole, Qt::ToolTipRole, Qt::ForegroundRole};
+    static const QList<int> kValueRoles{Qt::DisplayRole, Qt::ToolTipRole, Qt::ForegroundRole, Qt::DecorationRole};
     emit valueChangesStarted(firstColumn, lastColumn, static_cast<int>(changed.size()));
     for (const auto& [parent, block] : changed) {
         const QModelIndex parentIndex = indexOfNode(parent);

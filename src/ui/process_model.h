@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -8,6 +9,7 @@
 #include <vector>
 
 #include <QAbstractItemModel>
+#include <QIcon>
 #include <QModelIndex>
 #include <QVariant>
 
@@ -50,6 +52,10 @@ namespace sysmon::ui
  * Values that are missing (a rate not measured yet, or per-process network
  * usage, which is not collected) show "N/A" in the placeholder text colour,
  * never zero. Column headers have tooltips that say what a value counts.
+ *
+ * The name column shows an access indicator, detailsStatusIcon(), for a
+ * process whose path and command line could not be read, and its tooltip
+ * gives them or says why they are missing (processDetailsToolTip()).
  *
  * Not thread-safe; use only on the UI thread.
  */
@@ -176,6 +182,8 @@ private:
     bool m_treeMode{false};
     // False until the first list, whose processes are not highlighted as new.
     bool m_hasList{false};
+    // The name column's icon for each ProcessDetailsStatus, indexed by its value.
+    std::array<QIcon, 4> m_detailsIcons;
 };
 
 } // namespace sysmon::ui

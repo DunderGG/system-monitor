@@ -34,6 +34,18 @@ inline constexpr std::string_view kIdleProcessName = "System Idle Process";
 /** Tooltip for the I/O column: the read and write rates on their own, e.g. "Read: 1.0 KiB/s\nWrite: N/A". */
 [[nodiscard]] QString processIoToolTip(const domain::ProcessInfo& process);
 
+/** Most characters of a path or command line a tooltip shows; the rest is cut off with an ellipsis. */
+inline constexpr qsizetype kToolTipDetailLength = 2000;
+
+/**
+ * Tooltip for the name column, as rich text paragraphs so Qt wraps long
+ * lines: the image path and command line when they could be read, and
+ * otherwise why not, from the process's details status, followed by
+ * whichever detail could be read. Details are HTML-escaped and cut off after
+ * kToolTipDetailLength characters.
+ */
+[[nodiscard]] QString processDetailsToolTip(const domain::ProcessInfo& process);
+
 /**
  * Summary line above the process table: "Processes: 412" for the latest list,
  * "Processes: --" before the first one, and "Processes: N/A (showing the last

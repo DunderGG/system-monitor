@@ -1,7 +1,10 @@
 #include <cstddef>
 #include <optional>
+#include <string>
 
 #include <gtest/gtest.h>
+#include <QChar>
+#include <QString>
 
 #include "domain/process_info.h"
 #include "ui/process_formatting.h"
@@ -56,4 +59,57 @@ TEST(ProcessFormatting, ProcessListSummary_BeforeFirstList_IsPlaceholder)
 TEST(ProcessFormatting, ProcessListSummary_ListMissingAfterEarlierOne_SaysNotAvailable)
 {
     EXPECT_EQ(processListSummary(std::nullopt, true), "Processes: N/A (showing the last list read)");
+}
+
+TEST(ProcessFormatting, ProcessDetailsToolTip_Available_ShowsPathAndCommandLine)
+{
+    const ProcessInfo process{
+        .imageName = "app.exe",
+        .imagePath = "C:\\Apps\\app.exe",
+        .commandLine = "app.exe --mode \"fast\" <input>",
+        .detailsStatus = ProcessDetailsStatus::Available,
+    };
+
+    EXPECT_EQ(processDetailsToolTip(process),
+              "<p><b>Path:</b> C:\\Apps\\app.exe</p>"
+              "<p><b>Command line:</b> app.exe --mode &quot;fast&quot; &lt;input&gt;</p>");
+}
+
+TEST(ProcessFormatting, ProcessDetailsToolTip_EachMissingStatus_SaysWhy)
+{
+    const auto toolTip = [](ProcessDetailsStatus status) {
+        return processDetailsToolTip(ProcessInfo{.detailsStatus = status});
+    };
+
+    EXPECT_TRUE(toolTip(ProcessDetailsStatus::AccessDenied).startsWith("<p>Access denied:"));
+    EXPECT_TRUE(toolTip(ProcessDetailsStatus::NotQueried).startsWith("<p>Not read:"));
+    EXPECT_TRUE(toolTip(ProcessDetailsStatus::Unavailable).startsWith("<p>Unavailable:"));
+    EXPECT_FALSE(toolTip(ProcessDetailsStatus::AccessDenied).contains("Path:"));
+}
+
+TEST(ProcessFormatting, ProcessDetailsToolTip_PartlyRead_ShowsWhatWasRead)
+{
+    const ProcessInfo process{
+        .imagePath = "C:\\Apps\\app.exe",
+        .detailsStatus = ProcessDetailsStatus::AccessDenied,
+    };
+
+    const QString toolTip = processDetailsToolTip(process);
+
+    EXPECT_TRUE(toolTip.startsWith("<p>Access denied:"));
+    EXPECT_TRUE(toolTip.endsWith("<p><b>Path:</b> C:\\Apps\\app.exe</p>"));
+    EXPECT_FALSE(toolTip.contains("Command line"));
+}
+
+TEST(ProcessFormatting, ProcessDetailsToolTip_LongCommandLine_CutOffWithEllipsis)
+{
+    const ProcessInfo process{
+        .commandLine = std::string(static_cast<std::size_t>(kToolTipDetailLength) + 500, 'x'),
+        .detailsStatus = ProcessDetailsStatus::Available,
+    };
+
+    const QString toolTip = processDetailsToolTip(process);
+
+    EXPECT_TRUE(toolTip.contains(QString(kToolTipDetailLength, 'x') + QChar(0x2026)));
+    EXPECT_FALSE(toolTip.contains(QString(kToolTipDetailLength + 1, 'x')));
 }
