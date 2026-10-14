@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 
 #include <QString>
 
@@ -15,10 +16,12 @@ namespace sysmon::ui
 // in dashboard_formatting.h, they take domain values and return display text,
 // so they can be unit tested without widgets.
 
+/** Name shown for the Idle process (PID 0), which has no image name in the process list. */
+inline constexpr std::string_view kIdleProcessName = "System Idle Process";
+
 /**
- * Returns the name to show for a process: its image name, or "System Idle
- * Process" for PID 0, which has none in the process list. Any other process
- * without a name shows "N/A".
+ * Returns the name to show for a process: its image name, or
+ * kIdleProcessName for PID 0. Any other process without a name shows "N/A".
  */
 [[nodiscard]] QString processDisplayName(const domain::ProcessInfo& process);
 

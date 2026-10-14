@@ -95,6 +95,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 - [Phase 4 — Process explorer view (`src/ui/`)](#phase-4--process-explorer-view-srcui)
   - [DC-79](#dc-79-process-table-a-qabstractitemmodel-with-one-row-per-processidentity-changed-in-place): Process table: a `QAbstractItemModel` with one row per `ProcessIdentity`, changed in place
   - [DC-80](#dc-80-process-table-columns-io-rates-from-the-collector-and-na-for-missing-values): Process table columns: I/O rates from the collector, and N/A for missing values
+  - [DC-81](#dc-81-sorting-and-filtering-a-proxy-that-compares-domain-values-with-missing-values-lowest): Sorting and filtering: a proxy that compares domain values, with missing values lowest
 
 ---
 
@@ -836,3 +837,17 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 - On each update the model emits one `dataChanged()` over the value columns (CPU to Handles) of every row it kept. Name and PID never change for an identity.
 
 **Rationale:** The process list reaches the UI with every 1 Hz snapshot but is refreshed only every 2 seconds ([DC-77](#dc-77-a-slow-collector-thread-in-the-scheduler-shared-by-processes-and-connectivity)), so consecutive snapshots often carry the same counters. The snapshot's timestamp is also the tick's, not the time the list was read. A rate computed in the UI would therefore alternate between zero and double the real value. The collector knows when each list was read, so it computes the I/O rates there, from the same baselines and timestamp as the CPU usage. Keeping read and write separate in the domain leaves both available to other consumers, while the table shows their sum, as the roadmap asks. Summing only when both rates are known avoids understating the total, the rule `sumActiveThroughput()` follows for adapters. The counters are `ReadTransferCount` and `WriteTransferCount`, which include pipe and device I/O ([DC-71](#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh)), so "Disk I/O" would mislabel them. The Network column stays so the layout does not change when ETW arrives. Its cells say "N/A" rather than zero because no value is known, and they are dimmed so a column of placeholders does not draw the eye. Fixed widths from templates keep the columns still as values change, and avoid `QHeaderView::ResizeToContents`, which measures every row whenever the data changes.
+
+---
+
+### DC-81: Sorting and filtering: a proxy that compares domain values, with missing values lowest
+
+**Decision:** `ProcessSortFilterProxyModel`, a `QSortFilterProxyModel` subclass, sits between `ProcessModel` and the view.
+
+- `lessThan()` compares the `ProcessInfo` values behind the two indexes, read with `ProcessModel::process()`, rather than display text or `QVariant`s. Through `std::optional`'s ordering, a missing value (a CPU or I/O rate not measured yet) sorts below every value.
+- Rows that compare equal fall back to the name, then the PID, then the creation time. Names are compared on their UTF-8 bytes with ASCII case folded, and the Idle process sorts as "System Idle Process".
+- A filter box ("Filter by name or PID") passes its text to `setFilterFixedString()`, and the proxy ignores case. `filterAcceptsRow()` keeps a row whose display name or decimal PID contains the text.
+- Headers give `Qt::InitialSortOrderRole`, so the first click on Name or PID sorts ascending and the first click on a measured value sorts largest first.
+- The table starts sorted by name. Dynamic sorting stays on, so rows move as their values change. The summary line keeps counting the whole list, not the rows the filter shows.
+
+**Rationale:** Display text sorts wrongly: "9.0%" comes after "10.0%", and "900 KiB" after "1.2 MiB". A sort role of numeric `QVariant`s would fix that, but Qt's default comparison never orders an invalid `QVariant` before a valid one, so "N/A" rows would come first in a largest-first sort, the common case. Comparing the domain values is type-checked, puts missing values last in that sort, and creates no `QVariant`s. Most processes show "0.0%" CPU at any moment. Without a tie-breaker their relative order depends on the order the proxy happened to insert and re-sort them, so equal rows could swap on a refresh. Breaking ties by name and PID keeps them in an order a reader can scan. Dynamic sorting re-sorts whenever the sorted column changes, and ties fall back to names whatever the column. Folding ASCII case on the raw bytes compares names without allocating, unlike building a `QString` for each comparison, and image names are almost always ASCII. Non-ASCII bytes still compare in a consistent order. A literal filter means the dots in "a.exe" are not wildcards. Matching the PID as a substring lets the same box find a process by ID. `Qt::InitialSortOrderRole` is how `QHeaderView` chooses a new column's first sort order, so the view needs no header handling of its own. Starting sorted by name gives a steady first view; sorting by CPU is one click away.

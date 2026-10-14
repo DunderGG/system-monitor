@@ -10,7 +10,10 @@ QString processDisplayName(const domain::ProcessInfo& process)
     if (!process.imageName.empty()) {
         return QString::fromStdString(process.imageName);
     }
-    return process.pid == 0 ? QStringLiteral("System Idle Process") : kNotAvailable;
+    if (process.pid == 0) {
+        return QString::fromUtf8(kIdleProcessName.data(), static_cast<qsizetype>(kIdleProcessName.size()));
+    }
+    return kNotAvailable;
 }
 
 std::optional<uint64_t> processIoBytesPerSec(const domain::ProcessInfo& process)

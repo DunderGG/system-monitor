@@ -248,6 +248,12 @@ QVariant ProcessModel::headerData(int section, Qt::Orientation orientation, int 
                 return QVariant::fromValue(Qt::Alignment{Qt::AlignLeft | Qt::AlignVCenter});
             }
             return QVariant::fromValue(Qt::Alignment{Qt::AlignRight | Qt::AlignVCenter});
+        case Qt::InitialSortOrderRole:
+            // A first click on a measured value lists the largest first.
+            if (column == Column::Name || column == Column::Pid) {
+                return QVariant::fromValue(Qt::AscendingOrder);
+            }
+            return QVariant::fromValue(Qt::DescendingOrder);
         default:
             return {};
     }

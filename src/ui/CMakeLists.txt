@@ -29,6 +29,8 @@ add_library(sysmon_ui STATIC
     process_formatting.h
     process_model.cpp
     process_model.h
+    process_sort_filter_proxy_model.cpp
+    process_sort_filter_proxy_model.h
     processes_view.cpp
     processes_view.h
     readout_grid.cpp

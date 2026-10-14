@@ -17,6 +17,7 @@ add_executable(system_monitor_tests
     unit/performance_readouts_test.cpp
     unit/process_formatting_test.cpp
     unit/process_model_test.cpp
+    unit/process_sort_filter_proxy_model_test.cpp
     unit/processes_view_test.cpp
     unit/readout_grid_test.cpp
     unit/sparkline_widget_test.cpp

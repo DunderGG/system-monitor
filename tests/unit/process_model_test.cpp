@@ -254,6 +254,23 @@ TEST(ProcessModel, HeaderData_NumericHeadersAlignRightLikeTheirValues)
     }
 }
 
+TEST(ProcessModel, HeaderData_MeasuredValuesSortLargestFirstOnFirstClick)
+{
+    ProcessModel model;
+
+    const auto initialOrder = [&model](Column column) {
+        return model.headerData(static_cast<int>(column), Qt::Horizontal, Qt::InitialSortOrderRole)
+            .value<Qt::SortOrder>();
+    };
+
+    EXPECT_EQ(initialOrder(Column::Name), Qt::AscendingOrder);
+    EXPECT_EQ(initialOrder(Column::Pid), Qt::AscendingOrder);
+    for (const Column column :
+         {Column::Cpu, Column::Memory, Column::Io, Column::Network, Column::Threads, Column::Handles}) {
+        EXPECT_EQ(initialOrder(column), Qt::DescendingOrder) << static_cast<int>(column);
+    }
+}
+
 TEST(ProcessModel, HeaderData_ToolTipsSayWhatValuesCount)
 {
     ProcessModel model;

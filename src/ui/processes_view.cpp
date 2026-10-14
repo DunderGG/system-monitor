@@ -7,14 +7,17 @@
 
 #include <QFont>
 #include <QFontMetrics>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QTreeView>
 #include <QVBoxLayout>
 
 #include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 #include "ui/process_model.h"
+#include "ui/process_sort_filter_proxy_model.h"
 #include "ui/view_metrics.h"
 
 namespace sysmon::ui
@@ -25,6 +28,8 @@ namespace
 
 // Room for the padding around a header label and for the sort indicator.
 constexpr int kHeaderPadding = 24;
+// Wide enough for a long image name; the filter box does not need more.
+constexpr int kFilterMaximumWidth = 320;
 
 // Sizes each value column to fit its widest expected text, so the columns stay
 // put as values change. The name column takes the remaining width.
@@ -73,16 +78,31 @@ ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
     titleLabel->setFont(titleFont);
     layout->addWidget(titleLabel);
 
+    auto* toolbar = new QHBoxLayout();
+    toolbar->setSpacing(kItemSpacing);
+    m_filterEdit = new QLineEdit(this);
+    m_filterEdit->setPlaceholderText("Filter by name or PID");
+    m_filterEdit->setClearButtonEnabled(true);
+    m_filterEdit->setMaximumWidth(kFilterMaximumWidth);
+    toolbar->addWidget(m_filterEdit, 1);
+    toolbar->addStretch();
     m_summaryLabel = new QLabel(processListSummary(std::nullopt, false), this);
-    layout->addWidget(m_summaryLabel);
+    toolbar->addWidget(m_summaryLabel);
+    layout->addLayout(toolbar);
 
     m_model = new ProcessModel(this);
+    m_proxyModel = new ProcessSortFilterProxyModel(this);
+    m_proxyModel->setSourceModel(m_model);
+    connect(m_filterEdit, &QLineEdit::textChanged, m_proxyModel, &QSortFilterProxyModel::setFilterFixedString);
+
     m_treeView = new QTreeView(this);
-    m_treeView->setModel(m_model);
+    m_treeView->setModel(m_proxyModel);
     m_treeView->setRootIsDecorated(false);
     m_treeView->setUniformRowHeights(true);
     m_treeView->setAllColumnsShowFocus(true);
     m_treeView->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_treeView->setSortingEnabled(true);
+    m_treeView->sortByColumn(static_cast<int>(ProcessModel::Column::Name), Qt::AscendingOrder);
     sizeColumns(m_treeView);
     layout->addWidget(m_treeView, 1);
 }
@@ -101,6 +121,16 @@ void ProcessesView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 ProcessModel* ProcessesView::model() const
 {
     return m_model;
+}
+
+ProcessSortFilterProxyModel* ProcessesView::proxyModel() const
+{
+    return m_proxyModel;
+}
+
+QLineEdit* ProcessesView::filterEdit() const
+{
+    return m_filterEdit;
 }
 
 QTreeView* ProcessesView::treeView() const
