@@ -77,6 +77,13 @@ QString statusExplanation(domain::ProcessDetailsStatus status)
     return {};
 }
 
+// "explorer.exe (PID 1234)". One arg() call, so a "%1" or "%2" in the name
+// stays literal; arg() does not look for placeholders in what it inserts.
+QString nameAndPid(const domain::ProcessInfo& process)
+{
+    return QString("%1 (PID %2)").arg(processDisplayName(process), QString::number(process.pid));
+}
+
 } // namespace
 
 QString processDetailsToolTip(const domain::ProcessInfo& process)
@@ -101,8 +108,42 @@ QString processListSummary(std::optional<std::size_t> listedCount, bool hasEarli
 
 QString processTerminationQuestion(const domain::ProcessInfo& process)
 {
-    // One arg() call, so a "%1" or "%2" in the name stays literal.
-    return QString("Do you want to end %1 (PID %2)?").arg(processDisplayName(process), QString::number(process.pid));
+    return QString("Do you want to end %1?").arg(nameAndPid(process));
+}
+
+std::optional<ProcessTerminationMessage> processTerminationMessage(const domain::ProcessInfo& process,
+                                                                   domain::ProcessTerminationResult result)
+{
+    const auto notEnded = [&process](const QString& reason) {
+        return ProcessTerminationMessage{
+            .text = QString("Could not end %1.").arg(nameAndPid(process)),
+            .informativeText = reason,
+        };
+    };
+
+    switch (result) {
+        case domain::ProcessTerminationResult::Terminated:
+            return std::nullopt;
+        case domain::ProcessTerminationResult::AlreadyExited:
+            return ProcessTerminationMessage{
+                .text = QString("%1 has already exited.").arg(nameAndPid(process)),
+                .informativeText = QStringLiteral("It exited before it could be ended. If another process now has its "
+                                                  "PID, that process was left running."),
+            };
+        case domain::ProcessTerminationResult::NotOwnedByCurrentUser:
+            return notEnded(QStringLiteral("It runs as another user, such as SYSTEM or a service account. The monitor "
+                                           "ends only processes that run as you."));
+        case domain::ProcessTerminationResult::NeverOpened:
+            return notEnded(QStringLiteral("It is a critical Windows process, which the monitor never opens."));
+        case domain::ProcessTerminationResult::AccessDenied:
+            return notEnded(QStringLiteral("Windows denied access to it. That happens for a process that runs as "
+                                           "administrator when the monitor does not, and for a process that Windows "
+                                           "protects."));
+        case domain::ProcessTerminationResult::Failed:
+            return notEnded(
+                QStringLiteral("Windows reported an unexpected error. The monitor's log has the error code."));
+    }
+    return std::nullopt;
 }
 
 } // namespace sysmon::ui

@@ -77,6 +77,45 @@ void sizeColumns(QTreeView* treeView)
     }
 }
 
+// The icon follows the level the terminator logs the result at (DC-87):
+// information for a process that had already exited, a warning for a refusal
+// or a denial, and critical for any other failure.
+QMessageBox::Icon terminationMessageIcon(domain::ProcessTerminationResult result)
+{
+    switch (result) {
+        case domain::ProcessTerminationResult::Terminated:
+        case domain::ProcessTerminationResult::AlreadyExited:
+            return QMessageBox::Information;
+        case domain::ProcessTerminationResult::NotOwnedByCurrentUser:
+        case domain::ProcessTerminationResult::NeverOpened:
+        case domain::ProcessTerminationResult::AccessDenied:
+            return QMessageBox::Warning;
+        case domain::ProcessTerminationResult::Failed:
+            return QMessageBox::Critical;
+    }
+    return QMessageBox::Warning;
+}
+
+// Opens a window-modal message that says why the process was not ended, or
+// that it had already exited. A process that was ended needs none.
+void showTerminationMessage(QWidget* parent, const domain::ProcessInfo& process,
+                            domain::ProcessTerminationResult result)
+{
+    const auto message = processTerminationMessage(process, result);
+    if (!message) {
+        return;
+    }
+
+    auto* box =
+        new QMessageBox(terminationMessageIcon(result), kEndProcessText, message->text, QMessageBox::Ok, parent);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    // The text names the process; it must not be read as rich text. The
+    // informative text takes the same format.
+    box->setTextFormat(Qt::PlainText);
+    box->setInformativeText(message->informativeText);
+    box->open();
+}
+
 } // namespace
 
 ProcessesView::ProcessesView(QWidget* parent) : QWidget(parent)
@@ -276,14 +315,15 @@ void ProcessesView::confirmEndProcess()
 
     // The table keeps refreshing while the dialog is open, and the current
     // row can move to another process, so the answer applies to a copy of
-    // the process the dialog names.
-    connect(dialog, &QMessageBox::buttonClicked, this,
-            [this, endButton, process = *current](const QAbstractButton* clicked) {
-                if (clicked == endButton && m_terminator) {
-                    // The terminator logs the outcome.
-                    m_terminator(process);
-                }
-            });
+    // the process the dialog names. It is acted on once the dialog has
+    // closed (buttonClicked comes while it is still shown), so a message
+    // about the result is not opened over it.
+    connect(dialog, &QMessageBox::finished, this, [this, dialog, endButton, process = *current] {
+        if (dialog->clickedButton() == endButton && m_terminator) {
+            // The terminator also logs the outcome.
+            showTerminationMessage(this, process, m_terminator(process));
+        }
+    });
     dialog->open();
 }
 

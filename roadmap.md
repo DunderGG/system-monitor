@@ -141,7 +141,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 - [x] Implement `TerminateProcess` for processes the current user owns.
 - [x] Show a confirmation dialog before termination with the process name, PID, and a warning.
-- [ ] Handle failure gracefully (process already exited, access denied) with a user-facing message.
+- [x] Handle failure gracefully (process already exited, access denied) with a user-facing message.
 - [ ] Do not attempt to terminate elevated or system processes in the MVP.
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 

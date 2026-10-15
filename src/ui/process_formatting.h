@@ -8,6 +8,7 @@
 #include <QString>
 
 #include "domain/process_info.h"
+#include "domain/process_termination.h"
 
 namespace sysmon::ui
 {
@@ -58,5 +59,25 @@ inline constexpr qsizetype kToolTipDetailLength = 2000;
  * and its PID: "Do you want to end explorer.exe (PID 1234)?"
  */
 [[nodiscard]] QString processTerminationQuestion(const domain::ProcessInfo& process);
+
+/**
+ * Message shown when ending a process did not end it. The text names the
+ * process and its PID, e.g. "Could not end explorer.exe (PID 1234)." or
+ * "explorer.exe (PID 1234) has already exited.", and the informative text
+ * says why. Only the text contains the process's name.
+ */
+struct ProcessTerminationMessage
+{
+    QString text;
+    QString informativeText;
+};
+
+/**
+ * Returns the message for the result of ending a process, or std::nullopt
+ * for Terminated, which needs none: the process's row is marked as exited
+ * when the next process list no longer has it.
+ */
+[[nodiscard]] std::optional<ProcessTerminationMessage>
+processTerminationMessage(const domain::ProcessInfo& process, domain::ProcessTerminationResult result);
 
 } // namespace sysmon::ui

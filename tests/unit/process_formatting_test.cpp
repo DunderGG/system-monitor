@@ -1,3 +1,4 @@
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -7,6 +8,7 @@
 #include <QString>
 
 #include "domain/process_info.h"
+#include "domain/process_termination.h"
 #include "ui/process_formatting.h"
 
 using namespace sysmon::domain;
@@ -71,6 +73,65 @@ TEST(ProcessFormatting, ProcessTerminationQuestion_NameWithPlaceholder_KeptLiter
 {
     EXPECT_EQ(processTerminationQuestion(ProcessInfo{.pid = 7, .imageName = "a%2b%1.exe"}),
               "Do you want to end a%2b%1.exe (PID 7)?");
+}
+
+TEST(ProcessFormatting, ProcessTerminationMessage_Terminated_None)
+{
+    EXPECT_FALSE(processTerminationMessage(ProcessInfo{.pid = 1234, .imageName = "explorer.exe"},
+                                           ProcessTerminationResult::Terminated)
+                     .has_value());
+}
+
+TEST(ProcessFormatting, ProcessTerminationMessage_AlreadyExited_SaysSoAndThatAProcessWithItsPidWasLeftRunning)
+{
+    const auto message = processTerminationMessage(ProcessInfo{.pid = 1234, .imageName = "explorer.exe"},
+                                                   ProcessTerminationResult::AlreadyExited);
+
+    ASSERT_TRUE(message.has_value());
+    EXPECT_EQ(message->text, "explorer.exe (PID 1234) has already exited.");
+    EXPECT_TRUE(message->informativeText.contains("left running"));
+}
+
+TEST(ProcessFormatting, ProcessTerminationMessage_NotEnded_NamesTheProcessAndSaysWhy)
+{
+    struct Case
+    {
+        ProcessTerminationResult result;
+        const char* reason;
+    };
+    const std::array cases{
+        Case{ProcessTerminationResult::NotOwnedByCurrentUser, "runs as another user"},
+        Case{ProcessTerminationResult::NeverOpened, "critical Windows process"},
+        Case{ProcessTerminationResult::AccessDenied, "denied access"},
+        Case{ProcessTerminationResult::Failed, "log has the error code"},
+    };
+
+    for (const auto& [result, reason] : cases) {
+        SCOPED_TRACE(reason);
+        const auto message = processTerminationMessage(ProcessInfo{.pid = 1234, .imageName = "explorer.exe"}, result);
+
+        ASSERT_TRUE(message.has_value());
+        EXPECT_EQ(message->text, "Could not end explorer.exe (PID 1234).");
+        EXPECT_TRUE(message->informativeText.contains(reason));
+    }
+}
+
+TEST(ProcessFormatting, ProcessTerminationMessage_IdleProcess_NamesSystemIdleProcess)
+{
+    const auto message =
+        processTerminationMessage(ProcessInfo{.pid = 0}, ProcessTerminationResult::NotOwnedByCurrentUser);
+
+    ASSERT_TRUE(message.has_value());
+    EXPECT_EQ(message->text, "Could not end System Idle Process (PID 0).");
+}
+
+TEST(ProcessFormatting, ProcessTerminationMessage_NameWithPlaceholder_KeptLiterally)
+{
+    const auto message =
+        processTerminationMessage(ProcessInfo{.pid = 7, .imageName = "a%2b%1.exe"}, ProcessTerminationResult::Failed);
+
+    ASSERT_TRUE(message.has_value());
+    EXPECT_EQ(message->text, "Could not end a%2b%1.exe (PID 7).");
 }
 
 TEST(ProcessFormatting, ProcessDetailsToolTip_Available_ShowsPathAndCommandLine)

@@ -104,6 +104,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 - [Phase 4 — Process termination (`src/platform/windows/`, `src/ui/`)](#phase-4--process-termination-srcplatformwindows-srcui)
   - [DC-87](#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested): Process termination: ownership and identity checked before `PROCESS_TERMINATE` is requested
   - [DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator): End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
+  - [DC-89](#dc-89-termination-results-a-message-box-for-each-outcome-but-success-opened-once-the-confirmation-has-closed): Termination results: a message box for each outcome but success, opened once the confirmation has closed
 
 ---
 
@@ -993,3 +994,31 @@ Cancel is the default, so Enter, or a key pressed just as the dialog appears, ne
 The table refreshes every two seconds while the dialog is open. The row it was opened from is removed a few seconds after the process exits ([DC-84](#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time)), and the current row then moves to a neighbour, as the test shows. Reading the selection when the user confirms could end a process the dialog never named. The copy keeps the identity the user saw, and `terminateOwnedProcess()` checks its creation time, so a process that exited in the meantime is reported as `AlreadyExited`, and a process that reused its PID is not touched.
 
 The UI may depend only on Qt and domain types ([DC-20](#dc-20-ui-module-dependency-isolation-and-composition-root-in-srcapp)), so it cannot name the platform function, and DC-87 expected `main.cpp` to pass it in. A `std::function` suits a single operation better than an interface class, and lets the tests pass a lambda that records identities: a fake, not a mock. Calling an empty `std::function` throws `std::bad_function_call`, and the project uses no exceptions, so the action stays disabled until a function is set, and `confirmEndProcess()` checks again. The terminator runs on the UI thread because `terminateOwnedProcess()` only opens the process, reads its token, and calls `TerminateProcess`, and never waits for the process to exit. A worker thread would add a path back to the UI thread for the result, for calls that do not wait.
+
+**Superseded in part by [DC-89](#dc-89-termination-results-a-message-box-for-each-outcome-but-success-opened-once-the-confirmation-has-closed):** the result is now shown in a message box, and the dialog's answer is read once it has closed (`finished`) rather than from `buttonClicked`.
+
+### DC-89: Termination results: a message box for each outcome but success, opened once the confirmation has closed
+
+**Decision:**
+
+- **Message:** once the user confirms End process and the terminator returns, `ProcessesView` shows a `QMessageBox` titled "End process", with one OK button, opened with `open()` (window-modal) and deleted when it closes. `processTerminationMessage()` (`process_formatting.h`) gives its text, which names the process and its PID, and its informative text, which says why:
+
+  | Result | Icon | Text | Informative text |
+  | --- | --- | --- | --- |
+  | `Terminated` | — | No message. | — |
+  | `AlreadyExited` | Information | "explorer.exe (PID 1234) has already exited." | "It exited before it could be ended. If another process now has its PID, that process was left running." |
+  | `NotOwnedByCurrentUser` | Warning | "Could not end explorer.exe (PID 1234)." | "It runs as another user, such as SYSTEM or a service account. The monitor ends only processes that run as you." |
+  | `NeverOpened` | Warning | As above. | "It is a critical Windows process, which the monitor never opens." |
+  | `AccessDenied` | Warning | As above. | "Windows denied access to it. That happens for a process that runs as administrator when the monitor does not, and for a process that Windows protects." |
+  | `Failed` | Critical | As above. | "Windows reported an unexpected error. The monitor's log has the error code." |
+
+- **Plain text:** the message's text format is `Qt::PlainText`, which `QMessageBox` also gives the informative text. Only the text contains the process's name.
+- **Order:** the confirmation dialog's answer is read when it emits `finished`, from `clickedButton()`, instead of from `buttonClicked`. The terminator runs, and the message opens, after the dialog has closed.
+- **Shared wording:** `processTerminationQuestion()` and the messages name the process the same way, "explorer.exe (PID 1234)", through one helper.
+- **Tests:** `tests/unit/process_formatting_test.cpp` checks that `Terminated` has no message, the text and reason for every other result, the System Idle Process's name, and a name containing `%1` and `%2`. `tests/unit/processes_view_test.cpp` checks that an ended process gets no message; that `AccessDenied` gets a window-modal message with the title, warning icon, plain text, and OK button; the icon for every result; that no dialog is shown while the terminator runs (it fails if the answer is read from `buttonClicked`); that closing the dialog from its title bar ends nothing; and that OK closes the message.
+
+**Rationale:** A process that was ended gets no message. Windows ends it asynchronously, and within one process refresh (two seconds) its row is marked as exited ([DC-84](#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time)), which shows the user that it worked without a box to dismiss after every success. Task Manager also stays silent when End task succeeds. A failure is rare and needs reading, so it gets a dialog rather than a line the user could miss. The main window has no status bar, and the user is looking at the spot where the confirmation dialog just was. The message is window-modal, as the confirmation is, so the user reads it before starting another request from the same window.
+
+`AlreadyExited` is not an error, since the user wanted the process gone and it is, so its icon is Information. It still gets a message, because otherwise nothing would happen when the user confirmed, and the list may already show another process with the same PID. The message says that process was left running. The icons follow the levels at which the terminator logs each result ([DC-87](#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested)): information, warning for a refusal or a denial, and error for anything else. The message and the log then agree on how serious the outcome was. The reasons describe the user's situation rather than Win32 error codes, and `Failed` points to the log, which has the code. The `AccessDenied` reason names both cases that cause it: an elevated process when the monitor is not elevated, and a protected process, which can deny even an elevated monitor. It therefore does not claim that the monitor runs without administrator rights. The process chose its own name, so the name appears only in the text, as plain text, as in the confirmation ([DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator)).
+
+`QMessageBox` emits `buttonClicked` while it is still shown, and closes afterwards (`QMessageBoxPrivate::setClickedButton()` emits the signal, then calls `done()`). A message opened from `buttonClicked` would be stacked over the confirmation, and Windows would choose which window to activate when the confirmation hid. `finished` is emitted after the dialog has hidden. The title bar's close button also emits `finished`, but before `clickedButton()` is set, so it ends nothing, like Cancel. `~QDialog` only hides the dialog without emitting `finished`, so a view destroyed while its dialog is open ends nothing.

@@ -56,6 +56,9 @@ using ProcessTerminator = std::function<domain::ProcessTerminationResult(const d
  * terminator is set. The dialog keeps a copy of the process it names, so
  * confirming ends that process, by (PID, creation time), even if the
  * selection has moved or the process has left the list since it opened.
+ * Once the dialog has closed, a message says why the process was left
+ * running, or that it had already exited. A process that was ended gets no
+ * message; its row is marked as exited when the next list no longer has it.
  */
 class ProcessesView : public QWidget
 {

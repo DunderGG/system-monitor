@@ -1,4 +1,6 @@
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -243,6 +245,41 @@ QAbstractButton* endButton(const QMessageBox& dialog)
     return nullptr;
 }
 
+// A terminator that ends nothing and returns `result`.
+ProcessTerminator terminatorReturning(ProcessTerminationResult result)
+{
+    return [result](const ProcessInfo&) { return result; };
+}
+
+// The message boxes the view shows. A dialog that has closed stays a hidden
+// child until its deferred deletion runs, which these tests never do.
+std::vector<QMessageBox*> shownMessageBoxes(const ProcessesView& view)
+{
+    std::vector<QMessageBox*> shown;
+    for (auto* box : view.findChildren<QMessageBox*>()) {
+        if (box->isVisible()) {
+            shown.push_back(box);
+        }
+    }
+    return shown;
+}
+
+// Lists explorer.exe (PID 800), selects it, and confirms ending it. Returns
+// the confirmation dialog, or nullptr if it did not open.
+QMessageBox* confirmEndingExplorer(ProcessesView& view)
+{
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+    view.endProcessAction()->trigger();
+
+    auto* dialog = view.findChild<QMessageBox*>();
+    if (dialog == nullptr || endButton(*dialog) == nullptr) {
+        return nullptr;
+    }
+    endButton(*dialog)->click();
+    return dialog;
+}
+
 } // namespace
 
 TEST(ProcessesView, EndProcessAction_NoProcessSelected_Disabled)
@@ -426,4 +463,113 @@ TEST(ProcessesView, EndProcessButton_Clicked_Asks)
     const auto* dialog = view.findChild<QMessageBox*>();
     ASSERT_NE(dialog, nullptr);
     EXPECT_EQ(dialog->text(), "Do you want to end explorer.exe (PID 800)?");
+}
+
+TEST(ProcessesView, EndProcessAction_DialogClosed_DoesNotEndTheProcess)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    selectProcess(view, process(800, "explorer.exe").identity());
+    view.endProcessAction()->trigger();
+    auto* dialog = view.findChild<QMessageBox*>();
+    ASSERT_NE(dialog, nullptr);
+
+    // As the title bar's close button does.
+    dialog->close();
+
+    EXPECT_TRUE(ended.empty());
+    EXPECT_FALSE(dialog->isVisible());
+    EXPECT_TRUE(shownMessageBoxes(view).empty());
+}
+
+TEST(ProcessesView, EndProcessAction_Confirmed_EndsTheProcessOnceTheDialogHasClosed)
+{
+    ProcessesView view;
+    std::vector<std::size_t> shownWhileEnding;
+    view.setProcessTerminator([&view, &shownWhileEnding](const ProcessInfo&) {
+        shownWhileEnding.push_back(shownMessageBoxes(view).size());
+        return ProcessTerminationResult::AccessDenied;
+    });
+
+    ASSERT_NE(confirmEndingExplorer(view), nullptr);
+
+    EXPECT_EQ(shownWhileEnding, std::vector<std::size_t>{0});
+}
+
+TEST(ProcessesView, EndProcessAction_Ended_ShowsNoMessage)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+
+    ASSERT_NE(confirmEndingExplorer(view), nullptr);
+
+    EXPECT_EQ(ended.size(), 1u);
+    EXPECT_TRUE(shownMessageBoxes(view).empty());
+}
+
+TEST(ProcessesView, EndProcessAction_AccessDenied_SaysWhyInAMessage)
+{
+    ProcessesView view;
+    view.setProcessTerminator(terminatorReturning(ProcessTerminationResult::AccessDenied));
+
+    const auto* dialog = confirmEndingExplorer(view);
+
+    ASSERT_NE(dialog, nullptr);
+    const auto shown = shownMessageBoxes(view);
+    ASSERT_EQ(shown.size(), 1u);
+    const auto* message = shown.front();
+    EXPECT_NE(message, dialog);
+    EXPECT_FALSE(dialog->isVisible());
+    EXPECT_EQ(message->windowTitle(), "End process");
+    EXPECT_EQ(message->icon(), QMessageBox::Warning);
+    EXPECT_EQ(message->text(), "Could not end explorer.exe (PID 800).");
+    EXPECT_EQ(message->textFormat(), Qt::PlainText);
+    EXPECT_TRUE(message->informativeText().contains("denied access"));
+    EXPECT_EQ(message->standardButtons(), QMessageBox::Ok);
+    EXPECT_EQ(message->windowModality(), Qt::WindowModal);
+}
+
+TEST(ProcessesView, EndProcessAction_NotEnded_MessageIconFollowsTheLogLevel)
+{
+    struct Case
+    {
+        ProcessTerminationResult result;
+        QMessageBox::Icon icon;
+    };
+    const std::array cases{
+        Case{ProcessTerminationResult::AlreadyExited, QMessageBox::Information},
+        Case{ProcessTerminationResult::NotOwnedByCurrentUser, QMessageBox::Warning},
+        Case{ProcessTerminationResult::NeverOpened, QMessageBox::Warning},
+        Case{ProcessTerminationResult::AccessDenied, QMessageBox::Warning},
+        Case{ProcessTerminationResult::Failed, QMessageBox::Critical},
+    };
+
+    for (const auto& [result, icon] : cases) {
+        SCOPED_TRACE(static_cast<int>(result));
+        ProcessesView view;
+        view.setProcessTerminator(terminatorReturning(result));
+
+        ASSERT_NE(confirmEndingExplorer(view), nullptr);
+
+        const auto shown = shownMessageBoxes(view);
+        ASSERT_EQ(shown.size(), 1u);
+        EXPECT_EQ(shown.front()->icon(), icon);
+    }
+}
+
+TEST(ProcessesView, EndProcessAction_MessageAnswered_ClosesAndLeavesTheActionEnabled)
+{
+    ProcessesView view;
+    view.setProcessTerminator(terminatorReturning(ProcessTerminationResult::AlreadyExited));
+    ASSERT_NE(confirmEndingExplorer(view), nullptr);
+    auto shown = shownMessageBoxes(view);
+    ASSERT_EQ(shown.size(), 1u);
+
+    shown.front()->button(QMessageBox::Ok)->click();
+
+    EXPECT_TRUE(shownMessageBoxes(view).empty());
+    EXPECT_TRUE(view.endProcessAction()->isEnabled());
 }
