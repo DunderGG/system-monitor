@@ -274,7 +274,7 @@ When elevated process termination is added, launch a small helper executable via
 ### Antivirus and EDR considerations
 
 - **Only request `PROCESS_QUERY_LIMITED_INFORMATION`** when opening process handles. Never use `PROCESS_ALL_ACCESS` or `PROCESS_VM_READ | PROCESS_VM_WRITE`. The one exception is [unelevated process termination](#unelevated-process-termination), which also requests `SYNCHRONIZE`, and adds `PROCESS_TERMINATE` only for an unelevated process the current user owns.
-- **Never call `OpenProcess` on `lsass.exe` or `csrss.exe`.** This triggers credential-dumping heuristic detections in most EDR products, even with benign access masks. Use the data already returned by `NtQuerySystemInformation` for these processes.
+- **Never call `OpenProcess` on `lsass.exe` or `csrss.exe`.** This triggers credential-dumping heuristic detections in most EDR products, even with benign access masks. Use the data already returned by `NtQuerySystemInformation` for these processes. They are recognised by the image name in the process list, so a process the list gives no name, other than the System Idle Process, is not opened either ([DC-94](design_decisions.md#dc-94-a-process-without-an-image-name-is-never-opened-except-the-idle-process-code-review-f-32)).
 - Calling `NtQuerySystemInformation` from `ntdll.dll` via `GetProcAddress` is standard behavior used by legitimate system tools and does not trigger AV flags.
 - Sign the binary (even self-signed during development) to avoid SmartScreen reputation warnings.
 - Avoid process injection, API hooking, and raw syscall stubs.

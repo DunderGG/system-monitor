@@ -137,6 +137,16 @@ TEST(ProcessFormatting, ProcessTerminationMessage_NotEnded_NamesTheProcessAndSay
     }
 }
 
+TEST(ProcessFormatting, ProcessTerminationMessage_NeverOpenedWithoutName_SaysItCouldBeCritical)
+{
+    const auto message = processTerminationMessage(ProcessInfo{.pid = 1234}, ProcessTerminationResult::NeverOpened);
+
+    ASSERT_TRUE(message.has_value());
+    EXPECT_EQ(message->text, "Could not end N/A (PID 1234).");
+    EXPECT_TRUE(message->informativeText.contains("without a name"));
+    EXPECT_TRUE(message->informativeText.contains("could be a critical Windows process"));
+}
+
 TEST(ProcessFormatting, ProcessTerminationMessage_IdleProcess_NamesSystemIdleProcess)
 {
     const auto message =
@@ -179,6 +189,19 @@ TEST(ProcessFormatting, ProcessDetailsToolTip_EachMissingStatus_SaysWhy)
     EXPECT_TRUE(toolTip(ProcessDetailsStatus::NotQueried).startsWith("<p>Not read:"));
     EXPECT_TRUE(toolTip(ProcessDetailsStatus::Unavailable).startsWith("<p>Unavailable:"));
     EXPECT_FALSE(toolTip(ProcessDetailsStatus::AccessDenied).contains("Path:"));
+}
+
+TEST(ProcessFormatting, ProcessDetailsToolTip_NotQueried_SaysWhyForANamedAndAnUnnamedProcess)
+{
+    const QString named = processDetailsToolTip(
+        ProcessInfo{.pid = 900, .imageName = "lsass.exe", .detailsStatus = ProcessDetailsStatus::NotQueried});
+    const QString unnamed =
+        processDetailsToolTip(ProcessInfo{.pid = 900, .detailsStatus = ProcessDetailsStatus::NotQueried});
+
+    EXPECT_TRUE(named.contains("security software"));
+    EXPECT_FALSE(named.contains("without a name"));
+    EXPECT_TRUE(unnamed.startsWith("<p>Not read:"));
+    EXPECT_TRUE(unnamed.contains("without a name"));
 }
 
 TEST(ProcessFormatting, ProcessDetailsToolTip_PartlyRead_ShowsWhatWasRead)

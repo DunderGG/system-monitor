@@ -135,7 +135,7 @@ TEST(ProcessTrackingIntegration, RealHost_SecondCollect_ReadsDetailsOnlyForNewPr
     std::set<IdentityKey> expectedFirstReads;
     for (const auto& process : *first) {
         firstIdentities.insert(keyOf(process.identity()));
-        if (!isNeverOpenedProcess(process.imageName)) {
+        if (!isNeverOpenedProcess(process)) {
             expectedFirstReads.insert(keyOf(process.identity()));
         }
     }
@@ -151,7 +151,7 @@ TEST(ProcessTrackingIntegration, RealHost_SecondCollect_ReadsDetailsOnlyForNewPr
     std::set<IdentityKey> expectedSecondReads;
     for (const auto& process : *second) {
         const IdentityKey key = keyOf(process.identity());
-        if (!firstIdentities.contains(key) && !isNeverOpenedProcess(process.imageName)) {
+        if (!firstIdentities.contains(key) && !isNeverOpenedProcess(process)) {
             expectedSecondReads.insert(key);
         }
     }
@@ -173,7 +173,7 @@ TEST(ProcessTrackingIntegration, RealHost_DetailsStatus_MatchesDetailsRead)
                 EXPECT_TRUE(hasBoth) << process.imageName << " (PID " << process.pid << ")";
                 break;
             case ProcessDetailsStatus::NotQueried:
-                EXPECT_TRUE(isNeverOpenedProcess(process.imageName)) << process.imageName;
+                EXPECT_TRUE(isNeverOpenedProcess(process)) << process.imageName;
                 EXPECT_FALSE(process.imagePath.has_value() || process.commandLine.has_value()) << process.imageName;
                 break;
             case ProcessDetailsStatus::AccessDenied:

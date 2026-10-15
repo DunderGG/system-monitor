@@ -24,7 +24,9 @@ struct ProcessDetails
 
 /**
  * Reads the details of one process from the list (in production: OpenProcess,
- * QueryFullProcessImageNameW, and NtQueryInformationProcess).
+ * QueryFullProcessImageNameW, and NtQueryInformationProcess). The ProcessInfo
+ * is the list's entry for the process, whose image name decides whether the
+ * process may be opened at all (isNeverOpenedProcess()).
  */
 using ProcessDetailsReader = std::function<ProcessDetails(const domain::ProcessInfo& process)>;
 

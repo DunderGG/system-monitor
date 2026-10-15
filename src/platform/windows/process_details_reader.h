@@ -20,10 +20,13 @@ namespace sysmon::platform
  * denied anything, Unavailable if anything else failed (the process exited,
  * or it has no image file or command line), and Available otherwise.
  *
- * It refuses lsass.exe and csrss.exe by name before calling OpenProcess, as
- * ProcessCollector already does (isNeverOpenedProcess()), returning
- * NotQueried. Failures are routine for an unelevated monitor, so they are
- * logged at debug level only. The reader keeps no state between calls.
+ * It refuses lsass.exe and csrss.exe by name, and a process without a name
+ * other than the Idle process, before calling OpenProcess, as ProcessCollector
+ * already does (isNeverOpenedProcess()), returning NotQueried. The check is
+ * only as good as the name, so the ProcessInfo passed in must carry the image
+ * name the process list reported. Failures are routine for an unelevated
+ * monitor, so they are logged at debug level only. The reader keeps no state
+ * between calls.
  */
 [[nodiscard]] ProcessDetailsReader makeWindowsProcessDetailsReader();
 

@@ -92,3 +92,18 @@ TEST(ProcessDetailsReaderIntegration, RealHost_LsassByName_NotQueried)
     EXPECT_FALSE(details.imagePath.has_value());
     EXPECT_FALSE(details.commandLine.has_value());
 }
+
+TEST(ProcessDetailsReaderIntegration, RealHost_ProcessWithoutName_NotQueried)
+{
+    const ProcessDetailsReader reader = makeWindowsProcessDetailsReader();
+    // Without a name it could be lsass.exe or csrss.exe. This process's PID
+    // makes sure a missing check would show up as details being read.
+    ProcessInfo unnamed = thisProcess();
+    unnamed.imageName.clear();
+
+    const ProcessDetails details = reader(unnamed);
+
+    EXPECT_EQ(details.status, ProcessDetailsStatus::NotQueried);
+    EXPECT_FALSE(details.imagePath.has_value());
+    EXPECT_FALSE(details.commandLine.has_value());
+}

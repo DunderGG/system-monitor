@@ -67,9 +67,9 @@ QString detailParagraph(const QString& label, const std::optional<std::string>& 
     return paragraph("<b>" + label + ":</b> " + text.toHtmlEscaped());
 }
 
-QString statusExplanation(domain::ProcessDetailsStatus status)
+QString statusExplanation(const domain::ProcessInfo& process)
 {
-    switch (status) {
+    switch (process.detailsStatus) {
         case domain::ProcessDetailsStatus::Available:
             return {};
         case domain::ProcessDetailsStatus::AccessDenied:
@@ -77,6 +77,11 @@ QString statusExplanation(domain::ProcessDetailsStatus status)
                                   "line. Without administrator rights that is usual for system processes and for other "
                                   "users' processes.");
         case domain::ProcessDetailsStatus::NotQueried:
+            if (process.imageName.empty()) {
+                return QStringLiteral("Not read: Windows listed this process without a name, and the monitor does not "
+                                      "open a process it cannot tell apart from those it never opens, so its path and "
+                                      "command line are not known.");
+            }
             return QStringLiteral("Not read: the monitor never opens this process, because security software treats "
                                   "opening it as suspicious, so its path and command line are not known.");
         case domain::ProcessDetailsStatus::Unavailable:
@@ -98,7 +103,7 @@ QString nameAndPid(const domain::ProcessInfo& process)
 QString processDetailsToolTip(const domain::ProcessInfo& process)
 {
     QString text;
-    if (const QString explanation = statusExplanation(process.detailsStatus); !explanation.isEmpty()) {
+    if (const QString explanation = statusExplanation(process); !explanation.isEmpty()) {
         text += paragraph(explanation.toHtmlEscaped());
     }
     text += detailParagraph("Path", process.imagePath);
@@ -151,6 +156,10 @@ std::optional<ProcessTerminationMessage> processTerminationMessage(const domain:
             return notEnded(QStringLiteral("It runs elevated, with administrator or system rights. The monitor ends "
                                            "only processes that run with standard user rights."));
         case domain::ProcessTerminationResult::NeverOpened:
+            if (process.imageName.empty()) {
+                return notEnded(QStringLiteral("Windows listed it without a name, so it could be a critical Windows "
+                                               "process, which the monitor never opens."));
+            }
             return notEnded(QStringLiteral("It is a critical Windows process, which the monitor never opens."));
         case domain::ProcessTerminationResult::AccessDenied:
             return notEnded(QStringLiteral("Windows denied access to it. That happens for a system process or a "

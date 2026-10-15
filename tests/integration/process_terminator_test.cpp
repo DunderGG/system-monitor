@@ -119,6 +119,19 @@ TEST(ProcessTerminatorIntegration, RealHost_NeverOpenedImageName_RefusedAndLeftR
     EXPECT_FALSE(child.waitForExitCode(kNoWait).has_value());
 }
 
+TEST(ProcessTerminatorIntegration, RealHost_ProcessWithoutName_RefusedAndLeftRunning)
+{
+    SuspendedChildProcess child(UnelevatedToken{});
+    ASSERT_TRUE(child.started());
+    // Only the identity, as a caller that does not pass the listed name would.
+    const ProcessInfo identityOnly{.pid = child.processInfo().pid, .creationTime = child.processInfo().creationTime};
+
+    const ProcessTerminationResult result = terminateOwnedProcess(identityOnly);
+
+    EXPECT_EQ(result, ProcessTerminationResult::NeverOpened);
+    EXPECT_FALSE(child.waitForExitCode(kNoWait).has_value());
+}
+
 TEST(ProcessTerminatorIntegration, RealHost_ElevatedOwnChild_RefusedAndLeftRunning)
 {
     if (!isCurrentProcessElevated()) {

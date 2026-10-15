@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <string_view>
 #include <utility>
 
@@ -14,6 +15,9 @@ namespace
 {
 
 constexpr std::array<std::string_view, 2> kNeverOpenedImageNames{"lsass.exe", "csrss.exe"};
+
+// The System Idle Process, which has no image name in the list.
+constexpr uint32_t kIdleProcessId = 0;
 
 constexpr char toLowerAscii(char character)
 {
@@ -28,10 +32,16 @@ bool equalsIgnoringAsciiCase(std::string_view text, std::string_view lowercase)
 
 } // namespace
 
-bool isNeverOpenedProcess(std::string_view imageName)
+bool isNeverOpenedProcess(const domain::ProcessInfo& process)
 {
-    return std::ranges::any_of(kNeverOpenedImageNames,
-                               [imageName](std::string_view name) { return equalsIgnoringAsciiCase(imageName, name); });
+    // A process without a name could be lsass.exe or csrss.exe, so it is not
+    // opened either.
+    if (process.imageName.empty()) {
+        return process.pid != kIdleProcessId;
+    }
+    return std::ranges::any_of(kNeverOpenedImageNames, [&process](std::string_view name) {
+        return equalsIgnoringAsciiCase(process.imageName, name);
+    });
 }
 
 ProcessDetailsReader skippingNeverOpenedProcesses(ProcessDetailsReader reader)
@@ -41,8 +51,11 @@ ProcessDetailsReader skippingNeverOpenedProcesses(ProcessDetailsReader reader)
     }
 
     return [reader = std::move(reader)](const domain::ProcessInfo& process) {
-        if (isNeverOpenedProcess(process.imageName)) {
-            spdlog::debug("Not opening {} (PID {}); its details are not queried", process.imageName, process.pid);
+        if (isNeverOpenedProcess(process)) {
+            spdlog::debug("Not opening {} (PID {}); its details are not queried",
+                          process.imageName.empty() ? std::string_view{"a process without a name"}
+                                                    : std::string_view{process.imageName},
+                          process.pid);
             return ProcessDetails{};
         }
         return reader(process);

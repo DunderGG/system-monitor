@@ -235,9 +235,13 @@ std::optional<ProcessTerminationResult> checkToken(HANDLE handle, const domain::
 
 ProcessTerminationResult terminateOwnedProcess(const domain::ProcessInfo& process)
 {
-    // Checked before any OpenProcess call (DC-74).
-    if (isNeverOpenedProcess(process.imageName)) {
-        return notTerminated(process, ProcessTerminationResult::NeverOpened, "the monitor never opens it");
+    // Checked before any OpenProcess call (DC-74). A process without a name
+    // is refused too, except the Idle process, which is handled next.
+    if (isNeverOpenedProcess(process)) {
+        return notTerminated(process, ProcessTerminationResult::NeverOpened,
+                             process.imageName.empty() ? "it has no image name, and could be a process the monitor "
+                                                         "never opens"
+                                                       : "the monitor never opens it");
     }
     if (process.pid == kIdleProcessId) {
         return notTerminated(process, ProcessTerminationResult::NotOwnedByCurrentUser,

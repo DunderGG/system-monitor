@@ -66,8 +66,9 @@ void calculateProcessRates(std::vector<domain::ProcessInfo>& processes, ProcessR
  * The image path and command line come from a ProcessDetailsReader, called
  * once per process identity through a ProcessIdentityCache. Without a details
  * reader they stay std::nullopt with ProcessDetailsStatus::NotQueried. The
- * reader is never called for lsass.exe or csrss.exe (isNeverOpenedProcess()),
- * whose details stay NotQueried.
+ * reader is never called for lsass.exe, csrss.exe, or a process the list
+ * gave no name, other than the Idle process (isNeverOpenedProcess()); their
+ * details stay NotQueried.
  *
  * CPU usage and I/O rates are computed against the previous successful
  * collect() with calculateProcessRates(), so the first collect() reports

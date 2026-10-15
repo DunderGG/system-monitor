@@ -91,7 +91,7 @@ As in Phase 3, the findings came from running the code against real data and edg
 | [F-29](#f-29-memory-column-counts-shared-memory-once-per-process) | Memory column counts shared memory once per process | Medium | Resolved |
 | [F-30](#f-30-tree-can-show-a-new-process-under-an-exited-unrelated-one) | Tree can show a new process under an exited, unrelated one | Low | Resolved |
 | [F-31](#f-31-end-process-is-offered-for-exited-rows-and-for-the-monitor-itself) | End process is offered for exited rows and for the monitor itself | Low | Resolved |
-| [F-32](#f-32-the-never-opened-guard-trusts-the-callers-image-name) | The never-opened guard trusts the caller's image name | Low | Open |
+| [F-32](#f-32-the-never-opened-guard-trusts-the-callers-image-name) | The never-opened guard trusts the caller's image name | Low | Resolved |
 | [F-33](#f-33-documentation-and-recorded-figures-out-of-date) | Documentation and recorded figures out of date | Low | Open |
 | [F-34](#f-34-presentation-and-consistency-items) | Presentation and consistency items | Cosmetic | Open |
 
@@ -244,7 +244,14 @@ DC-74 says that the reader's second check means "code that calls it directly can
 
 **Recommendation:** Fix when convenient. It is a one-line rule with tests, and it closes the only path by which the rule could be broken.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-15). Items 1 to 3 are done.
+
+- `isNeverOpenedProcess()` takes the `ProcessInfo` and also returns true for an empty image name with any PID but 0. The collector's filter, the details reader and the terminator use it, so such a process gets `NotQueried`, and a request to end it is refused as `NeverOpened`. The Idle process keeps its handling.
+- The comments on `terminateOwnedProcess()`, `makeWindowsProcessDetailsReader()` and `ProcessDetailsReader` say that the image name must come from the process list. DC-74 points to the correction.
+- The log lines, the name tooltip and the termination message give their own reason for a process without a name, rather than calling it a critical Windows process.
+- `process_access_policy_test.cpp` covers an empty name with several PIDs and the Idle process, for the rule and the reader filter. New integration tests check that the details reader refuses this process with its name cleared, and that the terminator refuses a child passed with only its identity and leaves it running. `RealHost_IdleProcess_NotOwnedByCurrentUser` still passes.
+
+See [DC-94](../design_decisions.md#dc-94-a-process-without-an-image-name-is-never-opened-except-the-idle-process-code-review-f-32).
 
 ---
 
