@@ -172,9 +172,8 @@ QString headerToolTip(Column column)
 
 ProcessModel::ProcessModel(QObject* parent) : QAbstractItemModel(parent)
 {
-    for (const auto status : {domain::ProcessDetailsStatus::NotQueried, domain::ProcessDetailsStatus::Available,
-                              domain::ProcessDetailsStatus::AccessDenied, domain::ProcessDetailsStatus::Unavailable}) {
-        m_detailsIcons[static_cast<std::size_t>(status)] = detailsStatusIcon(status);
+    for (std::size_t status = 0; status < m_detailsIcons.size(); ++status) {
+        m_detailsIcons[status] = detailsStatusIcon(static_cast<domain::ProcessDetailsStatus>(status));
     }
 }
 
@@ -391,7 +390,9 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
             return {};
         case Qt::DecorationRole:
             if (column == Column::Name) {
-                return m_detailsIcons[static_cast<std::size_t>(node->process.detailsStatus)];
+                const auto status = static_cast<std::size_t>(node->process.detailsStatus);
+                assert(status < m_detailsIcons.size() && "kProcessDetailsStatusCount must count every status");
+                return m_detailsIcons[status];
             }
             return {};
         case Qt::BackgroundRole:
@@ -433,7 +434,9 @@ QVariant ProcessModel::headerData(int section, Qt::Orientation orientation, int 
             return QVariant::fromValue(Qt::Alignment{Qt::AlignRight | Qt::AlignVCenter});
         case Qt::InitialSortOrderRole:
             // A first click on a measured value lists the largest first.
-            if (column == Column::Name || column == Column::Pid) {
+            // Network has no values yet, so its sort falls back to the name,
+            // which a first click lists A to Z.
+            if (column == Column::Name || column == Column::Pid || column == Column::Network) {
                 return QVariant::fromValue(Qt::AscendingOrder);
             }
             return QVariant::fromValue(Qt::DescendingOrder);

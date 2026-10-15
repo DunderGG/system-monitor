@@ -1,9 +1,11 @@
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <random>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -321,8 +323,9 @@ TEST(ProcessModel, HeaderData_MeasuredValuesSortLargestFirstOnFirstClick)
 
     EXPECT_EQ(initialOrder(Column::Name), Qt::AscendingOrder);
     EXPECT_EQ(initialOrder(Column::Pid), Qt::AscendingOrder);
-    for (const Column column :
-         {Column::Cpu, Column::Memory, Column::Io, Column::Network, Column::Threads, Column::Handles}) {
+    // Network has no values to sort by, so the names decide, A to Z.
+    EXPECT_EQ(initialOrder(Column::Network), Qt::AscendingOrder);
+    for (const Column column : {Column::Cpu, Column::Memory, Column::Io, Column::Threads, Column::Handles}) {
         EXPECT_EQ(initialOrder(column), Qt::DescendingOrder) << static_cast<int>(column);
     }
 }
@@ -722,9 +725,65 @@ void forEachRow(const Model& model, Visit visit, const QModelIndex& parent = {})
     }
 }
 
+// True when the proxy's filter keeps the process for itself: its name or PID
+// contains filter. The churn test's names ("p12") and filters (digits) have no
+// letters whose case could differ.
+bool matchesFilter(const ProcessInfo& info, const std::string& filter)
+{
+    return info.imageName.find(filter) != std::string::npos ||
+           std::to_string(info.pid).find(filter) != std::string::npos;
+}
+
+// True when the proxy should show the row at index: it matches the filter or,
+// because the proxy filters recursively, one of its descendants does.
+bool isKept(const ProcessModel& model, const QModelIndex& index, const std::string& filter)
+{
+    if (matchesFilter(*model.process(index), filter)) {
+        return true;
+    }
+    for (int row = 0; row < model.rowCount(index); ++row) {
+        if (isKept(model, model.index(row, 0, index), filter)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Checks that the proxy shows under proxyParent the kept children of the row
+// it maps to, ordered as a sort by CPU, largest first, orders them: by CPU
+// usage (missing lowest), then name, PID and creation time, all reversed.
+// Then checks each child's level in turn.
+void expectSortedAndFiltered(const ProcessModel& model, const sysmon::ui::ProcessSortFilterProxyModel& proxy,
+                             const QModelIndex& proxyParent, const std::string& filter, int step)
+{
+    const QModelIndex sourceParent = proxy.mapToSource(proxyParent);
+    std::vector<const ProcessInfo*> expected;
+    for (int row = 0; row < model.rowCount(sourceParent); ++row) {
+        const QModelIndex child = model.index(row, 0, sourceParent);
+        if (isKept(model, child, filter)) {
+            expected.push_back(model.process(child));
+        }
+    }
+    const auto sortKey = [](const ProcessInfo* info) {
+        return std::tuple{info->cpuUsagePercent, info->imageName, info->pid, info->creationTime};
+    };
+    std::ranges::sort(expected, [&sortKey](const ProcessInfo* left, const ProcessInfo* right) {
+        return sortKey(right) < sortKey(left);
+    });
+
+    ASSERT_EQ(proxy.rowCount(proxyParent), static_cast<int>(expected.size())) << "step " << step;
+    for (int row = 0; row < proxy.rowCount(proxyParent); ++row) {
+        const QModelIndex index = proxy.index(row, 0, proxyParent);
+        ASSERT_EQ(model.process(proxy.mapToSource(index))->identity(),
+                  expected[static_cast<std::size_t>(row)]->identity())
+            << "step " << step << ", row " << row;
+        expectSortedAndFiltered(model, proxy, index, filter, step);
+    }
+}
+
 } // namespace
 
-TEST(ProcessModel, TreeMode_RandomChurn_StructureHighlightsAndPersistentIndexesStayConsistent)
+TEST(ProcessModel, RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredProxyStayConsistent)
 {
     using std::chrono::seconds;
     using std::chrono::steady_clock;
@@ -732,10 +791,13 @@ TEST(ProcessModel, TreeMode_RandomChurn_StructureHighlightsAndPersistentIndexesS
     std::mt19937 random(20261014);
     ProcessModel model;
     model.setTreeMode(true);
-    // A sorted proxy on top, as in the view, checks that the signals are consistent.
+    // A sorted, filtered proxy on top, as in the view, checks that the signals are consistent.
     sysmon::ui::ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
+    // The filter changes every 40 refreshes, and the mode every 25, as a user would change them.
+    const std::array<std::string, 3> filters{"1", "", "6"};
+    std::string filter;
 
     std::vector<ProcessInfo> live;
     // When each process left the list or joined it, as the model was told.
@@ -787,15 +849,21 @@ TEST(ProcessModel, TreeMode_RandomChurn_StructureHighlightsAndPersistentIndexesS
             exitedAt, [now](const auto& entry) { return now - entry.second < ProcessModel::kHighlightDuration; });
         ASSERT_EQ(rows, live.size() + static_cast<std::size_t>(recentlyExited)) << "step " << step;
 
-        std::size_t proxyRows = 0;
-        forEachRow(proxy, [&proxyRows](const QModelIndex&) { ++proxyRows; });
-        ASSERT_EQ(proxyRows, rows) << "step " << step;
+        expectSortedAndFiltered(model, proxy, QModelIndex{}, filter, step);
     };
 
     int64_t clock = 1;
     for (int step = 0; step < 300; ++step) {
         // A refresh every 2 seconds and a tick without a list between them, as the scheduler sends them.
         const auto now = kNow + seconds{2 * step};
+        if (step % 40 == 20) {
+            filter = filters[static_cast<std::size_t>(step / 40) % filters.size()];
+            proxy.setFilterFixedString(QString::fromStdString(filter));
+        }
+        // Switching the mode resets the model, so it happens before the rows are tracked.
+        if (step % 25 == 24) {
+            model.setTreeMode(!model.isTreeMode());
+        }
         tracked.clear();
         forEachRow(model, [&](const QModelIndex& index) {
             tracked.emplace_back(QPersistentModelIndex(index), model.process(index)->identity());

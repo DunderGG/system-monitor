@@ -93,7 +93,7 @@ As in Phase 3, the findings came from running the code against real data and edg
 | [F-31](#f-31-end-process-is-offered-for-exited-rows-and-for-the-monitor-itself) | End process is offered for exited rows and for the monitor itself | Low | Resolved |
 | [F-32](#f-32-the-never-opened-guard-trusts-the-callers-image-name) | The never-opened guard trusts the caller's image name | Low | Resolved |
 | [F-33](#f-33-documentation-and-recorded-figures-out-of-date) | Documentation and recorded figures out of date | Low | Resolved |
-| [F-34](#f-34-presentation-and-consistency-items) | Presentation and consistency items | Cosmetic | Open |
+| [F-34](#f-34-presentation-and-consistency-items) | Presentation and consistency items | Cosmetic | Resolved |
 
 **Open findings from earlier reviews:** none.
 
@@ -313,7 +313,16 @@ See [DC-95](../design_decisions.md#dc-95-benchmarks-print-the-build-and-the-mach
 
 **Recommendation:** Fix when convenient, ideally in the commits that touch these files for F-29 to F-31.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-15), in its own commit, because each finding was fixed separately. All six items are done:
+
+- **Network sort:** the Network header's first sort order is ascending, so a first click lists names A to Z. A new proxy test sorts by Network in the header's first order, and the header test expects it. DC-81 has a note.
+- **Cast:** `static_cast<void>(collector.collect());`.
+- **Churn test:** renamed `RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredProxyStayConsistent`. It changes the filter every 40 refreshes, switches the mode every 25, and compares every level of the proxy with an independently filtered and sorted tree after each update. It passes over its 300 refreshes. With the deferred sort left undone, it failed at the fifth refresh. DC-82 has a note.
+- **Icons array:** `domain::kProcessDetailsStatusCount`, next to the enum, sizes `m_detailsIcons`. The constructor fills every slot, and `data()` asserts that a status is in range.
+- **Scheduler:** `setProcessCollector()` is declared with the other `set…Collector()` functions.
+- **Test name:** `SparklineAutoRange.MixedSamplesWithGaps_UsesLargestWithHeadroom`.
+
+The comment on `ProcessDetailsStatus::NotQueried` also now names a process listed without a name (F-32).
 
 ---
 

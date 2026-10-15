@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -18,9 +19,10 @@ namespace sysmon::domain
  */
 enum class ProcessDetailsStatus
 {
-    // Not queried: a process the collector never opens (lsass.exe and
-    // csrss.exe, see architecture.md, "Antivirus and EDR considerations"), or
-    // a ProcessInfo that did not come from a collector that reads details.
+    // Not queried: a process the collector never opens (lsass.exe, csrss.exe,
+    // or a process listed without a name, see architecture.md, "Antivirus and
+    // EDR considerations"), or a ProcessInfo that did not come from a
+    // collector that reads details.
     NotQueried,
     // The image path and the command line were both read.
     Available,
@@ -33,6 +35,14 @@ enum class ProcessDetailsStatus
     // still set.
     Unavailable,
 };
+
+/**
+ * The number of ProcessDetailsStatus values, for arrays indexed by a status's
+ * value. Unavailable must stay the last value: a value added after it takes
+ * its place here.
+ */
+inline constexpr std::size_t kProcessDetailsStatusCount =
+    static_cast<std::size_t>(ProcessDetailsStatus::Unavailable) + 1;
 
 /**
  * One process in the system process list.

@@ -97,6 +97,18 @@ TEST(ProcessSortFilterProxyModel, Sort_EqualValues_FallBackToNameThenPid)
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{20, 10, 30}));
 }
 
+TEST(ProcessSortFilterProxyModel, Sort_NetworkInItsFirstClickOrder_NamesAToZ)
+{
+    SortedModel sorted({process(1, "zeta.exe"), process(2, "alpha.exe")});
+    const auto firstOrder =
+        sorted.model.headerData(static_cast<int>(Column::Network), Qt::Horizontal, Qt::InitialSortOrderRole)
+            .value<Qt::SortOrder>();
+
+    sorted.sort(Column::Network, firstOrder);
+
+    EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2, 1}));
+}
+
 TEST(ProcessSortFilterProxyModel, Sort_Name_IgnoresCaseAndNamesTheIdleProcess)
 {
     SortedModel sorted({process(1, "zeta.exe"), process(2, "Alpha.exe"), process(0, ""), process(3, "beta.exe"),

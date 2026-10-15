@@ -49,7 +49,7 @@ TEST(ProcessCollector, Collect_WithDetailsReader_ReadsEachProcessOnce)
             };
         });
 
-    (void)collector.collect();
+    static_cast<void>(collector.collect());
     const auto processes = collector.collect();
 
     EXPECT_EQ(detailReads, 2);

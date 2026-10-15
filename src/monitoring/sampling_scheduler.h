@@ -86,13 +86,13 @@ public:
     void setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector);
     void setUptimeCollector(std::unique_ptr<IUptimeCollector> collector);
     void setSystemActivityCollector(std::unique_ptr<ISystemActivityCollector> collector);
+    void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
 
     /**
      * Sets the thresholds used to evaluate SystemSnapshot::health on each tick.
      * Same invariant as collector registration: only call while stopped.
      */
     void setHealthThresholds(const HealthThresholds& thresholds);
-    void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
 
     /**
      * Synchronously collects a sample from the registered fast collectors,

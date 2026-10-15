@@ -94,7 +94,7 @@ TEST(SparklineAutoRange, AllZero_FallsBackToUnitRange)
     EXPECT_FLOAT_EQ(range.max, 1.0f);
 }
 
-TEST(SparklineAutoRange, UsesLargestSampleWithHeadroomAndIgnoresGaps)
+TEST(SparklineAutoRange, MixedSamplesWithGaps_UsesLargestWithHeadroom)
 {
     const auto range = autoRange(Samples{10.0f, std::nullopt, 100.0f, 40.0f});
 

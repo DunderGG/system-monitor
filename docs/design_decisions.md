@@ -896,6 +896,8 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 
 **Rationale:** Display text sorts wrongly: "9.0%" comes after "10.0%", and "900 KiB" after "1.2 MiB". A sort role of numeric `QVariant`s would fix that, but Qt's default comparison never orders an invalid `QVariant` before a valid one, so "N/A" rows would come first in a largest-first sort, the common case. Comparing the domain values is type-checked, puts missing values last in that sort, and creates no `QVariant`s. Most processes show "0.0%" CPU at any moment. Without a tie-breaker their relative order depends on the order the proxy happened to insert and re-sort them, so equal rows could swap on a refresh. Breaking ties by name and PID keeps them in an order a reader can scan. Dynamic sorting re-sorts whenever the sorted column changes, and ties fall back to names whatever the column. Folding ASCII case on the raw bytes compares names without allocating, unlike building a `QString` for each comparison, and image names are almost always ASCII. Non-ASCII bytes still compare in a consistent order. A literal filter means the dots in "a.exe" are not wildcards. Matching the PID as a substring lets the same box find a process by ID. `Qt::InitialSortOrderRole` is how `QHeaderView` chooses a new column's first sort order, so the view needs no header handling of its own. Starting sorted by name gives a steady first view; sorting by CPU is one click away.
 
+**Superseded in part (code review F-34):** the first click on Network sorts ascending too. Network has no values yet, so every row compares equal and the names decide. A descending sort reverses the whole comparison, names included, so a largest-first click listed them Z to A.
+
 ---
 
 ### DC-82: Process tree: parents matched by PID and creation time, orphans at the top level, and a reset only on toggle
@@ -913,6 +915,8 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 **Superseded in part by [DC-84](#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time):** an exited parent's row stays for three seconds, its children still under it, and they move to the top level when that row is removed.
 
 **Extended by [DC-92](#dc-92-an-exited-row-parents-only-processes-listed-no-later-than-its-exit-code-review-f-30):** a candidate whose row was marked exited before the process was first listed is not its parent.
+
+**Extended (code review F-34):** the random-churn test, now `RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredProxyStayConsistent`, also changes the proxy's filter every 40 refreshes and switches the mode every 25. After each update it compares every level of the proxy with an independently filtered and sorted copy of the model's tree. A proxy that left a deferred sort undone failed it within five refreshes.
 
 ---
 

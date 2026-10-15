@@ -190,7 +190,7 @@ private:
     // False until the first list, whose processes are not highlighted as new.
     bool m_hasList{false};
     // The name column's icon for each ProcessDetailsStatus, indexed by its value.
-    std::array<QIcon, 4> m_detailsIcons;
+    std::array<QIcon, domain::kProcessDetailsStatusCount> m_detailsIcons;
 };
 
 } // namespace sysmon::ui
