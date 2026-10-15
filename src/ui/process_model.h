@@ -44,10 +44,12 @@ namespace sysmon::ui
  *
  * In tree mode a process's parent is the latest listed process with its
  * parent PID that was created no later than itself. Windows records only the
- * parent's PID, which may have been reused by a younger process since. The
- * Idle process (PID 0) is no process's parent. A process whose parent has
- * exited, or was never listed, is at the top level, and when a parent exits
- * its children move there.
+ * parent's PID, which may have been reused by a younger process since. An
+ * exited process's row can be a parent only of a process first listed no
+ * later than the refresh that marked it exited; a process listed after that
+ * was created after it exited. The Idle process (PID 0) is no process's
+ * parent. A process whose parent has exited, or was never listed, is at the
+ * top level, and when a parent exits its children move there.
  *
  * Values that are missing (a rate not measured yet, or per-process network
  * usage, which is not collected) show "N/A" in the placeholder text colour,
@@ -147,6 +149,8 @@ private:
         std::vector<Node*> children;
         // Position among its siblings, kept current so indexOf() needs no search.
         int row{0};
+        // When the process was first listed, kept for the life of the row.
+        std::chrono::steady_clock::time_point listedAt;
         // When the process first appeared, while it is highlighted as new.
         std::optional<std::chrono::steady_clock::time_point> startedAt;
         // When the process was first missing from the list; it has exited.

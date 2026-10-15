@@ -221,7 +221,7 @@ void ProcessModel::updateProcesses(const std::vector<domain::ProcessInfo>& proce
             node.process = process;
         } else if (listed.erase(identity) > 0) {
             // Erasing the identity keeps a duplicate entry in the list from adding a second row.
-            auto node = std::make_unique<Node>(Node{.process = process});
+            auto node = std::make_unique<Node>(Node{.process = process, .listedAt = now});
             if (m_hasList) {
                 node->startedAt = now;
             }
@@ -463,11 +463,19 @@ ProcessModel::Node* ProcessModel::findParent(const Node& node) const
     }
 
     // The parent's PID may have been reused by a process created after the
-    // child, which cannot be its parent.
+    // child, which cannot be its parent. A process found missing in a refresh
+    // before the child was first listed had exited before the child was
+    // created, so the PID was reused by a process that was never listed. One
+    // found missing in the refresh that first listed the child may have
+    // started it just before exiting.
     Node* parent = nullptr;
     const auto [first, last] = m_nodesByPid.equal_range(child.parentPid);
     for (auto it = first; it != last; ++it) {
-        const auto creationTime = it->second->process.creationTime;
+        const Node& candidate = *it->second;
+        if (candidate.exitedAt && *candidate.exitedAt < node.listedAt) {
+            continue;
+        }
+        const auto creationTime = candidate.process.creationTime;
         if (creationTime <= child.creationTime && (parent == nullptr || creationTime > parent->process.creationTime)) {
             parent = it->second;
         }

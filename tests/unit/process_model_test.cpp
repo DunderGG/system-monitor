@@ -773,6 +773,14 @@ TEST(ProcessModel, TreeMode_RandomChurn_StructureHighlightsAndPersistentIndexesS
                 const ProcessInfo* parentInfo = model.process(parent);
                 EXPECT_EQ(parentInfo->pid, childInfo->parentPid);
                 EXPECT_LE(parentInfo->creationTime, childInfo->creationTime);
+                // A process that had exited before the child was first listed
+                // cannot have started it. A child without a start time was in
+                // the first list, before anything exited.
+                const auto parentExited = exitedAt.find(parentInfo->identity());
+                const auto childStarted = startedAt.find(childInfo->identity());
+                if (parentExited != exitedAt.end() && childStarted != startedAt.end()) {
+                    EXPECT_GE(parentExited->second, childStarted->second) << "step " << step;
+                }
             }
         });
         const auto recentlyExited = std::ranges::count_if(
@@ -967,11 +975,38 @@ TEST(ProcessModel, TreeMode_ChildOfProcessThatJustExited_ShownUnderIt)
     model.updateProcesses({child(4, "System", 0), child(400, "launcher.exe", 4)}, kNow);
 
     // The launcher started a child and exited between two refreshes.
-    model.updateProcesses({child(4, "System", 0), child(500, "app.exe", 400)}, kNow);
+    const auto refresh = kNow + std::chrono::seconds{2};
+    model.updateProcesses({child(4, "System", 0), child(500, "app.exe", 400)}, refresh);
 
     EXPECT_EQ(treeText(model), "System\n  launcher.exe\n    app.exe\n");
-    model.updateTime(kLater);
+    model.updateTime(refresh + ProcessModel::kHighlightDuration);
     EXPECT_EQ(treeText(model), "System\napp.exe\n");
+}
+
+TEST(ProcessModel, TreeMode_ChildListedAfterExitedRowWasMarked_NotUnderIt)
+{
+    ProcessModel model;
+    model.setTreeMode(true);
+    model.updateProcesses({child(4, "System", 0), child(100, "old.exe", 4)}, kNow);
+    model.updateProcesses({child(4, "System", 0)}, kNow + std::chrono::seconds{1});
+
+    // A launcher that was never listed reused PID 100, started child.exe and
+    // exited, all after old.exe had exited. old.exe's row is still shown.
+    model.updateProcesses({child(4, "System", 0), child(500, "child.exe", 100)}, kNow + std::chrono::seconds{2});
+
+    EXPECT_EQ(treeText(model), "System\n  old.exe\nchild.exe\n");
+}
+
+TEST(ProcessModel, SetTreeMode_ChildListedAfterExitedRowWasMarked_NotLinkedToIt)
+{
+    ProcessModel model;
+    model.updateProcesses({child(4, "System", 0), child(100, "old.exe", 4)}, kNow);
+    model.updateProcesses({child(4, "System", 0)}, kNow + std::chrono::seconds{1});
+    model.updateProcesses({child(4, "System", 0), child(500, "child.exe", 100)}, kNow + std::chrono::seconds{2});
+
+    model.setTreeMode(true);
+
+    EXPECT_EQ(treeText(model), "System\n  old.exe\nchild.exe\n");
 }
 
 TEST(ProcessModel, TreeMode_PidReusedWhileExitedRowShown_ChildFindsTheNewProcess)
