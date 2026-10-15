@@ -305,6 +305,12 @@ const domain::ProcessInfo* ProcessModel::process(const QModelIndex& index) const
     return node != nullptr ? &node->process : nullptr;
 }
 
+bool ProcessModel::hasExited(const QModelIndex& index) const
+{
+    const Node* node = nodeAt(index);
+    return node != nullptr && node->exitedAt.has_value();
+}
+
 QModelIndex ProcessModel::indexOf(const domain::ProcessIdentity& identity, Column column) const
 {
     const auto it = m_nodes.find(identity);

@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include "domain/process_info.h"
+#include "platform/windows/current_process.h"
 #include "platform/windows/process_collector.h"
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/utf8_conversion.h"
@@ -72,6 +73,20 @@ TEST(ProcessCollectorIntegration, RealHost_ListsThisProcessWithItsIdentityAndCou
     // The private working set is part of the working set.
     EXPECT_LE(self->privateWorkingSetBytes, self->workingSetBytes);
     EXPECT_GT(self->privateBytes, 0u);
+}
+
+TEST(ProcessCollectorIntegration, RealHost_CurrentProcessIdentity_MatchesThisProcessInTheList)
+{
+    ProcessCollector collector;
+
+    const auto identity = currentProcessIdentity();
+    const auto processes = collector.collect();
+
+    ASSERT_TRUE(identity.has_value());
+    ASSERT_TRUE(processes.has_value());
+    const ProcessInfo* self = findPid(*processes, ::GetCurrentProcessId());
+    ASSERT_NE(self, nullptr);
+    EXPECT_EQ(self->identity(), *identity);
 }
 
 TEST(ProcessCollectorIntegration, RealHost_ThisProcess_HasPathAndCommandLine)

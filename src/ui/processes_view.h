@@ -1,10 +1,12 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 
 #include <QString>
 #include <QWidget>
 
+#include "domain/process_identity.h"
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
 #include "domain/system_snapshot.h"
@@ -52,13 +54,18 @@ using ProcessTerminator = std::function<domain::ProcessTerminationResult(const d
  * it in a dialog that names the process and its PID and warns that unsaved
  * data is lost; Cancel is the dialog's default. The toolbar's End process
  * button, the table's context menu, and the Delete key (while the table has
- * focus) all trigger it. It is enabled while a process is selected and a
- * terminator is set. The dialog keeps a copy of the process it names, so
- * confirming ends that process, by (PID, creation time), even if the
- * selection has moved or the process has left the list since it opened.
+ * focus) all trigger it. It is enabled while a terminator is set and a
+ * process is selected whose row is not marked as exited, and it is checked
+ * again after every snapshot. The dialog keeps a copy of the process it
+ * names, so confirming ends that process, by (PID, creation time), even if
+ * the selection has moved or the process has left the list since it opened.
  * Once the dialog has closed, a message says why the process was left
  * running, or that it had already exited. A process that was ended gets no
  * message; its row is marked as exited when the next list no longer has it.
+ *
+ * For the monitor's own row (setMonitorIdentity()), the dialog offers to
+ * close System Monitor instead, and confirming closes the window that holds
+ * the view, so the monitor shuts down the same way as when the user closes it.
  */
 class ProcessesView : public QWidget
 {
@@ -86,12 +93,21 @@ public:
     /** Sets the function that ends a process once the user confirms. Without one, End process is disabled. */
     void setProcessTerminator(ProcessTerminator terminator);
 
+    /**
+     * Sets the identity of the monitor's own process, whose row End process
+     * offers to close rather than end. Without one, its row is treated like
+     * any other.
+     */
+    void setMonitorIdentity(const domain::ProcessIdentity& identity);
+
     /** Returns the summary line above the table, e.g. "Processes: 412". */
     [[nodiscard]] QString summaryText() const;
 
 private:
     void applyTreeMode(bool enabled);
     [[nodiscard]] const domain::ProcessInfo* currentProcess() const;
+    // The current process, or nullptr if there is none or its row is marked as exited.
+    [[nodiscard]] const domain::ProcessInfo* currentRunningProcess() const;
     void updateEndProcessAction();
     void confirmEndProcess();
 
@@ -104,6 +120,7 @@ private:
     QAction* m_endProcessAction{nullptr};
     QPushButton* m_endProcessButton{nullptr};
     ProcessTerminator m_terminator;
+    std::optional<domain::ProcessIdentity> m_monitorIdentity;
     bool m_hasProcessList{false};
 };
 

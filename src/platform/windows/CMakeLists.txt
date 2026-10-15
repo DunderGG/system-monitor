@@ -11,6 +11,8 @@ add_library(sysmon_platform_windows STATIC
     connectivity_hint_mapping.h
     cpu_collector.cpp
     cpu_collector.h
+    current_process.cpp
+    current_process.h
     disk_collector.cpp
     disk_collector.h
     memory_collector.cpp

@@ -930,6 +930,21 @@ TEST(ProcessModel, Highlights_ExitedProcessListedAgain_NoLongerMarked)
     const QModelIndex notepad = model.indexOf(process(900, "notepad.exe").identity());
     ASSERT_TRUE(notepad.isValid());
     EXPECT_FALSE(isHighlighted(notepad));
+    EXPECT_FALSE(model.hasExited(notepad));
+}
+
+TEST(ProcessModel, HasExited_TrueOnlyForRowsMarkedAsExited)
+{
+    ProcessModel model;
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe")}, kNow);
+    EXPECT_FALSE(model.hasExited(model.indexOf(process(900, "notepad.exe").identity())));
+
+    model.updateProcesses({process(4, "System")}, kNow);
+
+    EXPECT_TRUE(model.hasExited(model.indexOf(process(900, "notepad.exe").identity())));
+    EXPECT_TRUE(model.hasExited(model.indexOf(process(900, "notepad.exe").identity(), Column::Handles)));
+    EXPECT_FALSE(model.hasExited(model.indexOf(process(4, "System").identity())));
+    EXPECT_FALSE(model.hasExited(QModelIndex{}));
 }
 
 TEST(ProcessModel, Highlights_Changes_SignalledForTheWholeRowWithHighlightRoles)

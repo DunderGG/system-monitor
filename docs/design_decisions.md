@@ -108,6 +108,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator): End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
   - [DC-89](#dc-89-termination-results-a-message-box-for-each-outcome-but-success-opened-once-the-confirmation-has-closed): Termination results: a message box for each outcome but success, opened once the confirmation has closed
   - [DC-90](#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated): Elevated processes refused by token elevation or integrity level, even when the monitor is elevated
+  - [DC-93](#dc-93-end-process-disabled-on-exited-rows-and-an-offer-to-close-the-monitor-on-its-own-row-code-review-f-31): End process: disabled on exited rows, and an offer to close the monitor on its own row (code review F-31)
 
 ---
 
@@ -1043,6 +1044,8 @@ The UI may depend only on Qt and domain types ([DC-20](#dc-20-ui-module-dependen
 
 **Superseded in part by [DC-89](#dc-89-termination-results-a-message-box-for-each-outcome-but-success-opened-once-the-confirmation-has-closed):** the result is now shown in a message box, and the dialog's answer is read once it has closed (`finished`) rather than from `buttonClicked`.
 
+**Superseded in part by [DC-93](#dc-93-end-process-disabled-on-exited-rows-and-an-offer-to-close-the-monitor-on-its-own-row-code-review-f-31):** the action is disabled while the current row is marked as exited, and is checked again after every snapshot. On the monitor's own row it offers to close the monitor instead.
+
 ### DC-89: Termination results: a message box for each outcome but success, opened once the confirmation has closed
 
 **Decision:**
@@ -1092,3 +1095,21 @@ The owner is checked first, so another user's process, including SYSTEM's, keeps
 On the development machine, an unelevated process could read the token of every process it could open, including the user's elevated ones. Of about 400 processes, 151 refused `OpenProcess` (processes that do not run as the user, such as System and the services, which get `AccessDenied`), 4 refused `OpenProcessToken`, and the rest could be read: 2 elevated processes, 2 that were not elevated but ran at high integrity, and the rest unelevated at medium integrity or below.
 
 `LUA_TOKEN` filters a token as UAC filters an administrator's: the Administrators group becomes deny-only. `DISABLE_MAX_PRIVILEGE` removes every privilege except `SeChangeNotifyPrivilege`. The result is not elevated. Setting its integrity level to medium (or high, for the UIAccess-like case) keeps or lowers it, which needs no privilege. `CreateProcessAsUserW` can start a process with a filtered copy of the caller's own token without `SeAssignPrimaryTokenPrivilege`. The same code therefore runs unelevated, where it changes nothing that matters, and elevated, as on CI runners. Without it, CI would no longer test the termination path, because every process the tests start there is elevated.
+
+### DC-93: End process: disabled on exited rows, and an offer to close the monitor on its own row (code review F-31)
+
+**Decision:**
+
+- **Exited rows:** `ProcessModel::hasExited()` says whether a row is marked as exited. End process is disabled while such a row is current, and `confirmEndProcess()` checks again. `ProcessesView::updateSnapshot()` checks the action again after every snapshot, because a row can be marked as exited, or listed again, without the current index changing.
+- **The monitor's own row:** `platform::currentProcessIdentity()` (`platform/windows/current_process.h`) returns the monitor's PID and its creation time from `GetProcessTimes`, and `main.cpp` passes it to `ProcessesView::setMonitorIdentity()`. End process on that row opens a dialog with the question icon instead of the warning: "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?" (`monitorCloseQuestion()`), with the informative text "It closes the same way as when you close its window." Its buttons are Close System Monitor (`AcceptRole`) and Cancel, which is the default and the escape button. Confirming closes the window that holds the view, and the terminator is never called. If the identity cannot be read, a warning is logged and the row is treated like any other.
+- **One dialog helper:** `askToConfirm()` in `processes_view.cpp` opens both dialogs, so the plain-text question, the Cancel default and the handling of `finished` ([DC-89](#dc-89-termination-results-a-message-box-for-each-outcome-but-success-opened-once-the-confirmation-has-closed)) are written once.
+- **Tests:**
+  - `tests/unit/processes_view_test.cpp` checks that the action is disabled when the current process exits, opens no dialog then, and is enabled again when the process is listed again. It is also disabled when an exited row becomes current.
+  - For the monitor's own row, the view tests check the dialog's text, icon and buttons. Confirming closes the window that holds the view without calling the terminator, and Cancel leaves it open.
+  - `process_model_test.cpp` covers `hasExited()`, and `process_formatting_test.cpp` the question. `tests/integration/process_collector_test.cpp` checks that `currentProcessIdentity()` matches this process's entry in the process list.
+
+**Rationale:** An exited row has nothing left to end. Confirming only produced "notepad.exe (PID 900) has already exited.", which the red, italic row already showed. Checking the action after every snapshot costs one lookup.
+
+The monitor's own row is listed like any other process. When the monitor runs unelevated, every check of [DC-87](#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested) and [DC-90](#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated) passes, so End process called `TerminateProcess` on the monitor itself. It stopped at once: `main()` never stopped the scheduler or called `spdlog::shutdown()`, and info-level lines written since the last flush were lost, because the log flushes on its own only at `warn`. When the monitor ran elevated, the request was refused as `Elevated`, which reads oddly when the monitor is asked to end itself. Closing the main window ends the event loop, and `main()` then stops the scheduler and flushes the log. Task Manager also lets users end it from its own list, so offering to close the monitor matches what they expect. Asking first keeps the Cancel default that every End process dialog has. Closing the monitor loses no data, so the question icon fits better than the warning.
+
+The code review suggested comparing the row's PID with `QCoreApplication::applicationPid()`, which needs no platform call. But a process is identified by its PID and creation time, never by its PID alone. Also, the unit tests run in a process whose PID could be one of the PIDs they list, such as 800 or 900, which would make those tests fail now and then. An injected identity keeps to the rule, lets the tests choose the monitor's identity, and follows the pattern of the terminator that `main.cpp` already sets ([DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator)).

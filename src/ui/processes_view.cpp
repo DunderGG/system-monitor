@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <utility>
 
@@ -44,6 +45,8 @@ const QString kEndProcessText = QStringLiteral("End process");
 const QString kEndProcessWarning = QStringLiteral(
     "Ending a process stops it immediately. Any unsaved data in it is lost, and programs that depend on it may stop "
     "working.");
+const QString kCloseMonitorText = QStringLiteral("Close System Monitor");
+const QString kCloseMonitorExplanation = QStringLiteral("It closes the same way as when you close its window.");
 
 // Sizes each value column to fit its widest expected text, so the columns stay
 // put as values change. The name column takes the remaining width.
@@ -115,6 +118,30 @@ void showTerminationMessage(QWidget* parent, const domain::ProcessInfo& process,
     box->setTextFormat(Qt::PlainText);
     box->setInformativeText(message->informativeText);
     box->open();
+}
+
+// Opens a window-modal dialog that asks question, with a button for the
+// action and Cancel, which is the default. onConfirmed runs if the action's
+// button closed the dialog, once it has closed (buttonClicked comes while it
+// is still shown), so a message about the result is not opened over it.
+void askToConfirm(QWidget* parent, QMessageBox::Icon icon, const QString& question, const QString& informativeText,
+                  const QString& actionText, QMessageBox::ButtonRole actionRole, std::function<void()> onConfirmed)
+{
+    auto* dialog = new QMessageBox(icon, kEndProcessText, question, QMessageBox::Cancel, parent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // The question names a process; it must not be read as rich text.
+    dialog->setTextFormat(Qt::PlainText);
+    dialog->setInformativeText(informativeText);
+    const QPushButton* actionButton = dialog->addButton(actionText, actionRole);
+    dialog->setDefaultButton(QMessageBox::Cancel);
+    dialog->setEscapeButton(QMessageBox::Cancel);
+    QObject::connect(dialog, &QMessageBox::finished, parent,
+                     [dialog, actionButton, onConfirmed = std::move(onConfirmed)] {
+                         if (dialog->clickedButton() == actionButton) {
+                             onConfirmed();
+                         }
+                     });
+    dialog->open();
 }
 
 } // namespace
@@ -223,6 +250,8 @@ void ProcessesView::updateSnapshot(const domain::SystemSnapshot& snapshot)
     }
     m_summaryLabel->setText(processListSummary(listedCount, m_hasProcessList));
     m_hasProcessList = m_hasProcessList || snapshot.processes.has_value();
+    // The current row may have been marked as exited, or listed again, without becoming another row.
+    updateEndProcessAction();
 }
 
 ProcessModel* ProcessesView::model() const
@@ -261,6 +290,11 @@ void ProcessesView::setProcessTerminator(ProcessTerminator terminator)
     updateEndProcessAction();
 }
 
+void ProcessesView::setMonitorIdentity(const domain::ProcessIdentity& identity)
+{
+    m_monitorIdentity = identity;
+}
+
 void ProcessesView::applyTreeMode(bool enabled)
 {
     // Switching resets the model, which clears the selection; the selected
@@ -292,40 +326,44 @@ const domain::ProcessInfo* ProcessesView::currentProcess() const
     return m_model->process(m_proxyModel->mapToSource(m_treeView->currentIndex()));
 }
 
+const domain::ProcessInfo* ProcessesView::currentRunningProcess() const
+{
+    // An exited process keeps its row for a moment, but there is nothing left to end.
+    const QModelIndex current = m_proxyModel->mapToSource(m_treeView->currentIndex());
+    return m_model->hasExited(current) ? nullptr : m_model->process(current);
+}
+
 void ProcessesView::updateEndProcessAction()
 {
-    m_endProcessAction->setEnabled(m_terminator && currentProcess() != nullptr);
+    m_endProcessAction->setEnabled(m_terminator && currentRunningProcess() != nullptr);
 }
 
 void ProcessesView::confirmEndProcess()
 {
-    const domain::ProcessInfo* current = currentProcess();
+    const domain::ProcessInfo* current = currentRunningProcess();
     if (current == nullptr || !m_terminator) {
         return;
     }
 
-    auto* dialog = new QMessageBox(QMessageBox::Warning, kEndProcessText, processTerminationQuestion(*current),
-                                   QMessageBox::Cancel, this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    // The name is the process's own; it must not be read as rich text.
-    dialog->setTextFormat(Qt::PlainText);
-    dialog->setInformativeText(kEndProcessWarning);
-    const QPushButton* endButton = dialog->addButton(kEndProcessText, QMessageBox::DestructiveRole);
-    dialog->setDefaultButton(QMessageBox::Cancel);
-    dialog->setEscapeButton(QMessageBox::Cancel);
+    if (current->identity() == m_monitorIdentity) {
+        // Ending its own process would stop the monitor before it stops the
+        // scheduler and flushes its log. Closing its window shuts it down the
+        // usual way.
+        askToConfirm(this, QMessageBox::Question, monitorCloseQuestion(*current), kCloseMonitorExplanation,
+                     kCloseMonitorText, QMessageBox::AcceptRole, [this] { window()->close(); });
+        return;
+    }
 
     // The table keeps refreshing while the dialog is open, and the current
     // row can move to another process, so the answer applies to a copy of
-    // the process the dialog names. It is acted on once the dialog has
-    // closed (buttonClicked comes while it is still shown), so a message
-    // about the result is not opened over it.
-    connect(dialog, &QMessageBox::finished, this, [this, dialog, endButton, process = *current] {
-        if (dialog->clickedButton() == endButton && m_terminator) {
-            // The terminator also logs the outcome.
-            showTerminationMessage(this, process, m_terminator(process));
-        }
-    });
-    dialog->open();
+    // the process the dialog names.
+    askToConfirm(this, QMessageBox::Warning, processTerminationQuestion(*current), kEndProcessWarning, kEndProcessText,
+                 QMessageBox::DestructiveRole, [this, process = *current] {
+                     if (m_terminator) {
+                         // The terminator also logs the outcome.
+                         showTerminationMessage(this, process, m_terminator(process));
+                     }
+                 });
 }
 
 QTreeView* ProcessesView::treeView() const

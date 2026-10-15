@@ -118,6 +118,9 @@ public:
     /** Returns the process shown at index, or nullptr for an invalid index. */
     [[nodiscard]] const domain::ProcessInfo* process(const QModelIndex& index) const;
 
+    /** Returns true if the process shown at index has exited and its row is kept only until its highlight ends. */
+    [[nodiscard]] bool hasExited(const QModelIndex& index) const;
+
     /** Returns the index of the process with identity in column, or an invalid index if no row shows it. */
     [[nodiscard]] QModelIndex indexOf(const domain::ProcessIdentity& identity, Column column = Column::Name) const;
 

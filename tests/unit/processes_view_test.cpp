@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTreeView>
+#include <QWidget>
 
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
@@ -573,4 +574,126 @@ TEST(ProcessesView, EndProcessAction_MessageAnswered_ClosesAndLeavesTheActionEna
 
     EXPECT_TRUE(shownMessageBoxes(view).empty());
     EXPECT_TRUE(view.endProcessAction()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_SelectedProcessExits_DisabledUntilListedAgain)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(900, "notepad.exe")}, 0));
+    selectProcess(view, process(900, "notepad.exe").identity());
+
+    // Notepad's row stays, marked as exited, and stays the current row.
+    view.updateSnapshot(snapshotWith({process(4, "System")}, 1));
+
+    EXPECT_FALSE(view.endProcessAction()->isEnabled());
+    EXPECT_FALSE(view.endProcessButton()->isEnabled());
+    view.endProcessAction()->trigger();
+    EXPECT_EQ(view.findChild<QMessageBox*>(), nullptr);
+
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(900, "notepad.exe")}, 2));
+    EXPECT_TRUE(view.endProcessAction()->isEnabled());
+}
+
+TEST(ProcessesView, EndProcessAction_ExitedRowSelected_Disabled)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.updateSnapshot(snapshotWith({process(4, "System"), process(900, "notepad.exe")}, 0));
+    view.updateSnapshot(snapshotWith({process(4, "System")}, 1));
+    selectProcess(view, process(4, "System").identity());
+    ASSERT_TRUE(view.endProcessAction()->isEnabled());
+
+    selectProcess(view, process(900, "notepad.exe").identity());
+
+    EXPECT_FALSE(view.endProcessAction()->isEnabled());
+}
+
+namespace
+{
+
+// The monitor's own process, as main.cpp tells the view.
+ProcessInfo monitorProcess()
+{
+    return process(1234, "system_monitor.exe");
+}
+
+QAbstractButton* closeMonitorButton(const QMessageBox& dialog)
+{
+    for (auto* button : dialog.buttons()) {
+        if (dialog.buttonRole(button) == QMessageBox::AcceptRole) {
+            return button;
+        }
+    }
+    return nullptr;
+}
+
+// Lists the monitor's own row in view, which knows the monitor's identity,
+// selects the row, and triggers End process. Returns the dialog that opened,
+// or nullptr if none did.
+QMessageBox* endMonitorProcess(ProcessesView& view, std::vector<ProcessIdentity>& ended)
+{
+    view.setProcessTerminator(recordingTerminator(ended));
+    view.setMonitorIdentity(monitorProcess().identity());
+    view.updateSnapshot(snapshotWith({process(4, "System"), monitorProcess()}));
+    selectProcess(view, monitorProcess().identity());
+    view.endProcessAction()->trigger();
+    return view.findChild<QMessageBox*>();
+}
+
+} // namespace
+
+TEST(ProcessesView, EndProcessAction_MonitorsOwnRow_AsksToCloseTheMonitorInstead)
+{
+    ProcessesView view;
+    std::vector<ProcessIdentity> ended;
+
+    const auto* dialog = endMonitorProcess(view, ended);
+
+    ASSERT_NE(dialog, nullptr);
+    EXPECT_TRUE(dialog->isVisible());
+    EXPECT_EQ(dialog->icon(), QMessageBox::Question);
+    EXPECT_EQ(dialog->text(),
+              "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?");
+    EXPECT_EQ(dialog->textFormat(), Qt::PlainText);
+    EXPECT_TRUE(dialog->informativeText().contains("close its window"));
+    ASSERT_NE(closeMonitorButton(*dialog), nullptr);
+    EXPECT_EQ(closeMonitorButton(*dialog)->text(), "Close System Monitor");
+    EXPECT_EQ(endButton(*dialog), nullptr);
+    EXPECT_EQ(dialog->defaultButton(), dialog->button(QMessageBox::Cancel));
+    EXPECT_EQ(dialog->escapeButton(), dialog->button(QMessageBox::Cancel));
+}
+
+TEST(ProcessesView, EndProcessAction_MonitorsOwnRowConfirmed_ClosesTheWindowWithoutEndingTheProcess)
+{
+    QWidget window;
+    auto* view = new ProcessesView(&window);
+    window.show();
+    std::vector<ProcessIdentity> ended;
+    auto* dialog = endMonitorProcess(*view, ended);
+    ASSERT_NE(dialog, nullptr);
+    ASSERT_NE(closeMonitorButton(*dialog), nullptr);
+
+    closeMonitorButton(*dialog)->click();
+
+    EXPECT_FALSE(window.isVisible());
+    EXPECT_TRUE(ended.empty());
+    EXPECT_TRUE(shownMessageBoxes(*view).empty());
+}
+
+TEST(ProcessesView, EndProcessAction_MonitorsOwnRowCancelled_KeepsTheWindowOpen)
+{
+    QWidget window;
+    auto* view = new ProcessesView(&window);
+    window.show();
+    std::vector<ProcessIdentity> ended;
+    auto* dialog = endMonitorProcess(*view, ended);
+    ASSERT_NE(dialog, nullptr);
+
+    dialog->button(QMessageBox::Cancel)->click();
+
+    EXPECT_TRUE(window.isVisible());
+    EXPECT_TRUE(ended.empty());
 }

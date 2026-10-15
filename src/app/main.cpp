@@ -13,6 +13,7 @@
 #include "monitoring/sampling_scheduler.h"
 #include "platform/windows/connectivity_collector.h"
 #include "platform/windows/cpu_collector.h"
+#include "platform/windows/current_process.h"
 #include "platform/windows/disk_collector.h"
 #include "platform/windows/memory_collector.h"
 #include "platform/windows/network_collector.h"
@@ -65,6 +66,9 @@ int main(int argc, char* argv[])
 
     sysmon::ui::MainWindow mainWindow;
     mainWindow.processesView()->setProcessTerminator(sysmon::platform::terminateOwnedProcess);
+    if (const auto monitor = sysmon::platform::currentProcessIdentity()) {
+        mainWindow.processesView()->setMonitorIdentity(*monitor);
+    }
 
     QObject::connect(&scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
                      &sysmon::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);

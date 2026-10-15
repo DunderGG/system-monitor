@@ -69,6 +69,14 @@ inline constexpr qsizetype kToolTipDetailLength = 2000;
 [[nodiscard]] QString processTerminationQuestion(const domain::ProcessInfo& process);
 
 /**
+ * Question in the dialog that End process opens for the monitor's own row,
+ * which offers to close the monitor rather than end its process:
+ * "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to
+ * close System Monitor?"
+ */
+[[nodiscard]] QString monitorCloseQuestion(const domain::ProcessInfo& monitor);
+
+/**
  * Message shown when ending a process did not end it. The text names the
  * process and its PID, e.g. "Could not end explorer.exe (PID 1234)." or
  * "explorer.exe (PID 1234) has already exited.", and the informative text

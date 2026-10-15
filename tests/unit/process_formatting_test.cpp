@@ -89,6 +89,12 @@ TEST(ProcessFormatting, ProcessTerminationQuestion_NameWithPlaceholder_KeptLiter
               "Do you want to end a%2b%1.exe (PID 7)?");
 }
 
+TEST(ProcessFormatting, MonitorCloseQuestion_OwnRow_NamesItAndOffersToClose)
+{
+    EXPECT_EQ(monitorCloseQuestion(ProcessInfo{.pid = 1234, .imageName = "system_monitor.exe"}),
+              "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?");
+}
+
 TEST(ProcessFormatting, ProcessTerminationMessage_Terminated_None)
 {
     EXPECT_FALSE(processTerminationMessage(ProcessInfo{.pid = 1234, .imageName = "explorer.exe"},
