@@ -25,6 +25,8 @@ add_library(sysmon_platform_windows STATIC
     process_collector.h
     process_details_reader.cpp
     process_details_reader.h
+    process_elevation.cpp
+    process_elevation.h
     process_handle.cpp
     process_handle.h
     process_identity_cache.cpp

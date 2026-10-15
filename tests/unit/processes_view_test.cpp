@@ -542,6 +542,7 @@ TEST(ProcessesView, EndProcessAction_NotEnded_MessageIconFollowsTheLogLevel)
     const std::array cases{
         Case{ProcessTerminationResult::AlreadyExited, QMessageBox::Information},
         Case{ProcessTerminationResult::NotOwnedByCurrentUser, QMessageBox::Warning},
+        Case{ProcessTerminationResult::Elevated, QMessageBox::Warning},
         Case{ProcessTerminationResult::NeverOpened, QMessageBox::Warning},
         Case{ProcessTerminationResult::AccessDenied, QMessageBox::Warning},
         Case{ProcessTerminationResult::Failed, QMessageBox::Critical},

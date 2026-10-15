@@ -87,6 +87,7 @@ QMessageBox::Icon terminationMessageIcon(domain::ProcessTerminationResult result
         case domain::ProcessTerminationResult::AlreadyExited:
             return QMessageBox::Information;
         case domain::ProcessTerminationResult::NotOwnedByCurrentUser:
+        case domain::ProcessTerminationResult::Elevated:
         case domain::ProcessTerminationResult::NeverOpened:
         case domain::ProcessTerminationResult::AccessDenied:
             return QMessageBox::Warning;

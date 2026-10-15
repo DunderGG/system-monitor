@@ -52,6 +52,7 @@ add_executable(system_monitor_tests
     integration/process_terminator_test.cpp
     integration/process_tracking_test.cpp
     integration/suspended_child_process.h
+    integration/current_process_elevation.h
     integration/app_logging_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
@@ -94,6 +95,7 @@ gtest_discover_tests(system_monitor_tests)
 add_executable(system_monitor_platform_tests
     platform/connectivity_hint_mapping_test.cpp
     platform/system_process_information_test.cpp
+    platform/process_elevation_test.cpp
 )
 
 target_link_libraries(system_monitor_platform_tests

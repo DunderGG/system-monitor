@@ -142,7 +142,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Implement `TerminateProcess` for processes the current user owns.
 - [x] Show a confirmation dialog before termination with the process name, PID, and a warning.
 - [x] Handle failure gracefully (process already exited, access denied) with a user-facing message.
-- [ ] Do not attempt to terminate elevated or system processes in the MVP.
+- [x] Do not attempt to terminate elevated or system processes in the MVP.
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 
 ---
@@ -182,6 +182,7 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Create a small helper executable that accepts a PID and action via command-line arguments.
 - [ ] Launch the helper via `ShellExecuteEx` with the `runas` verb to trigger a UAC prompt.
 - [ ] Show a shield icon in the process explorer next to actions that require elevation.
+- [ ] Investigate letting the monitor end the user's elevated processes itself when it runs elevated, which the MVP refuses even then ([DC-90](docs/design_decisions.md#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated)).
 
 ### System tray
 

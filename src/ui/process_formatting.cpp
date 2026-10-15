@@ -133,12 +133,15 @@ std::optional<ProcessTerminationMessage> processTerminationMessage(const domain:
         case domain::ProcessTerminationResult::NotOwnedByCurrentUser:
             return notEnded(QStringLiteral("It runs as another user, such as SYSTEM or a service account. The monitor "
                                            "ends only processes that run as you."));
+        case domain::ProcessTerminationResult::Elevated:
+            return notEnded(QStringLiteral("It runs elevated, with administrator or system rights. The monitor ends "
+                                           "only processes that run with standard user rights."));
         case domain::ProcessTerminationResult::NeverOpened:
             return notEnded(QStringLiteral("It is a critical Windows process, which the monitor never opens."));
         case domain::ProcessTerminationResult::AccessDenied:
-            return notEnded(QStringLiteral("Windows denied access to it. That happens for a process that runs as "
-                                           "administrator when the monitor does not, and for a process that Windows "
-                                           "protects."));
+            return notEnded(QStringLiteral("Windows denied access to it. That happens for a system process or a "
+                                           "service when the monitor runs without administrator rights, and for a "
+                                           "process that Windows protects."));
         case domain::ProcessTerminationResult::Failed:
             return notEnded(
                 QStringLiteral("Windows reported an unexpected error. The monitor's log has the error code."));

@@ -13,6 +13,7 @@
 #include <spdlog/spdlog.h>
 
 #include "platform/windows/process_access_policy.h"
+#include "platform/windows/process_elevation.h"
 #include "platform/windows/process_handle.h"
 
 namespace sysmon::platform
@@ -114,24 +115,25 @@ CheckedHandle openChecked(const domain::ProcessInfo& process, DWORD access)
     return {.handle = std::move(handle)};
 }
 
-// Reads the token's TOKEN_USER into storage aligned for it. Returns
-// std::nullopt if GetTokenInformation fails; GetLastError() then says why.
-std::optional<std::vector<uint64_t>> readTokenUser(HANDLE token)
+// Reads token information whose size varies, such as TOKEN_USER, into storage
+// aligned for it. Returns std::nullopt if GetTokenInformation fails;
+// GetLastError() then says why.
+std::optional<std::vector<uint64_t>> readTokenInformation(HANDLE token, TOKEN_INFORMATION_CLASS infoClass)
 {
     DWORD size = 0;
-    if (!::GetTokenInformation(token, TokenUser, nullptr, 0, &size) && ::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+    if (!::GetTokenInformation(token, infoClass, nullptr, 0, &size) && ::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
         return std::nullopt;
     }
 
     std::vector<uint64_t> buffer((size + sizeof(uint64_t) - 1) / sizeof(uint64_t));
-    if (!::GetTokenInformation(token, TokenUser, buffer.data(), size, &size)) {
+    if (!::GetTokenInformation(token, infoClass, buffer.data(), size, &size)) {
         return std::nullopt;
     }
     return buffer;
 }
 
-// The user SID in a TOKEN_USER that readTokenUser() read. It points into the
-// buffer, so it is valid as long as the buffer is.
+// The user SID in a TOKEN_USER that readTokenInformation() read. It points
+// into the buffer, so it is valid as long as the buffer is.
 PSID userSid(const std::vector<uint64_t>& tokenUser)
 {
     TOKEN_USER header{};
@@ -139,27 +141,33 @@ PSID userSid(const std::vector<uint64_t>& tokenUser)
     return header.User.Sid;
 }
 
+// The integrity level in a TOKEN_MANDATORY_LABEL that readTokenInformation()
+// read: the last subauthority of its SID, a SECURITY_MANDATORY_*_RID value.
+// std::nullopt if the SID has no subauthority.
+std::optional<DWORD> integrityRid(const std::vector<uint64_t>& mandatoryLabel)
+{
+    TOKEN_MANDATORY_LABEL header{};
+    std::memcpy(&header, mandatoryLabel.data(), sizeof(header));
+    const UCHAR subAuthorityCount = *::GetSidSubAuthorityCount(header.Label.Sid);
+    if (subAuthorityCount == 0) {
+        return std::nullopt;
+    }
+    return *::GetSidSubAuthority(header.Label.Sid, subAuthorityCount - 1u);
+}
+
 // Returns why the process must not be terminated if the current user does not
 // own it, or std::nullopt if it does. A process's owner is the user of its
 // token, the user Task Manager shows for it.
-std::optional<ProcessTerminationResult> checkOwner(HANDLE handle, const domain::ProcessInfo& process)
+std::optional<ProcessTerminationResult> checkOwner(HANDLE handle, HANDLE token, const domain::ProcessInfo& process)
 {
-    const auto currentUser = readTokenUser(::GetCurrentProcessToken());
+    const auto currentUser = readTokenInformation(::GetCurrentProcessToken(), TokenUser);
     if (!currentUser) {
         const DWORD error = ::GetLastError();
         return notTerminated(process, ProcessTerminationResult::Failed,
                              std::format("reading this process's user failed with error {}", error));
     }
 
-    HANDLE rawToken = nullptr;
-    if (!::OpenProcessToken(handle, TOKEN_QUERY, &rawToken)) {
-        const DWORD error = ::GetLastError();
-        return notTerminated(process, resultForError(handle, error),
-                             std::format("OpenProcessToken failed with error {}", error));
-    }
-    const ScopedHandle token(rawToken);
-
-    const auto processUser = readTokenUser(token.get());
+    const auto processUser = readTokenInformation(token, TokenUser);
     if (!processUser) {
         const DWORD error = ::GetLastError();
         return notTerminated(process, resultForError(handle, error),
@@ -170,6 +178,57 @@ std::optional<ProcessTerminationResult> checkOwner(HANDLE handle, const domain::
         return notTerminated(process, ProcessTerminationResult::NotOwnedByCurrentUser, "it belongs to another user");
     }
     return std::nullopt;
+}
+
+// Returns why the process must not be terminated if it runs elevated, or
+// std::nullopt if it does not. The monitor ends only unelevated processes,
+// even when it runs elevated itself (DC-90).
+std::optional<ProcessTerminationResult> checkNotElevated(HANDLE handle, HANDLE token,
+                                                         const domain::ProcessInfo& process)
+{
+    TOKEN_ELEVATION elevation{};
+    DWORD size = 0;
+    if (!::GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &size)) {
+        const DWORD error = ::GetLastError();
+        return notTerminated(process, resultForError(handle, error),
+                             std::format("GetTokenInformation(TokenElevation) failed with error {}", error));
+    }
+
+    const auto mandatoryLabel = readTokenInformation(token, TokenIntegrityLevel);
+    if (!mandatoryLabel) {
+        const DWORD error = ::GetLastError();
+        return notTerminated(process, resultForError(handle, error),
+                             std::format("GetTokenInformation(TokenIntegrityLevel) failed with error {}", error));
+    }
+    const auto rid = integrityRid(*mandatoryLabel);
+    if (!rid) {
+        return notTerminated(process, ProcessTerminationResult::Failed, "its integrity level SID has no subauthority");
+    }
+
+    if (runsElevated(elevation, *rid)) {
+        return notTerminated(process, ProcessTerminationResult::Elevated,
+                             std::format("it runs elevated (elevated token: {}, integrity level 0x{:X})",
+                                         elevation.TokenIsElevated != 0, *rid));
+    }
+    return std::nullopt;
+}
+
+// Returns why the process must not be terminated, from its token: it belongs
+// to another user, or it runs elevated. std::nullopt if neither.
+std::optional<ProcessTerminationResult> checkToken(HANDLE handle, const domain::ProcessInfo& process)
+{
+    HANDLE rawToken = nullptr;
+    if (!::OpenProcessToken(handle, TOKEN_QUERY, &rawToken)) {
+        const DWORD error = ::GetLastError();
+        return notTerminated(process, resultForError(handle, error),
+                             std::format("OpenProcessToken failed with error {}", error));
+    }
+    const ScopedHandle token(rawToken);
+
+    if (const auto ownerFailure = checkOwner(handle, token.get(), process)) {
+        return ownerFailure;
+    }
+    return checkNotElevated(handle, token.get(), process);
 }
 
 } // namespace
@@ -189,12 +248,12 @@ ProcessTerminationResult terminateOwnedProcess(const domain::ProcessInfo& proces
     if (checked.failure) {
         return *checked.failure;
     }
-    if (const auto ownerFailure = checkOwner(checked.handle.get(), process)) {
-        return *ownerFailure;
+    if (const auto tokenFailure = checkToken(checked.handle.get(), process)) {
+        return *tokenFailure;
     }
 
     // The open handle keeps Windows from reusing the PID, so this reaches the
-    // process whose owner was checked; openChecked() confirms it again.
+    // process whose token was checked; openChecked() confirms it again.
     const CheckedHandle terminable = openChecked(process, kTerminateAccess);
     if (terminable.failure) {
         return *terminable.failure;

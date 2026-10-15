@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include <QObject>
 
+#include "current_process_elevation.h"
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
 #include "domain/system_snapshot.h"
@@ -23,7 +24,6 @@
 #include "platform/windows/process_access_policy.h"
 #include "platform/windows/process_collector.h"
 #include "platform/windows/process_details_reader.h"
-#include "platform/windows/process_handle.h"
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/system_process_information_reader.h"
 #include "suspended_child_process.h"
@@ -31,6 +31,7 @@
 using namespace sysmon::domain;
 using namespace sysmon::platform;
 using sysmon::monitoring::SamplingScheduler;
+using sysmon::tests::isCurrentProcessElevated;
 using sysmon::tests::SuspendedChildProcess;
 
 namespace
@@ -66,21 +67,6 @@ std::optional<std::vector<ProcessInfo>> readProcessList(SystemProcessInformation
         return std::nullopt;
     }
     return parseSystemProcessInformation(*bytes);
-}
-
-bool isElevated()
-{
-    HANDLE token = nullptr;
-    if (!::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &token)) {
-        return false;
-    }
-    const ScopedHandle scopedToken(token);
-    TOKEN_ELEVATION elevation{};
-    DWORD size = 0;
-    if (!::GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &size)) {
-        return false;
-    }
-    return elevation.TokenIsElevated != 0;
 }
 
 } // namespace
@@ -200,7 +186,7 @@ TEST(ProcessTrackingIntegration, RealHost_DetailsStatus_MatchesDetailsRead)
 
 TEST(ProcessTrackingIntegration, RealHost_Unelevated_DeniedProcessesStayListedWithTheirMetrics)
 {
-    if (isElevated()) {
+    if (isCurrentProcessElevated()) {
         GTEST_SKIP() << "Running elevated; processes may not deny access";
     }
     ProcessCollector collector;

@@ -198,7 +198,8 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 | Executable paths | `QueryFullProcessImageNameW` (lazy, cached by PID + creation time) |
 | Command lines | `NtQueryInformationProcess(ProcessCommandLineInformation)` (lazy, cached) |
 | Process owner (before termination) | `OpenProcessToken` + `GetTokenInformation(TokenUser)`, compared with `EqualSid` |
-| Process termination | `TerminateProcess` (processes the current user owns only) |
+| Process elevation (before termination) | `GetTokenInformation(TokenElevation)` + `GetTokenInformation(TokenIntegrityLevel)` |
+| Process termination | `TerminateProcess` (unelevated processes the current user owns only) |
 | Network profile names | `INetworkListManager` (COM, lazy, on change events only) |
 | Hardware inventory | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
 | Per-disk I/O rates | PDH (only where no direct Win32 alternative exists) |
@@ -262,7 +263,7 @@ Set `requestedExecutionLevel level="asInvoker"` in the application manifest. Wit
 
 ### Unelevated process termination
 
-The monitor terminates only processes that the current user owns: the user of the process's token must be the user of the monitor's own token. `platform::terminateOwnedProcess()` takes the process's `(PID, creation time)` identity. It opens the process with `PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE`, checks the creation time, and checks the owner. Only then does it open the process again with `PROCESS_TERMINATE` added and call `TerminateProcess`. A process whose PID was reused is never touched, and `PROCESS_TERMINATE` is never requested for another user's process. It returns a `domain::ProcessTerminationResult` that says why a process was left alone, so the UI can explain it ([DC-87](design_decisions.md#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested)).
+The monitor terminates only processes that the current user owns and that do not run elevated. The user of the process's token must be the user of the monitor's own token. The token must not be elevated, and its integrity level must be below high, so system processes, services, and UIAccess programs are refused too. This holds even when the monitor itself runs elevated ([DC-90](design_decisions.md#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated)). `platform::terminateOwnedProcess()` takes the process's `(PID, creation time)` identity. It opens the process with `PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE`, checks the creation time, and reads the token to check the owner and the elevation. Only then does it open the process again with `PROCESS_TERMINATE` added and call `TerminateProcess`. A process whose PID was reused is never touched, and `PROCESS_TERMINATE` is never requested for another user's process or for an elevated one. It returns a `domain::ProcessTerminationResult` that says why a process was left alone, so the UI can explain it ([DC-87](design_decisions.md#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested)).
 
 The Processes tab asks first. Its End process action (a toolbar button, the table's context menu, or the Delete key) opens a dialog that names the process and its PID and warns that unsaved data is lost, with Cancel as the default. Confirming ends the process the dialog named, by its identity, even if the table changed while the dialog was open. The UI calls the function through a `ui::ProcessTerminator` that `main.cpp` sets, on the UI thread, because it does not wait for the process to exit ([DC-88](design_decisions.md#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator)). Once the dialog has closed, a message box says why a process was left running, or that it had already exited. A process that was ended gets no message, because its row is marked as exited at the next refresh ([DC-89](design_decisions.md#dc-89-termination-results-a-message-box-for-each-outcome-but-success-opened-once-the-confirmation-has-closed)).
 
@@ -272,7 +273,7 @@ When elevated process termination is added, launch a small helper executable via
 
 ### Antivirus and EDR considerations
 
-- **Only request `PROCESS_QUERY_LIMITED_INFORMATION`** when opening process handles. Never use `PROCESS_ALL_ACCESS` or `PROCESS_VM_READ | PROCESS_VM_WRITE`. The one exception is [unelevated process termination](#unelevated-process-termination), which also requests `SYNCHRONIZE`, and adds `PROCESS_TERMINATE` only for a process the current user owns.
+- **Only request `PROCESS_QUERY_LIMITED_INFORMATION`** when opening process handles. Never use `PROCESS_ALL_ACCESS` or `PROCESS_VM_READ | PROCESS_VM_WRITE`. The one exception is [unelevated process termination](#unelevated-process-termination), which also requests `SYNCHRONIZE`, and adds `PROCESS_TERMINATE` only for an unelevated process the current user owns.
 - **Never call `OpenProcess` on `lsass.exe` or `csrss.exe`.** This triggers credential-dumping heuristic detections in most EDR products, even with benign access masks. Use the data already returned by `NtQuerySystemInformation` for these processes.
 - Calling `NtQuerySystemInformation` from `ntdll.dll` via `GetProcAddress` is standard behavior used by legitimate system tools and does not trigger AV flags.
 - Sign the binary (even self-signed during development) to avoid SmartScreen reputation warnings.
@@ -313,7 +314,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Ambiguous connectivity status | Use `GetNetworkConnectivityHint` for structured connectivity levels (None, LocalAccess, ConstrainedInternetAccess, InternetAccess, plus an explicit Unknown when the state cannot be determined) rather than a single "online" flag. |
 | UI stutters under a large process list | Diff/update Qt item models efficiently. All collection and aggregation happens off the UI thread. Snapshots cross to UI via queued signals. |
 | Unbounded memory or disk usage | Use fixed-size in-memory ring buffers and explicit persistence retention/downsampling policies. |
-| Excessive privilege or security risk | Run unelevated by default. Only request `PROCESS_QUERY_LIMITED_INFORMATION`, except that termination adds `PROCESS_TERMINATE` for processes the current user owns. Never open `lsass.exe` or `csrss.exe` handles. |
+| Excessive privilege or security risk | Run unelevated by default. Only request `PROCESS_QUERY_LIMITED_INFORMATION`, except that termination adds `PROCESS_TERMINATE` for unelevated processes the current user owns. Never open `lsass.exe` or `csrss.exe` handles. |
 | Antivirus/EDR false positives | Avoid dangerous access masks, sensitive process handles, API hooking, and process injection. Sign binaries. |
 | Sleep/hibernate causes rate calculation errors | Detect `WM_POWERBROADCAST` resume events. Discard first sample and reset rate baselines. |
 | WMI service not running or repository corrupted | Use WMI only for optional startup hardware inventory. All core metrics use direct Win32 APIs. |

@@ -55,7 +55,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 
 - Define `WIN32_LEAN_AND_MEAN` and `NOMINMAX` project-wide.
 - Use `W` (wide/Unicode) API variants, never `A` (ANSI).
-- Only request `PROCESS_QUERY_LIMITED_INFORMATION` when opening process handles. The one exception is process termination (`terminateOwnedProcess()` in `platform/windows/process_terminator.cpp`), which also requests `SYNCHRONIZE`, and adds `PROCESS_TERMINATE` only after confirming that the current user owns the process.
+- Only request `PROCESS_QUERY_LIMITED_INFORMATION` when opening process handles. The one exception is process termination (`terminateOwnedProcess()` in `platform/windows/process_terminator.cpp`), which also requests `SYNCHRONIZE`, and adds `PROCESS_TERMINATE` only after confirming that the current user owns the process and that it does not run elevated.
 - Never call `OpenProcess` on `lsass.exe` or `csrss.exe`.
 - Convert Windows types to domain types at the `platform/windows` boundary.
 

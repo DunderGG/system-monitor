@@ -4,8 +4,11 @@
 #include <optional>
 #include <vector>
 
+#include <windows.h>
+
 #include <gtest/gtest.h>
 
+#include "current_process_elevation.h"
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
 #include "platform/windows/process_terminator.h"
@@ -15,7 +18,9 @@
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
+using sysmon::tests::isCurrentProcessElevated;
 using sysmon::tests::SuspendedChildProcess;
+using sysmon::tests::UnelevatedToken;
 
 namespace
 {
@@ -44,9 +49,12 @@ std::optional<ProcessInfo> findSystemProcess()
 
 } // namespace
 
-TEST(ProcessTerminatorIntegration, RealHost_OwnChildProcess_TerminatedWithExitCodeOne)
+// Children that the terminator should be able to end are created unelevated,
+// so these tests also hold when they run elevated, as on CI runners.
+
+TEST(ProcessTerminatorIntegration, RealHost_OwnUnelevatedChild_TerminatedWithExitCodeOne)
 {
-    SuspendedChildProcess child;
+    SuspendedChildProcess child(UnelevatedToken{});
     ASSERT_TRUE(child.started());
 
     const ProcessTerminationResult result = terminateOwnedProcess(child.processInfo());
@@ -57,7 +65,7 @@ TEST(ProcessTerminatorIntegration, RealHost_OwnChildProcess_TerminatedWithExitCo
 
 TEST(ProcessTerminatorIntegration, RealHost_PidReusedByAnotherProcess_LeavesItRunning)
 {
-    SuspendedChildProcess child;
+    SuspendedChildProcess child(UnelevatedToken{});
     ASSERT_TRUE(child.started());
     ProcessInfo earlierProcess = child.processInfo();
     // The same PID with an earlier creation time stands for a process that
@@ -72,7 +80,7 @@ TEST(ProcessTerminatorIntegration, RealHost_PidReusedByAnotherProcess_LeavesItRu
 
 TEST(ProcessTerminatorIntegration, RealHost_ChildAlreadyTerminated_AlreadyExited)
 {
-    SuspendedChildProcess child;
+    SuspendedChildProcess child(UnelevatedToken{});
     ASSERT_TRUE(child.started());
     ASSERT_EQ(terminateOwnedProcess(child.processInfo()), ProcessTerminationResult::Terminated);
     ASSERT_TRUE(child.waitForExitCode(kExitTimeout).has_value());
@@ -86,7 +94,7 @@ TEST(ProcessTerminatorIntegration, RealHost_ChildAlreadyTerminated_AlreadyExited
 
 TEST(ProcessTerminatorIntegration, RealHost_ChildExitedAndHandlesClosed_AlreadyExited)
 {
-    SuspendedChildProcess child;
+    SuspendedChildProcess child(UnelevatedToken{});
     ASSERT_TRUE(child.started());
     const ProcessInfo exitedChild = child.processInfo();
     child.terminate();
@@ -100,7 +108,7 @@ TEST(ProcessTerminatorIntegration, RealHost_ChildExitedAndHandlesClosed_AlreadyE
 
 TEST(ProcessTerminatorIntegration, RealHost_NeverOpenedImageName_RefusedAndLeftRunning)
 {
-    SuspendedChildProcess child;
+    SuspendedChildProcess child(UnelevatedToken{});
     ASSERT_TRUE(child.started());
     ProcessInfo namedLikeCsrss = child.processInfo();
     namedLikeCsrss.imageName = "csrss.exe";
@@ -108,6 +116,36 @@ TEST(ProcessTerminatorIntegration, RealHost_NeverOpenedImageName_RefusedAndLeftR
     const ProcessTerminationResult result = terminateOwnedProcess(namedLikeCsrss);
 
     EXPECT_EQ(result, ProcessTerminationResult::NeverOpened);
+    EXPECT_FALSE(child.waitForExitCode(kNoWait).has_value());
+}
+
+TEST(ProcessTerminatorIntegration, RealHost_ElevatedOwnChild_RefusedAndLeftRunning)
+{
+    if (!isCurrentProcessElevated()) {
+        GTEST_SKIP() << "Running unelevated; cannot start an elevated child";
+    }
+    // Created with this process's elevated token.
+    SuspendedChildProcess child;
+    ASSERT_TRUE(child.started());
+
+    const ProcessTerminationResult result = terminateOwnedProcess(child.processInfo());
+
+    EXPECT_EQ(result, ProcessTerminationResult::Elevated);
+    EXPECT_FALSE(child.waitForExitCode(kNoWait).has_value());
+}
+
+TEST(ProcessTerminatorIntegration, RealHost_UnelevatedChildAtHighIntegrity_RefusedAndLeftRunning)
+{
+    if (!isCurrentProcessElevated()) {
+        GTEST_SKIP() << "Running unelevated; cannot start a child at high integrity";
+    }
+    // Not elevated, but at high integrity, as a UIAccess program can be.
+    SuspendedChildProcess child(UnelevatedToken{.integrityLevel = WinHighLabelSid});
+    ASSERT_TRUE(child.started());
+
+    const ProcessTerminationResult result = terminateOwnedProcess(child.processInfo());
+
+    EXPECT_EQ(result, ProcessTerminationResult::Elevated);
     EXPECT_FALSE(child.waitForExitCode(kNoWait).has_value());
 }
 

@@ -101,6 +101,7 @@ TEST(ProcessFormatting, ProcessTerminationMessage_NotEnded_NamesTheProcessAndSay
     };
     const std::array cases{
         Case{ProcessTerminationResult::NotOwnedByCurrentUser, "runs as another user"},
+        Case{ProcessTerminationResult::Elevated, "runs elevated"},
         Case{ProcessTerminationResult::NeverOpened, "critical Windows process"},
         Case{ProcessTerminationResult::AccessDenied, "denied access"},
         Case{ProcessTerminationResult::Failed, "log has the error code"},
