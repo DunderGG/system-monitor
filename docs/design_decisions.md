@@ -101,6 +101,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-84](#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time): New and exited processes highlighted for three seconds of snapshot time
   - [DC-85](#dc-85-access-indicator-a-painted-icon-per-details-status-and-a-tooltip-with-the-details-or-the-reason): Access indicator: a painted icon per details status, and a tooltip with the details or the reason
   - [DC-86](#dc-86-qtbase-built-with-png-support-for-qts-own-windows-cursors): qtbase built with PNG support for Qt's own Windows cursors
+  - [DC-91](#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29): Memory column shows the private working set, with the working set and commit size in its tooltip (code review F-29)
 - [Phase 4 — Process termination (`src/platform/windows/`, `src/ui/`)](#phase-4--process-termination-srcplatformwindows-srcui)
   - [DC-87](#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested): Process termination: ownership and identity checked before `PROCESS_TERMINATE` is requested
   - [DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator): End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
@@ -742,6 +743,8 @@ UTF-16 to UTF-8 conversion moved to `platform/windows/utf8_conversion.h` as `wid
 
 **Rationale:** `winternl.h` hides the creation time, user and kernel times, parent PID, and I/O counters in `Reserved` fields, and the collector needs all of them. A complete definition names them, and the `static_assert`s catch a layout mistake at compile time instead of as wrong numbers at run time. Copying each entry avoids reading through a cast pointer and any dependence on the buffer's alignment. The bounds checks stop a corrupt list from reading past the buffer. The parser's tests build lists from SDK types (`UNICODE_STRING`, `SYSTEM_THREAD_INFORMATION`), so they live in `tests/platform/`, which may not call Windows APIs, and the parser calls the conversion. A conversion in plain C++ keeps those tests free of OS calls and can be unit tested directly. `PrivatePageCount` is the field `VM_COUNTERS_EX` calls `PrivateUsage`, the documented commit charge. The transfer counts are the only I/O byte counters the list has, so the comments describe what they include rather than calling them disk I/O.
 
+**Extended by [DC-91](#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29):** the new field `privateWorkingSetBytes` is `WorkingSetPrivateSize`, a `LARGE_INTEGER` that a negative value reads as zero, like the other signed counters.
+
 ---
 
 ### DC-72: `ProcessDetailsStatus` replaces `ProcessInfo::accessDenied`
@@ -851,6 +854,8 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 
 **Rationale:** The process list reaches the UI with every 1 Hz snapshot but is refreshed only every 2 seconds ([DC-77](#dc-77-a-slow-collector-thread-in-the-scheduler-shared-by-processes-and-connectivity)), so consecutive snapshots often carry the same counters. The snapshot's timestamp is also the tick's, not the time the list was read. A rate computed in the UI would therefore alternate between zero and double the real value. The collector knows when each list was read, so it computes the I/O rates there, from the same baselines and timestamp as the CPU usage. Keeping read and write separate in the domain leaves both available to other consumers, while the table shows their sum, as the roadmap asks. Summing only when both rates are known avoids understating the total, the rule `sumActiveThroughput()` follows for adapters. The counters are `ReadTransferCount` and `WriteTransferCount`, which include pipe and device I/O ([DC-71](#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh)), so "Disk I/O" would mislabel them. The Network column stays so the layout does not change when ETW arrives. Its cells say "N/A" rather than zero because no value is known, and they are dimmed so a column of placeholders does not draw the eye. Fixed widths from templates keep the columns still as values change, and avoid `QHeaderView::ResizeToContents`, which measures every row whenever the data changes.
 
+**Superseded in part by [DC-91](#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29):** **Memory** is now the private working set, which it also sorts by, and its cells have a tooltip with the private working set, the working set and the commit size.
+
 ---
 
 ### DC-81: Sorting and filtering: a proxy that compares domain values, with missing values lowest
@@ -948,6 +953,26 @@ On the development machine, unelevated, System, Registry, smss.exe and most serv
 **Decision:** `vcpkg.json` adds qtbase's `png` feature. `tests/unit/qt_configuration_test.cpp` checks that Qt can read PNG images and that the Windows platform plugin's cursor resources load.
 
 **Rationale:** With its default features turned off, qtbase was built without its PNG handler (`QT_FEATURE_png` is -1) but still reported `QT_FEATURE_imageformat_png` as 1. Qt's Windows platform plugin checks the second flag and loads the split, open-hand, closed-hand, and drag cursors from PNG resources, which then come back as null pixmaps. Making a cursor from a null pixmap fails `Q_ASSERT(bm.format() == QImage::Format_Mono)` in `qpixmap_win.cpp` in a Debug build, and in a Release build the cursor is not created. The process table's header is the first widget in the app with resizable columns, so pointing at a column border in the Debug app aborted it with that assertion. PNG support is part of Qt's default feature set and adds only libpng. The alternatives were fixed column widths or avoiding every Qt feature that uses these cursors: splitters, resizable headers, and drag and drop. They give up features, and the next widget that uses one of the cursors would crash again. The test fails if the feature is ever dropped, before a cursor reaches the screen. The first build after the change rebuilds qtbase, locally and in CI, until the binary cache holds the new package.
+
+---
+
+### DC-91: Memory column shows the private working set, with the working set and commit size in its tooltip (code review F-29)
+
+**Decision:**
+
+- **Field:** `ProcessInfo` gains `privateWorkingSetBytes`, the part of the working set that no other process shares. The parser sets it from the list entry's `WorkingSetPrivateSize`, which it used to read and then drop. A negative value reads as zero, as for the other `LARGE_INTEGER` counters ([DC-71](#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh)). The comments on the three memory fields say what each one counts.
+- **Column:** Memory shows `privateWorkingSetBytes` and sorts by it. The header is still "Memory". Its tooltip now reads "Private working set: the physical memory the process uses on its own, as Task Manager's Memory column shows it. Point at a value to see the working set, which includes shared memory, and the commit size."
+- **Cell tooltip:** `processMemoryToolTip()` gives the three figures on three lines, each with what it counts: "Private working set: 207.0 MiB", "Working set: 378.7 MiB (includes memory shared with other processes)" and "Commit size: 250.0 MiB (private memory committed, which counts toward the commit limit)". The commit size is `privateBytes`, which was collected but not shown anywhere.
+- **Updates:** a change in any of the three figures marks the Memory cell as changed, because its tooltip shows all of them ([DC-83](#dc-83-process-table-updates-only-changed-cells-named-roles-one-sort-per-refresh-and-a-benchmark)).
+- **Tests:**
+  - The parser test reads `WorkingSetPrivateSize`, and a new test checks that negative signed counters read as zero.
+  - Model and proxy tests show and sort by the private working set, including a process whose larger working set is mostly shared. Other tests cover the tooltip's text and a change to each figure.
+  - A new integration test checks that the private working sets of all processes add up to less than physical memory. The existing test of the monitor's own entry also checks that its private working set is above zero and no larger than its working set.
+  - In the benchmark, each simulated process's private working set is three fifths of its working set. It is derived rather than drawn at random, so the simulated lists are the ones DC-83 measured.
+
+**Rationale:** A working set counts every page a process has in physical memory, including shared ones: DLL code, and memory that a browser's processes share. Each shared page is counted again for every process that maps it. In the code review, the column added up to 33.2 GiB on a machine with 30.5 GiB in use, and browser processes showed up to 1.8 times their private working set. Users who add up a browser's processes, or compare one with Task Manager, got a figure that was too high, and nothing explained why. No page is in two processes' private working sets, and the same 399 processes' private working sets added up to 17.2 GiB. Each value can therefore be read as the process's own share. It is also what Task Manager's Memory column shows, so the two tools agree, and sorting by Memory finds the process that holds the most memory on its own. The roadmap asked for "Memory (working set)", and [DC-80](#dc-80-process-table-columns-io-rates-from-the-collector-and-na-for-missing-values) followed it without comparing it with Task Manager.
+
+The commit size was the other candidate. It also counts private memory that has been paged out or never touched, so it does not measure physical memory, and Task Manager shows it only as an optional column on its Details tab. The working set stays in the tooltip because shared memory still occupies physical memory, and a process that maps large files or many DLLs shows it only there. A tooltip, rather than two more columns, keeps the roadmap's columns and leaves the width to the Name column. Marking the cell for a change that only the tooltip shows costs little, because the three figures usually change together.
 
 ---
 

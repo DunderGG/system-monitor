@@ -66,6 +66,7 @@ domain::ProcessInfo toProcessInfo(const FullSystemProcessInformation& entry, std
         .cpuUserTimeMs = nonNegative(entry.UserTime) / kFileTimeTicksPerMillisecond,
         .cpuKernelTimeMs = nonNegative(entry.KernelTime) / kFileTimeTicksPerMillisecond,
         .workingSetBytes = entry.WorkingSetSize,
+        .privateWorkingSetBytes = nonNegative(entry.WorkingSetPrivateSize),
         .privateBytes = entry.PrivatePageCount,
         .ioReadBytes = nonNegative(entry.ReadTransferCount),
         .ioWriteBytes = nonNegative(entry.WriteTransferCount),

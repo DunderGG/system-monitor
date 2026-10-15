@@ -20,10 +20,12 @@
 
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
+#include "ui/process_formatting.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 
 using namespace sysmon::domain;
+using sysmon::ui::processMemoryToolTip;
 using sysmon::ui::ProcessModel;
 
 namespace
@@ -334,7 +336,8 @@ TEST(ProcessModel, HeaderData_ToolTipsSayWhatValuesCount)
     };
 
     EXPECT_TRUE(toolTip(Column::Cpu).contains("all logical processors"));
-    EXPECT_TRUE(toolTip(Column::Memory).contains("Working set"));
+    EXPECT_TRUE(toolTip(Column::Memory).startsWith("Private working set"));
+    EXPECT_TRUE(toolTip(Column::Memory).contains("Task Manager"));
     EXPECT_TRUE(toolTip(Column::Io).contains("not only disk"));
     EXPECT_TRUE(toolTip(Column::Network).contains("ETW"));
 }
@@ -344,7 +347,9 @@ TEST(ProcessModel, Data_ValueColumns_ShowLatestValuesFormatted)
     ProcessModel model;
     ProcessInfo explorer = process(800, "explorer.exe");
     explorer.cpuUsagePercent = 12.54f;
-    explorer.workingSetBytes = 1'572'864; // 1.5 MiB
+    explorer.workingSetBytes = 3'145'728;        // 3.0 MiB
+    explorer.privateWorkingSetBytes = 1'572'864; // 1.5 MiB
+    explorer.privateBytes = 2'097'152;           // 2.0 MiB
     explorer.ioReadBytesPerSec = 1024;
     explorer.ioWriteBytesPerSec = 1024;
     explorer.threadCount = 1234;
@@ -358,6 +363,20 @@ TEST(ProcessModel, Data_ValueColumns_ShowLatestValuesFormatted)
     EXPECT_EQ(firstRowText(model, Column::Threads), "1,234");
     EXPECT_EQ(firstRowText(model, Column::Handles), "56,789");
     EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), "Read: 1.0 KiB/s\nWrite: 1.0 KiB/s");
+    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(explorer));
+}
+
+TEST(ProcessModel, Data_Memory_ShowsPrivateWorkingSetNotSharedPages)
+{
+    ProcessModel model;
+    ProcessInfo browser = process(800, "browser.exe");
+    browser.workingSetBytes = 397'082'214;        // 378.7 MiB, of which 171.7 MiB is shared
+    browser.privateWorkingSetBytes = 217'055'232; // 207.0 MiB
+
+    model.updateProcesses({browser}, kNow);
+
+    EXPECT_EQ(firstRowText(model, Column::Memory), "207.0 MiB");
+    EXPECT_TRUE(firstRowText(model, Column::Memory, Qt::ToolTipRole).contains("Working set: 378.7 MiB"));
 }
 
 TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
@@ -471,7 +490,11 @@ TEST(ProcessModel, UpdateProcesses_EachValueColumn_DetectedOnItsOwn)
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.imagePath = "C:/app.exe"; }), static_cast<int>(Column::Name));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.commandLine = "app"; }), static_cast<int>(Column::Name));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.cpuUsagePercent = 0.0f; }), static_cast<int>(Column::Cpu));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.privateWorkingSetBytes = 1; }),
+              static_cast<int>(Column::Memory));
+    // The Memory cell's tooltip shows these two.
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.workingSetBytes = 1; }), static_cast<int>(Column::Memory));
+    EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.privateBytes = 1; }), static_cast<int>(Column::Memory));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.ioReadBytesPerSec = 0; }), static_cast<int>(Column::Io));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.ioWriteBytesPerSec = 0; }), static_cast<int>(Column::Io));
     EXPECT_EQ(changedColumnAfter([](ProcessInfo& p) { p.threadCount = 1; }), static_cast<int>(Column::Threads));

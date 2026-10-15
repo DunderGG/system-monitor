@@ -37,6 +37,15 @@ QString processIoToolTip(const domain::ProcessInfo& process)
         .arg(rateText(process.ioReadBytesPerSec), rateText(process.ioWriteBytesPerSec));
 }
 
+QString processMemoryToolTip(const domain::ProcessInfo& process)
+{
+    return QString("Private working set: %1\n"
+                   "Working set: %2 (includes memory shared with other processes)\n"
+                   "Commit size: %3 (private memory committed, which counts toward the commit limit)")
+        .arg(formatBytes(process.privateWorkingSetBytes), formatBytes(process.workingSetBytes),
+             formatBytes(process.privateBytes));
+}
+
 namespace
 {
 

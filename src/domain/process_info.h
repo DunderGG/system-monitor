@@ -66,7 +66,14 @@ struct ProcessInfo
     uint64_t cpuUserTimeMs{0};
     uint64_t cpuKernelTimeMs{0};
     std::optional<float> cpuUsagePercent;
+    // Working set: the process's pages in physical memory, including pages it
+    // shares with other processes, such as DLL code. A shared page counts once
+    // for every process that maps it, so working sets add up to more than the
+    // memory in use.
     uint64_t workingSetBytes{0};
+    // Private working set: the part of the working set that no other process
+    // shares. Task Manager's Memory column shows this figure.
+    uint64_t privateWorkingSetBytes{0};
     // Commit charge: the private memory committed for the process.
     uint64_t privateBytes{0};
     // Cumulative bytes moved by the process's read and write I/O operations,

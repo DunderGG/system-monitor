@@ -62,7 +62,7 @@ std::partial_ordering compareColumn(const domain::ProcessInfo& left, const domai
         case Column::Cpu:
             return left.cpuUsagePercent <=> right.cpuUsagePercent;
         case Column::Memory:
-            return left.workingSetBytes <=> right.workingSetBytes;
+            return left.privateWorkingSetBytes <=> right.privateWorkingSetBytes;
         case Column::Io:
             return processIoBytesPerSec(left) <=> processIoBytesPerSec(right);
         case Column::Network:

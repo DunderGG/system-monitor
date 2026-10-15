@@ -55,7 +55,9 @@ std::optional<std::pair<int, int>> changedColumns(const domain::ProcessInfo& bef
     if (before.cpuUsagePercent != after.cpuUsagePercent) {
         mark(Column::Cpu);
     }
-    if (before.workingSetBytes != after.workingSetBytes) {
+    // The Memory cell shows the private working set, and its tooltip the other two.
+    if (before.privateWorkingSetBytes != after.privateWorkingSetBytes ||
+        before.workingSetBytes != after.workingSetBytes || before.privateBytes != after.privateBytes) {
         mark(Column::Memory);
     }
     if (before.ioReadBytesPerSec != after.ioReadBytesPerSec || before.ioWriteBytesPerSec != after.ioWriteBytesPerSec) {
@@ -80,7 +82,7 @@ QString displayText(const domain::ProcessInfo& process, Column column)
         case Column::Cpu:
             return process.cpuUsagePercent ? formatPercent(*process.cpuUsagePercent) : kNotAvailable;
         case Column::Memory:
-            return formatBytes(process.workingSetBytes);
+            return formatBytes(process.privateWorkingSetBytes);
         case Column::Io: {
             const auto bytesPerSec = processIoBytesPerSec(process);
             return bytesPerSec ? formatByteRate(*bytesPerSec) : kNotAvailable;
@@ -150,7 +152,9 @@ QString headerToolTip(Column column)
         case Column::Cpu:
             return QStringLiteral("Share of all logical processors the process used since the previous refresh");
         case Column::Memory:
-            return QStringLiteral("Working set: the physical memory the process is using");
+            return QStringLiteral("Private working set: the physical memory the process uses on its own, as Task "
+                                  "Manager's Memory column shows it. Point at a value to see the working set, which "
+                                  "includes shared memory, and the commit size.");
         case Column::Io:
             return QStringLiteral("Bytes read and written per second, by all of the process's I/O: files, pipes, "
                                   "and devices, not only disk");
@@ -363,6 +367,9 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
             }
             return {};
         case Qt::ToolTipRole:
+            if (column == Column::Memory) {
+                return processMemoryToolTip(node->process);
+            }
             if (column == Column::Io) {
                 return processIoToolTip(node->process);
             }

@@ -229,6 +229,7 @@ TEST(ProcessInfo, DefaultConstruction_ZeroAndNotQueried)
     EXPECT_EQ(p.cpuKernelTimeMs, 0u);
     EXPECT_FALSE(p.cpuUsagePercent.has_value());
     EXPECT_EQ(p.workingSetBytes, 0u);
+    EXPECT_EQ(p.privateWorkingSetBytes, 0u);
     EXPECT_EQ(p.privateBytes, 0u);
     EXPECT_EQ(p.ioReadBytes, 0u);
     EXPECT_EQ(p.ioWriteBytes, 0u);
@@ -254,6 +255,7 @@ TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
         .cpuUserTimeMs = 100,
         .cpuKernelTimeMs = 50,
         .workingSetBytes = 64'000'000,
+        .privateWorkingSetBytes = 48'000'000,
         .privateBytes = 32'000'000,
         .ioReadBytes = 1'000,
         .ioWriteBytes = 500,
@@ -272,6 +274,7 @@ TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
     EXPECT_EQ(p.cpuUserTimeMs, 100u);
     EXPECT_EQ(p.cpuKernelTimeMs, 50u);
     EXPECT_EQ(p.workingSetBytes, 64'000'000u);
+    EXPECT_EQ(p.privateWorkingSetBytes, 48'000'000u);
     EXPECT_EQ(p.privateBytes, 32'000'000u);
     EXPECT_EQ(p.ioReadBytes, 1'000u);
     EXPECT_EQ(p.ioWriteBytes, 500u);

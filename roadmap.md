@@ -119,7 +119,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 ### Process collector (`src/platform/windows/`)
 
 - [x] Implement process enumeration using `NtQuerySystemInformation(SystemProcessInformation)`. Dynamically resolve from `ntdll.dll`. Use the resizing-buffer loop pattern.
-- [x] Parse the linked list of `SYSTEM_PROCESS_INFORMATION` structs to extract PID, parent PID, creation time, image name, thread count, handle count, working set, private bytes, I/O counters, and CPU times.
+- [x] Parse the linked list of `SYSTEM_PROCESS_INFORMATION` structs to extract PID, parent PID, creation time, image name, thread count, handle count, working set, private working set, private bytes, I/O counters, and CPU times.
 - [x] Implement the process identity cache keyed by `(PID, creation time)`.
 - [x] On new process detection, query `QueryFullProcessImageNameW` and `NtQueryInformationProcess(ProcessCommandLineInformation)` via `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`. Cache the result.
 - [x] Skip opening handles to `lsass.exe` and `csrss.exe` to avoid EDR false positives. Use data from `NtQuerySystemInformation` directly for these.
@@ -130,7 +130,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 ### Process explorer view (`src/ui/`)
 
 - [x] Create a process table using `QTreeView` + a custom `QAbstractItemModel` subclass.
-- [x] Display columns: Name, PID, CPU %, Memory (working set), Disk I/O (read + write bytes/sec), Network (placeholder until ETW), Threads, Handles.
+- [x] Display columns: Name, PID, CPU %, Memory (private working set, as Task Manager shows it; see [DC-91](docs/design_decisions.md#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29)), Disk I/O (read + write bytes/sec), Network (placeholder until ETW), Threads, Handles.
 - [x] Implement a `QSortFilterProxyModel` for column sorting and text filtering.
 - [x] Implement process tree view: build parent-child relationships from parent PID. Allow toggling between flat and tree views.
 - [x] Efficiently diff/update the model on each snapshot rather than rebuilding the entire model.

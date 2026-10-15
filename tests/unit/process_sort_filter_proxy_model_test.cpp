@@ -111,13 +111,13 @@ TEST(ProcessSortFilterProxyModel, Sort_Name_IgnoresCaseAndNamesTheIdleProcess)
 TEST(ProcessSortFilterProxyModel, Sort_CountsAndBytes_ByValue)
 {
     ProcessInfo small = process(1, "small.exe");
-    small.workingSetBytes = 900;
+    small.privateWorkingSetBytes = 900;
     small.threadCount = 9;
     small.handleCount = 900;
     small.ioReadBytesPerSec = 900;
     small.ioWriteBytesPerSec = 0;
     ProcessInfo large = process(2, "large.exe");
-    large.workingSetBytes = 1000;
+    large.privateWorkingSetBytes = 1000;
     large.threadCount = 10;
     large.handleCount = 1000;
     large.ioReadBytesPerSec = 500;
@@ -129,6 +129,24 @@ TEST(ProcessSortFilterProxyModel, Sort_CountsAndBytes_ByValue)
         EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2, 1})) << static_cast<int>(column);
     }
     sorted.sort(Column::Pid, Qt::DescendingOrder);
+    EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2, 1}));
+}
+
+TEST(ProcessSortFilterProxyModel, Sort_Memory_ByPrivateWorkingSetNotWorkingSet)
+{
+    // shared.exe maps more memory, but most of it is shared with other processes.
+    ProcessInfo shared = process(1, "shared.exe");
+    shared.workingSetBytes = 400'000'000;
+    shared.privateWorkingSetBytes = 100'000'000;
+    shared.privateBytes = 120'000'000;
+    ProcessInfo owner = process(2, "owner.exe");
+    owner.workingSetBytes = 300'000'000;
+    owner.privateWorkingSetBytes = 250'000'000;
+    owner.privateBytes = 80'000'000;
+    SortedModel sorted({shared, owner});
+
+    sorted.sort(Column::Memory, Qt::DescendingOrder);
+
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2, 1}));
 }
 

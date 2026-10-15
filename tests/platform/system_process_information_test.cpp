@@ -151,6 +151,7 @@ TEST(SystemProcessInformation, Parse_SingleEntry_ExtractsEveryField)
     entry.KernelTime.QuadPart = 20'000'000;
     entry.HandleCount = 512;
     entry.WorkingSetSize = 64'000'000;
+    entry.WorkingSetPrivateSize.QuadPart = 48'000'000;
     entry.PagefileUsage = 1;
     entry.PrivatePageCount = 32'000'000;
     entry.ReadOperationCount.QuadPart = 2;
@@ -173,11 +174,34 @@ TEST(SystemProcessInformation, Parse_SingleEntry_ExtractsEveryField)
     EXPECT_EQ(process.cpuUserTimeMs, 1234u);
     EXPECT_EQ(process.cpuKernelTimeMs, 2000u);
     EXPECT_EQ(process.workingSetBytes, 64'000'000u);
+    EXPECT_EQ(process.privateWorkingSetBytes, 48'000'000u);
     EXPECT_EQ(process.privateBytes, 32'000'000u);
     EXPECT_EQ(process.ioReadBytes, 1'000u);
     EXPECT_EQ(process.ioWriteBytes, 500u);
     EXPECT_EQ(process.threadCount, 3u);
     EXPECT_EQ(process.handleCount, 512u);
+}
+
+TEST(SystemProcessInformation, Parse_NegativeSignedCounters_ReadAsZero)
+{
+    ProcessListBuilder builder;
+    auto& entry = builder.add(L"app.exe");
+    entry.WorkingSetPrivateSize.QuadPart = -4096;
+    entry.UserTime.QuadPart = -1;
+    entry.KernelTime.QuadPart = -1;
+    entry.ReadTransferCount.QuadPart = -1;
+    entry.WriteTransferCount.QuadPart = -1;
+
+    const auto processes = parseSystemProcessInformation(builder.build());
+
+    ASSERT_TRUE(processes.has_value());
+    ASSERT_EQ(processes->size(), 1u);
+    const ProcessInfo& process = (*processes)[0];
+    EXPECT_EQ(process.privateWorkingSetBytes, 0u);
+    EXPECT_EQ(process.cpuUserTimeMs, 0u);
+    EXPECT_EQ(process.cpuKernelTimeMs, 0u);
+    EXPECT_EQ(process.ioReadBytes, 0u);
+    EXPECT_EQ(process.ioWriteBytes, 0u);
 }
 
 TEST(SystemProcessInformation, Parse_SeveralEntriesWithThreads_FollowsNextEntryOffsetInOrder)

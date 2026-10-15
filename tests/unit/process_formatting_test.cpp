@@ -47,6 +47,20 @@ TEST(ProcessFormatting, ProcessIoToolTip_ShowsEachRate)
     EXPECT_EQ(processIoToolTip(ProcessInfo{}), "Read: N/A\nWrite: N/A");
 }
 
+TEST(ProcessFormatting, ProcessMemoryToolTip_ShowsEachFigureWithWhatItCounts)
+{
+    const ProcessInfo browser{
+        .workingSetBytes = 397'082'214,        // 378.7 MiB
+        .privateWorkingSetBytes = 217'055'232, // 207.0 MiB
+        .privateBytes = 262'144'000,           // 250.0 MiB
+    };
+
+    EXPECT_EQ(processMemoryToolTip(browser),
+              "Private working set: 207.0 MiB\n"
+              "Working set: 378.7 MiB (includes memory shared with other processes)\n"
+              "Commit size: 250.0 MiB (private memory committed, which counts toward the commit limit)");
+}
+
 TEST(ProcessFormatting, ProcessListSummary_WithList_CountsProcesses)
 {
     EXPECT_EQ(processListSummary(std::size_t{1234}, false), "Processes: 1,234");

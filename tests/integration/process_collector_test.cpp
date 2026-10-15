@@ -68,6 +68,9 @@ TEST(ProcessCollectorIntegration, RealHost_ListsThisProcessWithItsIdentityAndCou
     EXPECT_GE(self->threadCount, 1u);
     EXPECT_GE(self->handleCount, 1u);
     EXPECT_GT(self->workingSetBytes, 0u);
+    EXPECT_GT(self->privateWorkingSetBytes, 0u);
+    // The private working set is part of the working set.
+    EXPECT_LE(self->privateWorkingSetBytes, self->workingSetBytes);
     EXPECT_GT(self->privateBytes, 0u);
 }
 
@@ -186,4 +189,24 @@ TEST(ProcessCollectorIntegration, RealHost_PidsAreUnique)
         EXPECT_TRUE(pids.insert(process.pid).second) << "duplicate PID " << process.pid;
     }
     EXPECT_GE(pids.size(), 3u);
+}
+
+TEST(ProcessCollectorIntegration, RealHost_PrivateWorkingSets_AddUpToLessThanPhysicalMemory)
+{
+    ProcessCollector collector;
+    MEMORYSTATUSEX memory{.dwLength = sizeof(MEMORYSTATUSEX)};
+    ASSERT_TRUE(::GlobalMemoryStatusEx(&memory));
+
+    const auto processes = collector.collect();
+
+    // No page is in two processes' private working sets, so unlike the full
+    // working sets, which count a shared page once per process, they fit in
+    // physical memory. The Memory column shows them for that reason (DC-91).
+    ASSERT_TRUE(processes.has_value());
+    uint64_t privateTotal = 0;
+    for (const auto& process : *processes) {
+        privateTotal += process.privateWorkingSetBytes;
+    }
+    EXPECT_GT(privateTotal, 0u);
+    EXPECT_LT(privateTotal, memory.ullTotalPhys);
 }

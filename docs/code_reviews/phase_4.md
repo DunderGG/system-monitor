@@ -88,7 +88,7 @@ As in Phase 3, the findings came from running the code against real data and edg
 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
-| [F-29](#f-29-memory-column-counts-shared-memory-once-per-process) | Memory column counts shared memory once per process | Medium | Open |
+| [F-29](#f-29-memory-column-counts-shared-memory-once-per-process) | Memory column counts shared memory once per process | Medium | Resolved |
 | [F-30](#f-30-tree-can-show-a-new-process-under-an-exited-unrelated-one) | Tree can show a new process under an exited, unrelated one | Low | Open |
 | [F-31](#f-31-end-process-is-offered-for-exited-rows-and-for-the-monitor-itself) | End process is offered for exited rows and for the monitor itself | Low | Open |
 | [F-32](#f-32-the-never-opened-guard-trusts-the-callers-image-name) | The never-opened guard trusts the caller's image name | Low | Open |
@@ -132,7 +132,16 @@ Every list entry already has the private working set in `FullSystemProcessInform
 
 **Recommendation:** Fix before Phase 5. The value is already in the parsed entry, so the change is small.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-15). Items 1 to 4 are done.
+
+- `ProcessInfo::privateWorkingSetBytes` is read from `WorkingSetPrivateSize`, and a negative value reads as zero. The Memory column shows it and sorts by it.
+- Each Memory cell's tooltip gives the private working set, the working set ("includes memory shared with other processes") and the commit size, from `privateBytes`. A change in any of the three marks the cell as changed.
+- The header tooltip names the private working set and Task Manager.
+- `Parse_SingleEntry_ExtractsEveryField` reads the new field, and a new parser test covers negative signed counters. New model and proxy tests show and sort by the private working set, with a process whose larger working set is mostly shared. The tooltip and change-detection tests cover all three figures.
+- A new integration test checks that the private working sets of all processes add up to less than physical memory. The existing test of the monitor's own entry also checks that its private working set is above zero and no larger than its working set.
+- The benchmark's simulated processes have a private working set. DC-80 and DC-71 point to the new decision, and the roadmap's column list says what Memory shows.
+
+See [DC-91](../design_decisions.md#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29).
 
 ---
 

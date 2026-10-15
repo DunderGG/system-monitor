@@ -43,7 +43,7 @@ constexpr std::size_t kWarmUpTicks = 10;
 // scheduler sends them: the list refreshes every 2 seconds, snapshots every second.
 constexpr std::size_t kTimedTicks = 60;
 constexpr std::array kProcessCounts{400, 1000, 2000};
-// Share of processes whose CPU usage, working set, or I/O rates change between
+// Share of processes whose CPU usage, memory, or I/O rates change between
 // two refreshes, and how many processes exit and start in each.
 constexpr double kChangingShare = 0.4;
 constexpr int kExitsPerRefresh = 2;
@@ -91,7 +91,9 @@ public:
         for (auto& process : m_processes) {
             if (chance(m_random) < kChangingShare) {
                 process.cpuUsagePercent = static_cast<float>(m_random() % 300) / 100.0f;
-                process.workingSetBytes += m_random() % 65'536;
+                const uint64_t growth = m_random() % 65'536;
+                process.workingSetBytes += growth;
+                process.privateWorkingSetBytes += growth;
                 process.ioReadBytesPerSec = m_random() % 2 == 0 ? 0 : m_random() % 1'000'000;
                 process.ioWriteBytesPerSec = m_random() % 4'096;
             }
@@ -114,13 +116,15 @@ private:
             parentPid = m_processes[m_processes.size() - 1 - m_random() % recent].pid;
         }
         ++m_clock;
+        const uint64_t workingSet = 4'000'000 + m_random() % 200'000'000;
         m_processes.push_back(ProcessInfo{
             .pid = 4 * m_clock,
             .creationTime = std::chrono::system_clock::time_point{std::chrono::seconds{m_clock}},
             .parentPid = parentPid,
             .imageName = kNames[m_random() % kNames.size()],
             .cpuUsagePercent = 0.0f,
-            .workingSetBytes = 4'000'000 + m_random() % 200'000'000,
+            .workingSetBytes = workingSet,
+            .privateWorkingSetBytes = workingSet * 3 / 5,
             .ioReadBytesPerSec = 0,
             .ioWriteBytesPerSec = 0,
             .threadCount = 1 + m_random() % 64,

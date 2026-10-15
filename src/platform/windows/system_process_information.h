@@ -93,12 +93,14 @@ static_assert(offsetof(FullSystemProcessInformation, ReadOperationCount) ==
  * wrote into ProcessInfo values, following NextEntryOffset from the first entry
  * at the start of the buffer.
  *
- * Fills every field the list provides. privateBytes is PrivatePageCount, the
- * commit charge (Task Manager's "Commit size"). ioReadBytes and ioWriteBytes
- * are the read and write transfer counts. CPU times are truncated to whole
- * milliseconds. The Idle process (PID 0) has no image name, so its imageName
- * is empty. imagePath and commandLine stay std::nullopt; reading them requires
- * opening the process.
+ * Fills every field the list provides. privateWorkingSetBytes is
+ * WorkingSetPrivateSize, the working set without shared pages (Task Manager's
+ * "Memory"). privateBytes is PrivatePageCount, the commit charge (Task
+ * Manager's "Commit size"). ioReadBytes and ioWriteBytes are the read and
+ * write transfer counts. CPU times are truncated to whole milliseconds. A
+ * negative value in a signed (LARGE_INTEGER) counter becomes zero. The Idle
+ * process (PID 0) has no image name, so its imageName is empty. imagePath and
+ * commandLine stay std::nullopt; reading them requires opening the process.
  *
  * Each entry is copied out of the buffer, so the buffer needs no particular
  * alignment. Returns std::nullopt if an entry does not fit in the buffer. An

@@ -35,6 +35,14 @@ inline constexpr std::string_view kIdleProcessName = "System Idle Process";
 /** Tooltip for the I/O column: the read and write rates on their own, e.g. "Read: 1.0 KiB/s\nWrite: N/A". */
 [[nodiscard]] QString processIoToolTip(const domain::ProcessInfo& process);
 
+/**
+ * Tooltip for the Memory column: the private working set that the cell shows,
+ * then the full working set and the commit size, each with what it counts, e.g.
+ * "Private working set: 207.0 MiB\nWorking set: 378.7 MiB (includes memory
+ * shared with other processes)\nCommit size: …".
+ */
+[[nodiscard]] QString processMemoryToolTip(const domain::ProcessInfo& process);
+
 /** Most characters of a path or command line a tooltip shows; the rest is cut off with an ellipsis. */
 inline constexpr qsizetype kToolTipDetailLength = 2000;
 
