@@ -143,7 +143,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Show a confirmation dialog before termination with the process name, PID, and a warning.
 - [x] Handle failure gracefully (process already exited, access denied) with a user-facing message.
 - [x] Do not attempt to terminate elevated or system processes in the MVP.
-- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
+- [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. See the [Phase 4 code review](docs/code_reviews/phase_4.md); fix F-29 before starting Phase 5.
 
 ---
 
