@@ -92,7 +92,7 @@ As in Phase 3, the findings came from running the code against real data and edg
 | [F-30](#f-30-tree-can-show-a-new-process-under-an-exited-unrelated-one) | Tree can show a new process under an exited, unrelated one | Low | Resolved |
 | [F-31](#f-31-end-process-is-offered-for-exited-rows-and-for-the-monitor-itself) | End process is offered for exited rows and for the monitor itself | Low | Resolved |
 | [F-32](#f-32-the-never-opened-guard-trusts-the-callers-image-name) | The never-opened guard trusts the caller's image name | Low | Resolved |
-| [F-33](#f-33-documentation-and-recorded-figures-out-of-date) | Documentation and recorded figures out of date | Low | Open |
+| [F-33](#f-33-documentation-and-recorded-figures-out-of-date) | Documentation and recorded figures out of date | Low | Resolved |
 | [F-34](#f-34-presentation-and-consistency-items) | Presentation and consistency items | Cosmetic | Open |
 
 **Open findings from earlier reviews:** none.
@@ -285,7 +285,15 @@ DC-66 says its means stayed within 3 ms over three runs. Today they are 25–45%
 
 **Recommendation:** Fix when convenient. Update DC-80 together with F-29.
 
-**Status:** Open.
+**Status:** Resolved (2026-10-15). All five items are done:
+
+- **Tick cost:** both benchmarks now print the compiler, configuration, Qt and Windows versions and the number of logical processors. `build.ps1 -Benchmark` first prints the processor, the power plan and the Windows 11 power mode. Three runs on the review machine (High performance plan, Best performance mode, MSVC 19.51, Qt 6.11.1) reproduced DC-66's table to within 2 ms, 15–34% below this review's figures. The Processes tab's CPU-sorted tree of 2,000 processes cost 2.6 ms per refresh and repeat, against DC-84's 2.8 ms. The recorded figures therefore stand. DC-95 records the new tables with their environment, and DC-66, DC-83, `architecture.md`, `build_system.md` and `CONTRIBUTING.md` point to it or describe the new output. Why this review measured more is not known; the power settings are the likeliest cause, and are now printed.
+- **Exited processes:** DC-78, the test's comment and `SuspendedChildProcess::terminate()`'s comment no longer say that another process's handle keeps an exited process listed.
+- **Buffer growth:** the reader now doubles exactly when no size is reported, as DC-70 and the class comment say, and `Read_MismatchWithoutReportedSize_DoublesBuffer` checks the sizes.
+- **CPU column:** DC-76 says that the column adds up to slightly less than the total, because interrupt and DPC time is charged to no process and processes that exited during the interval drop out.
+- **DC-74:** corrected under F-32.
+
+See [DC-95](../design_decisions.md#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33).
 
 ---
 

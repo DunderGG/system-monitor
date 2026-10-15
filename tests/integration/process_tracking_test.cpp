@@ -103,8 +103,8 @@ TEST(ProcessTrackingIntegration, RealHost_ChildProcessExits_DisappearsFromList)
 
     child.terminate();
 
-    // Another process (an antivirus scanner, say) may hold a handle to the
-    // exited child for a moment, which keeps it listed until it closes.
+    // The list can take a moment to drop a process that has exited. A handle
+    // another process holds does not keep it listed, so this wait is short.
     bool isGone = false;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
     while (!isGone && std::chrono::steady_clock::now() < deadline) {

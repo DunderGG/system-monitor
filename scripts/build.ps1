@@ -45,7 +45,9 @@ window, then the Processes tab's (benchmarks\process_table_benchmark.cpp),
 which prints the time per tick for flat and tree views of 400 to 2,000
 processes. They run after the tests when -Test is also supplied. Their
 timings depend on the machine, so they are not part of the test suite and CI
-does not run them.
+does not run them. The script first prints the processor, the power plan and
+the Windows 11 power mode, and each benchmark prints the compiler, Qt and
+Windows versions it runs with; record them with the figures.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
@@ -130,6 +132,72 @@ function Invoke-NativeCommand
     {
         throw "$Description failed with exit code $LASTEXITCODE."
     }
+}
+
+# Prints the processor and the power settings, which the benchmarks' timings
+# depend on as much as on the code. The benchmarks print the compiler, Qt and
+# Windows versions themselves. Recorded with a table of figures, they tell a
+# change in the machine apart from a regression. Values that cannot be read
+# are printed as "unknown".
+function Write-BenchmarkMachine
+{
+    $processor = "unknown"
+    $processorKey = Get-ItemProperty -LiteralPath "HKLM:\HARDWARE\DESCRIPTION\System\CentralProcessor\0" `
+        -ErrorAction SilentlyContinue
+    if ($null -ne $processorKey -and $processorKey.PSObject.Properties["ProcessorNameString"])
+    {
+        $processor = $processorKey.ProcessorNameString.Trim()
+    }
+
+    # powercfg prints "Power Scheme GUID: <guid>  (<name>)".
+    $powerPlan = "unknown"
+    try
+    {
+        $schemeText = (& powercfg /getactivescheme | Out-String).Trim()
+        if ($LASTEXITCODE -eq 0 -and $schemeText -match "\(([^)]+)\)$")
+        {
+            $powerPlan = $Matches[1]
+        }
+    }
+    catch
+    {
+        $powerPlan = "unknown"
+    }
+
+    # Windows 11's power mode is an overlay on the plan, chosen separately for
+    # mains and battery power.
+    $onBattery = $false
+    try
+    {
+        Add-Type -AssemblyName System.Windows.Forms
+        $onBattery = [System.Windows.Forms.SystemInformation]::PowerStatus.PowerLineStatus -eq "Offline"
+    }
+    catch
+    {
+        $onBattery = $false
+    }
+    $overlayName = if ($onBattery) { "ActiveOverlayDcPowerScheme" } else { "ActiveOverlayAcPowerScheme" }
+    $powerSchemes = Get-ItemProperty -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes" `
+        -ErrorAction SilentlyContinue
+    $overlay = if ($null -ne $powerSchemes -and $powerSchemes.PSObject.Properties[$overlayName])
+    {
+        $powerSchemes.$overlayName
+    }
+    else
+    {
+        ""
+    }
+    $powerMode = switch ($overlay)
+    {
+        "961cc777-2547-4f9d-8174-7d86181b8a7a" { "Best power efficiency" }
+        "ded574b5-45a0-4f42-8737-46345c09c238" { "Best performance" }
+        { $_ -eq "" -or $_ -eq "00000000-0000-0000-0000-000000000000" } { "Balanced" }
+        default { "unknown ($overlay)" }
+    }
+    $powerSource = if ($onBattery) { "battery" } else { "mains" }
+
+    Write-Host "Processor: $processor"
+    Write-Host "Power plan: $powerPlan; power mode: $powerMode, on $powerSource power"
 }
 
 # Resolve paths from this script's location so it can be invoked from any
@@ -467,6 +535,7 @@ try
 
     if ($Benchmark)
     {
+        Write-BenchmarkMachine
         foreach ($benchmarkPath in $benchmarkPaths)
         {
             if (-not (Test-Path -LiteralPath $benchmarkPath))

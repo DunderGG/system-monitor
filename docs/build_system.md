@@ -59,7 +59,9 @@ Performance tab's cost per tick for each page and chart window, and
 tick for flat and tree views of 400 to 2,000 processes. The benchmarks are
 built with every preset so they keep compiling, but they are not registered
 with CTest and CI does not run them, because their timings depend on the
-machine.
+machine. For the same reason the script first prints the processor, the power
+plan and the Windows 11 power mode, and each benchmark prints the compiler, Qt
+and Windows versions it runs with. Record those lines with any figures.
 
 vcpkg installs release and debug libraries for the `x64-windows` triplet, so
 the second build directory restores its dependencies from the binary cache

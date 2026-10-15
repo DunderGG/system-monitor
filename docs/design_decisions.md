@@ -104,6 +104,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-86](#dc-86-qtbase-built-with-png-support-for-qts-own-windows-cursors): qtbase built with PNG support for Qt's own Windows cursors
   - [DC-91](#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29): Memory column shows the private working set, with the working set and commit size in its tooltip (code review F-29)
   - [DC-92](#dc-92-an-exited-row-parents-only-processes-listed-no-later-than-its-exit-code-review-f-30): An exited row parents only processes listed no later than its exit (code review F-30)
+  - [DC-95](#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33): Benchmarks print the build and the machine they ran on, and the figures re-measured (code review F-33)
 - [Phase 4 — Process termination (`src/platform/windows/`, `src/ui/`)](#phase-4--process-termination-srcplatformwindows-srcui)
   - [DC-87](#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested): Process termination: ownership and identity checked before `PROCESS_TERMINATE` is requested
   - [DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator): End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
@@ -694,6 +695,8 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 
 **Extended by [DC-83](#dc-83-process-table-updates-only-changed-cells-named-roles-one-sort-per-refresh-and-a-benchmark):** `build.ps1 -Benchmark` also runs `system_monitor_process_benchmark`, which measures the Processes tab.
 
+**Extended by [DC-95](#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33):** the benchmarks print the compiler, Qt and Windows versions, and `build.ps1` the processor and the power settings. Three runs on 2026-10-15 reproduced this table to within 2 ms.
+
 ### DC-67: Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
 
 **Decision:**
@@ -729,6 +732,8 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 **Decision:** `SystemProcessInformationReader` calls `NtQuerySystemInformation(SystemProcessInformation)`, resolved from `ntdll.dll`, in a resizing-buffer loop. When the call returns `STATUS_INFO_LENGTH_MISMATCH` or `STATUS_BUFFER_TOO_SMALL`, the buffer grows to the reported size plus an eighth (or doubles when no size is reported) and the call is repeated, up to five calls in all. The buffer starts at 256 KiB, is kept between reads, and never shrinks. A reported size above 64 MiB fails the read instead of being allocated. The query is a `std::function` that takes a `std::span<std::byte>` and returns the NTSTATUS as an `int32_t`, so unit tests can fake it without Windows headers. `resolveSystemProcessInformationQuery()` returns the real one.
 
 **Rationale:** The list's size is not known in advance and changes between calls, so the API reports the size it needs and the caller retries. The headroom covers processes and threads created between the failed call and the retry, so one retry is normally enough. A desktop's list is a few hundred KiB: 256 bytes per process, 80 per thread, plus the image names. Keeping the buffer therefore costs little and saves an allocation and a failed call on every refresh. The 64 MiB cap is far above any real list, but it stops a corrupt reported size from exhausting memory, which would end the process because exceptions are not used. With the fake query, unit tests cover retry paths that a real machine rarely takes, as [architecture.md — Testing strategy](architecture.md#testing-strategy) asks for buffer resizing. An integration test starts the real query from a 1 KiB buffer to force the loop.
+
+**Corrected (code review F-33):** the code also added the eighth after doubling, so a buffer without a reported size grew to 2.25 times its size. It now doubles exactly, as described above, and the unit test checks the sizes.
 
 ---
 
@@ -805,7 +810,7 @@ On the development machine (Release, unelevated, 413 processes) the first `colle
 
 **Decision:** `ProcessInfo::cpuUsagePercent` is a `std::optional<float>`, set by `ProcessCollector` with the pure function `calculateProcessCpuUsage()`. The usage is the change in user + kernel time since the process's baseline, divided by the elapsed `steady_clock` time times the number of active logical processors in all processor groups, clamped to 0–100. Baselines are keyed by `ProcessIdentity` and replaced on every successful read, so exited processes drop out and a reused PID starts with no value. The value is `std::nullopt` the first time a process is seen, when no time has elapsed, when a process's CPU time went backwards, and when the processor count is unknown. The timestamp is taken right after the list is read, before the details are read for new processes. A failed read keeps the baselines, so the next success measures over the longer interval.
 
-**Rationale:** The roadmap puts the calculation in the collector, which owns the previous sample. A rate kept beside the cumulative times ([DC-14](#dc-14-cpu-times-stored-as-cumulative-milliseconds-not-percentages)) spares the UI the bookkeeping and keeps it identical for every consumer. Dividing by every logical processor makes the column add up to the total CPU usage and matches Task Manager's Processes tab and this monitor's CPU card. A single-threaded process on 16 processors therefore peaks at 6.25%. Keying by identity keeps a new process from inheriting a previous process's baseline, which with PID alone could produce a huge or negative delta. `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` is used because process CPU times cover every group, unlike `GetSystemTimes` ([DC-29](#dc-29-multi-processor-group-support-64-logical-cores-ntquerysysteminformationex-iteration-and-total-cpu-aggregation)). Taking the timestamp before the details are read keeps the up to 18 ms that the first details pass takes out of the interval. Windows credits CPU time at clock-tick granularity (about 15.6 ms), so a busy process can briefly exceed its share of the interval, hence the clamp. Millisecond CPU times lose nothing at that granularity.
+**Rationale:** The roadmap puts the calculation in the collector, which owns the previous sample. A rate kept beside the cumulative times ([DC-14](#dc-14-cpu-times-stored-as-cumulative-milliseconds-not-percentages)) spares the UI the bookkeeping and keeps it identical for every consumer. Dividing by every logical processor puts each process on the scale of the total CPU usage, as Task Manager's Processes tab and this monitor's CPU card do. A single-threaded process on 16 processors therefore peaks at 6.25%. The column adds up to slightly less than the total, not to the total. Time spent on interrupts and deferred procedure calls is charged to no process (Task Manager lists it as "System interrupts"), and a process that exited during the interval is no longer listed, so its last share is lost. In the Phase 4 code review, the column added up to 98.7% over a 2-second interval, including the Idle process's 73.8%. Keying by identity keeps a new process from inheriting a previous process's baseline, which with PID alone could produce a huge or negative delta. `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` is used because process CPU times cover every group, unlike `GetSystemTimes` ([DC-29](#dc-29-multi-processor-group-support-64-logical-cores-ntquerysysteminformationex-iteration-and-total-cpu-aggregation)). Taking the timestamp before the details are read keeps the up to 18 ms that the first details pass takes out of the interval. Windows credits CPU time at clock-tick granularity (about 15.6 ms), so a busy process can briefly exceed its share of the interval, hence the clamp. Millisecond CPU times lose nothing at that granularity.
 
 **Extended by [DC-80](#dc-80-process-table-columns-io-rates-from-the-collector-and-na-for-missing-values):** the same pass now also computes each process's I/O read and write rates. `calculateProcessCpuUsage()` became `calculateProcessRates()`, and its baselines hold the I/O byte counters too.
 
@@ -823,7 +828,7 @@ On the development machine (Release, unelevated, 413 processes) the first `colle
 
 **Decision:** `tests/integration/process_tracking_test.cpp` tests the process collector end to end on the real machine:
 
-- **Enumeration:** a `cmd.exe` child, created suspended with a command line unique to the run, appears with its exact identity, this process as its parent, and its real path and command line. After it is terminated and its handles closed, it leaves the list. The test polls for up to 5 seconds, because another process, such as an antivirus scanner, can briefly keep an exited process listed.
+- **Enumeration:** a `cmd.exe` child, created suspended with a command line unique to the run, appears with its exact identity, this process as its parent, and its real path and command line. After it is terminated and its handles closed, it leaves the list. The test polls for up to 5 seconds, because the list can take a moment to drop an exited process. (This said at first that another process's handle, such as an antivirus scanner's, could keep it listed. The Phase 4 code review held a handle to a terminated child open, and the child had left the list 0.5 seconds later.)
 - **Cache behaviour:** a collector built from the real list reader and a counting wrapper around the real details reader reads exactly the identities of the first list, minus `lsass.exe` and `csrss.exe`. On the second collect it reads exactly the identities that are new, the child among them. The sets are compared exactly.
 - **Access-denied handling:** every process's `detailsStatus` must match the details present (`Available` with both, `NotQueried` only for the never-opened names and with neither, `AccessDenied` or `Unavailable` with at most one). When the test runs unelevated, at least one process must deny access and still carry its name, creation time, and memory counters. When elevated (as on CI runners), that test is skipped.
 - **Scheduler:** with the real collector registered, a snapshot from the running scheduler carries the process list, with this process's details read.
@@ -936,6 +941,8 @@ At 400 processes every view now costs under 0.5 ms per refresh and 0.03 ms per r
 
 Re-sorting once per parent was quadratic. Each re-sort that moves a row is a layout change in which the proxy remaps every persistent index, and a tree view holds one for each expanded row. In a 2,000-process tree almost every parent re-sorted, so the CPU-sorted tree cost grew from 1.1 to 6.1 to 24.7 ms as the list grew from 400 to 1,000 to 2,000 processes. One sort per refresh needs one remap pass. Only the value signals are batched. With dynamic sorting off for a whole refresh, Qt appends new rows unsorted, so every refresh that starts a process would need a full sort where a binary insert suffices. A flat list sends a single block, and Qt's dynamic re-sort of one block only moves the rows whose order changed. A general proxy cannot tell where one refresh's signals end, so the model announces the batch and the proxy decides whether to defer.
 
+**Extended by [DC-95](#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33):** re-measured with the environment recorded. Since [DC-84](#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time), removals fall on the repeat ticks, so the refresh and repeat columns above can no longer be compared one by one; their sum can.
+
 ---
 
 ### DC-84: New and exited processes highlighted for three seconds of snapshot time
@@ -1011,6 +1018,48 @@ The commit size was the other candidate. It also counts private memory that has 
 - **Tests:** a unit test reproduces the code review's probe: a process exits, its PID goes to a launcher that is never listed, and the launcher's child appears a refresh later at the top level, not under the exited row. A second test makes the same check through `setTreeMode()`. The random-churn test now also checks that no parent was marked exited before its child was first listed. That check failed at three of its 300 refreshes before the change.
 
 **Rationale:** A process that first appears in a refresh was not in the previous list, which is a complete list of the running processes, so it was created after that list was read. A parent must be running to create a child. A candidate that was already missing from an earlier list had therefore exited before the child was created, and the child's parent PID belongs to a process that was never listed, such as a launcher that started it and exited between two refreshes. The creation-time check of DC-82 cannot catch this, because the exited process is older than the child, and its row stays on show for three seconds. Windows gave a freed PID to a new process after as few as six launches, about 0.4 seconds, in the code review, so the wrong link was not rare. Comparing refresh times needs no extra data from the collector and no clock other than the snapshot timestamps the model already uses. A candidate found missing in the same refresh as the child is new may have started it just before exiting, which is the launcher case DC-84 keeps.
+
+---
+
+### DC-95: Benchmarks print the build and the machine they ran on, and the figures re-measured (code review F-33)
+
+**Decision:**
+
+- **Build and runtime:** both benchmarks start by printing, through `logBenchmarkEnvironment()` (`benchmarks/benchmark_environment.h`), the MSVC version they were built with (`_MSC_FULL_VER`), the configuration, the Qt version they run with (`qVersion()`), the Windows version (`QSysInfo`), and the number of logical processors.
+- **Machine:** before it runs them, `build.ps1 -Benchmark` prints the processor's name from the registry, the power plan from `powercfg /getactivescheme`, and the Windows 11 power mode for the current power source. The power mode is the plan's overlay, read from the registry: Best power efficiency, Balanced or Best performance. A value that cannot be read prints as "unknown".
+- **Recording:** tables of figures are recorded with these lines. Three runs on 2026-10-15 printed:
+
+  ```text
+  Processor: AMD Ryzen 7 9800X3D 8-Core Processor
+  Power plan: High performance; power mode: Best performance, on mains power
+  Built with MSVC 19.51.36260 (Release), running Qt 6.11.1 on Windows 11 Version 25H2 (10.0.26200), 16 logical processors.
+  ```
+
+  Performance tab, range of the mean ms per tick over the three runs:
+
+  | Page | 1 min | 5 min | 30 min |
+  | --- | --- | --- | --- |
+  | CPU, 16 cores | 7.0–7.2 | 12.1–12.5 | 38.2–39.7 |
+  | CPU, 64 cores | 12.4–13.0 | 17.3–17.9 | 32.5–32.7 |
+  | Memory | 3.9–4.1 | 9.3–9.5 | 22.5–23.5 |
+  | Disk, 3 volumes | 4.3–4.4 | 23.4–24.0 | 37.6–38.4 |
+  | Network, 2 adapters | 4.6–4.7 | 11.1–11.2 | 13.1–13.3 |
+
+  The longest single tick was 53.3 ms (disk, 30 minutes). Processes tab, 2,000 processes with the tab hidden, ms per tick for a refresh / a repeat:
+
+  | View | Refresh | Repeat |
+  | --- | --- | --- |
+  | Flat, by name | 0.22–0.25 | 0.18–0.19 |
+  | Flat, by CPU | 1.05–1.07 | 0.20 |
+  | Tree, by name | 0.48–0.52 | 1.62–1.77 |
+  | Tree, by CPU | 0.92–0.98 | 1.63–1.64 |
+  | Tree, by CPU, filtered | 1.11–1.18 | 0.91–0.98 |
+
+  At 400 processes every view costs at most 0.28 ms per tick with the tab hidden, and 4.1–4.7 ms with it shown. With the tab shown, the CPU-sorted tree of 2,000 processes costs 7.0–7.4 ms per refresh.
+
+- **Recorded figures kept:** the new runs reproduce [DC-66](#dc-66-a-committed-tick-cost-benchmark-run-with-buildps1--benchmark-code-review-f-25)'s table to within 2 ms on every page and window, so DC-66 and the figures in [architecture.md](architecture.md) stand, now with a date and a pointer here. The CPU-sorted tree's refresh and repeat add up to 2.6 ms, against 2.8 ms in [DC-84](#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time) and the code review's 3.4 ms.
+
+**Rationale:** The code review measured the Performance tab 25–45% above DC-66, and the Processes tab 15–20% above DC-83 and DC-84. The end-of-Phase-3 code measured the same, so the code was not the cause, but nothing recorded what had changed in the meantime. These runs, on the same machine, are 15–34% below the review's and back at DC-66's figures. The review's runs therefore reflected the machine's state, not a lasting change in the code. Which state is not known: the power plan and power mode, which change how fast the processor runs and are easy to change and forget, are the likeliest candidates, so they are now printed with every run. With the environment printed, the next drift can be told apart from a regression without rebuilding older code. The benchmark knows its own compiler and Qt version exactly, and Qt reports the Windows version, so the benchmark prints those. The processor's name and the power settings need registry reads or Windows calls. Only `platform/windows` calls Windows APIs, and the benchmarks depend on the UI and domain modules only, so the script reads them with PowerShell instead.
 
 ---
 

@@ -43,9 +43,9 @@ using SystemProcessInformationQuery = std::function<int32_t(std::span<std::byte>
  *
  * Uses the resizing-buffer loop: when the buffer is too small, it grows to the
  * size Windows reported plus an eighth for processes and threads created before
- * the retry, and the query runs again, up to kMaxAttempts times in all. The
- * buffer is kept between reads, so once it has grown a read normally needs one
- * call.
+ * the retry, or to twice its size if Windows reported no larger size, and the
+ * query runs again, up to kMaxAttempts times in all. The buffer is kept
+ * between reads, so once it has grown a read normally needs one call.
  *
  * Not thread-safe; each instance belongs to one caller.
  */

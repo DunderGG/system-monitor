@@ -21,6 +21,7 @@
 #include <QTabWidget>
 #include <spdlog/spdlog.h>
 
+#include "benchmark_environment.h"
 #include "domain/system_snapshot.h"
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
@@ -196,6 +197,7 @@ int main(int argc, char* argv[])
     spdlog::warn("Warning: this is a Debug build, whose Qt libraries paint many times slower. "
                  "Run .\\scripts\\build.ps1 -Benchmark for representative numbers.\n");
 #endif
+    sysmon::benchmarks::logBenchmarkEnvironment();
 
     spdlog::info("Performance tab tick cost: a forwarded snapshot plus a repaint of a {}x{} window,", kWindowWidth,
                  kWindowHeight);

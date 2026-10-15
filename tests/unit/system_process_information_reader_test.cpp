@@ -105,8 +105,8 @@ TEST(SystemProcessInformationReader, Read_MismatchWithoutReportedSize_DoublesBuf
     const auto bytes = reader.read();
 
     ASSERT_TRUE(bytes.has_value());
-    ASSERT_GE(bufferSizes.size(), 2u);
-    EXPECT_GE(bufferSizes[1], 2 * bufferSizes[0]);
+    // Doubled, without the headroom a reported size gets.
+    EXPECT_EQ(bufferSizes, (std::vector<std::size_t>{16, 32, 64}));
 }
 
 TEST(SystemProcessInformationReader, Read_SuccessWithoutReportedLength_ReturnsWholeBuffer)

@@ -78,7 +78,8 @@ std::optional<std::span<const std::byte>> SystemProcessInformationReader::read()
         }
 
         // Without a usable reported size, double the buffer.
-        const std::size_t required = returnLength > m_buffer.size() ? returnLength : m_buffer.size() * 2;
+        const bool isSizeReported = returnLength > m_buffer.size();
+        const std::size_t required = isSizeReported ? returnLength : m_buffer.size() * 2;
         if (required > kMaxBufferSize) {
             m_failureLog.failure(spdlog::level::err,
                                  "NtQuerySystemInformation(SystemProcessInformation) needs {} bytes, more than the "
@@ -87,7 +88,8 @@ std::optional<std::span<const std::byte>> SystemProcessInformationReader::read()
             return std::nullopt;
         }
         // The headroom covers processes and threads created before the retry.
-        m_buffer.resize(std::min(required + required / 8, kMaxBufferSize));
+        // Doubling already leaves room.
+        m_buffer.resize(std::min(isSizeReported ? required + required / 8 : required, kMaxBufferSize));
     }
 
     m_failureLog.failure(spdlog::level::err,

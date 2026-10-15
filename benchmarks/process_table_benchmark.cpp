@@ -22,6 +22,7 @@
 #include <QTreeView>
 #include <spdlog/spdlog.h>
 
+#include "benchmark_environment.h"
 #include "domain/process_info.h"
 #include "domain/system_snapshot.h"
 #include "ui/process_model.h"
@@ -227,6 +228,7 @@ int main(int argc, char* argv[])
     spdlog::warn("Warning: this is a Debug build, whose Qt libraries are many times slower. "
                  "Run .\\scripts\\build.ps1 -Benchmark for representative numbers.\n");
 #endif
+    sysmon::benchmarks::logBenchmarkEnvironment();
 
     spdlog::info("Processes tab tick cost in a {}x{} window, as mean time per tick with a new process list",
                  kWindowWidth, kWindowHeight);

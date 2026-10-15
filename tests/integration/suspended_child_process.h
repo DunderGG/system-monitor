@@ -112,8 +112,7 @@ public:
         return exitCode;
     }
 
-    // Terminates the child and closes the handles, so no handle from this
-    // process keeps it in the process list.
+    // Terminates the child, waits for it to exit, and closes the handles.
     void terminate()
     {
         if (m_process) {
