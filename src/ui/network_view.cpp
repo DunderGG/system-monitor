@@ -1,6 +1,9 @@
 #include "ui/network_view.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 
@@ -63,8 +66,9 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
     adaptersHeader->addWidget(sectionLabel("Adapters", this));
     adaptersHeader->addStretch();
     m_showAllCheckBox = new QCheckBox("Show all adapters", this);
-    m_showAllCheckBox->setToolTip("Also list hidden virtual adapters that are not bound to IP, such as the WAN "
-                                  "Miniports. They cannot carry IP traffic.");
+    m_showAllCheckBox->setToolTip("Also list the adapters that Windows hides, such as the WAN Miniports and the "
+                                  "Wi-Fi Direct adapters, and virtual adapters that are not bound to IP, which "
+                                  "cannot carry IP traffic. They are listed after the others.");
     adaptersHeader->addWidget(m_showAllCheckBox);
     layout->addLayout(adaptersHeader);
 
@@ -81,6 +85,9 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
     m_cardLayout->setContentsMargins(0, 0, 0, 0);
     m_cardLayout->setSpacing(kSectionSpacing);
     m_cardLayout->addStretch();
+    // Placed before the first card that only "Show all adapters" lists.
+    m_hiddenHeading = sectionLabel("Hidden adapters", cardList);
+    m_hiddenHeading->hide();
     m_scrollArea->setWidget(cardList);
     layout->addWidget(m_scrollArea, 1);
 
@@ -157,7 +164,10 @@ void NetworkView::refresh()
         for (const auto* adapter : listed) {
             ids.push_back(adapter->interfaceId);
         }
-        arrangeCards(ids);
+        // listedAdapters() puts the adapters listed by default first.
+        const auto firstHidden = std::ranges::find_if_not(
+            listed, [](const domain::NetworkSample* adapter) { return isListedByDefault(*adapter); });
+        arrangeCards(ids, static_cast<std::size_t>(firstHidden - listed.begin()));
         for (std::size_t index = 0; index < listed.size(); ++index) {
             m_cards[index]->setAdapter(*listed[index], m_networkProfiles);
         }
@@ -176,9 +186,9 @@ void NetworkView::refresh()
     m_placeholderLabel->setVisible(m_cards.empty());
 }
 
-void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds)
+void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds, std::size_t hiddenStart)
 {
-    if (interfaceIds == m_listedIds) {
+    if (interfaceIds == m_listedIds && hiddenStart == m_hiddenStart) {
         return;
     }
 
@@ -189,6 +199,7 @@ void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds)
         previous.emplace(m_listedIds[index], m_cards[index]);
         m_cardLayout->removeWidget(m_cards[index]);
     }
+    m_cardLayout->removeWidget(m_hiddenHeading);
 
     std::vector<AdapterCard*> cards;
     cards.reserve(interfaceIds.size());
@@ -205,13 +216,29 @@ void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds)
         card->deleteLater();
     }
 
-    // Insert before the trailing stretch, in display order.
+    // Insert before the trailing stretch, in display order, with the heading
+    // before the first card that only "Show all adapters" lists.
     for (std::size_t index = 0; index < cards.size(); ++index) {
-        m_cardLayout->insertWidget(static_cast<int>(index), cards[index]);
+        m_cardLayout->insertWidget(m_cardLayout->count() - 1, cards[index]);
         cards[index]->show();
     }
+    const bool hasHiddenCards = hiddenStart < cards.size();
+    if (hasHiddenCards) {
+        m_cardLayout->insertWidget(static_cast<int>(hiddenStart), m_hiddenHeading);
+    }
+    m_hiddenHeading->setVisible(hasHiddenCards);
     m_listedIds = interfaceIds;
+    m_hiddenStart = hiddenStart;
     m_cards = std::move(cards);
+}
+
+std::optional<std::size_t> NetworkView::hiddenAdaptersHeadingPosition() const
+{
+    const int position = m_cardLayout->indexOf(m_hiddenHeading);
+    if (m_hiddenHeading->isHidden() || position < 0) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(position);
 }
 
 } // namespace sysmon::ui

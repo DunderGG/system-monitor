@@ -30,7 +30,9 @@ class ReadoutGrid;
  * Network tab: the system's connectivity and the connected networks (see
  * connectivityReadouts()) above one card per network adapter in a scrolling
  * list (see listedAdapters() for which adapters, and in what order). "Show all
- * adapters" also lists the hidden virtual adapters that are not bound to IP.
+ * adapters" also lists the adapters that Windows hides and the virtual
+ * adapters that are not bound to IP, after the others and under a "Hidden
+ * adapters" heading.
  *
  * Cards are keyed by interface ID, so an adapter keeps its card when it is
  * renamed or moves in the list. When a read fails, the cards of the last
@@ -69,6 +71,13 @@ public:
     /** Text shown in place of the cards when there are none, e.g. "No network adapters". */
     [[nodiscard]] QString placeholderText() const;
 
+    /**
+     * The number of cards above the "Hidden adapters" heading, which precedes
+     * the cards that only "Show all adapters" lists; std::nullopt when the
+     * heading is not shown.
+     */
+    [[nodiscard]] std::optional<std::size_t> hiddenAdaptersHeadingPosition() const;
+
     [[nodiscard]] ReadoutGrid* connectivityReadoutGrid() const;
 
 protected:
@@ -76,14 +85,18 @@ protected:
 
 private:
     void refresh();
-    void arrangeCards(const std::vector<uint64_t>& interfaceIds);
+    // Lists a card per interface ID, in order, with the "Hidden adapters"
+    // heading before the card at hiddenStart, if there is one.
+    void arrangeCards(const std::vector<uint64_t>& interfaceIds, std::size_t hiddenStart);
 
     ReadoutGrid* m_connectivityGrid{nullptr};
     QCheckBox* m_showAllCheckBox{nullptr};
     QLabel* m_placeholderLabel{nullptr};
     QScrollArea* m_scrollArea{nullptr};
     QVBoxLayout* m_cardLayout{nullptr};
+    QLabel* m_hiddenHeading{nullptr};
     std::vector<uint64_t> m_listedIds;
+    std::size_t m_hiddenStart{0};
     std::vector<AdapterCard*> m_cards;
 
     std::uint64_t m_recordedCount{0};

@@ -82,6 +82,12 @@ enum class AdapterType
  * Miniports, Up without an IP interface; they never carry traffic. It is also
  * false for every adapter while the adapter details (names, addresses, DNS
  * servers) cannot be read.
+ *
+ * isHidden is true for an adapter that Windows hides from Network Connections,
+ * because its driver marks it hidden: the WAN Miniports, the Wi-Fi Direct
+ * virtual adapters, and the kernel debugger adapter. It is false when Windows
+ * could not say, and for interfaces without a network adapter device, such as
+ * the tunnel pseudo-interfaces, which hasIpInterface already sets apart.
  */
 struct NetworkSample
 {
@@ -100,6 +106,7 @@ struct NetworkSample
     std::vector<std::string> dnsServers;
     bool isHardwareInterface{false};
     bool hasIpInterface{false};
+    bool isHidden{false};
 };
 
 } // namespace sysmon::domain

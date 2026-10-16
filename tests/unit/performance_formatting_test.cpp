@@ -133,6 +133,28 @@ TEST(PerformanceFormatting, ChartedAdapters_NamesSortedIgnoringCase)
     EXPECT_EQ(charted[2]->friendlyName, "wi-fi");
 }
 
+TEST(PerformanceFormatting, ChartedAdapters_NumberedNamesInNaturalOrderThenById)
+{
+    NetworkSample first = adapter("Local Area Connection* 2", OperationalStatus::Up, false);
+    first.interfaceId = 9;
+    NetworkSample second = adapter("Local Area Connection* 2", OperationalStatus::Up, false);
+    second.interfaceId = 3;
+    NetworkSample tenth = adapter("Local Area Connection* 10", OperationalStatus::Up, false);
+    tenth.interfaceId = 1;
+    for (NetworkSample* sample : {&first, &second, &tenth}) {
+        sample->hasIpInterface = true;
+    }
+
+    const std::vector<NetworkSample> networks{tenth, first, second};
+
+    const auto charted = chartedAdapters(networks);
+
+    ASSERT_EQ(charted.size(), 3u);
+    EXPECT_EQ(charted[0]->interfaceId, 3u);
+    EXPECT_EQ(charted[1]->interfaceId, 9u);
+    EXPECT_EQ(charted[2]->interfaceId, 1u);
+}
+
 TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted)
 {
     NetworkSample vpn = adapter("Mullvad", OperationalStatus::Up, false);

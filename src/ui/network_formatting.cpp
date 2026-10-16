@@ -1,8 +1,11 @@
 #include "ui/network_formatting.h"
 
 #include <algorithm>
+#include <compare>
 
+#include <QChar>
 #include <QStringList>
+#include <QStringView>
 
 #include "ui/dashboard_formatting.h"
 #include "ui/performance_formatting.h"
@@ -29,11 +32,91 @@ QString addressesOfFamily(const domain::NetworkSample& adapter, bool ipv6)
     return formatAddressList(addresses);
 }
 
+bool isAsciiDigit(QChar character)
+{
+    return character >= u'0' && character <= u'9';
+}
+
+// Returns the end of the run of ASCII digits that starts at start.
+qsizetype digitRunEnd(QStringView text, qsizetype start)
+{
+    qsizetype end = start;
+    while (end < text.size() && isAsciiDigit(text[end])) {
+        ++end;
+    }
+    return end;
+}
+
+// Compares two runs of ASCII digits by the numbers they write.
+std::weak_ordering compareNumbers(QStringView left, QStringView right)
+{
+    // Leading zeros do not change the number; the last digit stays, so "0" is kept.
+    while (left.size() > 1 && left.front() == u'0') {
+        left = left.sliced(1);
+    }
+    while (right.size() > 1 && right.front() == u'0') {
+        right = right.sliced(1);
+    }
+    if (left.size() != right.size()) {
+        return left.size() <=> right.size();
+    }
+    for (qsizetype index = 0; index < left.size(); ++index) {
+        if (left[index] != right[index]) {
+            return left[index].unicode() <=> right[index].unicode();
+        }
+    }
+    return std::weak_ordering::equivalent;
+}
+
 } // namespace
 
 bool isListedByDefault(const domain::NetworkSample& adapter)
 {
-    return adapter.isHardwareInterface || adapter.hasIpInterface;
+    return !adapter.isHidden && (adapter.isHardwareInterface || adapter.hasIpInterface);
+}
+
+std::weak_ordering compareNaturally(QStringView left, QStringView right)
+{
+    qsizetype leftIndex = 0;
+    qsizetype rightIndex = 0;
+    while (leftIndex < left.size() && rightIndex < right.size()) {
+        if (isAsciiDigit(left[leftIndex]) && isAsciiDigit(right[rightIndex])) {
+            const qsizetype leftEnd = digitRunEnd(left, leftIndex);
+            const qsizetype rightEnd = digitRunEnd(right, rightIndex);
+            const auto byNumber = compareNumbers(left.sliced(leftIndex, leftEnd - leftIndex),
+                                                 right.sliced(rightIndex, rightEnd - rightIndex));
+            if (byNumber != 0) {
+                return byNumber;
+            }
+            leftIndex = leftEnd;
+            rightIndex = rightEnd;
+            continue;
+        }
+        const char16_t leftFolded = left[leftIndex].toCaseFolded().unicode();
+        const char16_t rightFolded = right[rightIndex].toCaseFolded().unicode();
+        if (leftFolded != rightFolded) {
+            return leftFolded <=> rightFolded;
+        }
+        ++leftIndex;
+        ++rightIndex;
+    }
+    return (left.size() - leftIndex) <=> (right.size() - rightIndex);
+}
+
+bool isListedBefore(const domain::NetworkSample& left, const domain::NetworkSample& right)
+{
+    const bool leftListed = isListedByDefault(left);
+    if (leftListed != isListedByDefault(right)) {
+        return leftListed;
+    }
+    if (left.isHardwareInterface != right.isHardwareInterface) {
+        return left.isHardwareInterface;
+    }
+    const auto byName = compareNaturally(adapterDisplayName(left), adapterDisplayName(right));
+    if (byName != 0) {
+        return byName < 0;
+    }
+    return left.interfaceId < right.interfaceId;
 }
 
 std::vector<const domain::NetworkSample*> listedAdapters(const std::vector<domain::NetworkSample>& networks,
@@ -46,19 +129,7 @@ std::vector<const domain::NetworkSample*> listedAdapters(const std::vector<domai
         }
     }
     std::ranges::sort(listed, [](const domain::NetworkSample* left, const domain::NetworkSample* right) {
-        const bool leftUp = left->operationalStatus == domain::OperationalStatus::Up;
-        const bool rightUp = right->operationalStatus == domain::OperationalStatus::Up;
-        if (leftUp != rightUp) {
-            return leftUp;
-        }
-        if (left->isHardwareInterface != right->isHardwareInterface) {
-            return left->isHardwareInterface;
-        }
-        const int byName = QString::compare(adapterDisplayName(*left), adapterDisplayName(*right), Qt::CaseInsensitive);
-        if (byName != 0) {
-            return byName < 0;
-        }
-        return left->interfaceId < right->interfaceId;
+        return isListedBefore(*left, *right);
     });
     return listed;
 }

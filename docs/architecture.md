@@ -91,6 +91,7 @@ Windows integration layer (platform/windows)
   ├─ NtQuerySystemInformation                    (process list, per-process metrics)
   ├─ QueryFullProcessImageNameW                  (process paths, cached)
   ├─ GetIfTable2 / GetAdaptersAddresses          (network adapters, traffic)
+  ├─ SetupDiGetClassDevsW                        (hidden adapters, on a new interface)
   ├─ GetNetworkConnectivityHint                  (connectivity status)
   └─ WMI/CIM one-shot queries at startup only    (hardware inventory)
 ```
@@ -199,6 +200,7 @@ When the value is costly to read, a notification can instead mark a cache stale,
 | Disk space | `GetDiskFreeSpaceExW` |
 | Network throughput | `GetIfTable2` (64-bit counters; release with `FreeMibTable`) |
 | Network addresses | `GetAdaptersAddresses` |
+| Adapters Windows hides | SetupAPI (`SetupDiGetClassDevsW`, `SetupDiOpenDevRegKey`): the `NCF_HIDDEN` characteristic in each network adapter's driver key, read when an interface appears |
 | Connectivity status | `GetNetworkConnectivityHint` / `NotifyNetworkConnectivityHintChange` |
 | Process list + metrics | `NtQuerySystemInformation(SystemProcessInformation)` |
 | Executable paths | `QueryFullProcessImageNameW` (lazy, cached by PID + creation time) |

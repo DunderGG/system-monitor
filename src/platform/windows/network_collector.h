@@ -44,6 +44,8 @@ struct RawNetworkAdapter
     bool isHardwareInterface{false};
     // Listed by GetAdaptersAddresses, which reports only adapters bound to IP.
     bool hasIpInterface{false};
+    // Hidden from Network Connections by its driver (NCF_HIDDEN).
+    bool isHidden{false};
 };
 
 /**

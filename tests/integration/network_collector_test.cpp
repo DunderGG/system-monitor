@@ -73,6 +73,21 @@ TEST(NetworkCollectorIntegration, RealHostSampling_ReportsNoPlaceholderDnsServer
     }
 }
 
+TEST(NetworkCollectorIntegration, RealHostSampling_WanMiniportsHidden)
+{
+    NetworkCollector collector;
+    const auto samples = collector.collect();
+    ASSERT_TRUE(samples.has_value());
+
+    // Their drivers mark the WAN Miniports hidden (NCF_HIDDEN) on every
+    // Windows install that has them.
+    for (const auto& sample : *samples) {
+        if (sample.description.starts_with("WAN Miniport")) {
+            EXPECT_TRUE(sample.isHidden) << sample.description;
+        }
+    }
+}
+
 TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTime)
 {
     NetworkCollector collector;

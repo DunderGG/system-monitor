@@ -88,7 +88,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | [F-36](#f-36-disconnected-adapters-show-leftover-addresses-and-placeholder-dns-servers) | Disconnected adapters show leftover addresses and placeholder DNS servers | Medium | Resolved |
 | [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Resolved |
 | [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Open |
-| [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Open |
+| [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Resolved |
 | [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Open |
 | [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Open |
 | [F-42](#f-42-qts-windows-style-plugin-is-not-deployed) | Qt's Windows style plugin is not deployed (pre-existing) | Low | Resolved |
@@ -284,6 +284,18 @@ Rendered from the review machine's 19 adapters:
 5. Decide whether the hidden Wi-Fi Direct adapters belong in the default list. `MIB_IF_ROW2` has no hidden flag, but "virtual, not Up, and no Preferred address" (see F-36) would leave them out until Mobile Hotspot or a wireless display uses them.
 
 **Recommendation:** Fix when convenient, together with F-36 and F-37, which change the same card.
+
+**Status:** Resolved (2026-10-16). Items 1 to 5 are done.
+
+1. An adapter that is not Up shows "Throughput is charted while the adapter is Up." in place of its chart. Its history is still recorded, and only shown charts are updated.
+2. `listedAdapters()` puts the adapters listed by default first, so the cards that "Show all adapters" adds come last, under a "Hidden adapters" heading.
+3. `compareNaturally()` compares names case-insensitively, with digit runs as numbers, without depending on the locale.
+4. The order no longer depends on the status: by default-listed, hardware, natural name, then interface ID (`isListedBefore()`). The Performance tab's `chartedAdapters()` uses the same order, with the ID tie-break.
+5. Windows' own hidden flag decides, not a heuristic: `NetworkSample::isHidden` comes from the `NCF_HIDDEN` characteristic in each adapter's driver key, read with SetupAPI when an interface appears (0.5–0.8 ms). Adapters it marks are listed only with "Show all adapters". The review's heuristic, "virtual and not Up", would also have hidden the Bluetooth PAN adapter and a disconnected VPN, which Network Connections shows.
+
+On the review machine the tab now lists four cards by default, the adapters Network Connections shows: Ethernet, WiFi, Bluetooth Network Connection and Mullvad. The two Down cards have no chart. "Show all adapters" appends the other 15 in natural order. DC-96's adapter count is corrected (F-41's first row).
+
+See [DC-106](../design_decisions.md#dc-106-adapters-listed-in-a-fixed-order-with-the-ones-windows-hides-last-disconnected-adapters-charts-collapsed-code-review-f-39).
 
 ---
 

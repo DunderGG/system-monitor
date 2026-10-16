@@ -17,6 +17,8 @@ add_library(sysmon_platform_windows STATIC
     current_process.h
     disk_collector.cpp
     disk_collector.h
+    hidden_adapters.cpp
+    hidden_adapters.h
     ip_address_mapping.cpp
     ip_address_mapping.h
     memory_collector.cpp
@@ -75,6 +77,7 @@ target_link_libraries(sysmon_platform_windows
         ole32
         oleaut32
         powrprof
+        setupapi
         ws2_32
 )
 

@@ -21,6 +21,7 @@
 #include "platform/windows/adapter_details_cache.h"
 #include "platform/windows/adapter_type_mapping.h"
 #include "platform/windows/byte_rate.h"
+#include "platform/windows/hidden_adapters.h"
 #include "platform/windows/ip_address_mapping.h"
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/utf8_conversion.h"
@@ -277,6 +278,7 @@ public:
             m_cache.completeRefresh(queryAdapterDetails(m_adapterDetailsFailureLog), luids, now);
         }
         const AdapterDetailsTable& detailsTable = m_cache.table();
+        refreshHiddenAdaptersIfNew(luids);
 
         std::vector<RawNetworkAdapter> rawAdapters;
         rawAdapters.reserve(table->NumEntries);
@@ -295,6 +297,8 @@ public:
                 (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
             raw.operationalStatus = toOperationalStatus(row.OperStatus);
             raw.type = toAdapterType(row.Type, row.PhysicalMediumType);
+            raw.isHidden = std::ranges::any_of(
+                m_hiddenGuids, [&row](const GUID& hidden) { return IsEqualGUID(hidden, row.InterfaceGuid) != FALSE; });
 
             const std::string alias = wideToUtf8(row.Alias);
             const std::string desc = wideToUtf8(row.Description);
@@ -321,6 +325,23 @@ public:
     }
 
 private:
+    // Whether Windows hides an adapter is set when its driver is installed, so
+    // the hidden adapters are read again only when an interface appears that
+    // was not there at the last read. A failed read leaves the previous list
+    // and is retried at the next new interface.
+    void refreshHiddenAdaptersIfNew(const std::vector<uint64_t>& luids)
+    {
+        const bool hasNewInterface =
+            std::ranges::any_of(luids, [this](uint64_t luid) { return !m_hiddenQueryLuids.contains(luid); });
+        if (!hasNewInterface) {
+            return;
+        }
+        if (auto hidden = queryHiddenAdapterGuids(m_hiddenAdaptersFailureLog)) {
+            m_hiddenGuids = std::move(*hidden);
+        }
+        m_hiddenQueryLuids = std::unordered_set<uint64_t>(luids.begin(), luids.end());
+    }
+
     static void WINAPI onUnicastAddressChange(PVOID callerContext, PMIB_UNICASTIPADDRESS_ROW /*row*/,
                                               MIB_NOTIFICATION_TYPE /*notificationType*/) noexcept
     {
@@ -335,7 +356,10 @@ private:
 
     RepeatedFailureLog m_ifTableFailureLog{"GetIfTable2"};
     RepeatedFailureLog m_adapterDetailsFailureLog{"GetAdaptersAddresses"};
+    RepeatedFailureLog m_hiddenAdaptersFailureLog{"Reading the hidden network adapters"};
     AdapterDetailsCache m_cache;
+    std::vector<GUID> m_hiddenGuids;
+    std::unordered_set<uint64_t> m_hiddenQueryLuids;
 
     // Declared after m_cache so they are cancelled (waiting for in-flight
     // callbacks) before the cache the callbacks write to is destroyed.
@@ -423,6 +447,7 @@ std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<Raw
             .dnsServers = adapter.dnsServers,
             .isHardwareInterface = adapter.isHardwareInterface,
             .hasIpInterface = adapter.hasIpInterface,
+            .isHidden = adapter.isHidden,
         };
 
         samples.push_back(std::move(sample));

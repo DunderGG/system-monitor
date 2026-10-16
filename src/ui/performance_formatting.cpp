@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "ui/dashboard_formatting.h"
+#include "ui/network_formatting.h"
 
 namespace sysmon::ui
 {
@@ -99,11 +100,9 @@ std::vector<const domain::NetworkSample*> chartedAdapters(const std::vector<doma
             charted.push_back(&adapter);
         }
     }
-    std::ranges::stable_sort(charted, [](const domain::NetworkSample* left, const domain::NetworkSample* right) {
-        if (left->isHardwareInterface != right->isHardwareInterface) {
-            return left->isHardwareInterface;
-        }
-        return QString::compare(adapterDisplayName(*left), adapterDisplayName(*right), Qt::CaseInsensitive) < 0;
+    // The Network tab's order, so the two tabs list the same adapters alike.
+    std::ranges::sort(charted, [](const domain::NetworkSample* left, const domain::NetworkSample* right) {
+        return isListedBefore(*left, *right);
     });
     return charted;
 }

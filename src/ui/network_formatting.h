@@ -1,11 +1,13 @@
 #pragma once
 
+#include <compare>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <QString>
+#include <QStringView>
 
 #include "domain/connectivity_status.h"
 #include "domain/network_profile.h"
@@ -23,18 +25,36 @@ namespace sysmon::ui
 
 /**
  * Returns true if the Network tab lists adapter while "Show all adapters" is
- * off: a hardware adapter, or one bound to IP, whatever its operational
- * status. The adapters left out are hidden virtual adapters that are not bound
- * to IP, such as the WAN Miniports and the tunnel pseudo-interfaces, which
- * cannot carry IP traffic.
+ * off: an adapter that Windows does not hide (NetworkSample::isHidden) and
+ * that is hardware or bound to IP, whatever its operational status. The
+ * adapters left out are those Network Connections leaves out too, such as the
+ * WAN Miniports and the Wi-Fi Direct virtual adapters, and virtual adapters
+ * that are not bound to IP, such as the tunnel pseudo-interfaces, which cannot
+ * carry IP traffic.
  */
 [[nodiscard]] bool isListedByDefault(const domain::NetworkSample& adapter);
 
 /**
- * Returns the adapters the Network tab lists: every adapter when showAll is
- * set, otherwise those isListedByDefault() accepts. Adapters that are Up come
- * first, then hardware adapters, each group ordered by display name and then
- * by interface ID, so the order does not depend on the order of networks.
+ * Compares two names in natural order: case-insensitively, with each run of
+ * ASCII digits compared as a number, so "Connection* 2" comes before
+ * "Connection* 10". Case folding is Unicode's and does not depend on the
+ * locale, so neither does the order.
+ */
+[[nodiscard]] std::weak_ordering compareNaturally(QStringView left, QStringView right);
+
+/**
+ * The order in which both tabs list adapters: those isListedByDefault()
+ * accepts first, then hardware adapters, each group by display name in natural
+ * order (compareNaturally()), and then by interface ID. It does not depend on
+ * the operational status, so an adapter keeps its place when it goes up or
+ * down, nor on the order in which Windows reports the adapters.
+ */
+[[nodiscard]] bool isListedBefore(const domain::NetworkSample& left, const domain::NetworkSample& right);
+
+/**
+ * Returns the adapters the Network tab lists, in isListedBefore() order: every
+ * adapter when showAll is set, otherwise those isListedByDefault() accepts.
+ * With showAll, the adapters it adds therefore come after the others.
  */
 [[nodiscard]] std::vector<const domain::NetworkSample*>
 listedAdapters(const std::vector<domain::NetworkSample>& networks, bool showAll);

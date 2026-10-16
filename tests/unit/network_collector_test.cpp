@@ -215,6 +215,24 @@ TEST(NetworkCollector, CalculateNetworkSamples_IpInterfaceFlag_PreservedInSample
     EXPECT_FALSE(samples[1].hasIpInterface);
 }
 
+TEST(NetworkCollector, CalculateNetworkSamples_HiddenFlag_PreservedInSample)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{
+            .luid = 1, .adapterName = "Local Area Connection* 1", .hasIpInterface = true, .isHidden = true},
+        RawNetworkAdapter{.luid = 2, .adapterName = "Bluetooth Network Connection", .hasIpInterface = true},
+    };
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_TRUE(samples[0].isHidden);
+    EXPECT_FALSE(samples[1].isHidden);
+}
+
 TEST(NetworkCollector, CalculateNetworkSamples_CounterResetOrUnderflow_RatesUnavailable)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;

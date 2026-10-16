@@ -32,6 +32,10 @@ class SparklineWidget;
  * speed, addresses, and DNS servers (see adapterDetailReadouts()), and a chart
  * of its receive and send throughput on an auto-scaled byte-rate axis.
  *
+ * While the adapter is not Up, the chart is collapsed to a line saying that
+ * it is charted while the adapter is Up. The view keeps recording the
+ * adapter's history, so the chart is complete when it comes back.
+ *
  * Not thread-safe; use only on the UI thread.
  */
 class AdapterCard : public QFrame
@@ -73,6 +77,7 @@ private:
     TonedLabel* m_descriptionLabel{nullptr};
     ReadoutGrid* m_readoutGrid{nullptr};
     charts::SparklineWidget* m_chart{nullptr};
+    TonedLabel* m_chartPlaceholder{nullptr};
 };
 
 } // namespace sysmon::ui

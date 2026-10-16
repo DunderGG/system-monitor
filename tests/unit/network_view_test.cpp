@@ -115,19 +115,43 @@ TEST(NetworkView, UnboundVirtualAdapters_ListedOnlyWithShowAll)
     EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
     EXPECT_EQ(view.adapterCard(0), ethernetCard);
     EXPECT_EQ(view.adapterCard(1)->title(), "WAN Miniport (IP)");
+    EXPECT_EQ(view.hiddenAdaptersHeadingPosition(), std::optional<std::size_t>{1});
 
     view.setShowAllAdapters(false);
 
     EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1}));
+    EXPECT_FALSE(view.hiddenAdaptersHeadingPosition().has_value());
 }
 
-TEST(NetworkView, AdapterComesUp_MovesToTheTopAndKeepsItsCard)
+TEST(NetworkView, ShowAll_AdaptersWindowsHidesListedUnderAHeadingAfterTheOthers)
+{
+    ShownNetworkView view;
+    NetworkSample wifiDirect = adapter(3, "Local Area Connection* 1", OperationalStatus::Down, false, true);
+    wifiDirect.isHidden = true;
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{
+        adapter(1, "Ethernet", OperationalStatus::Up),
+        adapter(2, "WAN Miniport (IP)", OperationalStatus::Up, false, false),
+        wifiDirect,
+        adapter(4, "Bluetooth Network Connection", OperationalStatus::Down, false, true),
+    }));
+
+    EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 4}));
+    EXPECT_FALSE(view.hiddenAdaptersHeadingPosition().has_value());
+
+    view.setShowAllAdapters(true);
+
+    EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 4, 3, 2}));
+    EXPECT_EQ(view.hiddenAdaptersHeadingPosition(), std::optional<std::size_t>{2});
+}
+
+TEST(NetworkView, AdapterChangesStatus_KeepsItsPlaceAndCard)
 {
     ShownNetworkView view;
     view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{
         adapter(1, "Ethernet", OperationalStatus::Up),
         adapter(2, "Wi-Fi", OperationalStatus::Down),
     }));
+    AdapterCard* ethernetCard = view.adapterCard(0);
     AdapterCard* wifiCard = view.adapterCard(1);
 
     view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{
@@ -135,8 +159,27 @@ TEST(NetworkView, AdapterComesUp_MovesToTheTopAndKeepsItsCard)
         adapter(2, "Wi-Fi", OperationalStatus::Up),
     }));
 
-    EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{2, 1}));
-    EXPECT_EQ(view.adapterCard(0), wifiCard);
+    EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+    EXPECT_EQ(view.adapterCard(0), ethernetCard);
+    EXPECT_EQ(view.adapterCard(1), wifiCard);
+}
+
+TEST(NetworkView, Card_NotUp_ChartCollapsedUntilTheAdapterIsUp)
+{
+    ShownNetworkView view;
+    NetworkSample wifi = adapter(1, "Wi-Fi", OperationalStatus::Down);
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
+    const AdapterCard* card = view.adapterCard(0);
+
+    EXPECT_TRUE(card->chart()->isHidden());
+
+    wifi.operationalStatus = OperationalStatus::Up;
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
+
+    EXPECT_FALSE(card->chart()->isHidden());
+    // Recorded while collapsed, so the chart shows the minute it was down too.
+    EXPECT_EQ(card->chart()->seriesSamples(0).size(), 2u);
+    EXPECT_EQ(card->chart()->sampleIndex(), 2u);
 }
 
 TEST(NetworkView, AdapterRenamed_KeepsCardAndUpdatesTitle)

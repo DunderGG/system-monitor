@@ -77,6 +77,14 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     m_chart->setAnnotationsVisible(true);
     m_chart->setFixedHeight(kChartHeight);
     layout->addWidget(m_chart);
+
+    // Shown in place of the chart while the adapter is not Up, when the chart
+    // could only draw a flat line at zero.
+    m_chartPlaceholder = new TonedLabel(TextTone::Dimmed, this);
+    m_chartPlaceholder->setTextFormat(Qt::PlainText);
+    m_chartPlaceholder->setText("Throughput is charted while the adapter is Up.");
+    m_chartPlaceholder->hide();
+    layout->addWidget(m_chartPlaceholder);
 }
 
 void AdapterCard::setAdapter(const domain::NetworkSample& adapter,
@@ -90,9 +98,11 @@ void AdapterCard::setAdapter(const domain::NetworkSample& adapter,
     m_descriptionLabel->setText(showsDescription ? description : QString{});
     m_descriptionLabel->setVisible(showsDescription);
 
-    setStatus(operationalStatusText(adapter.operationalStatus),
-              adapter.operationalStatus == domain::OperationalStatus::Up);
+    const bool isUp = adapter.operationalStatus == domain::OperationalStatus::Up;
+    setStatus(operationalStatusText(adapter.operationalStatus), isUp);
     m_readoutGrid->setReadouts(adapterDetailReadouts(adapter, networkProfiles));
+    m_chart->setVisible(isUp);
+    m_chartPlaceholder->setVisible(!isUp);
 }
 
 void AdapterCard::setUnavailable()
@@ -103,6 +113,11 @@ void AdapterCard::setUnavailable()
 
 void AdapterCard::setThroughput(const AdapterThroughputHistory::Adapter* history, std::uint64_t sampleIndex)
 {
+    // A collapsed chart is not drawn. The view copies the whole history again
+    // on the refresh that shows it.
+    if (m_chart->isHidden()) {
+        return;
+    }
     if (history == nullptr) {
         m_chart->setSeriesSamples(0, {});
         m_chart->setSeriesSamples(1, {});
