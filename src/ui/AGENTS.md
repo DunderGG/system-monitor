@@ -13,6 +13,7 @@ This module contains all Qt Widgets, custom sparkline chart widgets, view models
 - All data arrives via immutable `SystemSnapshot` signals on the UI thread. Never reach into the monitoring or platform layer.
 - Use `QAbstractItemModel` or `QAbstractTableModel` subclasses for tables. Update models incrementally with `beginInsertRows`/`endInsertRows`, `beginRemoveRows`/`endRemoveRows`, and `dataChanged`. Never use `beginResetModel`/`endResetModel` on every refresh.
 - Charts are custom `QWidget` subclasses using `QPainter`. Do not add Qt Charts, QCustomPlot, or other charting library dependencies.
+- **Text from outside the program is plain text.** A `QLabel` renders its text as HTML when it looks like markup (`Qt::AutoText`). A label that shows text from the system or the network, such as an adapter's alias or description, a network's name, an address, a volume or a process name, calls `setTextFormat(Qt::PlainText)`. Inside rich text, such as a tooltip, escape it with `toHtmlEscaped()`. `ReadoutGrid` labels are already plain text.
 - Use the pointer-to-member signal/slot syntax for compile-time type safety.
 - Pass `this` or an appropriate parent when constructing QObjects. Do not mix Qt parent-child ownership with `std::unique_ptr`.
 

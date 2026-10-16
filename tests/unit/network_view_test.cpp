@@ -6,10 +6,14 @@
 
 #include <gtest/gtest.h>
 #include <QCoreApplication>
+#include <QLabel>
+#include <QSize>
+#include <QTabWidget>
 
 #include "domain/system_snapshot.h"
 #include "ui/adapter_card.h"
 #include "ui/charts/sparkline_widget.h"
+#include "ui/main_window.h"
 #include "ui/network_view.h"
 #include "ui/readout_grid.h"
 
@@ -39,6 +43,21 @@ SystemSnapshot snapshotWith(std::optional<std::vector<NetworkSample>> networks)
 {
     SystemSnapshot snapshot;
     snapshot.networks = std::move(networks);
+    return snapshot;
+}
+
+// Text from outside the program that looks like HTML: an adapter's alias and
+// description, which drivers and VPN clients choose, and the names of two
+// networks, short enough to be SSIDs that an access point chooses.
+SystemSnapshot snapshotWithMarkup()
+{
+    NetworkSample ethernet = adapter(1, "<h1>Ethernet</h1>", OperationalStatus::Up);
+    ethernet.description = "<i>Realtek</i> <img height=3000>";
+    SystemSnapshot snapshot = snapshotWith(std::vector<NetworkSample>{ethernet});
+    snapshot.networkProfiles = std::vector<NetworkProfile>{
+        {.name = "<h1>FREE</h1>", .category = NetworkCategory::Public, .interfaceIds = {1}},
+        {.name = "<img height=3000>", .category = NetworkCategory::Public, .interfaceIds = {1}},
+    };
     return snapshot;
 }
 
@@ -372,4 +391,41 @@ TEST(NetworkView, NetworkProfilesUnreadable_NotAvailable)
 
     EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Network"), "N/A");
     EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "N/A");
+}
+
+TEST(NetworkView, MarkupInNamesAndDescription_ShownAsPlainText)
+{
+    ShownNetworkView view;
+
+    view.updateSnapshot(snapshotWithMarkup());
+
+    const AdapterCard* card = view.adapterCard(0);
+    EXPECT_EQ(card->title(), "<h1>Ethernet</h1>");
+    EXPECT_EQ(card->description(), "<i>Realtek</i> <img height=3000>");
+    EXPECT_EQ(card->readoutGrid()->value("Network"), "<h1>FREE</h1> (Public)\n<img height=3000> (Public)");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "<h1>FREE</h1> (Public)\n<img height=3000> (Public)");
+    for (const auto* label : card->findChildren<QLabel*>()) {
+        EXPECT_EQ(label->textFormat(), Qt::PlainText) << label->text().toStdString();
+    }
+    for (const auto* label : view.connectivityReadoutGrid()->findChildren<QLabel*>()) {
+        EXPECT_EQ(label->textFormat(), Qt::PlainText) << label->text().toStdString();
+    }
+}
+
+TEST(NetworkView, MarkupInNamesAndDescription_WindowMinimumSizeStaysWithin800x600)
+{
+    MainWindow mainWindow;
+    mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
+    mainWindow.resize(800, 600);
+    mainWindow.show();
+    mainWindow.tabWidget()->setCurrentWidget(mainWindow.networkView());
+
+    mainWindow.onSnapshotReady(snapshotWithMarkup());
+    QCoreApplication::processEvents();
+
+    ASSERT_EQ(mainWindow.networkView()->listedInterfaceIds(), (std::vector<uint64_t>{1}));
+    const QSize minimum = mainWindow.minimumSizeHint();
+    EXPECT_LE(minimum.width(), 800);
+    EXPECT_LE(minimum.height(), 600);
+    EXPECT_EQ(mainWindow.size(), QSize(800, 600));
 }

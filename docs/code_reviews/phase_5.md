@@ -84,7 +84,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
-| [F-35](#f-35-network-names-are-rendered-as-rich-text) | Network names are rendered as rich text | Medium | Open |
+| [F-35](#f-35-network-names-are-rendered-as-rich-text) | Network names are rendered as rich text | Medium | Resolved |
 | [F-36](#f-36-disconnected-adapters-show-leftover-addresses-and-placeholder-dns-servers) | Disconnected adapters show leftover addresses and placeholder DNS servers | Medium | Open |
 | [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Open |
 | [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Open |
@@ -132,6 +132,14 @@ Phase 4 handled the same risk for process names and command lines: its tooltips 
 3. Add view tests with markup in a network name, an alias and a description. Check that each label's `textFormat()` is `Qt::PlainText`, that it shows the literal string, and that the window's `minimumSizeHint()` stays within 800×600.
 
 **Recommendation:** Fix before Phase 6. It is a few lines of code, and the input comes from outside the machine.
+
+**Status:** Resolved (2026-10-16). Items 1 to 3 are done.
+
+- `ReadoutGrid` creates its name and value labels as `Qt::PlainText`, which covers every readout on both tabs, including the "Network" and "Networks" readouts. The card's title, status and description, and the chart titles on the Performance tab's network page, are plain text too. So are `ResourceCard`'s value and detail labels, which show a volume's name; Windows paths cannot contain a tag, but the rule now applies to every label that shows outside text. Each label's format is set before its text.
+- `src/ui/AGENTS.md` and a new "Text from outside the program" section in the coding guidelines state the rule: `Qt::PlainText` for a label, and `toHtmlEscaped()` for each untrusted part of rich text.
+- New tests give an alias, a description and two network names (`<h1>FREE</h1>` and `<img height=3000>`) markup. They check that every label on the card and in the connectivity section is plain text and shows the literal string, and that `MainWindow` shown at 800×600 on the Network tab keeps a minimum size within 800×600. Before the fix, that test reproduced the 3142×3301 above. Further tests cover `ReadoutGrid` (markup in a name, and in a value updated in place), the Performance tab's chart title and `ResourceCard`.
+
+See [DC-102](../design_decisions.md#dc-102-labels-that-show-text-from-the-system-or-the-network-are-plain-text-code-review-f-35).
 
 ---
 

@@ -54,7 +54,9 @@ ResourceCard::ResourceCard(const QString& title, QWidget* parent) : QFrame(paren
     headerLayout->addWidget(m_statusLabel);
     layout->addLayout(headerLayout);
 
+    // The value and detail can name things from the system, such as a volume.
     m_valueLabel = new QLabel("--", this);
+    m_valueLabel->setTextFormat(Qt::PlainText);
     QFont valueFont = m_valueLabel->font();
     valueFont.setPointSize(18);
     m_valueLabel->setFont(valueFont);
@@ -62,6 +64,7 @@ ResourceCard::ResourceCard(const QString& title, QWidget* parent) : QFrame(paren
     layout->addWidget(m_valueLabel);
 
     m_detailLabel = new QLabel(this);
+    m_detailLabel->setTextFormat(Qt::PlainText);
     m_detailLabel->setWordWrap(true);
     layout->addWidget(m_detailLabel);
 

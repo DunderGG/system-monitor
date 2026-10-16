@@ -39,8 +39,11 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     layout->setContentsMargins(12, 10, 12, 10);
     layout->setSpacing(kItemSpacing);
 
+    // The alias and description are chosen by drivers and VPN clients, so
+    // every label shows plain text, never rich text.
     auto* headerLayout = new QHBoxLayout();
     m_titleLabel = new QLabel(this);
+    m_titleLabel->setTextFormat(Qt::PlainText);
     QFont titleFont = m_titleLabel->font();
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
@@ -48,11 +51,13 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     headerLayout->addWidget(m_titleLabel, 1);
 
     m_statusLabel = new QLabel(this);
+    m_statusLabel->setTextFormat(Qt::PlainText);
     m_statusLabel->setStyleSheet(kNotUpStyleSheet);
     headerLayout->addWidget(m_statusLabel);
     layout->addLayout(headerLayout);
 
     m_descriptionLabel = new QLabel(this);
+    m_descriptionLabel->setTextFormat(Qt::PlainText);
     m_descriptionLabel->setStyleSheet("color: palette(mid);");
     m_descriptionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_descriptionLabel->setWordWrap(true);

@@ -103,7 +103,9 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& i
     std::vector<charts::SparklineWidget*> adapterCharts;
     std::vector<ReadoutGrid*> readoutGrids;
     for (std::size_t index = 0; index < interfaceIds.size(); ++index) {
+        // The adapter's alias is chosen by its driver or the user.
         auto* title = new QLabel(list);
+        title->setTextFormat(Qt::PlainText);
         QFont titleFont = title->font();
         titleFont.setBold(true);
         title->setFont(titleFont);

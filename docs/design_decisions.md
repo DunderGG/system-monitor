@@ -118,6 +118,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-99](#dc-99-connectivity-section-level-cost-and-roaming-each-unknown-when-windows-cannot-say): Connectivity section: level, cost and roaming, each "Unknown" when Windows cannot say
   - [DC-100](#dc-100-network-names-from-inetworklistmanager-re-read-after-a-connectivity-change-or-a-minute-and-matched-to-adapters-by-luid): Network names from `INetworkListManager`, re-read after a connectivity change or a minute, and matched to adapters by LUID
   - [DC-101](#dc-101-connectivity-changes-wake-the-slow-collector-thread-which-collects-only-the-event-driven-collectors): Connectivity changes wake the slow-collector thread, which collects only the event-driven collectors
+  - [DC-102](#dc-102-labels-that-show-text-from-the-system-or-the-network-are-plain-text-code-review-f-35): Labels that show text from the system or the network are plain text (code review F-35)
 
 ---
 
@@ -1239,6 +1240,8 @@ The code review suggested comparing the row's PID with `QCoreApplication::applic
 - **Deleters, not WRL:** WRL's `ComPtr` is the usual choice, but `<wrl/client.h>` would be the module's only SDK header with a path, which `.clang-format`'s include categories do not cover. A deleter matches the RAII wrappers the module already uses for MIB tables.
 - **Category:** `GetCategory` comes with the same object and decides which firewall profile applies, which explains why one network behaves differently from another. A network whose category cannot be read keeps its name.
 
+**Extended by [DC-102](#dc-102-labels-that-show-text-from-the-system-or-the-network-are-plain-text-code-review-f-35):** the names are shown as plain text, because an access point chooses the name of its Wi-Fi network.
+
 ### DC-101: Connectivity changes wake the slow-collector thread, which collects only the event-driven collectors
 
 **Decision:** `monitoring::IEventDrivenCollector<T>` extends `ICollector<T>` with `setChangeListener()`, and `IConnectivityCollector` and `INetworkProfileCollector` are now this interface. When the scheduler registers one of them, it sets a listener that marks an event refresh as pending under the sleep mutex and notifies the condition variable. The scheduler's destructor clears the listeners. The slow-collector thread waits until its next full refresh or until an event refresh is pending. An event refresh that comes before the full refresh is due runs only the event-driven collectors (`collectEventDrivenResults()`): it replaces the connectivity and the network names in the slow results, and keeps the process list and the time of the next full refresh. A full refresh also clears a pending request. `ConnectivityCollector` calls its listener after a notification that changed the cached status, but not after a polled change. `NetworkProfileCollector` calls it when a notification makes its fresh cache stale. Both call it with their mutex held, so clearing a listener waits for a call in progress. `refreshEventDrivenCollectors()` runs the same step synchronously for tests.
@@ -1249,3 +1252,21 @@ The code review suggested comparing the row's PID with `QCoreApplication::applic
 - **A full slow refresh on a change:** processes would be enumerated off their cadence, and changes come in bursts while an adapter reconnects.
 
 The scheduler sets the listener, rather than the collector's constructor taking one, because `main.cpp` creates the collectors before handing them over and the scheduler is what needs waking. Calling the listener with the collector's mutex held lets the scheduler's destructor clear it safely. The listener refers to the scheduler, and once `setChangeListener({})` returns, no call can still be running. Locks are always taken in the same order, the collector's mutex and then the scheduler's sleep mutex, and the scheduler never calls a collector while it holds the sleep mutex. A notification that repeats the cached status, such as the initial notification after the seed, does not wake the thread.
+
+### DC-102: Labels that show text from the system or the network are plain text (code review F-35)
+
+**Decision:** Every label that can show text the program does not control has the text format `Qt::PlainText`:
+- `ReadoutGrid`'s name and value labels, which show the network names, addresses and DNS servers on both tabs, and every other readout;
+- `AdapterCard`'s title, status and description;
+- the adapter chart titles on the Performance tab's network page;
+- `ResourceCard`'s value and detail, whose disk detail names a volume.
+
+Labels whose text is a constant in the code keep Qt's default. The format is set before the text. [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-from-outside-the-program) state the rule: plain text for a label, and `toHtmlEscaped()` for each untrusted part of rich text, such as a tooltip.
+
+**Rationale:** A `QLabel` defaults to `Qt::AutoText`, which renders its text as HTML when `Qt::mightBeRichText()` finds something that looks like a tag before the first line break. The Network List Manager names a Wi-Fi network after its SSID, up to 32 bytes that the access point chooses ([DC-100](#dc-100-network-names-from-inetworklistmanager-re-read-after-a-connectivity-change-or-a-minute-and-matched-to-adapters-by-luid)). The review gave a network the name `<img height=3000>`, and the main window's minimum size became 3142×3301 for as long as that network was connected, because the connectivity section is outside the scroll area. `<h1>` rendered a heading, and rich text ignores the `\n` that puts each network on its own line. The adapter's alias and description are local, but drivers and VPN clients choose them.
+- **In `ReadoutGrid`, not in each formatter:** setting the format where the labels are created covers every readout, now and later. The functions that build readouts need not know which values come from outside the program.
+- **Plain text, not escaping:** `toHtmlEscaped()` would also work, but a readout has no reason to be rich text, and one caller that forgot to escape would bring the problem back. Escaping stays for rich text that has a reason to be rich, as in the process tooltips ([DC-85](#dc-85-access-indicator-a-painted-icon-per-details-status-and-a-tooltip-with-the-details-or-the-reason)). Plain text for a process's name in a dialog is what [DC-88](#dc-88-end-process-one-action-a-confirmation-dialog-with-cancel-as-default-and-an-injected-terminator) already chose.
+- **The format before the text:** untrusted text is then never parsed as HTML, not even once.
+- **`ResourceCard`:** Windows paths cannot contain `<` or `>`, so a volume's name could not be read as a tag. The card follows the rule anyway, so that no label that shows outside text depends on what that text can contain.
+
+The tests give an alias, a description and two network names markup. They check that every label on the card and in the connectivity section is plain text and shows the literal string, and that `MainWindow`'s minimum size at 800×600 stays within 800×600. Before the fix that test reproduced the review's 3142×3301.

@@ -17,7 +17,9 @@ class ReadoutLayout;
 /**
  * A grid of numeric readouts in the Task Manager style: each cell shows a
  * dimmed name above its value. Values are selectable so they can be copied
- * (e.g. IP addresses).
+ * (e.g. IP addresses). Names and values are plain text, never rich text,
+ * because readouts show text from the system and the network, such as a
+ * Wi-Fi network's name.
  *
  * The grid uses as many columns as fit its width, up to the maximum given to
  * the constructor, and grows taller as it narrows (it has a height for width).

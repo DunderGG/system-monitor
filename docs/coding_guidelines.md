@@ -284,6 +284,12 @@ connect(m_scheduler, SIGNAL(snapshotReady(SystemSnapshot)),
 - Subclass `QAbstractItemModel` or `QAbstractTableModel` for process and network tables.
 - Use `beginInsertRows` / `endInsertRows`, `beginRemoveRows` / `endRemoveRows`, and `dataChanged` to update models incrementally. Never call `beginResetModel` / `endResetModel` on every refresh — this destroys scroll position, selection state, and sort order.
 
+### Text from outside the program
+
+- `QLabel`, `QMessageBox` and tooltips render text as HTML when it looks like markup (`Qt::AutoText`, decided by `Qt::mightBeRichText()`). Text that the program does not control, such as adapter aliases and descriptions, network names (a Wi-Fi network is named by its access point), addresses, volume paths and process names, must never be interpreted that way.
+- Give a label or message box that shows such text `setTextFormat(Qt::PlainText)`. Where the text has to be rich text, such as a wrapping tooltip, pass each untrusted part through `toHtmlEscaped()`.
+- `ReadoutGrid`'s names and values are always plain text, so readouts need nothing extra.
+
 ### Resource management
 
 - Pass `this` (or another appropriate parent) as the parent when constructing QObjects so Qt manages lifetime.

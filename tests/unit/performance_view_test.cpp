@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -474,6 +475,23 @@ TEST(NetworkPerformancePage, AdapterRenamed_KeepsChartAndHistory)
     EXPECT_EQ(page.adapterChart(0), chart);
     EXPECT_EQ(page.adapterTitle(0), "Office LAN");
     EXPECT_EQ(page.adapterChart(0)->seriesSamples(0).size(), 2u);
+}
+
+TEST(NetworkPerformancePage, MarkupInAdapterName_TitleShownAsPlainText)
+{
+    NetworkPerformancePage page;
+    SystemSnapshot snapshot;
+    snapshot.networks = std::vector<NetworkSample>{adapter("<h1>Ethernet</h1>", OperationalStatus::Up)};
+
+    page.recordSnapshot(snapshot);
+    page.refresh();
+
+    ASSERT_EQ(page.chartedAdapterNames().size(), 1u);
+    EXPECT_EQ(page.adapterTitle(0), "<h1>Ethernet</h1>");
+    const auto labels = page.findChildren<QLabel*>();
+    const auto title = std::ranges::find(labels, QString("<h1>Ethernet</h1>"), &QLabel::text);
+    ASSERT_NE(title, labels.end());
+    EXPECT_EQ((*title)->textFormat(), Qt::PlainText);
 }
 
 TEST(NetworkPerformancePage, ReadFails_KeepsChartsAndRecordsGap)

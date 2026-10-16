@@ -331,10 +331,16 @@ void ReadoutGrid::rebuild(const std::vector<Readout>& readouts)
     std::vector<QLabel*> nameLabels;
     std::vector<QLabel*> valueLabels;
     for (const auto& readout : readouts) {
-        auto* name = new QLabel(readout.name, this);
+        // Readouts show text from the system and the network, such as a
+        // network's name, which must not be rendered as rich text.
+        auto* name = new QLabel(this);
+        name->setTextFormat(Qt::PlainText);
+        name->setText(readout.name);
         name->setForegroundRole(QPalette::PlaceholderText);
 
-        auto* value = new QLabel(readout.value, this);
+        auto* value = new QLabel(this);
+        value->setTextFormat(Qt::PlainText);
+        value->setText(readout.value);
         QFont valueFont = value->font();
         valueFont.setPointSize(kValuePointSize);
         value->setFont(valueFont);

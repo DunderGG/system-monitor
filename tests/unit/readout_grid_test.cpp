@@ -151,3 +151,22 @@ TEST(ReadoutGrid, SetReadoutsWithNewNames_Rebuilds)
 
     EXPECT_EQ(grid.readouts(), (std::vector<Readout>{{"C:\\", "75%"}, {"D:\\", "10%"}}));
 }
+
+TEST(ReadoutGrid, MarkupInNamesAndValues_ShownAsPlainText)
+{
+    ReadoutGrid ordinary(2);
+    ordinary.setReadouts({{"Network", "Normandy (Private)"}});
+    ReadoutGrid grid(2);
+    grid.setReadouts({{"<b>Name</b>", "<h1>FREE</h1>"}, {"Network", "Normandy (Private)"}});
+
+    // Markup arriving through an in-place update, as a network's name does.
+    grid.setReadouts({{"<b>Name</b>", "<h1>FREE</h1>"}, {"Network", "<img height=3000> (Private)"}});
+
+    EXPECT_EQ(grid.value("<b>Name</b>"), "<h1>FREE</h1>");
+    EXPECT_EQ(grid.value("Network"), "<img height=3000> (Private)");
+    for (const auto* label : grid.findChildren<QLabel*>()) {
+        EXPECT_EQ(label->textFormat(), Qt::PlainText) << label->text().toStdString();
+    }
+    // One line of text per label, as tall as a grid without markup.
+    EXPECT_EQ(grid.sizeHint().height(), ordinary.sizeHint().height());
+}

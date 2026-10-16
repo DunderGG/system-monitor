@@ -102,6 +102,21 @@ TEST(ResourceCard, SetStatusNullopt_HidesStatus)
     EXPECT_TRUE(card.statusText().isEmpty());
 }
 
+TEST(ResourceCard, SetValueWithMarkup_ShownAsPlainText)
+{
+    ResourceCard card("Disk");
+
+    card.setValue("<b>75%</b>", "<img height=3000> 1 GB free");
+
+    EXPECT_EQ(card.valueText(), "<b>75%</b>");
+    EXPECT_EQ(card.detailText(), "<img height=3000> 1 GB free");
+    for (const QString& text : {QString("<b>75%</b>"), QString("<img height=3000> 1 GB free")}) {
+        const QLabel* label = findLabel(card, text);
+        ASSERT_NE(label, nullptr) << text.toStdString();
+        EXPECT_EQ(label->textFormat(), Qt::PlainText) << text.toStdString();
+    }
+}
+
 TEST(ResourceCard, SetStatus_SameLevelAgain_DoesNotRestyle)
 {
     ResourceCard card("Memory");
