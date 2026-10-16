@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include "platform/windows/adapter_details_cache.h"
+#include "platform/windows/unicast_address.h"
 
 using namespace sysmon::platform;
 
@@ -19,7 +20,7 @@ const std::vector<uint64_t> kLuids = {10, 20};
 AdapterDetailsTable tableWithEthernet()
 {
     AdapterDetailsTable table;
-    table.byLuid[10] = AdapterDetails{.friendlyName = "Ethernet", .ipAddresses = {"192.168.1.2"}};
+    table.byLuid[10] = AdapterDetails{.friendlyName = "Ethernet", .ipAddresses = {{.address = "192.168.1.2"}}};
     table.luidByIfIndex[7] = 10;
     return table;
 }
@@ -58,7 +59,7 @@ TEST(AdapterDetailsCache, AfterRefresh_ServesStoredDetails)
 
     ASSERT_NE(details, nullptr);
     EXPECT_EQ(details->friendlyName, "Ethernet");
-    EXPECT_EQ(details->ipAddresses, std::vector<std::string>{"192.168.1.2"});
+    EXPECT_EQ(details->ipAddresses, std::vector<UnicastAddress>{{.address = "192.168.1.2"}});
 }
 
 TEST(AdapterDetailsCache, MaxAgeReached_RefreshIsDue)

@@ -9,6 +9,7 @@
 
 #include "domain/network_sample.h"
 #include "platform/windows/network_collector.h"
+#include "platform/windows/unicast_address.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
@@ -28,7 +29,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesUnavailableAndBase
         .outBytesTotal = 25'000,
         .linkSpeedBps = 1'000'000'000,
         .operationalStatus = OperationalStatus::Up,
-        .ipAddresses = {"192.168.1.10"},
+        .ipAddresses = {{.address = "192.168.1.10"}},
         .dnsServers = {"1.1.1.1"},
         .isLoopback = false,
     }};
@@ -351,7 +352,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_IpAndDnsAddresses_PreservedInSamp
         .adapterName = "Ethernet",
         .friendlyName = "Ethernet 1",
         .description = "Realtek Controller",
-        .ipAddresses = {"192.168.1.50", "2001:db8::1"},
+        .ipAddresses = {{.address = "192.168.1.50"}, {.address = "2001:db8::1"}},
         .dnsServers = {"1.1.1.1", "1.0.0.1"},
         .isLoopback = false,
     }};
@@ -366,6 +367,90 @@ TEST(NetworkCollector, CalculateNetworkSamples_IpAndDnsAddresses_PreservedInSamp
     ASSERT_EQ(samples[0].dnsServers.size(), 2u);
     EXPECT_EQ(samples[0].dnsServers[0], "1.1.1.1");
     EXPECT_EQ(samples[0].dnsServers[1], "1.0.0.1");
+}
+
+TEST(NetworkCollector, CalculateNetworkSamples_AddressStates_KeepsPreferredAndDeprecatedOnlyWhileUp)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+    const std::vector<UnicastAddress> addresses = {
+        {.address = "192.168.1.119", .state = AddressState::Preferred},
+        {.address = "fd44:555c:2315:4176:483d:5f94:693b:1ea5", .state = AddressState::Deprecated},
+        {.address = "169.254.47.250", .state = AddressState::Tentative},
+        {.address = "192.168.1.50", .state = AddressState::Duplicate},
+        {.address = "10.0.0.5", .state = AddressState::Invalid},
+    };
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{.luid = 101, .operationalStatus = OperationalStatus::Up, .ipAddresses = addresses},
+        RawNetworkAdapter{.luid = 102, .operationalStatus = OperationalStatus::Down, .ipAddresses = addresses},
+        RawNetworkAdapter{.luid = 103, .operationalStatus = OperationalStatus::Dormant, .ipAddresses = addresses},
+    };
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 3u);
+    EXPECT_EQ(samples[0].ipAddresses,
+              (std::vector<std::string>{"192.168.1.119", "fd44:555c:2315:4176:483d:5f94:693b:1ea5"}));
+    EXPECT_EQ(samples[1].ipAddresses, std::vector<std::string>{"192.168.1.119"});
+    EXPECT_EQ(samples[2].ipAddresses, std::vector<std::string>{"192.168.1.119"});
+}
+
+// What Windows reports for two disconnected adapters on the development
+// machine: the Wi-Fi adapter keeps the lease from its last connection as
+// Deprecated, and the Bluetooth PAN adapter keeps a Tentative automatic
+// private address. Neither can be used.
+TEST(NetworkCollector, CalculateNetworkSamples_DisconnectedAdapters_LeftoverAddressesDropped)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{
+            .luid = 101,
+            .adapterName = "WiFi",
+            .operationalStatus = OperationalStatus::Down,
+            .ipAddresses = {{.address = "fe80::cd5b:b3cd:b185:d66b", .state = AddressState::Deprecated},
+                            {.address = "192.168.1.16", .state = AddressState::Deprecated}},
+            .dnsServers = {"192.168.1.1"},
+        },
+        RawNetworkAdapter{
+            .luid = 102,
+            .adapterName = "Bluetooth Network Connection",
+            .operationalStatus = OperationalStatus::Down,
+            .ipAddresses = {{.address = "169.254.113.81", .state = AddressState::Tentative},
+                            {.address = "fe80::bc71:942f:7fb6:cbaa", .state = AddressState::Deprecated}},
+        },
+    };
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_TRUE(samples[0].ipAddresses.empty());
+    EXPECT_TRUE(samples[1].ipAddresses.empty());
+    // Configured DNS servers are kept; the Network tab shows them only while the adapter is Up.
+    EXPECT_EQ(samples[0].dnsServers, std::vector<std::string>{"192.168.1.1"});
+}
+
+TEST(NetworkCollector, CalculateNetworkSamples_AdapterComesUp_DeprecatedAddressKept)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto t0 = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    const auto t1 = std::chrono::steady_clock::time_point{std::chrono::seconds{101}};
+    std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 101,
+        .operationalStatus = OperationalStatus::Down,
+        .ipAddresses = {{.address = "192.168.1.16", .state = AddressState::Deprecated}},
+    }};
+
+    const auto down = calculateNetworkSamples(adapters, baselines, t0);
+    adapters[0].operationalStatus = OperationalStatus::Up;
+    const auto up = calculateNetworkSamples(adapters, baselines, t1);
+
+    ASSERT_EQ(down.size(), 1u);
+    ASSERT_EQ(up.size(), 1u);
+    EXPECT_TRUE(down[0].ipAddresses.empty());
+    EXPECT_EQ(up[0].ipAddresses, std::vector<std::string>{"192.168.1.16"});
 }
 
 TEST(NetworkCollector, Collect_InjectedReader_InvokedAndReturnsSamples)

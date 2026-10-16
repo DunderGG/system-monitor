@@ -185,6 +185,47 @@ TEST(NetworkFormatting, AdapterDetailReadouts_DisconnectedAdapter_LinkSpeedNotCo
     EXPECT_EQ(valueOf(adapterDetailReadouts(sample, std::nullopt), "Link speed"), "Not connected");
 }
 
+// What Windows reports for a disconnected Bluetooth PAN adapter: a Tentative
+// automatic private address, a Deprecated link-local address, and the
+// site-local placeholder DNS servers. The collector drops all of them, but a
+// disconnected adapter shows no addresses or DNS servers whatever it reports.
+TEST(NetworkFormatting, AdapterDetailReadouts_NotUp_AddressesAndDnsServersNotConnected)
+{
+    NetworkSample sample{
+        .linkSpeedBps = 3'000'000,
+        .type = AdapterType::Bluetooth,
+        .ipAddresses = {"169.254.113.81", "fe80::bc71:942f:7fb6:cbaa"},
+        .dnsServers = {"fec0:0:0:ffff::1", "fec0:0:0:ffff::2", "fec0:0:0:ffff::3"},
+        .isHardwareInterface = false,
+    };
+
+    for (const auto status :
+         {OperationalStatus::Down, OperationalStatus::Testing, OperationalStatus::Unknown, OperationalStatus::Dormant,
+          OperationalStatus::NotPresent, OperationalStatus::LowerLayerDown}) {
+        SCOPED_TRACE(operationalStatusText(status).toStdString());
+        sample.operationalStatus = status;
+
+        EXPECT_EQ(adapterDetailReadouts(sample, std::vector<NetworkProfile>{}), (std::vector<Readout>{
+                                                                                    {"Network", "None"},
+                                                                                    {"Type", "Bluetooth (virtual)"},
+                                                                                    {"Link speed", "Not connected"},
+                                                                                    {"IPv4 address", "Not connected"},
+                                                                                    {"IPv6 address", "Not connected"},
+                                                                                    {"DNS servers", "Not connected"},
+                                                                                }));
+    }
+}
+
+TEST(NetworkFormatting, AdapterDetailReadouts_UpWithoutAddresses_None)
+{
+    const NetworkSample sample{.linkSpeedBps = 1'000'000'000, .operationalStatus = OperationalStatus::Up};
+    const auto readouts = adapterDetailReadouts(sample, std::nullopt);
+
+    EXPECT_EQ(valueOf(readouts, "IPv4 address"), "None");
+    EXPECT_EQ(valueOf(readouts, "IPv6 address"), "None");
+    EXPECT_EQ(valueOf(readouts, "DNS servers"), "None");
+}
+
 TEST(NetworkFormatting, AdapterDetailReadouts_UpWithoutReportedSpeed_LinkSpeedNotAvailable)
 {
     const NetworkSample sample{.linkSpeedBps = 0, .operationalStatus = OperationalStatus::Up};

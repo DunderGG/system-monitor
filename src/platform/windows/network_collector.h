@@ -12,6 +12,7 @@
 #include "domain/network_sample.h"
 #include "monitoring/collector.h"
 #include "platform/windows/steady_clock_reader.h"
+#include "platform/windows/unicast_address.h"
 
 namespace sysmon::platform
 {
@@ -32,7 +33,8 @@ struct RawNetworkAdapter
     uint64_t linkSpeedBps{0};
     domain::OperationalStatus operationalStatus{domain::OperationalStatus::Unknown};
     domain::AdapterType type{domain::AdapterType::Other};
-    std::vector<std::string> ipAddresses;
+    // Every unicast address, with its state; calculateNetworkSamples() keeps those that can be used.
+    std::vector<UnicastAddress> ipAddresses;
     std::vector<std::string> dnsServers;
     bool isLoopback{false};
     // An NDIS filter layer (e.g. WFP or QoS Packet Scheduler) bound to another
@@ -60,6 +62,11 @@ struct NetworkBaseline
  * elapsed monotonic time, updates the baselines, and removes baselines of
  * adapters that are gone. Pure function with no OS dependencies for
  * deterministic unit testing.
+ *
+ * Each sample keeps only the addresses that can be used: Preferred ones, and
+ * Deprecated ones while the adapter is Up. Windows keeps the addresses of an
+ * adapter whose media is disconnected, such as the lease from its last
+ * connection (Deprecated) and an automatic private address (Tentative).
  */
 std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
                                                            std::unordered_map<uint64_t, NetworkBaseline>& baselines,

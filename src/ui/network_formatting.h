@@ -77,10 +77,11 @@ listedAdapters(const std::vector<domain::NetworkSample>& networks, bool showAll)
 /**
  * Network tab, for one adapter: the network it is connected to (see
  * adapterNetworkText()), type, link speed, IPv4 and IPv6 addresses, and DNS
- * servers. The link speed is "Not connected" unless the adapter is Up,
- * because Windows keeps reporting a speed for a disconnected adapter, and
- * "N/A" when an adapter that is Up reports none. Every value is "N/A" when
- * adapter is std::nullopt (the last read failed).
+ * servers. The link speed, the addresses and the DNS servers are "Not
+ * connected" unless the adapter is Up, because Windows keeps reporting a
+ * speed, leftover addresses and DNS servers for a disconnected adapter. The
+ * link speed is "N/A" when an adapter that is Up reports none. Every value is
+ * "N/A" when adapter is std::nullopt (the last read failed).
  */
 [[nodiscard]] std::vector<Readout>
 adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter,

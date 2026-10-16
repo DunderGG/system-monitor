@@ -65,6 +65,13 @@ enum class AdapterType
  *
  * type is the kind of link (see AdapterType); it is always known.
  *
+ * ipAddresses are the unicast addresses the adapter can use: those in normal
+ * use, and while the adapter is Up also deprecated ones, which can still carry
+ * existing connections. Windows keeps addresses on a disconnected adapter,
+ * such as the lease from its last connection, but they are left out.
+ * dnsServers are the configured DNS servers, without the placeholders Windows
+ * lists when there are none. Windows keeps them while the adapter is not Up.
+ *
  * isHardwareInterface is true for a physical adapter and false for tunnels,
  * VPNs, and other virtual interfaces. Traffic through a virtual interface
  * usually also crosses a physical one, so a total across adapters should sum

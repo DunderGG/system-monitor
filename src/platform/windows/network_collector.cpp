@@ -21,6 +21,7 @@
 #include "platform/windows/adapter_details_cache.h"
 #include "platform/windows/adapter_type_mapping.h"
 #include "platform/windows/byte_rate.h"
+#include "platform/windows/ip_address_mapping.h"
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/utf8_conversion.h"
 
@@ -108,6 +109,35 @@ domain::OperationalStatus toOperationalStatus(IF_OPER_STATUS status)
     }
 }
 
+// A Deprecated address can still carry existing connections while the adapter
+// is Up (an expired temporary IPv6 address). On an adapter that is not Up it is
+// a leftover, such as the lease from the last connection.
+bool isUsableAddress(AddressState state, domain::OperationalStatus status)
+{
+    switch (state) {
+        case AddressState::Preferred:
+            return true;
+        case AddressState::Deprecated:
+            return status == domain::OperationalStatus::Up;
+        case AddressState::Tentative:
+        case AddressState::Duplicate:
+        case AddressState::Invalid:
+        default:
+            return false;
+    }
+}
+
+std::vector<std::string> usableAddresses(const std::vector<UnicastAddress>& addresses, domain::OperationalStatus status)
+{
+    std::vector<std::string> usable;
+    for (const auto& address : addresses) {
+        if (isUsableAddress(address.state, status)) {
+            usable.push_back(address.address);
+        }
+    }
+    return usable;
+}
+
 // Reads names, addresses, and DNS servers for all adapters with GetAdaptersAddresses.
 std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failureLog)
 {
@@ -149,11 +179,17 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failu
 
         for (PIP_ADAPTER_UNICAST_ADDRESS uni = curr->FirstUnicastAddress; uni != nullptr; uni = uni->Next) {
             if (auto address = sockaddrToString(uni->Address.lpSockaddr)) {
-                details.ipAddresses.push_back(std::move(*address));
+                details.ipAddresses.push_back(UnicastAddress{
+                    .address = std::move(*address),
+                    .state = toAddressState(uni->DadState),
+                });
             }
         }
 
         for (PIP_ADAPTER_DNS_SERVER_ADDRESS dns = curr->FirstDnsServerAddress; dns != nullptr; dns = dns->Next) {
+            if (isPlaceholderDnsServer(dns->Address.lpSockaddr)) {
+                continue;
+            }
             if (auto address = sockaddrToString(dns->Address.lpSockaddr)) {
                 details.dnsServers.push_back(std::move(*address));
             }
@@ -383,7 +419,7 @@ std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<Raw
             .linkSpeedBps = adapter.linkSpeedBps,
             .operationalStatus = adapter.operationalStatus,
             .type = adapter.type,
-            .ipAddresses = adapter.ipAddresses,
+            .ipAddresses = usableAddresses(adapter.ipAddresses, adapter.operationalStatus),
             .dnsServers = adapter.dnsServers,
             .isHardwareInterface = adapter.isHardwareInterface,
             .hasIpInterface = adapter.hasIpInterface,

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -54,6 +55,22 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
     }
     std::ranges::sort(ids);
     EXPECT_EQ(std::ranges::adjacent_find(ids), ids.end());
+}
+
+TEST(NetworkCollectorIntegration, RealHostSampling_ReportsNoPlaceholderDnsServers)
+{
+    NetworkCollector collector;
+    const auto samples = collector.collect();
+    ASSERT_TRUE(samples.has_value());
+
+    // Windows lists these as the DNS servers of an adapter that has none configured.
+    const std::vector<std::string> placeholders = {"fec0:0:0:ffff::1", "fec0:0:0:ffff::2", "fec0:0:0:ffff::3"};
+    for (const auto& sample : *samples) {
+        for (const auto& server : sample.dnsServers) {
+            EXPECT_EQ(std::ranges::find(placeholders, server), placeholders.end())
+                << sample.adapterName << ": " << server;
+        }
+    }
 }
 
 TEST(NetworkCollectorIntegration, ConsecutiveSamples_CalculatesThroughputOverTime)

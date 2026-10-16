@@ -100,6 +100,7 @@ gtest_discover_tests(system_monitor_tests)
 add_executable(system_monitor_platform_tests
     platform/adapter_type_mapping_test.cpp
     platform/connectivity_hint_mapping_test.cpp
+    platform/ip_address_mapping_test.cpp
     platform/network_category_mapping_test.cpp
     platform/system_process_information_test.cpp
     platform/process_elevation_test.cpp

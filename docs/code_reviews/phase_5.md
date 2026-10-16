@@ -85,7 +85,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
 | [F-35](#f-35-network-names-are-rendered-as-rich-text) | Network names are rendered as rich text | Medium | Resolved |
-| [F-36](#f-36-disconnected-adapters-show-leftover-addresses-and-placeholder-dns-servers) | Disconnected adapters show leftover addresses and placeholder DNS servers | Medium | Open |
+| [F-36](#f-36-disconnected-adapters-show-leftover-addresses-and-placeholder-dns-servers) | Disconnected adapters show leftover addresses and placeholder DNS servers | Medium | Resolved |
 | [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Open |
 | [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Open |
 | [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Open |
@@ -176,6 +176,16 @@ The tests did not catch this: the fake samples have addresses but no address sta
 3. **Tests:** add collector and formatting tests with a Down adapter that has a Tentative 169.254 address, a Deprecated lease and the `fec0:0:0:ffff::` servers. Update DC-97.
 
 **Recommendation:** Fix before Phase 6. Item 2 alone is a small UI change. Item 1 also corrects the data for any later consumer, such as export.
+
+**Status:** Resolved (2026-10-16). Items 1 to 3 are done.
+
+- `GetAdaptersAddresses`' `DadState` is kept with each unicast address (`AddressState`, mapped by `toAddressState()`) through the cache into `RawNetworkAdapter`. `calculateNetworkSamples()` keeps Preferred addresses, and Deprecated ones only while the adapter is Up, using the status from the current tick. Tentative, Duplicate, Invalid and unknown states are dropped. The state stays in the platform module rather than the domain.
+- The placeholder DNS servers `fec0:0:0:ffff::1` to `::3` are also dropped at the boundary (`isPlaceholderDnsServer()`), whatever the adapter's status. On the development machine Windows lists them for every adapter without a configured DNS server, loopback included, which is Up, so hiding them only on adapters that are not Up would have missed an Up adapter with no DNS server.
+- `adapterDetailReadouts()` shows "Not connected" for the addresses and DNS servers of an adapter that is not Up, like the link speed.
+- Tests: collector tests give a Down, a Dormant and an Up adapter every address state, and model the WiFi card's Deprecated lease and the Bluetooth card's Tentative 169.254 address; a Deprecated address is kept once its adapter comes Up. Formatting tests show "Not connected" for every status other than Up, with the `fec0:0:0:ffff::` servers in the sample. A view test takes a card from Down to Up. Platform tests cover the mapping and the placeholder check, and an integration test checks that no real adapter reports a placeholder. With F-35's tests for untrusted names, this covers the second row of F-40.
+- On the review machine, the collector now reports no addresses for the four Down cards in the table above, no DNS servers for the Bluetooth and two Wi-Fi Direct cards, and every Preferred address of the Ethernet and Mullvad adapters.
+
+See [DC-103](../design_decisions.md#dc-103-unusable-addresses-and-placeholder-dns-servers-dropped-addresses-and-dns-servers-shown-only-while-up-code-review-f-36); DC-35 and DC-97 point to it.
 
 ---
 

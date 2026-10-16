@@ -17,6 +17,8 @@ add_library(sysmon_platform_windows STATIC
     current_process.h
     disk_collector.cpp
     disk_collector.h
+    ip_address_mapping.cpp
+    ip_address_mapping.h
     memory_collector.cpp
     memory_collector.h
     network_category_mapping.cpp
@@ -49,6 +51,7 @@ add_library(sysmon_platform_windows STATIC
     system_process_information.h
     system_process_information_reader.cpp
     system_process_information_reader.h
+    unicast_address.h
     uptime_collector.cpp
     uptime_collector.h
     utf8_conversion.cpp

@@ -177,15 +177,25 @@ std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSa
         };
     }
 
-    QString linkSpeed = "Not connected";
-    if (adapter->operationalStatus == domain::OperationalStatus::Up) {
-        // A link speed of 0 means the adapter did not report one.
-        linkSpeed = adapter->linkSpeedBps > 0 ? formatLinkSpeed(adapter->linkSpeedBps) : kNotAvailable;
+    // Windows keeps reporting a link speed, DNS servers and some addresses for
+    // an adapter that is not Up, but they describe a link that does not exist.
+    if (adapter->operationalStatus != domain::OperationalStatus::Up) {
+        const QString notConnected = "Not connected";
+        return {
+            {"Network", adapterNetworkText(adapter->interfaceId, profiles)},
+            {"Type", adapterTypeText(*adapter)},
+            {"Link speed", notConnected},
+            {"IPv4 address", notConnected},
+            {"IPv6 address", notConnected},
+            {"DNS servers", notConnected},
+        };
     }
+
+    // A link speed of 0 means the adapter did not report one.
     return {
         {"Network", adapterNetworkText(adapter->interfaceId, profiles)},
         {"Type", adapterTypeText(*adapter)},
-        {"Link speed", linkSpeed},
+        {"Link speed", adapter->linkSpeedBps > 0 ? formatLinkSpeed(adapter->linkSpeedBps) : kNotAvailable},
         {"IPv4 address", ipv4AddressText(*adapter)},
         {"IPv6 address", ipv6AddressText(*adapter)},
         {"DNS servers", formatAddressList(adapter->dnsServers)},

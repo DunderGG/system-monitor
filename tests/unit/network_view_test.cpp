@@ -242,6 +242,28 @@ TEST(NetworkView, Card_DescriptionSameAsTitle_Hidden)
     EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Link speed"), "Not connected");
 }
 
+TEST(NetworkView, Card_DisconnectedThenUp_AddressesShownOnlyWhileUp)
+{
+    ShownNetworkView view;
+    NetworkSample wifi = adapter(1, "WiFi", OperationalStatus::Down);
+    wifi.ipAddresses = {"192.168.1.16"};
+    wifi.dnsServers = {"192.168.1.1"};
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
+
+    const AdapterCard* card = view.adapterCard(0);
+    EXPECT_EQ(card->readoutGrid()->value("IPv4 address"), "Not connected");
+    EXPECT_EQ(card->readoutGrid()->value("IPv6 address"), "Not connected");
+    EXPECT_EQ(card->readoutGrid()->value("DNS servers"), "Not connected");
+
+    wifi.operationalStatus = OperationalStatus::Up;
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
+
+    EXPECT_EQ(card->readoutGrid()->value("IPv4 address"), "192.168.1.16");
+    EXPECT_EQ(card->readoutGrid()->value("IPv6 address"), "None");
+    EXPECT_EQ(card->readoutGrid()->value("DNS servers"), "192.168.1.1");
+}
+
 TEST(NetworkView, ReadFails_CardDetailsNotAvailableThenRecover)
 {
     ShownNetworkView view;

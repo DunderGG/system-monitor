@@ -10,16 +10,24 @@
 #include <unordered_set>
 #include <vector>
 
+#include "platform/windows/unicast_address.h"
+
 namespace sysmon::platform
 {
 
-/** Names, addresses, and DNS servers of one adapter, as reported by GetAdaptersAddresses. */
+/**
+ * Names, addresses, and DNS servers of one adapter, as reported by
+ * GetAdaptersAddresses. ipAddresses keeps every unicast address with its
+ * state; which of them can be used also depends on the adapter's operational
+ * status, which is read on every tick (see calculateNetworkSamples()).
+ * dnsServers leaves out the placeholders Windows lists when none is configured.
+ */
 struct AdapterDetails
 {
     std::string adapterName;
     std::string friendlyName;
     std::string description;
-    std::vector<std::string> ipAddresses;
+    std::vector<UnicastAddress> ipAddresses;
     std::vector<std::string> dnsServers;
 };
 
