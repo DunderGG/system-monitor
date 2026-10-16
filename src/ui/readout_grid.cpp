@@ -12,6 +12,7 @@
 #include <QMargins>
 #include <QRect>
 #include <QSize>
+#include <QTextDocument>
 
 #include "ui/text_tone.h"
 
@@ -289,6 +290,9 @@ void ReadoutGrid::setReadouts(const std::vector<Readout>& readouts)
         if (m_valueLabels[index]->text() != readouts[index].value) {
             m_valueLabels[index]->setText(readouts[index].value);
         }
+        if (m_toolTips[index] != readouts[index].toolTip) {
+            setToolTip(index, readouts[index].toolTip);
+        }
     }
 }
 
@@ -297,7 +301,7 @@ std::vector<Readout> ReadoutGrid::readouts() const
     std::vector<Readout> result;
     result.reserve(m_nameLabels.size());
     for (std::size_t index = 0; index < m_nameLabels.size(); ++index) {
-        result.push_back({m_nameLabels[index]->text(), m_valueLabels[index]->text()});
+        result.push_back({m_nameLabels[index]->text(), m_valueLabels[index]->text(), m_toolTips[index]});
     }
     return result;
 }
@@ -355,6 +359,19 @@ void ReadoutGrid::rebuild(const std::vector<Readout>& readouts)
 
     m_nameLabels = std::move(nameLabels);
     m_valueLabels = std::move(valueLabels);
+    m_toolTips.assign(readouts.size(), QString{});
+    for (std::size_t index = 0; index < readouts.size(); ++index) {
+        setToolTip(index, readouts[index].toolTip);
+    }
+}
+
+void ReadoutGrid::setToolTip(std::size_t index, const QString& toolTip)
+{
+    m_toolTips[index] = toolTip;
+    // A tooltip is rich text when it looks like markup, so plain text is converted.
+    const QString shown = toolTip.isEmpty() ? QString{} : Qt::convertFromPlainText(toolTip, Qt::WhiteSpaceNormal);
+    m_nameLabels[index]->setToolTip(shown);
+    m_valueLabels[index]->setToolTip(shown);
 }
 
 } // namespace sysmon::ui

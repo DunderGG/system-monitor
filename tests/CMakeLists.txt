@@ -61,6 +61,7 @@ add_executable(system_monitor_tests
     integration/suspended_child_process.h
     integration/current_process_elevation.h
     integration/app_logging_test.cpp
+    integration/ip_address_formatting_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
 )

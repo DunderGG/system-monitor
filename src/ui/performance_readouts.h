@@ -21,11 +21,15 @@ namespace sysmon::ui
 // data is available, so the readout layout does not jump; missing values are
 // "N/A", never zero.
 
-/** One named value, e.g. {"Handles", "200,157"}. */
+/**
+ * One named value, e.g. {"Handles", "200,157"}, with an optional tooltip that
+ * qualifies the value, shown as plain text.
+ */
 struct Readout
 {
     QString name;
     QString value;
+    QString toolTip;
 
     friend bool operator==(const Readout&, const Readout&) = default;
 };

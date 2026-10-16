@@ -150,7 +150,7 @@ TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
         .outBytesPerSec = 25'000ULL,
         .linkSpeedBps = 1'000'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
-        .ipAddresses = {"192.168.1.100", "fe80::1"},
+        .ipAddresses = {{.text = "192.168.1.100"}, {.text = "fe80::1"}},
         .dnsServers = {"1.1.1.1", "1.0.0.1"},
         .isHardwareInterface = true,
         .hasIpInterface = true,
@@ -166,8 +166,8 @@ TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
     EXPECT_EQ(s.linkSpeedBps, 1'000'000'000ULL);
     EXPECT_EQ(s.operationalStatus, OperationalStatus::Up);
     ASSERT_EQ(s.ipAddresses.size(), 2u);
-    EXPECT_EQ(s.ipAddresses[0], "192.168.1.100");
-    EXPECT_EQ(s.ipAddresses[1], "fe80::1");
+    EXPECT_EQ(s.ipAddresses[0].text, "192.168.1.100");
+    EXPECT_EQ(s.ipAddresses[1].text, "fe80::1");
     ASSERT_EQ(s.dnsServers.size(), 2u);
     EXPECT_EQ(s.dnsServers[0], "1.1.1.1");
     EXPECT_EQ(s.dnsServers[1], "1.0.0.1");

@@ -304,10 +304,14 @@ void SamplingScheduler::collectSlowResults()
 
 void SamplingScheduler::run(std::stop_token stopToken)
 {
+    // Logged after the lock is released: a log line writes a file, and change
+    // listeners take the sleep mutex on OS notification threads.
+    std::chrono::milliseconds interval{};
     {
         std::lock_guard lock(m_sleepMutex);
-        spdlog::info("SamplingScheduler background thread started (interval: {}ms)", m_interval.count());
+        interval = m_interval;
     }
+    spdlog::info("SamplingScheduler background thread started (interval: {}ms)", interval.count());
 
     while (!stopToken.stop_requested()) {
         const auto tickStart = std::chrono::steady_clock::now();
@@ -325,10 +329,13 @@ void SamplingScheduler::run(std::stop_token stopToken)
 
 void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
 {
+    // Logged after the lock is released, as in run().
+    std::chrono::milliseconds slowInterval{};
     {
         std::lock_guard lock(m_sleepMutex);
-        spdlog::info("SamplingScheduler slow-collector thread started (interval: {}ms)", m_slowInterval.count());
+        slowInterval = m_slowInterval;
     }
+    spdlog::info("SamplingScheduler slow-collector thread started (interval: {}ms)", slowInterval.count());
 
     // Waits for the next full refresh, or for an event-driven collector to
     // report a change, which collects only the event-driven collectors so the

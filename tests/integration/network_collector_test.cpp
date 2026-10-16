@@ -46,6 +46,17 @@ TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMe
         if (!sample.ipAddresses.empty()) {
             EXPECT_TRUE(sample.hasIpInterface) << sample.adapterName;
         }
+
+        // A link-local IPv6 address carries its zone index, as ipconfig shows it.
+        for (const auto& address : sample.ipAddresses) {
+            if (address.isLinkLocal && address.text.find(':') != std::string::npos) {
+                EXPECT_NE(address.text.find('%'), std::string::npos) << address.text;
+            }
+            // Windows generates temporary addresses for IPv6 only.
+            if (address.isTemporary) {
+                EXPECT_NE(address.text.find(':'), std::string::npos) << address.text;
+            }
+        }
     }
 
     // Interface IDs identify adapters, so no two may share one, even where names repeat.

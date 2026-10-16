@@ -93,7 +93,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Resolved |
 | [F-42](#f-42-qts-windows-style-plugin-is-not-deployed) | Qt's Windows style plugin is not deployed (pre-existing) | Low | Resolved |
 | [F-43](#f-43-the-logger-is-shut-down-before-the-collectors-are-destroyed) | The logger is shut down before the collectors are destroyed (pre-existing) | Low | Resolved |
-| [F-44](#f-44-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
+| [F-44](#f-44-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Resolved |
 
 **Open findings from earlier reviews:** none.
 
@@ -435,6 +435,19 @@ Destroy the window and the scheduler before the logger is shut down. For example
 | `build.ps1 -CheckFormat` stops at the first batch of 50 files that fails, so unformatted files in later batches are not listed (pre-existing) | `scripts/build.ps1` | Check every batch, then fail once at the end |
 
 **Recommendation:** Fix when convenient, ideally in the commits that touch these files for F-35 to F-38.
+
+**Status:** Resolved (2026-10-16). Every row is done.
+
+- **Card constants:** the status colours, the dimmed style and the margins are shared since F-37 (`TextTone`, `kCardMargins`). Both views' `kHistoryCapacity` is now `kOneMinuteOfSamples` from `sample_history.h`.
+- **Roaming:** `toIsRoaming()` returns `std::nullopt` whenever `toIsMetered()` does. A platform test passes a cost value from a later SDK.
+- **Logging under the sleep mutex:** both scheduler threads copy their interval under the lock and log after releasing it.
+- **`connectedInterfaceIds()`:** a failed `GetNetworkConnections`, `GetAdapterId` or `ConvertInterfaceGuidToLuid` is logged at debug.
+- **IPv6:** a link-local IPv6 address, unicast or DNS server, carries its zone index, e.g. `fe80::d347:c091:2487:3b32%16`. Each line is marked "(temporary)" or "(link-local)", on both tabs. `NetworkSample::ipAddresses` became a list of `domain::IpAddress` with those two flags, set at the platform boundary from the suffix origin and the address bytes. With identifier randomization on, Windows still reports a stable address's suffix origin as link-layer, so random means temporary; `netsh` agrees.
+- **Placeholder:** "No adapters to list. Select Show all adapters to list the hidden ones." when every adapter is one that only "Show all adapters" lists.
+- **A VPN's link speed:** shown as reported, with a tooltip on a virtual adapter's speed that its driver chooses the figure. `Readout` has an optional tooltip, which `ReadoutGrid` shows as plain text. Leaving the speed out would also have hidden the real link rates that the Wi-Fi Direct and Bluetooth PAN adapters report.
+- **`-CheckFormat`:** every batch is checked before the script fails, so every unformatted file is listed. Tried with unformatted files in the first and the last batch.
+
+See [DC-108](../design_decisions.md#dc-108-addresses-marked-temporary-or-link-local-with-the-zone-index-a-virtual-adapters-link-speed-explained-in-a-tooltip-code-review-f-44).
 
 ---
 

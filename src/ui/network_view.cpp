@@ -73,6 +73,7 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
     layout->addLayout(adaptersHeader);
 
     m_placeholderLabel = new QLabel("--", this);
+    m_placeholderLabel->setWordWrap(true);
     layout->addWidget(m_placeholderLabel);
 
     m_scrollArea = new QScrollArea(this);
@@ -181,7 +182,14 @@ void NetworkView::refresh()
     }
 
     if (m_cards.empty()) {
-        m_placeholderLabel->setText(m_latest ? "No network adapters" : kNotAvailable);
+        if (!m_latest) {
+            m_placeholderLabel->setText(kNotAvailable);
+        } else if (m_latest->empty()) {
+            m_placeholderLabel->setText("No network adapters");
+        } else {
+            // Every adapter is one that only "Show all adapters" lists.
+            m_placeholderLabel->setText("No adapters to list. Select Show all adapters to list the hidden ones.");
+        }
     }
     m_placeholderLabel->setVisible(m_cards.empty());
 }

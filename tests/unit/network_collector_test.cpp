@@ -14,6 +14,20 @@
 using namespace sysmon::domain;
 using namespace sysmon::platform;
 
+namespace
+{
+
+std::vector<std::string> texts(const std::vector<IpAddress>& addresses)
+{
+    std::vector<std::string> result;
+    for (const auto& address : addresses) {
+        result.push_back(address.text);
+    }
+    return result;
+}
+
+} // namespace
+
 TEST(NetworkCollector, CalculateNetworkSamples_FirstTick_RatesUnavailableAndBaselineRecorded)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
@@ -380,8 +394,8 @@ TEST(NetworkCollector, CalculateNetworkSamples_IpAndDnsAddresses_PreservedInSamp
     EXPECT_EQ(samples[0].friendlyName, "Ethernet 1");
     EXPECT_EQ(samples[0].description, "Realtek Controller");
     ASSERT_EQ(samples[0].ipAddresses.size(), 2u);
-    EXPECT_EQ(samples[0].ipAddresses[0], "192.168.1.50");
-    EXPECT_EQ(samples[0].ipAddresses[1], "2001:db8::1");
+    EXPECT_EQ(samples[0].ipAddresses[0].text, "192.168.1.50");
+    EXPECT_EQ(samples[0].ipAddresses[1].text, "2001:db8::1");
     ASSERT_EQ(samples[0].dnsServers.size(), 2u);
     EXPECT_EQ(samples[0].dnsServers[0], "1.1.1.1");
     EXPECT_EQ(samples[0].dnsServers[1], "1.0.0.1");
@@ -408,10 +422,10 @@ TEST(NetworkCollector, CalculateNetworkSamples_AddressStates_KeepsPreferredAndDe
     const auto samples = calculateNetworkSamples(adapters, baselines, now);
 
     ASSERT_EQ(samples.size(), 3u);
-    EXPECT_EQ(samples[0].ipAddresses,
+    EXPECT_EQ(texts(samples[0].ipAddresses),
               (std::vector<std::string>{"192.168.1.119", "fd44:555c:2315:4176:483d:5f94:693b:1ea5"}));
-    EXPECT_EQ(samples[1].ipAddresses, std::vector<std::string>{"192.168.1.119"});
-    EXPECT_EQ(samples[2].ipAddresses, std::vector<std::string>{"192.168.1.119"});
+    EXPECT_EQ(texts(samples[1].ipAddresses), (std::vector<std::string>{"192.168.1.119"}));
+    EXPECT_EQ(texts(samples[2].ipAddresses), (std::vector<std::string>{"192.168.1.119"}));
 }
 
 // What Windows reports for two disconnected adapters on the development
@@ -450,6 +464,30 @@ TEST(NetworkCollector, CalculateNetworkSamples_DisconnectedAdapters_LeftoverAddr
     EXPECT_EQ(samples[0].dnsServers, std::vector<std::string>{"192.168.1.1"});
 }
 
+TEST(NetworkCollector, CalculateNetworkSamples_TemporaryAndLinkLocalMarks_PreservedInSample)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const std::vector<RawNetworkAdapter> adapters = {RawNetworkAdapter{
+        .luid = 1,
+        .operationalStatus = OperationalStatus::Up,
+        .ipAddresses =
+            {
+                {.address = "fd44:555c:2315:4176:c6d0:77e0:5d11:3727"},
+                {.address = "fd44:555c:2315:4176:483d:5f94:693b:1ea5", .isTemporary = true},
+                {.address = "fe80::d347:c091:2487:3b32%16", .isLinkLocal = true},
+            },
+    }};
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, std::chrono::steady_clock::now());
+
+    ASSERT_EQ(samples.size(), 1u);
+    EXPECT_EQ(samples[0].ipAddresses, (std::vector<IpAddress>{
+                                          {.text = "fd44:555c:2315:4176:c6d0:77e0:5d11:3727"},
+                                          {.text = "fd44:555c:2315:4176:483d:5f94:693b:1ea5", .isTemporary = true},
+                                          {.text = "fe80::d347:c091:2487:3b32%16", .isLinkLocal = true},
+                                      }));
+}
+
 TEST(NetworkCollector, CalculateNetworkSamples_AdapterComesUp_DeprecatedAddressKept)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;
@@ -468,7 +506,7 @@ TEST(NetworkCollector, CalculateNetworkSamples_AdapterComesUp_DeprecatedAddressK
     ASSERT_EQ(down.size(), 1u);
     ASSERT_EQ(up.size(), 1u);
     EXPECT_TRUE(down[0].ipAddresses.empty());
-    EXPECT_EQ(up[0].ipAddresses, std::vector<std::string>{"192.168.1.16"});
+    EXPECT_EQ(texts(up[0].ipAddresses), (std::vector<std::string>{"192.168.1.16"}));
 }
 
 TEST(NetworkCollector, Collect_InjectedReader_InvokedAndReturnsSamples)

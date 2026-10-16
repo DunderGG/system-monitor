@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <vector>
 
 #include <QString>
@@ -19,7 +20,8 @@ class ReadoutLayout;
  * dimmed name above its value. Values are selectable so they can be copied
  * (e.g. IP addresses). Names and values are plain text, never rich text,
  * because readouts show text from the system and the network, such as a
- * Wi-Fi network's name.
+ * Wi-Fi network's name. A readout's tooltip, shown on its name and value, is
+ * plain text too.
  *
  * The grid uses as many columns as fit its width, up to the maximum given to
  * the constructor, and grows taller as it narrows (it has a height for width).
@@ -51,10 +53,14 @@ public:
 
 private:
     void rebuild(const std::vector<Readout>& readouts);
+    // Shows toolTip, plain text, on the name and the value of the readout at index.
+    void setToolTip(std::size_t index, const QString& toolTip);
 
     ReadoutLayout* m_layout{nullptr};
     std::vector<QLabel*> m_nameLabels;
     std::vector<QLabel*> m_valueLabels;
+    // Each readout's tooltip as given, before it is converted to rich text.
+    std::vector<QString> m_toolTips;
 };
 
 } // namespace sysmon::ui

@@ -82,3 +82,49 @@ TEST(IpAddressMapping, IsPlaceholderDnsServer_Ipv4OrNull_ReturnsFalse)
     EXPECT_FALSE(isPlaceholderDnsServer(reinterpret_cast<const SOCKADDR*>(&ipv4)));
     EXPECT_FALSE(isPlaceholderDnsServer(nullptr));
 }
+
+TEST(IpAddressMapping, IsLinkLocalAddress_Fe80SlashTen_ReturnsTrue)
+{
+    const auto linkLocal =
+        ipv6Address({0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0xd3, 0x47, 0xc0, 0x91, 0x24, 0x87, 0x3b, 0x32}, 16);
+    // fe80::/10 also covers febf::.
+    const auto upperEnd = ipv6Address({0xfe, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1});
+
+    EXPECT_TRUE(isLinkLocalAddress(reinterpret_cast<const SOCKADDR*>(&linkLocal)));
+    EXPECT_TRUE(isLinkLocalAddress(reinterpret_cast<const SOCKADDR*>(&upperEnd)));
+}
+
+TEST(IpAddressMapping, IsLinkLocalAddress_Ipv4AutomaticPrivate_ReturnsTrue)
+{
+    sockaddr_in automatic{};
+    automatic.sin_family = AF_INET;
+    automatic.sin_addr.S_un.S_un_b = {169, 254, 113, 81};
+
+    EXPECT_TRUE(isLinkLocalAddress(reinterpret_cast<const SOCKADDR*>(&automatic)));
+}
+
+TEST(IpAddressMapping, IsLinkLocalAddress_OtherAddressesOrNull_ReturnsFalse)
+{
+    const auto uniqueLocal =
+        ipv6Address({0xfd, 0x44, 0x55, 0x5c, 0x23, 0x15, 0x41, 0x76, 0xc6, 0xd0, 0x77, 0xe0, 0x5d, 0x11, 0x37, 0x27});
+    const auto siteLocal = ipv6Address({0xfe, 0xc0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1});
+    sockaddr_in lan{};
+    lan.sin_family = AF_INET;
+    lan.sin_addr.S_un.S_un_b = {192, 168, 1, 119};
+
+    EXPECT_FALSE(isLinkLocalAddress(reinterpret_cast<const SOCKADDR*>(&uniqueLocal)));
+    EXPECT_FALSE(isLinkLocalAddress(reinterpret_cast<const SOCKADDR*>(&siteLocal)));
+    EXPECT_FALSE(isLinkLocalAddress(reinterpret_cast<const SOCKADDR*>(&lan)));
+    EXPECT_FALSE(isLinkLocalAddress(nullptr));
+}
+
+TEST(IpAddressMapping, IsTemporaryAddress_OnlyARandomSuffix)
+{
+    EXPECT_TRUE(isTemporaryAddress(IpSuffixOriginRandom));
+    // A stable address keeps the link-layer origin even when its identifier is randomized.
+    EXPECT_FALSE(isTemporaryAddress(IpSuffixOriginLinkLayerAddress));
+    EXPECT_FALSE(isTemporaryAddress(IpSuffixOriginManual));
+    EXPECT_FALSE(isTemporaryAddress(IpSuffixOriginDhcp));
+    EXPECT_FALSE(isTemporaryAddress(IpSuffixOriginWellKnown));
+    EXPECT_FALSE(isTemporaryAddress(IpSuffixOriginOther));
+}

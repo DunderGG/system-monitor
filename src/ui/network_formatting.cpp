@@ -23,13 +23,13 @@ bool isIpv6(const std::string& address)
 
 QString addressesOfFamily(const domain::NetworkSample& adapter, bool ipv6)
 {
-    std::vector<std::string> addresses;
+    QStringList lines;
     for (const auto& address : adapter.ipAddresses) {
-        if (isIpv6(address) == ipv6) {
-            addresses.push_back(address);
+        if (isIpv6(address.text) == ipv6) {
+            lines.append(ipAddressText(address));
         }
     }
-    return formatAddressList(addresses);
+    return lines.isEmpty() ? QString("None") : lines.join('\n');
 }
 
 bool isAsciiDigit(QChar character)
@@ -195,6 +195,18 @@ QString formatAddressList(const std::vector<std::string>& addresses)
     return lines.join('\n');
 }
 
+QString ipAddressText(const domain::IpAddress& address)
+{
+    QString text = QString::fromStdString(address.text);
+    if (address.isTemporary) {
+        text += " (temporary)";
+    }
+    if (address.isLinkLocal) {
+        text += " (link-local)";
+    }
+    return text;
+}
+
 QString ipv4AddressText(const domain::NetworkSample& adapter)
 {
     return addressesOfFamily(adapter, false);
@@ -203,6 +215,15 @@ QString ipv4AddressText(const domain::NetworkSample& adapter)
 QString ipv6AddressText(const domain::NetworkSample& adapter)
 {
     return addressesOfFamily(adapter, true);
+}
+
+QString linkSpeedToolTip(const domain::NetworkSample& adapter)
+{
+    if (adapter.isHardwareInterface) {
+        return {};
+    }
+    return "A virtual adapter's driver chooses the speed it reports, so the speed need not limit the adapter's "
+           "throughput.";
 }
 
 QString networkCategoryText(domain::NetworkCategory category)
@@ -263,10 +284,12 @@ std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSa
     }
 
     // A link speed of 0 means the adapter did not report one.
+    const bool hasLinkSpeed = adapter->linkSpeedBps > 0;
     return {
         {"Network", adapterNetworkText(adapter->interfaceId, profiles)},
         {"Type", adapterTypeText(*adapter)},
-        {"Link speed", adapter->linkSpeedBps > 0 ? formatLinkSpeed(adapter->linkSpeedBps) : kNotAvailable},
+        {"Link speed", hasLinkSpeed ? formatLinkSpeed(adapter->linkSpeedBps) : kNotAvailable,
+         hasLinkSpeed ? linkSpeedToolTip(*adapter) : QString{}},
         {"IPv4 address", ipv4AddressText(*adapter)},
         {"IPv6 address", ipv6AddressText(*adapter)},
         {"DNS servers", formatAddressList(adapter->dnsServers)},

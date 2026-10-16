@@ -206,12 +206,49 @@ TEST(NetworkFormatting, AdapterTypeText_VirtualAdapters_MarkedVirtual)
 
 TEST(NetworkFormatting, AddressTexts_SplitByFamilyOnePerLine)
 {
-    const NetworkSample sample{.ipAddresses = {"192.168.1.20", "fe80::1", "10.0.0.5", "2001:db8::5"}};
+    const NetworkSample sample{
+        .ipAddresses = {{.text = "192.168.1.20"}, {.text = "fe80::1"}, {.text = "10.0.0.5"}, {.text = "2001:db8::5"}}};
 
     EXPECT_EQ(ipv4AddressText(sample), "192.168.1.20\n10.0.0.5");
     EXPECT_EQ(ipv6AddressText(sample), "fe80::1\n2001:db8::5");
     EXPECT_EQ(ipv4AddressText(NetworkSample{}), "None");
     EXPECT_EQ(formatAddressList({}), "None");
+}
+
+TEST(NetworkFormatting, AddressTexts_TemporaryAndLinkLocalMarkedAsIpconfigNamesThem)
+{
+    const NetworkSample sample{.ipAddresses = {
+                                   {.text = "fd44:555c:2315:4176:c6d0:77e0:5d11:3727"},
+                                   {.text = "fd44:555c:2315:4176:483d:5f94:693b:1ea5", .isTemporary = true},
+                                   {.text = "fe80::d347:c091:2487:3b32%16", .isLinkLocal = true},
+                                   {.text = "169.254.113.81", .isLinkLocal = true},
+                               }};
+
+    EXPECT_EQ(ipv6AddressText(sample), "fd44:555c:2315:4176:c6d0:77e0:5d11:3727\n"
+                                       "fd44:555c:2315:4176:483d:5f94:693b:1ea5 (temporary)\n"
+                                       "fe80::d347:c091:2487:3b32%16 (link-local)");
+    EXPECT_EQ(ipv4AddressText(sample), "169.254.113.81 (link-local)");
+}
+
+TEST(NetworkFormatting, AdapterDetailReadouts_VirtualAdapter_LinkSpeedHasATooltip)
+{
+    NetworkSample vpn{
+        .interfaceId = 3,
+        .linkSpeedBps = 100'000'000'000ULL,
+        .operationalStatus = OperationalStatus::Up,
+        .isHardwareInterface = false,
+        .hasIpInterface = true,
+    };
+
+    const auto readouts = adapterDetailReadouts(vpn, std::nullopt);
+    const auto linkSpeed = std::ranges::find(readouts, QString("Link speed"), &Readout::name);
+    ASSERT_NE(linkSpeed, readouts.end());
+    EXPECT_EQ(linkSpeed->value, "100 Gbps");
+    EXPECT_EQ(linkSpeed->toolTip, linkSpeedToolTip(vpn));
+    EXPECT_FALSE(linkSpeed->toolTip.isEmpty());
+
+    vpn.isHardwareInterface = true;
+    EXPECT_TRUE(linkSpeedToolTip(vpn).isEmpty());
 }
 
 TEST(NetworkFormatting, AdapterDetailReadouts_UpAdapter_ShowsNetworkLinkSpeedAndAddresses)
@@ -221,7 +258,7 @@ TEST(NetworkFormatting, AdapterDetailReadouts_UpAdapter_ShowsNetworkLinkSpeedAnd
         .linkSpeedBps = 2'500'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
         .type = AdapterType::Ethernet,
-        .ipAddresses = {"192.168.1.20", "fe80::1"},
+        .ipAddresses = {{.text = "192.168.1.20"}, {.text = "fe80::1"}},
         .dnsServers = {"192.168.1.1", "1.1.1.1"},
         .isHardwareInterface = true,
     };
@@ -255,7 +292,7 @@ TEST(NetworkFormatting, AdapterDetailReadouts_NotUp_AddressesAndDnsServersNotCon
     NetworkSample sample{
         .linkSpeedBps = 3'000'000,
         .type = AdapterType::Bluetooth,
-        .ipAddresses = {"169.254.113.81", "fe80::bc71:942f:7fb6:cbaa"},
+        .ipAddresses = {{.text = "169.254.113.81"}, {.text = "fe80::bc71:942f:7fb6:cbaa"}},
         .dnsServers = {"fec0:0:0:ffff::1", "fec0:0:0:ffff::2", "fec0:0:0:ffff::3"},
         .isHardwareInterface = false,
     };

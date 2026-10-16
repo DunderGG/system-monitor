@@ -27,7 +27,8 @@ namespace sysmon::platform
 
 /**
  * Maps the hint's Roaming flag. Windows reports roaming as part of the
- * connection cost, so with an unknown cost it maps to std::nullopt.
+ * connection cost, so it maps to std::nullopt whenever toIsMetered() does:
+ * for an unknown cost, and for a cost value this mapping does not know.
  */
 [[nodiscard]] std::optional<bool> toIsRoaming(NL_NETWORK_CONNECTIVITY_COST_HINT cost, BOOLEAN roaming) noexcept;
 

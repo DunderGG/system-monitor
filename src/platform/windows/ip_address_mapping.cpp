@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <optional>
+#include <string>
 
 namespace sysmon::platform
 {
@@ -31,6 +33,54 @@ AddressState toAddressState(IP_DAD_STATE state) noexcept
         default:
             return AddressState::Invalid;
     }
+}
+
+std::optional<std::string> formatIpAddress(const SOCKADDR* address)
+{
+    if (address == nullptr) {
+        return std::nullopt;
+    }
+
+    std::array<char, INET6_ADDRSTRLEN> text{};
+    if (address->sa_family == AF_INET) {
+        const auto* ipv4 = reinterpret_cast<const sockaddr_in*>(address);
+        if (inet_ntop(AF_INET, &ipv4->sin_addr, text.data(), text.size()) == nullptr) {
+            return std::nullopt;
+        }
+        return std::string(text.data());
+    }
+    if (address->sa_family == AF_INET6) {
+        const auto* ipv6 = reinterpret_cast<const sockaddr_in6*>(address);
+        if (inet_ntop(AF_INET6, &ipv6->sin6_addr, text.data(), text.size()) == nullptr) {
+            return std::nullopt;
+        }
+        std::string formatted(text.data());
+        if (IN6_IS_ADDR_LINKLOCAL(&ipv6->sin6_addr) && ipv6->sin6_scope_id != 0) {
+            formatted += '%' + std::to_string(ipv6->sin6_scope_id);
+        }
+        return formatted;
+    }
+    return std::nullopt;
+}
+
+bool isLinkLocalAddress(const SOCKADDR* address) noexcept
+{
+    if (address == nullptr) {
+        return false;
+    }
+    if (address->sa_family == AF_INET) {
+        const IN_ADDR& ipv4 = reinterpret_cast<const sockaddr_in*>(address)->sin_addr;
+        return ipv4.S_un.S_un_b.s_b1 == 169 && ipv4.S_un.S_un_b.s_b2 == 254;
+    }
+    if (address->sa_family == AF_INET6) {
+        return IN6_IS_ADDR_LINKLOCAL(&reinterpret_cast<const sockaddr_in6*>(address)->sin6_addr) != FALSE;
+    }
+    return false;
+}
+
+bool isTemporaryAddress(IP_SUFFIX_ORIGIN suffixOrigin) noexcept
+{
+    return suffixOrigin == IpSuffixOriginRandom;
 }
 
 bool isPlaceholderDnsServer(const SOCKADDR* address) noexcept

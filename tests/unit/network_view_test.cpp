@@ -222,6 +222,25 @@ TEST(NetworkView, NoAdapters_ShowsPlaceholder)
     EXPECT_EQ(view.placeholderText(), "No network adapters");
 }
 
+TEST(NetworkView, EveryAdapterHidden_PlaceholderPointsToShowAll)
+{
+    ShownNetworkView view;
+    NetworkSample wifiDirect = adapter(1, "Local Area Connection* 1", OperationalStatus::Down, false, true);
+    wifiDirect.isHidden = true;
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{
+        wifiDirect,
+        adapter(2, "WAN Miniport (IP)", OperationalStatus::Up, false, false),
+    }));
+
+    EXPECT_TRUE(view.listedInterfaceIds().empty());
+    EXPECT_EQ(view.placeholderText(), "No adapters to list. Select Show all adapters to list the hidden ones.");
+
+    view.setShowAllAdapters(true);
+
+    EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+}
+
 TEST(NetworkView, ReadFailsBeforeAnyAdapters_ShowsNotAvailable)
 {
     ShownNetworkView view;
@@ -261,7 +280,7 @@ TEST(NetworkView, Card_ShowsStatusDescriptionAndDetails)
     NetworkSample wifi = adapter(1, "Wi-Fi", OperationalStatus::Up);
     wifi.description = "Intel(R) Wi-Fi 6 AX201 160MHz";
     wifi.type = AdapterType::WiFi;
-    wifi.ipAddresses = {"192.168.1.23", "fe80::1c2b"};
+    wifi.ipAddresses = {{.text = "192.168.1.23"}, {.text = "fe80::1c2b"}};
     wifi.dnsServers = {"192.168.1.1"};
 
     view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
@@ -295,7 +314,7 @@ TEST(NetworkView, Card_DisconnectedThenUp_AddressesShownOnlyWhileUp)
 {
     ShownNetworkView view;
     NetworkSample wifi = adapter(1, "WiFi", OperationalStatus::Down);
-    wifi.ipAddresses = {"192.168.1.16"};
+    wifi.ipAddresses = {{.text = "192.168.1.16"}};
     wifi.dnsServers = {"192.168.1.1"};
 
     view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
@@ -549,8 +568,12 @@ SystemSnapshot demandingSnapshot()
     NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
     ethernet.description = "Realtek Gaming 2.5GbE Family Controller #2 (Kernel Debugger Compatible)";
     ethernet.type = AdapterType::Ethernet;
-    ethernet.ipAddresses = {"192.168.100.119", "2a02:aa1:1234:5678:9abc:def0:1234:5678",
-                            "2a02:aa1:1234:5678:1111:2222:3333:4444", "fe80::cd5b:b3cd:b185:d66b"};
+    ethernet.ipAddresses = {
+        {.text = "192.168.100.119"},
+        {.text = "2a02:aa1:1234:5678:9abc:def0:1234:5678"},
+        {.text = "2a02:aa1:1234:5678:1111:2222:3333:4444", .isTemporary = true},
+        {.text = "fe80::cd5b:b3cd:b185:d66b%16", .isLinkLocal = true},
+    };
     ethernet.dnsServers = {"192.168.100.1", "2a02:aa1:1234:5678::1"};
     NetworkSample wifi = ethernet;
     wifi.interfaceId = 2;

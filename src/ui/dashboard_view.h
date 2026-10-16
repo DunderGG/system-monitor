@@ -8,6 +8,7 @@
 
 #include "domain/ring_buffer.h"
 #include "domain/system_snapshot.h"
+#include "ui/sample_history.h"
 
 class QLabel;
 
@@ -34,8 +35,8 @@ class DashboardView : public QWidget
     Q_OBJECT
 
 public:
-    /** Samples of history per sparkline: one minute at the default 1 Hz sampling rate. */
-    static constexpr std::size_t kHistoryCapacity = 60;
+    /** Samples of history per sparkline: one minute (kOneMinuteOfSamples). */
+    static constexpr std::size_t kHistoryCapacity = kOneMinuteOfSamples;
 
     explicit DashboardView(QWidget* parent = nullptr);
     ~DashboardView() override = default;

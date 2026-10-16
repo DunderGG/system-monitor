@@ -94,12 +94,16 @@ struct BstrDeleter
 using ScopedBstr = std::unique_ptr<std::remove_pointer_t<BSTR>, BstrDeleter>;
 
 // Returns the interface LUIDs of the adapters connected to network. A
-// connection whose adapter cannot be matched is left out.
+// connection whose adapter cannot be matched is left out, with a debug log
+// line, so a network that shows "None" on every card leaves a trace.
 std::vector<uint64_t> connectedInterfaceIds(INetwork& network)
 {
     std::vector<uint64_t> interfaceIds;
     IEnumNetworkConnections* rawConnections = nullptr;
-    if (FAILED(network.GetNetworkConnections(&rawConnections)) || rawConnections == nullptr) {
+    const HRESULT connectionsResult = network.GetNetworkConnections(&rawConnections);
+    if (FAILED(connectionsResult) || rawConnections == nullptr) {
+        spdlog::debug("The connections of a network could not be listed (HRESULT {:#010x}); it matches no adapter",
+                      static_cast<unsigned long>(connectionsResult));
         return interfaceIds;
     }
     const ScopedComPtr<IEnumNetworkConnections> connections(rawConnections);
@@ -108,11 +112,19 @@ std::vector<uint64_t> connectedInterfaceIds(INetwork& network)
     while (connections->Next(1, &rawConnection, nullptr) == S_OK && rawConnection != nullptr) {
         const ScopedComPtr<INetworkConnection> connection(std::exchange(rawConnection, nullptr));
         GUID adapterId{};
-        NET_LUID luid{};
-        if (SUCCEEDED(connection->GetAdapterId(&adapterId)) &&
-            ConvertInterfaceGuidToLuid(&adapterId, &luid) == NO_ERROR) {
-            interfaceIds.push_back(luid.Value);
+        const HRESULT adapterResult = connection->GetAdapterId(&adapterId);
+        if (FAILED(adapterResult)) {
+            spdlog::debug("Skipped a network connection whose adapter could not be read (HRESULT {:#010x})",
+                          static_cast<unsigned long>(adapterResult));
+            continue;
         }
+        NET_LUID luid{};
+        const NETIO_STATUS luidResult = ConvertInterfaceGuidToLuid(&adapterId, &luid);
+        if (luidResult != NO_ERROR) {
+            spdlog::debug("Skipped a network connection whose adapter has no interface (error {})", luidResult);
+            continue;
+        }
+        interfaceIds.push_back(luid.Value);
     }
     return interfaceIds;
 }

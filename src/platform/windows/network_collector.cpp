@@ -1,7 +1,6 @@
 #include "platform/windows/network_collector.h"
 
 #include <algorithm>
-#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,29 +35,6 @@ namespace
 constexpr ULONG kInitialAdapterBufferSize = 15 * 1024;
 // The required size can grow between calls, so the documented pattern retries a few times.
 constexpr int kMaxAdapterQueryAttempts = 3;
-
-// Formats an IPv4 or IPv6 socket address as text; std::nullopt for other families or on failure.
-std::optional<std::string> sockaddrToString(const SOCKADDR* address)
-{
-    if (address == nullptr) {
-        return std::nullopt;
-    }
-
-    std::array<char, INET6_ADDRSTRLEN> text{};
-    const char* formatted = nullptr;
-    if (address->sa_family == AF_INET) {
-        const auto* ipv4 = reinterpret_cast<const sockaddr_in*>(address);
-        formatted = inet_ntop(AF_INET, &ipv4->sin_addr, text.data(), text.size());
-    } else if (address->sa_family == AF_INET6) {
-        const auto* ipv6 = reinterpret_cast<const sockaddr_in6*>(address);
-        formatted = inet_ntop(AF_INET6, &ipv6->sin6_addr, text.data(), text.size());
-    }
-
-    if (formatted == nullptr) {
-        return std::nullopt;
-    }
-    return std::string(text.data());
-}
 
 struct MibTableDeleter
 {
@@ -128,12 +104,17 @@ bool isUsableAddress(AddressState state, domain::OperationalStatus status)
     }
 }
 
-std::vector<std::string> usableAddresses(const std::vector<UnicastAddress>& addresses, domain::OperationalStatus status)
+std::vector<domain::IpAddress> usableAddresses(const std::vector<UnicastAddress>& addresses,
+                                               domain::OperationalStatus status)
 {
-    std::vector<std::string> usable;
+    std::vector<domain::IpAddress> usable;
     for (const auto& address : addresses) {
         if (isUsableAddress(address.state, status)) {
-            usable.push_back(address.address);
+            usable.push_back(domain::IpAddress{
+                .text = address.address,
+                .isTemporary = address.isTemporary,
+                .isLinkLocal = address.isLinkLocal,
+            });
         }
     }
     return usable;
@@ -179,10 +160,12 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failu
         }
 
         for (PIP_ADAPTER_UNICAST_ADDRESS uni = curr->FirstUnicastAddress; uni != nullptr; uni = uni->Next) {
-            if (auto address = sockaddrToString(uni->Address.lpSockaddr)) {
+            if (auto address = formatIpAddress(uni->Address.lpSockaddr)) {
                 details.ipAddresses.push_back(UnicastAddress{
                     .address = std::move(*address),
                     .state = toAddressState(uni->DadState),
+                    .isTemporary = isTemporaryAddress(uni->SuffixOrigin),
+                    .isLinkLocal = isLinkLocalAddress(uni->Address.lpSockaddr),
                 });
             }
         }
@@ -191,7 +174,7 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failu
             if (isPlaceholderDnsServer(dns->Address.lpSockaddr)) {
                 continue;
             }
-            if (auto address = sockaddrToString(dns->Address.lpSockaddr)) {
+            if (auto address = formatIpAddress(dns->Address.lpSockaddr)) {
                 details.dnsServers.push_back(std::move(*address));
             }
         }

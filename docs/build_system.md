@@ -175,7 +175,8 @@ resolution aligned.
 
 A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
 `.\scripts\build.ps1 -CheckFormat`, which fails if any file under `src/`,
-`tests/`, or `benchmarks/` differs from `.clang-format`. Run `.\scripts\build.ps1 -Format` locally
+`tests/`, or `benchmarks/` differs from `.clang-format`. It checks every file
+before it fails, so the log lists all of them. Run `.\scripts\build.ps1 -Format` locally
 before pushing. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also

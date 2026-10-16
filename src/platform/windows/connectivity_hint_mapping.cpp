@@ -37,7 +37,8 @@ std::optional<bool> toIsMetered(NL_NETWORK_CONNECTIVITY_COST_HINT cost) noexcept
 
 std::optional<bool> toIsRoaming(NL_NETWORK_CONNECTIVITY_COST_HINT cost, BOOLEAN roaming) noexcept
 {
-    if (cost == NetworkConnectivityCostHintUnknown) {
+    // Whenever the cost is unknown, including a cost value this mapping does not know.
+    if (!toIsMetered(cost)) {
         return std::nullopt;
     }
     return roaming != FALSE;

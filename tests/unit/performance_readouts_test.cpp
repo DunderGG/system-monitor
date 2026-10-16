@@ -183,7 +183,7 @@ TEST(PerformanceReadouts, AdapterReadouts_SplitsAddressesAndFormatsRates)
         .linkSpeedBps = 2'500'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
         .type = AdapterType::Ethernet,
-        .ipAddresses = {"192.168.1.20", "fe80::1", "10.0.0.5"},
+        .ipAddresses = {{.text = "192.168.1.20"}, {.text = "fe80::1"}, {.text = "10.0.0.5"}},
         .dnsServers = {"192.168.1.1"},
         .isHardwareInterface = true,
     };

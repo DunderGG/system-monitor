@@ -73,11 +73,24 @@ listedAdapters(const std::vector<domain::NetworkSample>& networks, bool showAll)
 /** Joins addresses one per line, or returns "None" when there are none. */
 [[nodiscard]] QString formatAddressList(const std::vector<std::string>& addresses);
 
-/** Returns the adapter's IPv4 addresses with formatAddressList(). */
+/**
+ * Returns an address as text, marked "(temporary)" or "(link-local)" as
+ * ipconfig names them, e.g. "fe80::1%16 (link-local)".
+ */
+[[nodiscard]] QString ipAddressText(const domain::IpAddress& address);
+
+/** Returns the adapter's IPv4 addresses, one per line with ipAddressText(), or "None". */
 [[nodiscard]] QString ipv4AddressText(const domain::NetworkSample& adapter);
 
-/** Returns the adapter's IPv6 addresses with formatAddressList(). */
+/** Returns the adapter's IPv6 addresses, one per line with ipAddressText(), or "None". */
 [[nodiscard]] QString ipv6AddressText(const domain::NetworkSample& adapter);
+
+/**
+ * Returns the tooltip of a link speed that the adapter reports: for a virtual
+ * adapter, that its driver chooses the speed, which therefore need not limit
+ * its throughput (a VPN tunnel can report 100 Gbps); empty for hardware.
+ */
+[[nodiscard]] QString linkSpeedToolTip(const domain::NetworkSample& adapter);
 
 /** Returns the display name of a network category: "Public", "Private", or "Domain". */
 [[nodiscard]] QString networkCategoryText(domain::NetworkCategory category);
@@ -100,8 +113,9 @@ listedAdapters(const std::vector<domain::NetworkSample>& networks, bool showAll)
  * servers. The link speed, the addresses and the DNS servers are "Not
  * connected" unless the adapter is Up, because Windows keeps reporting a
  * speed, leftover addresses and DNS servers for a disconnected adapter. The
- * link speed is "N/A" when an adapter that is Up reports none. Every value is
- * "N/A" when adapter is std::nullopt (the last read failed).
+ * link speed is "N/A" when an adapter that is Up reports none, and a reported
+ * speed has linkSpeedToolTip(). Addresses are marked with ipAddressText().
+ * Every value is "N/A" when adapter is std::nullopt (the last read failed).
  */
 [[nodiscard]] std::vector<Readout>
 adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter,

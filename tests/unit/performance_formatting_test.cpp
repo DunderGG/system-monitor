@@ -159,7 +159,7 @@ TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted
 {
     NetworkSample vpn = adapter("Mullvad", OperationalStatus::Up, false);
     vpn.description = "Mullvad Tunnel";
-    vpn.ipAddresses = {"10.64.12.34"};
+    vpn.ipAddresses = {{.text = "10.64.12.34"}};
     const std::vector<NetworkSample> networks{
         adapter("Ethernet", OperationalStatus::Up, true),
         wanMiniport("Local Area Connection* 7"),

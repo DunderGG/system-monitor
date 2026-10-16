@@ -71,6 +71,16 @@ TEST(ConnectivityHintMapping, ToIsRoaming_UnknownCost_ReturnsNullopt)
     EXPECT_FALSE(toIsRoaming(NetworkConnectivityCostHintUnknown, TRUE).has_value());
 }
 
+TEST(ConnectivityHintMapping, ToIsRoaming_CostFromALaterSdk_NulloptLikeTheCost)
+{
+    // A cost value this mapping does not know, such as one a later SDK adds.
+    const auto laterCost = static_cast<NL_NETWORK_CONNECTIVITY_COST_HINT>(NetworkConnectivityCostHintVariable + 1);
+
+    EXPECT_FALSE(toIsMetered(laterCost).has_value());
+    EXPECT_FALSE(toIsRoaming(laterCost, TRUE).has_value());
+    EXPECT_FALSE(toIsRoaming(laterCost, FALSE).has_value());
+}
+
 TEST(ConnectivityHintMapping, ToConnectivityStatus_FullHint_MapsEveryField)
 {
     const NL_NETWORK_CONNECTIVITY_HINT hint{

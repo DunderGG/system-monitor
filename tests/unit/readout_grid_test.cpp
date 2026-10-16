@@ -170,3 +170,36 @@ TEST(ReadoutGrid, MarkupInNamesAndValues_ShownAsPlainText)
     // One line of text per label, as tall as a grid without markup.
     EXPECT_EQ(grid.sizeHint().height(), ordinary.sizeHint().height());
 }
+
+TEST(ReadoutGrid, ToolTip_ShownOnNameAndValueAsPlainText)
+{
+    ReadoutGrid grid(kMaxColumns);
+
+    grid.setReadouts({{"Link speed", "100 Gbps", "Chosen by the <b>driver</b>"}, {"Type", "Virtual"}});
+
+    const auto labels = grid.findChildren<QLabel*>();
+    const auto withText = [&labels](const QString& text) {
+        return *std::ranges::find_if(labels, [&text](const QLabel* label) { return label->text() == text; });
+    };
+    for (const QString& text : {QString("Link speed"), QString("100 Gbps")}) {
+        // Converted to rich text that shows the markup literally.
+        EXPECT_TRUE(withText(text)->toolTip().contains("&lt;b&gt;driver&lt;/b&gt;")) << text.toStdString();
+    }
+    EXPECT_TRUE(withText("Virtual")->toolTip().isEmpty());
+    EXPECT_EQ(grid.readouts()[0].toolTip, "Chosen by the <b>driver</b>");
+}
+
+TEST(ReadoutGrid, SetReadoutsWithSameNames_UpdatesToolTipsInPlace)
+{
+    ReadoutGrid grid(kMaxColumns);
+    grid.setReadouts({{"Link speed", "100 Gbps", "Nominal"}});
+    const auto labels = grid.findChildren<QLabel*>();
+
+    grid.setReadouts({{"Link speed", "1 Gbps"}});
+
+    EXPECT_EQ(grid.findChildren<QLabel*>(), labels);
+    EXPECT_TRUE(grid.readouts()[0].toolTip.isEmpty());
+    for (const auto* label : labels) {
+        EXPECT_TRUE(label->toolTip().isEmpty()) << label->text().toStdString();
+    }
+}

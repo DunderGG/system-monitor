@@ -26,6 +26,7 @@ std::vector<Readout> placeholderReadouts(std::vector<Readout> readouts)
 {
     for (auto& readout : readouts) {
         readout.value = "--";
+        readout.toolTip.clear();
     }
     return readouts;
 }
@@ -154,7 +155,7 @@ std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>&
     return {
         {"Receive", valueOr(adapter->inBytesPerSec, formatByteRate)},
         {"Send", valueOr(adapter->outBytesPerSec, formatByteRate)},
-        {"Link speed", valueOr(linkSpeed, formatLinkSpeed)},
+        {"Link speed", valueOr(linkSpeed, formatLinkSpeed), linkSpeed ? linkSpeedToolTip(*adapter) : QString{}},
         {"Type", adapterTypeText(*adapter)},
         {"Adapter", adapter->description.empty() ? kNotAvailable : QString::fromStdString(adapter->description)},
         {"IPv4 address", ipv4AddressText(*adapter)},

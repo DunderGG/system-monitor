@@ -13,6 +13,7 @@
 #include "domain/network_sample.h"
 #include "domain/system_snapshot.h"
 #include "ui/adapter_throughput_history.h"
+#include "ui/sample_history.h"
 
 class QCheckBox;
 class QLabel;
@@ -51,8 +52,8 @@ class NetworkView : public QWidget
     Q_OBJECT
 
 public:
-    /** Samples of history per chart: one minute at the default 1 Hz sampling rate, as on the dashboard. */
-    static constexpr std::size_t kHistoryCapacity = 60;
+    /** Samples of history per chart: one minute (kOneMinuteOfSamples), as on the dashboard. */
+    static constexpr std::size_t kHistoryCapacity = kOneMinuteOfSamples;
 
     explicit NetworkView(QWidget* parent = nullptr);
     ~NetworkView() override = default;
@@ -60,7 +61,10 @@ public:
     /** Records the snapshot, and updates the widgets if the view is visible. */
     void updateSnapshot(const domain::SystemSnapshot& snapshot);
 
-    /** Sets whether hidden virtual adapters that are not bound to IP are listed too. Off by default. */
+    /**
+     * Sets whether the adapters that Windows hides, and virtual adapters that
+     * are not bound to IP, are listed too. Off by default.
+     */
     void setShowAllAdapters(bool showAll);
     [[nodiscard]] bool showsAllAdapters() const;
 

@@ -43,6 +43,28 @@ enum class AdapterType
 };
 
 /**
+ * A unicast address of a network adapter.
+ *
+ * text is the address as text. A link-local IPv6 address carries its zone
+ * index, e.g. "fe80::1%16", as ipconfig shows it, because the address cannot
+ * be used without it.
+ *
+ * isTemporary marks a temporary IPv6 address, which Windows generates from a
+ * random suffix and uses for outgoing connections in place of the stable one.
+ * isLinkLocal marks an address that is valid only on its link: IPv6
+ * fe80::/10, and IPv4 169.254.0.0/16, which Windows assigns when no DHCP
+ * server answers.
+ */
+struct IpAddress
+{
+    std::string text;
+    bool isTemporary{false};
+    bool isLinkLocal{false};
+
+    bool operator==(const IpAddress&) const = default;
+};
+
+/**
  * A single snapshot of one network adapter's traffic counters, throughput, and link state.
  *
  * interfaceId identifies the interface while it exists: its LUID, which does
@@ -102,7 +124,7 @@ struct NetworkSample
     uint64_t linkSpeedBps{0};
     OperationalStatus operationalStatus{OperationalStatus::Unknown};
     AdapterType type{AdapterType::Other};
-    std::vector<std::string> ipAddresses;
+    std::vector<IpAddress> ipAddresses;
     std::vector<std::string> dnsServers;
     bool isHardwareInterface{false};
     bool hasIpInterface{false};

@@ -89,14 +89,16 @@ SystemSnapshot demandingSnapshot()
     NetworkSample wired = adapter("Ethernet", OperationalStatus::Up);
     wired.description = "Realtek Gaming 2.5GbE Family Controller #2";
     wired.linkSpeedBps = 2'500'000'000;
-    wired.ipAddresses = {"192.168.1.23", "fd44:555c:2315:4176:c6d0:77e0:5d11:3727", "fe80::4a1c:9d2e:77b0:1f3a%12"};
+    wired.ipAddresses = {{.text = "192.168.1.23"},
+                         {.text = "fd44:555c:2315:4176:c6d0:77e0:5d11:3727", .isTemporary = true},
+                         {.text = "fe80::4a1c:9d2e:77b0:1f3a%12", .isLinkLocal = true}};
     wired.dnsServers = {"fd44:555c:2315:4176:c6d0:77e0:5d11:1", "2001:4860:4860::8888", "192.168.1.1"};
     wired.inBytesTotal = 987'654'321'098;
     wired.outBytesTotal = 123'456'789'012;
     NetworkSample tunnel = adapter("Mullvad", OperationalStatus::Up);
     tunnel.description = "Mullvad Tunnel (WireGuard) Virtual Network Adapter";
     tunnel.isHardwareInterface = false;
-    tunnel.ipAddresses = {"10.64.12.34", "fc00:bbbb:bbbb:bb01:d:0:1c:2f45"};
+    tunnel.ipAddresses = {{.text = "10.64.12.34"}, {.text = "fc00:bbbb:bbbb:bb01:d:0:1c:2f45"}};
     tunnel.dnsServers = {"10.64.0.1"};
     snapshot.networks = std::vector<NetworkSample>{wired, tunnel};
     return snapshot;
@@ -404,7 +406,7 @@ TEST(NetworkPerformancePage, HiddenVirtualAdaptersUp_ChartsOnlyAdaptersThatCarry
     auto snapshot = populatedSnapshot();
     NetworkSample tunnel = adapter("Mullvad", OperationalStatus::Up);
     tunnel.isHardwareInterface = false;
-    tunnel.ipAddresses = {"10.64.12.34"};
+    tunnel.ipAddresses = {{.text = "10.64.12.34"}};
     snapshot.networks->push_back(tunnel);
     for (const char* name : {"Local Area Connection* 7", "Local Area Connection* 8"}) {
         NetworkSample miniport = adapter(name, OperationalStatus::Up, 0, 0);

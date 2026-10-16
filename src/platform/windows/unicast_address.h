@@ -23,11 +23,17 @@ enum class AddressState
     Invalid,
 };
 
-/** A unicast address of an adapter, as text, with its state. */
+/**
+ * A unicast address of an adapter, as text (with the zone index of a
+ * link-local IPv6 address), with its state, and whether it is temporary or
+ * link-local (see domain::IpAddress).
+ */
 struct UnicastAddress
 {
     std::string address;
     AddressState state{AddressState::Preferred};
+    bool isTemporary{false};
+    bool isLinkLocal{false};
 
     bool operator==(const UnicastAddress&) const = default;
 };

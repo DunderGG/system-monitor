@@ -59,8 +59,8 @@ ignored by .gitignore do not.
 .PARAMETER CheckFormat
 Checks that every C++ source and header under src/, tests/, and benchmarks/
 (the same files as -Format) matches .clang-format, without changing files, then
-exits without building. Fails and lists the differences if any file needs
-formatting. CI runs this check.
+exits without building. Fails and lists the differences in every file that
+needs formatting, after checking them all. CI runs this check.
 
 clang-format is taken from the CLANG_FORMAT environment variable if set, then
 PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
@@ -309,7 +309,10 @@ function Invoke-ClangFormat
         $files = @($files | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
 
         # Batches keep each command line well below the Windows length limit.
+        # A check runs every batch before it fails, so that every unformatted
+        # file is listed, not only those in the first failing batch.
         $batchSize = 50
+        $failedBatches = 0
         for ($index = 0; $index -lt $files.Count; $index += $batchSize)
         {
             $batch = $files[$index..([Math]::Min($index + $batchSize, $files.Count) - 1)]
@@ -322,7 +325,7 @@ function Invoke-ClangFormat
                 }
                 catch
                 {
-                    throw "Some files do not match .clang-format (see above). Run .\scripts\build.ps1 -Format to fix them."
+                    $failedBatches++
                 }
             }
             else
@@ -331,6 +334,10 @@ function Invoke-ClangFormat
             }
         }
 
+        if ($failedBatches -gt 0)
+        {
+            throw "Some files do not match .clang-format (see above). Run .\scripts\build.ps1 -Format to fix them."
+        }
         if ($IsCheckOnly)
         {
             Write-Host "All $($files.Count) files match .clang-format."
