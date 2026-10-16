@@ -118,6 +118,24 @@ TEST(DashboardFormatting, ConnectivityText_MeteredOnlyWhenKnown)
               "Internet access");
 }
 
+TEST(DashboardFormatting, ConnectivityText_RoamingOnlyWhenKnown)
+{
+    EXPECT_EQ(connectivityText({.level = ConnectivityLevel::InternetAccess, .isMetered = true, .isRoaming = true}),
+              "Internet access, metered, roaming");
+    EXPECT_EQ(connectivityText({.level = ConnectivityLevel::InternetAccess, .isMetered = false, .isRoaming = false}),
+              "Internet access");
+    EXPECT_EQ(connectivityText({.level = ConnectivityLevel::Unknown, .isRoaming = std::nullopt}),
+              "Connectivity unknown");
+}
+
+TEST(DashboardFormatting, ConnectivityLevelText_UnknownIsNotOffline)
+{
+    EXPECT_EQ(connectivityLevelText(ConnectivityLevel::Unknown), "Unknown");
+    EXPECT_EQ(connectivityLevelText(ConnectivityLevel::None), "No connectivity");
+    EXPECT_EQ(connectivityLevelText(ConnectivityLevel::LocalAccess), "Local network only");
+    EXPECT_EQ(connectivityLevelText(ConnectivityLevel::ConstrainedInternetAccess), "Limited internet (captive portal)");
+}
+
 TEST(DashboardFormatting, SumActiveThroughput_SumsOnlyUpAdapters)
 {
     const std::vector<NetworkSample> networks = {

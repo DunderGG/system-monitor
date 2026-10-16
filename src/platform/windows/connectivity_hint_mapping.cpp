@@ -35,11 +35,20 @@ std::optional<bool> toIsMetered(NL_NETWORK_CONNECTIVITY_COST_HINT cost) noexcept
     }
 }
 
+std::optional<bool> toIsRoaming(NL_NETWORK_CONNECTIVITY_COST_HINT cost, BOOLEAN roaming) noexcept
+{
+    if (cost == NetworkConnectivityCostHintUnknown) {
+        return std::nullopt;
+    }
+    return roaming != FALSE;
+}
+
 domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HINT& hint) noexcept
 {
     return domain::ConnectivityStatus{
         .level = toConnectivityLevel(hint.ConnectivityLevel),
         .isMetered = toIsMetered(hint.ConnectivityCost),
+        .isRoaming = toIsRoaming(hint.ConnectivityCost, hint.Roaming),
     };
 }
 

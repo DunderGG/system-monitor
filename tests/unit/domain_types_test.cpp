@@ -193,6 +193,7 @@ TEST(ConnectivityStatus, DefaultConstruction_UnknownWithUnknownCost)
     ConnectivityStatus s;
     EXPECT_EQ(s.level, ConnectivityLevel::Unknown);
     EXPECT_FALSE(s.isMetered.has_value());
+    EXPECT_FALSE(s.isRoaming.has_value());
 }
 
 TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
@@ -200,9 +201,11 @@ TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
     ConnectivityStatus s{
         .level = ConnectivityLevel::InternetAccess,
         .isMetered = true,
+        .isRoaming = false,
     };
     EXPECT_EQ(s.level, ConnectivityLevel::InternetAccess);
     EXPECT_EQ(s.isMetered, true);
+    EXPECT_EQ(s.isRoaming, false);
 }
 
 TEST(ConnectivityLevel, EnumValues_AreDistinct)

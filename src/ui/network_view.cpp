@@ -15,10 +15,28 @@
 #include "ui/adapter_card.h"
 #include "ui/dashboard_formatting.h"
 #include "ui/network_formatting.h"
+#include "ui/performance_readouts.h"
+#include "ui/readout_grid.h"
 #include "ui/view_metrics.h"
 
 namespace sysmon::ui
 {
+
+namespace
+{
+
+constexpr int kConnectivityColumns = 4;
+
+QLabel* sectionLabel(const QString& text, QWidget* parent)
+{
+    auto* label = new QLabel(text, parent);
+    QFont font = label->font();
+    font.setBold(true);
+    label->setFont(font);
+    return label;
+}
+
+} // namespace
 
 NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
 {
@@ -33,12 +51,16 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
     titleLabel->setFont(titleFont);
     layout->addWidget(titleLabel);
 
+    auto* connectivitySection = new QVBoxLayout();
+    connectivitySection->setSpacing(kItemSpacing);
+    connectivitySection->addWidget(sectionLabel("Connectivity", this));
+    m_connectivityGrid = new ReadoutGrid(kConnectivityColumns, this);
+    m_connectivityGrid->setReadouts(placeholderReadouts(connectivityReadouts({})));
+    connectivitySection->addWidget(m_connectivityGrid);
+    layout->addLayout(connectivitySection);
+
     auto* adaptersHeader = new QHBoxLayout();
-    auto* adaptersLabel = new QLabel("Adapters", this);
-    QFont adaptersFont = adaptersLabel->font();
-    adaptersFont.setBold(true);
-    adaptersLabel->setFont(adaptersFont);
-    adaptersHeader->addWidget(adaptersLabel);
+    adaptersHeader->addWidget(sectionLabel("Adapters", this));
     adaptersHeader->addStretch();
     m_showAllCheckBox = new QCheckBox("Show all adapters", this);
     m_showAllCheckBox->setToolTip("Also list hidden virtual adapters that are not bound to IP, such as the WAN "
@@ -72,6 +94,7 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
 void NetworkView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
     ++m_recordedCount;
+    m_connectivity = snapshot.connectivity;
     m_latest = snapshot.networks;
     m_history.record(snapshot.networks);
     // Hidden widgets need no update; showEvent() catches up.
@@ -106,6 +129,11 @@ QString NetworkView::placeholderText() const
     return m_placeholderLabel->text();
 }
 
+ReadoutGrid* NetworkView::connectivityReadoutGrid() const
+{
+    return m_connectivityGrid;
+}
+
 void NetworkView::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
@@ -117,6 +145,8 @@ void NetworkView::refresh()
     if (m_recordedCount == 0) {
         return;
     }
+
+    m_connectivityGrid->setReadouts(connectivityReadouts(m_connectivity));
 
     // Without a successful read, keep the cards from the last one.
     if (m_latest) {

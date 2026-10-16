@@ -22,11 +22,13 @@ namespace sysmon::ui
 {
 
 class AdapterCard;
+class ReadoutGrid;
 
 /**
- * Network tab: one card per network adapter in a scrolling list (see
- * listedAdapters() for which adapters, and in what order). "Show all
- * adapters" also lists the hidden virtual adapters that are not bound to IP.
+ * Network tab: the system's connectivity (see connectivityReadouts()) above
+ * one card per network adapter in a scrolling list (see listedAdapters() for
+ * which adapters, and in what order). "Show all adapters" also lists the
+ * hidden virtual adapters that are not bound to IP.
  *
  * Cards are keyed by interface ID, so an adapter keeps its card when it is
  * renamed or moves in the list. When a read fails, the cards of the last
@@ -65,6 +67,8 @@ public:
     /** Text shown in place of the cards when there are none, e.g. "No network adapters". */
     [[nodiscard]] QString placeholderText() const;
 
+    [[nodiscard]] ReadoutGrid* connectivityReadoutGrid() const;
+
 protected:
     void showEvent(QShowEvent* event) override;
 
@@ -72,6 +76,7 @@ private:
     void refresh();
     void arrangeCards(const std::vector<uint64_t>& interfaceIds);
 
+    ReadoutGrid* m_connectivityGrid{nullptr};
     QCheckBox* m_showAllCheckBox{nullptr};
     QLabel* m_placeholderLabel{nullptr};
     QScrollArea* m_scrollArea{nullptr};
@@ -80,6 +85,7 @@ private:
     std::vector<AdapterCard*> m_cards;
 
     std::uint64_t m_recordedCount{0};
+    domain::ConnectivityStatus m_connectivity;
     std::optional<std::vector<domain::NetworkSample>> m_latest;
     AdapterThroughputHistory m_history{kHistoryCapacity};
 };

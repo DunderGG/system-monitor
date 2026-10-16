@@ -51,7 +51,14 @@ inline const QString kNotAvailable = QStringLiteral("N/A");
 /** Returns the display name of a health level, e.g. "Warning". */
 [[nodiscard]] QString healthLevelText(domain::HealthLevel level);
 
-/** Describes connectivity in words, with ", metered" appended when the connection is known to be metered. */
+/** Describes a connectivity level in words, e.g. "Internet access"; Unknown is "Unknown", never offline. */
+[[nodiscard]] QString connectivityLevelText(domain::ConnectivityLevel level);
+
+/**
+ * Describes connectivity in words for one line, e.g. "Internet access, metered":
+ * ", metered" and ", roaming" are appended when the connection is known to be
+ * metered or roaming, and an Unknown level reads "Connectivity unknown".
+ */
 [[nodiscard]] QString connectivityText(const domain::ConnectivityStatus& status);
 
 /** Total inbound and outbound throughput across active hardware adapters, in bytes/sec. */

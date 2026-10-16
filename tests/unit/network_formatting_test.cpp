@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 
+#include "domain/connectivity_status.h"
 #include "domain/network_sample.h"
 #include "ui/network_formatting.h"
 #include "ui/performance_readouts.h"
@@ -193,4 +194,36 @@ TEST(NetworkFormatting, AdapterDetailReadouts_ReadFailed_SameNamesAllNotAvailabl
         EXPECT_EQ(unavailable[index].name, available[index].name);
         EXPECT_EQ(unavailable[index].value, "N/A");
     }
+}
+
+TEST(NetworkFormatting, ConnectivityReadouts_KnownState_LevelCostAndRoaming)
+{
+    const ConnectivityStatus status{.level = ConnectivityLevel::InternetAccess, .isMetered = false, .isRoaming = false};
+
+    EXPECT_EQ(connectivityReadouts(status), (std::vector<Readout>{
+                                                {"Connectivity", "Internet access"},
+                                                {"Cost", "Unmetered"},
+                                                {"Roaming", "No"},
+                                            }));
+}
+
+TEST(NetworkFormatting, ConnectivityReadouts_MeteredAndRoaming)
+{
+    const ConnectivityStatus status{
+        .level = ConnectivityLevel::ConstrainedInternetAccess, .isMetered = true, .isRoaming = true};
+
+    EXPECT_EQ(connectivityReadouts(status), (std::vector<Readout>{
+                                                {"Connectivity", "Limited internet (captive portal)"},
+                                                {"Cost", "Metered"},
+                                                {"Roaming", "Yes"},
+                                            }));
+}
+
+TEST(NetworkFormatting, ConnectivityReadouts_UnknownState_SaysUnknownNotOfflineOrUnmetered)
+{
+    EXPECT_EQ(connectivityReadouts(ConnectivityStatus{}), (std::vector<Readout>{
+                                                              {"Connectivity", "Unknown"},
+                                                              {"Cost", "Unknown"},
+                                                              {"Roaming", "Unknown"},
+                                                          }));
 }

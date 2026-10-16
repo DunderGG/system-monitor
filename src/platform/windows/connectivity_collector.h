@@ -53,7 +53,8 @@ using ConnectivitySubscriber = std::function<std::unique_ptr<ConnectivitySubscri
  *   runs on the slow-collector thread, never on the 1 Hz tick.
  *
  * Missing data is explicit: before the first successful read, or after a failed
- * read, collect() returns ConnectivityLevel::Unknown with isMetered == std::nullopt.
+ * read, collect() returns ConnectivityLevel::Unknown with isMetered and
+ * isRoaming == std::nullopt.
  * collect() logs each change of status at info level, so notification callbacks
  * only store the value.
  */

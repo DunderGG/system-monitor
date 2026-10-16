@@ -83,30 +83,32 @@ QString healthLevelText(domain::HealthLevel level)
     }
 }
 
-QString connectivityText(const domain::ConnectivityStatus& status)
+QString connectivityLevelText(domain::ConnectivityLevel level)
 {
-    QString text;
-    switch (status.level) {
+    switch (level) {
         case domain::ConnectivityLevel::InternetAccess:
-            text = "Internet access";
-            break;
+            return "Internet access";
         case domain::ConnectivityLevel::ConstrainedInternetAccess:
-            text = "Limited internet (captive portal)";
-            break;
+            return "Limited internet (captive portal)";
         case domain::ConnectivityLevel::LocalAccess:
-            text = "Local network only";
-            break;
+            return "Local network only";
         case domain::ConnectivityLevel::None:
-            text = "No connectivity";
-            break;
+            return "No connectivity";
         case domain::ConnectivityLevel::Unknown:
         default:
-            text = "Connectivity unknown";
-            break;
+            return "Unknown";
     }
+}
 
+QString connectivityText(const domain::ConnectivityStatus& status)
+{
+    QString text = status.level == domain::ConnectivityLevel::Unknown ? QString("Connectivity unknown")
+                                                                      : connectivityLevelText(status.level);
     if (status.isMetered.value_or(false)) {
         text += ", metered";
+    }
+    if (status.isRoaming.value_or(false)) {
+        text += ", roaming";
     }
     return text;
 }

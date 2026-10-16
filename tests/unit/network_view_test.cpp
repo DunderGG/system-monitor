@@ -306,3 +306,42 @@ TEST(NetworkView, ReadFails_ChartsRecordGap)
     ASSERT_EQ(receive.size(), 2u);
     EXPECT_FALSE(receive[1].has_value());
 }
+
+TEST(NetworkView, Connectivity_PlaceholderBeforeFirstSnapshotThenReadouts)
+{
+    ShownNetworkView view;
+
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "--");
+
+    SystemSnapshot snapshot = snapshotWith(std::vector<NetworkSample>{});
+    snapshot.connectivity = {.level = ConnectivityLevel::InternetAccess, .isMetered = true, .isRoaming = false};
+    view.updateSnapshot(snapshot);
+
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Internet access");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Cost"), "Metered");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Roaming"), "No");
+}
+
+TEST(NetworkView, Connectivity_UnknownBeforeTheFirstSlowRefresh_ShownAsUnknown)
+{
+    ShownNetworkView view;
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{}));
+
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Unknown");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Cost"), "Unknown");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Roaming"), "Unknown");
+}
+
+TEST(NetworkView, Connectivity_ChangesWhileHidden_ShownWhenTheViewIs)
+{
+    NetworkView view;
+    view.setAttribute(Qt::WA_DontShowOnScreen);
+    SystemSnapshot snapshot = snapshotWith(std::vector<NetworkSample>{});
+    snapshot.connectivity = {.level = ConnectivityLevel::LocalAccess, .isMetered = false, .isRoaming = false};
+    view.updateSnapshot(snapshot);
+
+    view.show();
+
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Local network only");
+}

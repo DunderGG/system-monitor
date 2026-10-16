@@ -6,6 +6,7 @@
 
 #include <QString>
 
+#include "domain/connectivity_status.h"
 #include "domain/network_sample.h"
 #include "ui/performance_readouts.h"
 
@@ -64,5 +65,13 @@ listedAdapters(const std::vector<domain::NetworkSample>& networks, bool showAll)
  * adapter is std::nullopt (the last read failed).
  */
 [[nodiscard]] std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter);
+
+/**
+ * Network tab, for the system's connectivity: the level, the cost ("Metered"
+ * or "Unmetered"), and whether the connection is roaming ("Yes" or "No").
+ * Each reads "Unknown" when Windows could not say, never offline, unmetered,
+ * or not roaming.
+ */
+[[nodiscard]] std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& status);
 
 } // namespace sysmon::ui

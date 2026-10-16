@@ -41,12 +41,12 @@ std::string_view levelName(domain::ConnectivityLevel level) noexcept
     }
 }
 
-std::string_view meteredName(std::optional<bool> isMetered) noexcept
+std::string_view flagName(std::optional<bool> flag) noexcept
 {
-    if (!isMetered) {
+    if (!flag) {
         return "unknown";
     }
-    return *isMetered ? "yes" : "no";
+    return *flag ? "yes" : "no";
 }
 
 std::optional<domain::ConnectivityStatus> queryConnectivityHint(RepeatedFailureLog& failureLog)
@@ -164,8 +164,8 @@ domain::ConnectivityStatus ConnectivityCollector::collect()
     // (event-driven collector rule 1). A change that reverts before the next tick
     // is not logged.
     if (status != m_lastLoggedStatus) {
-        spdlog::info("Connectivity changed: level={}, metered={}", levelName(status.level),
-                     meteredName(status.isMetered));
+        spdlog::info("Connectivity changed: level={}, metered={}, roaming={}", levelName(status.level),
+                     flagName(status.isMetered), flagName(status.isRoaming));
         m_lastLoggedStatus = status;
     }
     return status;

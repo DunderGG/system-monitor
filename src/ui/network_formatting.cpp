@@ -157,4 +157,21 @@ std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSa
     };
 }
 
+std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& status)
+{
+    QString cost = "Unknown";
+    if (status.isMetered) {
+        cost = *status.isMetered ? "Metered" : "Unmetered";
+    }
+    QString roaming = "Unknown";
+    if (status.isRoaming) {
+        roaming = *status.isRoaming ? "Yes" : "No";
+    }
+    return {
+        {"Connectivity", connectivityLevelText(status.level)},
+        {"Cost", cost},
+        {"Roaming", roaming},
+    };
+}
+
 } // namespace sysmon::ui

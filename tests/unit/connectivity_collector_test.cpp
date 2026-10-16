@@ -259,7 +259,7 @@ TEST(ConnectivityCollector, Notification_StoresOnlyAndCollectLogsTheChange)
     static_cast<void>(collector.collect());
 
     EXPECT_TRUE(afterNotification.empty());
-    EXPECT_EQ(logCapture.output(), "info Connectivity changed: level=InternetAccess, metered=no\n");
+    EXPECT_EQ(logCapture.output(), "info Connectivity changed: level=InternetAccess, metered=no, roaming=unknown\n");
 }
 
 TEST(ConnectivityCollector, NotificationPath_CollectDoesNotPollReader)

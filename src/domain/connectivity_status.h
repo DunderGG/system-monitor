@@ -31,11 +31,15 @@ enum class ConnectivityLevel
  * isMetered reflects the ConnectionCost metered flag; the UI uses this to
  * warn users before triggering network-heavy operations. std::nullopt means
  * the cost could not be determined.
+ * isRoaming is true when the connection is roaming outside its provider's
+ * home network, as mobile broadband can. Windows reports it as part of the
+ * connection cost, so it is std::nullopt whenever isMetered is.
  */
 struct ConnectivityStatus
 {
     ConnectivityLevel level{ConnectivityLevel::Unknown};
     std::optional<bool> isMetered;
+    std::optional<bool> isRoaming;
 
     bool operator==(const ConnectivityStatus&) const = default;
 };

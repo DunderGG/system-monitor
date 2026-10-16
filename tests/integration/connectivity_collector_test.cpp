@@ -51,6 +51,7 @@ TEST(ConnectivityCollectorIntegration, FirstCollect_MatchesDirectConnectivityHin
     // differ if connectivity genuinely changes between the two reads.
     EXPECT_EQ(status.level, expected.level);
     EXPECT_EQ(status.isMetered, expected.isMetered);
+    EXPECT_EQ(status.isRoaming, expected.isRoaming);
 }
 
 TEST(ConnectivityCollectorIntegration, ConsecutiveSamples_ReturnValidLevels)
