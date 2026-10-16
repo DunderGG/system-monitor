@@ -155,7 +155,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming. Render `ConnectivityLevel::Unknown` and an unknown metered state (`isMetered == std::nullopt`) explicitly rather than as offline or unmetered ([DC-99](docs/design_decisions.md#dc-99-connectivity-section-level-cost-and-roaming-each-unknown-when-windows-cannot-say)).
 - [x] Optionally display friendly network name from NLM (lazy, cached query). Shown per adapter and in the connectivity section, with the network category ([DC-100](docs/design_decisions.md#dc-100-network-names-from-inetworklistmanager-re-read-after-a-connectivity-change-or-a-minute-and-matched-to-adapters-by-luid)).
 - [x] Update connectivity status reactively via `NotifyNetworkConnectivityHintChange` rather than polling. A notified change wakes the slow-collector thread, so it reaches the next snapshot ([DC-101](docs/design_decisions.md#dc-101-connectivity-changes-wake-the-slow-collector-thread-which-collects-only-the-event-driven-collectors)).
-- [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
+- [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. See the [Phase 5 code review](docs/code_reviews/phase_5.md); fix F-35 to F-37 before starting Phase 6.
 
 ---
 
