@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <numbers>
 #include <string>
 #include <utility>
@@ -52,9 +53,8 @@ constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 800;
 constexpr std::size_t kTimedTicks = 20;
 constexpr std::size_t kVolumeCount = 3;
-// Adapters in the Performance tab's snapshots, and the counts the Network tab is timed with.
+// Adapters in the Performance tab's snapshots.
 constexpr std::size_t kAdapterCount = 2;
-constexpr std::array<std::size_t, 3> kNetworkTabAdapterCounts{2, 8, 16};
 constexpr int kNetworkTabCoreCount = 16;
 constexpr uint64_t kGiB = 1024ULL * 1024ULL * 1024ULL;
 constexpr double kPeakBytesPerSecond = 100.0 * 1024.0 * 1024.0;
@@ -78,6 +78,32 @@ constexpr std::array kScenarios{
     Scenario{.name = "Memory", .page = PerformanceView::Page::Memory, .coreCount = 16},
     Scenario{.name = "Disk, 3 volumes", .page = PerformanceView::Page::Disk, .coreCount = 16},
     Scenario{.name = "Network, 2 adapters", .page = PerformanceView::Page::Network, .coreCount = 16},
+};
+
+// The adapters the Network tab is timed with. They are Up hardware adapters,
+// except that the last downCount are Down, virtual and hidden by Windows, so
+// only "Show all adapters" lists them, and their charts are collapsed.
+struct NetworkTabScenario
+{
+    const char* name;
+    std::size_t adapterCount;
+    std::size_t downCount{0};
+    bool showAll{false};
+    // The first adapter goes down on one tick and up on the next, which
+    // collapses and expands its chart.
+    bool flaps{false};
+};
+
+constexpr std::array kNetworkTabScenarios{
+    NetworkTabScenario{.name = "2 adapters", .adapterCount = 2},
+    NetworkTabScenario{.name = "8 adapters", .adapterCount = 8},
+    NetworkTabScenario{.name = "16 adapters", .adapterCount = 16},
+    NetworkTabScenario{.name = "20 adapters with Show all, 10 of them Down and hidden",
+                       .adapterCount = 20,
+                       .downCount = 10,
+                       .showAll = true},
+    NetworkTabScenario{
+        .name = "16 adapters, one going down and up on alternate ticks", .adapterCount = 16, .flaps = true},
 };
 
 struct TickTimes
@@ -181,13 +207,31 @@ SystemSnapshot makeSnapshot(std::size_t tick, int coreCount, std::size_t adapter
     return snapshot;
 }
 
+SystemSnapshot makeNetworkTabSnapshot(std::size_t tick, const NetworkTabScenario& scenario)
+{
+    SystemSnapshot snapshot = makeSnapshot(tick, kNetworkTabCoreCount, scenario.adapterCount);
+    std::vector<NetworkSample>& networks = *snapshot.networks;
+    for (std::size_t adapter = scenario.adapterCount - scenario.downCount; adapter < scenario.adapterCount; ++adapter) {
+        NetworkSample& sample = networks[adapter];
+        sample.operationalStatus = OperationalStatus::Down;
+        sample.inBytesPerSec = 0;
+        sample.outBytesPerSec = 0;
+        sample.isHardwareInterface = false;
+        sample.isHidden = true;
+    }
+    if (scenario.flaps && tick % 2 == 1) {
+        networks[0].operationalStatus = OperationalStatus::Down;
+    }
+    return snapshot;
+}
+
 // Times kTimedTicks ticks, each a forwarded snapshot followed by a repaint of
 // the whole window. Snapshots are built before the clock starts.
-TickTimes timeTicks(MainWindow& window, std::size_t& tick, int coreCount, std::size_t adapterCount)
+TickTimes timeTicks(MainWindow& window, std::size_t& tick, const std::function<SystemSnapshot(std::size_t)>& snapshotAt)
 {
     std::vector<double> durations;
     for (std::size_t index = 0; index < kTimedTicks; ++index) {
-        const SystemSnapshot snapshot = makeSnapshot(tick++, coreCount, adapterCount);
+        const SystemSnapshot snapshot = snapshotAt(tick++);
         const auto start = std::chrono::steady_clock::now();
         window.onSnapshotReady(snapshot);
         static_cast<void>(window.grab());
@@ -246,32 +290,36 @@ int main(int argc, char* argv[])
         for (const std::size_t historyWindow : PerformanceView::kHistoryWindows) {
             view->setHistoryWindow(historyWindow);
             QCoreApplication::processEvents();
-            const TickTimes times = timeTicks(window, tick, scenario.coreCount, kAdapterCount);
+            const TickTimes times = timeTicks(window, tick, [&scenario](std::size_t at) {
+                return makeSnapshot(at, scenario.coreCount, kAdapterCount);
+            });
             row += std::format(" {:.1f} ms ({:.1f}) |", times.meanMs, times.maxMs);
         }
         spdlog::info("{}", row);
     }
 
-    spdlog::info("\nNetwork tab tick cost: the same, with the Network tab shown and {} samples per adapter chart,",
+    spdlog::info("\nNetwork tab tick cost: the same, with the Network tab shown and {} samples per adapter chart.",
                  NetworkView::kHistoryCapacity);
-    spdlog::info("for adapters that are all listed and Up.\n");
-    spdlog::info("| Adapters | Tick |");
+    spdlog::info("Adapters are Up and listed by default unless the scenario says otherwise.\n");
+    spdlog::info("| Scenario | Tick |");
     spdlog::info("| --- | --- |");
 
-    for (const std::size_t adapterCount : kNetworkTabAdapterCounts) {
+    for (const NetworkTabScenario& scenario : kNetworkTabScenarios) {
         MainWindow window;
         window.setAttribute(Qt::WA_DontShowOnScreen);
         window.resize(kWindowWidth, kWindowHeight);
         window.show();
         window.tabWidget()->setCurrentWidget(window.networkView());
+        window.networkView()->setShowAllAdapters(scenario.showAll);
+        const auto snapshotAt = [&scenario](std::size_t at) { return makeNetworkTabSnapshot(at, scenario); };
 
         std::size_t tick = 0;
         for (; tick < NetworkView::kHistoryCapacity; ++tick) {
-            window.onSnapshotReady(makeSnapshot(tick, kNetworkTabCoreCount, adapterCount));
+            window.onSnapshotReady(snapshotAt(tick));
         }
         QCoreApplication::processEvents();
-        const TickTimes times = timeTicks(window, tick, kNetworkTabCoreCount, adapterCount);
-        spdlog::info("| {} | {:.1f} ms ({:.1f}) |", adapterCount, times.meanMs, times.maxMs);
+        const TickTimes times = timeTicks(window, tick, snapshotAt);
+        spdlog::info("| {} | {:.1f} ms ({:.1f}) |", scenario.name, times.meanMs, times.maxMs);
     }
     return 0;
 }

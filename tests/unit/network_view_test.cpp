@@ -8,6 +8,9 @@
 #include <gtest/gtest.h>
 #include <QCoreApplication>
 #include <QLabel>
+#include <QPoint>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSize>
 #include <QTabWidget>
 
@@ -534,4 +537,83 @@ TEST(NetworkView, Card_StatusDescriptionAndReadoutNamesReadableInBothColourSchem
         EXPECT_EQ(view->adapterCard(0)->statusLabel()->tone(), TextTone::Good);
         EXPECT_EQ(view->adapterCard(1)->statusLabel()->tone(), TextTone::Dimmed);
     }
+}
+
+namespace
+{
+
+// The longest values the tab shows: three IPv6 addresses, long descriptions,
+// two DNS servers, and two networks, one with a 32-byte name, the longest SSID.
+SystemSnapshot demandingSnapshot()
+{
+    NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
+    ethernet.description = "Realtek Gaming 2.5GbE Family Controller #2 (Kernel Debugger Compatible)";
+    ethernet.type = AdapterType::Ethernet;
+    ethernet.ipAddresses = {"192.168.100.119", "2a02:aa1:1234:5678:9abc:def0:1234:5678",
+                            "2a02:aa1:1234:5678:1111:2222:3333:4444", "fe80::cd5b:b3cd:b185:d66b"};
+    ethernet.dnsServers = {"192.168.100.1", "2a02:aa1:1234:5678::1"};
+    NetworkSample wifi = ethernet;
+    wifi.interfaceId = 2;
+    wifi.adapterName = wifi.friendlyName = "Wi-Fi";
+    wifi.description = "Intel(R) Wi-Fi 7 BE200 320MHz Wireless Network Adapter";
+    wifi.type = AdapterType::WiFi;
+
+    SystemSnapshot snapshot = snapshotWith(std::vector<NetworkSample>{ethernet, wifi});
+    snapshot.connectivity = {
+        .level = ConnectivityLevel::ConstrainedInternetAccess, .isMetered = true, .isRoaming = true};
+    snapshot.networkProfiles = std::vector<NetworkProfile>{
+        {.name = "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345",
+         .category = NetworkCategory::DomainAuthenticated,
+         .interfaceIds = {1}},
+        {.name = "Guest network of the coffee shop", .category = NetworkCategory::Public, .interfaceIds = {2}},
+    };
+    return snapshot;
+}
+
+// Expects every label in grid to be at least as wide as its text and inside the grid.
+void expectLabelsFit(const ReadoutGrid& grid)
+{
+    for (const auto* label : grid.findChildren<QLabel*>()) {
+        EXPECT_GE(label->width(), label->sizeHint().width()) << label->text().toStdString();
+        EXPECT_LE(label->x() + label->width(), grid.width()) << label->text().toStdString();
+    }
+}
+
+} // namespace
+
+TEST(NetworkView, SmallWindow_LongestValuesFitWithoutHorizontalScrolling)
+{
+    MainWindow mainWindow;
+    mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
+    mainWindow.resize(800, 600);
+    mainWindow.show();
+    mainWindow.tabWidget()->setCurrentWidget(mainWindow.networkView());
+
+    mainWindow.onSnapshotReady(demandingSnapshot());
+    QCoreApplication::processEvents();
+
+    const NetworkView* view = mainWindow.networkView();
+    ASSERT_EQ(view->listedInterfaceIds().size(), 2u);
+    const QSize minimum = mainWindow.minimumSizeHint();
+    EXPECT_LE(minimum.width(), 800);
+    EXPECT_LE(minimum.height(), 600);
+    EXPECT_EQ(mainWindow.size(), QSize(800, 600));
+
+    // With horizontal scrolling off, the scroll area squeezes content that is
+    // too wide instead of scrolling it, so check the content's minimum width
+    // and that no label is narrower than its text.
+    const auto* scrollArea = view->findChild<QScrollArea*>();
+    ASSERT_NE(scrollArea, nullptr);
+    const QWidget* viewport = scrollArea->viewport();
+    EXPECT_EQ(scrollArea->horizontalScrollBar()->maximum(), 0);
+    EXPECT_LE(scrollArea->widget()->minimumSizeHint().width(), viewport->width());
+    EXPECT_LE(scrollArea->widget()->width(), viewport->width());
+    for (std::size_t index = 0; index < 2; ++index) {
+        const ReadoutGrid* grid = view->adapterCard(index)->readoutGrid();
+        EXPECT_LE(grid->mapTo(viewport, QPoint(grid->width(), 0)).x(), viewport->width());
+        expectLabelsFit(*grid);
+    }
+    const ReadoutGrid* connectivity = view->connectivityReadoutGrid();
+    EXPECT_LE(connectivity->mapTo(view, QPoint(connectivity->width(), 0)).x(), view->width());
+    expectLabelsFit(*connectivity);
 }

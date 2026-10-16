@@ -1235,6 +1235,24 @@ The code review suggested comparing the row's PID with `QCoreApplication::applic
 
 **Rationale:** The tab is an inventory, and its charts show what each adapter is doing now. The Performance tab's network page already offers 5- and 30-minute windows for the active adapters. One minute keeps each card's history at 120 values and its chart sparse, and matches the dashboard. Every adapter's history is recorded, listed or not, so an adapter that comes up, or that "Show all adapters" adds, already has its last minute, and a hidden tab loses nothing ([DC-54](#dc-54-snapshot-forwarding-every-view-records-every-snapshot-and-hidden-views-skip-repainting-code-review-f-4)). Sharing the class keeps the two tabs in agreement on gaps and on when an adapter's history ends; a copy would have had to follow every change. The benchmark varies the adapter count. Copying histories into the charts grows with it, but only the cards in view are painted, so 16 adapters cost what 8 do. While the tab is hidden, its only cost is recording, two ring-buffer pushes per adapter.
 
+**Re-measured on 2026-10-16 (code review F-40 and F-41):** the figures above came before the benchmark printed its environment, so their power mode and Windows version are not known. The benchmark now also times a list with "Show all adapters" and an adapter that changes state on every other tick. Three runs printed:
+
+```text
+Processor: AMD Ryzen 7 9800X3D 8-Core Processor
+Power plan: High performance; power mode: Best performance, on mains power
+Built with MSVC 19.51.36260 (Release), running Qt 6.11.1 on Windows 11 Version 25H2 (10.0.26200), 16 logical processors.
+```
+
+| Network tab scenario | Mean ms per tick, three runs | Longest tick |
+| --- | --- | --- |
+| 2 adapters | 5.8–5.9 | 7.2 |
+| 8 adapters | 6.4–6.8 | 7.9 |
+| 16 adapters | 6.4–6.6 | 8.8 |
+| 20 adapters with "Show all adapters", 10 of them Down and hidden | 6.3–6.5 | 7.4 |
+| 16 adapters, one going down and up on alternate ticks | 6.6–7.0 | 7.8 |
+
+These runs use the windows11 style, which costs this tab about 1 ms a tick ([DC-104](#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42)), and the machine ran every benchmark slower that day than for [DC-95](#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33), so they are compared with each other, not with the figures above. Twenty adapters with "Show all adapters" cost no more than 16: only the cards in view are painted, and a collapsed chart ([DC-106](#dc-106-adapters-listed-in-a-fixed-order-with-the-ones-windows-hides-last-disconnected-adapters-charts-collapsed-code-review-f-39)) is not updated. An adapter that changes state collapses or expands its chart, which moves the cards below it, and costs about 0.3 ms more per tick. Cards no longer move to the top when their adapter comes up, so a change of state no longer re-inserts every card.
+
 ### DC-99: Connectivity section: level, cost and roaming, each "Unknown" when Windows cannot say
 
 **Decision:** `ConnectivityStatus` has `isRoaming`, a `std::optional<bool>` that `toIsRoaming()` maps from `NL_NETWORK_CONNECTIVITY_HINT::Roaming`. Like `isMetered` ([DC-40](#dc-40-explicit-connectivitylevelunknown-and-optional-ismetered)), it is `std::nullopt` before the first successful read and after a failed one. It is also `std::nullopt` whenever the cost is `NetworkConnectivityCostHintUnknown`. The collector's change log line includes it. Above the adapters, the Network tab has a "Connectivity" section with three readouts from `connectivityReadouts()`: the level ("Internet access" … "No connectivity", or "Unknown"), the cost ("Metered", "Unmetered" or "Unknown") and roaming ("Yes", "No" or "Unknown"). The level words come from `connectivityLevelText()`, which the dashboard's `connectivityText()` now shares. That one-line summary also appends ", roaming" when the connection is known to be roaming.

@@ -89,8 +89,8 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Resolved |
 | [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Resolved |
 | [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Resolved |
-| [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Open |
-| [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Open |
+| [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Resolved |
+| [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Resolved |
 | [F-42](#f-42-qts-windows-style-plugin-is-not-deployed) | Qt's Windows style plugin is not deployed (pre-existing) | Low | Resolved |
 | [F-43](#f-43-the-logger-is-shut-down-before-the-collectors-are-destroyed) | The logger is shut down before the collectors are destroyed (pre-existing) | Low | Resolved |
 | [F-44](#f-44-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
@@ -326,6 +326,14 @@ See [DC-106](../design_decisions.md#dc-106-adapters-listed-in-a-fixed-order-with
 
 **Recommendation:** Add the first three with the fixes for F-35 to F-37. The scheduler tests and the benchmark rows when convenient.
 
+**Status:** Resolved (2026-10-16). Every row is covered.
+
+- **Window size:** `NetworkView.SmallWindow_LongestValuesFitWithoutHorizontalScrolling` shows `MainWindow` at 800×600 on the Network tab with three IPv6 addresses, two DNS servers, long descriptions and two networks, one with a 32-byte name. It checks the minimum size, the scroll area's horizontal range and minimum width, and that no readout label is narrower than its text or outside its grid, on the cards and in the connectivity section. F-35's test already checks the minimum size with markup in the names.
+- **Fakes:** done with F-35 and F-36: markup in names, aliases and descriptions, and every address state on Up and Down adapters.
+- **A notification during a read:** done with F-38, whose rewritten collector tests include `ChangeReportedDuringARead_ReadsAgain`. It fails if the stale mark is cleared after the read.
+- **Scheduler:** `Running_NetworkNamesChange_ReachNextSnapshotWithoutAFullSlowRefresh` drives the network-name listener path with an event-driven fake. `Running_ChangeWhileAFullRefreshIsDue_AnsweredByTheFullRefreshAlone` holds the first full refresh until the next is due, sends a change meanwhile, and checks that only the full refresh answers it; it fails if an event refresh runs whenever one is pending. `Teardown_WhileNotificationsArrive_NoDeadlock` creates, starts, stops and destroys 40 schedulers at random points while another thread notifies through both event-driven fakes, under a watchdog that aborts on a deadlock.
+- **Benchmark:** the Network tab table has a row for 20 adapters with "Show all adapters", 10 of them Down and hidden, and one for 16 adapters with one going down and up on alternate ticks. They measured 6.3–6.5 ms and 6.6–7.0 ms, against 6.4–6.6 ms for 16 adapters that are all Up, and DC-98 records them with the environment lines (F-41's second row).
+
 ---
 
 ### F-41: Documentation out of date
@@ -344,6 +352,14 @@ See [DC-106](../design_decisions.md#dc-106-adapters-listed-in-a-fixed-order-with
 | The comment on the deployment step says that "only the platform plugin" is loaded dynamically and needs copying | `src/app/CMakeLists.txt` | See F-42 |
 
 **Recommendation:** Fix when convenient, together with the findings that change the same entries.
+
+**Status:** Resolved (2026-10-16), row by row with the findings that changed the same entries:
+
+- **DC-96's count** (with F-39): the collector reports 19 adapters on the development machine, 13 of them not bound to IP, and DC-96 now says which tool gives which figure.
+- **DC-98's environment** (with F-40): the re-measured Network tab figures are recorded with the lines `build.ps1 -Benchmark` prints. The original figures are marked as predating them.
+- **The system design diagram** (with F-38): it lists `INetworkListManager`, and the SetupAPI query that F-39 added.
+- **The cost of a read** (with F-38): about 11 ms for the first read and 4.4–6.1 ms after that, in the architecture's new network-name worker box and in DC-107.
+- **The deployment comment** (with F-42): the shared `sysmon_deploy_qt_plugins()` function names both plugins that Qt loads at run time.
 
 ---
 
