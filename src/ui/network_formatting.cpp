@@ -134,12 +134,46 @@ QString ipv6AddressText(const domain::NetworkSample& adapter)
     return addressesOfFamily(adapter, true);
 }
 
-std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter)
+QString networkCategoryText(domain::NetworkCategory category)
+{
+    switch (category) {
+        case domain::NetworkCategory::Public:
+            return "Public";
+        case domain::NetworkCategory::Private:
+            return "Private";
+        case domain::NetworkCategory::DomainAuthenticated:
+        default:
+            return "Domain";
+    }
+}
+
+QString networkProfileText(const domain::NetworkProfile& profile)
+{
+    const QString name = QString::fromStdString(profile.name);
+    return profile.category ? QString("%1 (%2)").arg(name, networkCategoryText(*profile.category)) : name;
+}
+
+QString adapterNetworkText(uint64_t interfaceId, const std::optional<std::vector<domain::NetworkProfile>>& profiles)
+{
+    if (!profiles) {
+        return kNotAvailable;
+    }
+    QStringList lines;
+    for (const auto& profile : *profiles) {
+        if (std::ranges::find(profile.interfaceIds, interfaceId) != profile.interfaceIds.end()) {
+            lines.append(networkProfileText(profile));
+        }
+    }
+    return lines.isEmpty() ? QString("None") : lines.join('\n');
+}
+
+std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter,
+                                           const std::optional<std::vector<domain::NetworkProfile>>& profiles)
 {
     if (!adapter) {
         return {
-            {"Type", kNotAvailable},         {"Link speed", kNotAvailable},  {"IPv4 address", kNotAvailable},
-            {"IPv6 address", kNotAvailable}, {"DNS servers", kNotAvailable},
+            {"Network", kNotAvailable},      {"Type", kNotAvailable},         {"Link speed", kNotAvailable},
+            {"IPv4 address", kNotAvailable}, {"IPv6 address", kNotAvailable}, {"DNS servers", kNotAvailable},
         };
     }
 
@@ -149,6 +183,7 @@ std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSa
         linkSpeed = adapter->linkSpeedBps > 0 ? formatLinkSpeed(adapter->linkSpeedBps) : kNotAvailable;
     }
     return {
+        {"Network", adapterNetworkText(adapter->interfaceId, profiles)},
         {"Type", adapterTypeText(*adapter)},
         {"Link speed", linkSpeed},
         {"IPv4 address", ipv4AddressText(*adapter)},
@@ -157,8 +192,17 @@ std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSa
     };
 }
 
-std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& status)
+std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& status,
+                                          const std::optional<std::vector<domain::NetworkProfile>>& profiles)
 {
+    QString networks = kNotAvailable;
+    if (profiles) {
+        QStringList lines;
+        for (const auto& profile : *profiles) {
+            lines.append(networkProfileText(profile));
+        }
+        networks = lines.isEmpty() ? QString("None") : lines.join('\n');
+    }
     QString cost = "Unknown";
     if (status.isMetered) {
         cost = *status.isMetered ? "Metered" : "Unmetered";
@@ -171,6 +215,7 @@ std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& stat
         {"Connectivity", connectivityLevelText(status.level)},
         {"Cost", cost},
         {"Roaming", roaming},
+        {"Networks", networks},
     };
 }
 

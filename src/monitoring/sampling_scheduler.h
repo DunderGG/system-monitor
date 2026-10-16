@@ -30,10 +30,11 @@ namespace sysmon::monitoring
  *   disk, network, uptime, system activity) every interval(), assembles the
  *   snapshot, and emits it via the snapshotReady signal.
  * - The slow-collector thread (a second std::jthread) runs the slow collectors
- *   (processes and connectivity) every slowInterval() and stores their results
- *   under a mutex. Each tick merges the latest stored results, so a snapshot's
- *   processes and connectivity can be up to slowInterval() old, and are empty
- *   (std::nullopt, ConnectivityLevel::Unknown) until the first slow refresh.
+ *   (processes, connectivity, and network profiles) every slowInterval() and
+ *   stores their results under a mutex. Each tick merges the latest stored
+ *   results, so a snapshot's processes, connectivity, and network profiles can
+ *   be up to slowInterval() old, and are empty (std::nullopt,
+ *   ConnectivityLevel::Unknown) until the first slow refresh.
  * - Clean shutdown is coordinated using std::stop_token and std::condition_variable_any.
  */
 class SamplingScheduler : public QObject
@@ -67,7 +68,7 @@ public:
     /** Returns the current sampling interval of the fast collectors. */
     [[nodiscard]] std::chrono::milliseconds interval() const;
 
-    /** Sets the interval of the slow collectors (processes, connectivity). Thread-safe. */
+    /** Sets the interval of the slow collectors (processes, connectivity, network profiles). Thread-safe. */
     void setSlowInterval(std::chrono::milliseconds interval);
 
     /** Returns the current interval of the slow collectors. */
@@ -84,6 +85,7 @@ public:
     void setDiskCollector(std::unique_ptr<IDiskCollector> collector);
     void setNetworkCollector(std::unique_ptr<INetworkCollector> collector);
     void setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector);
+    void setNetworkProfileCollector(std::unique_ptr<INetworkProfileCollector> collector);
     void setUptimeCollector(std::unique_ptr<IUptimeCollector> collector);
     void setSystemActivityCollector(std::unique_ptr<ISystemActivityCollector> collector);
     void setProcessCollector(std::unique_ptr<IProcessCollector> collector);
@@ -119,6 +121,7 @@ private:
     struct SlowResults
     {
         domain::ConnectivityStatus connectivity;
+        std::optional<std::vector<domain::NetworkProfile>> networkProfiles;
         std::optional<std::vector<domain::ProcessInfo>> processes;
     };
 
@@ -146,6 +149,7 @@ private:
     std::unique_ptr<IDiskCollector> m_diskCollector;
     std::unique_ptr<INetworkCollector> m_networkCollector;
     std::unique_ptr<IConnectivityCollector> m_connectivityCollector;
+    std::unique_ptr<INetworkProfileCollector> m_networkProfileCollector;
     std::unique_ptr<IUptimeCollector> m_uptimeCollector;
     std::unique_ptr<ISystemActivityCollector> m_systemActivityCollector;
     HealthThresholds m_healthThresholds;

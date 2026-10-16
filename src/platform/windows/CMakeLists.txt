@@ -19,8 +19,12 @@ add_library(sysmon_platform_windows STATIC
     disk_collector.h
     memory_collector.cpp
     memory_collector.h
+    network_category_mapping.cpp
+    network_category_mapping.h
     network_collector.cpp
     network_collector.h
+    network_profile_collector.cpp
+    network_profile_collector.h
     performance_info_reader.cpp
     performance_info_reader.h
     process_access_policy.cpp
@@ -65,6 +69,8 @@ target_link_libraries(sysmon_platform_windows
     PRIVATE
         spdlog::spdlog
         iphlpapi
+        ole32
+        oleaut32
         powrprof
         ws2_32
 )

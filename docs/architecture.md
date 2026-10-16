@@ -136,6 +136,8 @@ Windows integration layer (platform/windows)
 │    pass, which reads every path, ~18 ms)         │
 │  - Connectivity (notification cache, or polling  │
 │    fallback; see event-driven collectors below)  │
+│  - Network names via INetworkListManager (COM,   │
+│    after a change or once a minute)              │
 │  - Runs at own cadence (default every 2 seconds) │
 │  - Posts results for scheduler to pick up         │
 │  - Uses std::stop_token for clean shutdown       │
@@ -145,7 +147,7 @@ Windows integration layer (platform/windows)
 Key threading rules:
 
 - Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in about 1 ms combined; `GetIfTable2` dominates, and its cost grows with the number of interfaces (about 0.7 ms for 42 rows on a desktop). Adapter names, addresses, and DNS servers (`GetAdaptersAddresses`, about 2 ms) are cached and re-read only on change.
-- Slow collectors (process enumeration and connectivity) run on the scheduler's slow-collector `std::jthread`, every 2 seconds by default (`SamplingScheduler::setSlowInterval()`). Each run stores its results under a mutex, and every tick copies the latest ones into the snapshot. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet. Until the first slow refresh, the snapshot has no process list and `ConnectivityLevel::Unknown`.
+- Slow collectors (process enumeration, connectivity, and network names) run on the scheduler's slow-collector `std::jthread`, every 2 seconds by default (`SamplingScheduler::setSlowInterval()`). Each run stores its results under a mutex, and every tick copies the latest ones into the snapshot. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet. Until the first slow refresh, the snapshot has no process list, no network names, and `ConnectivityLevel::Unknown`. The network names come from a COM query that `NetworkProfileCollector` makes only after a connectivity change or once its answer is a minute old, so most slow refreshes return its cached answer ([DC-100](design_decisions.md#dc-100-network-names-from-inetworklistmanager-re-read-after-a-connectivity-change-or-a-minute-and-matched-to-adapters-by-luid)).
 - Event-driven collectors receive changes from the OS instead of polling (see below), so their `collect()` only returns a cached value. Connectivity, the event-driven collector, is still registered as a slow collector so that its polling fallback never runs on the tick; a change reaches the snapshot within one slow interval.
 - Snapshots cross from the scheduler thread to the UI thread via `Qt::QueuedConnection`. The snapshot is an immutable value type; no shared mutable state crosses the boundary.
 - All background threads the application creates are `std::jthread`s and use `std::stop_token` for cooperative cancellation at shutdown.
@@ -162,11 +164,13 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 
 `ConnectivityCollector` is the reference implementation.
 
+When the value is costly to read, a notification can instead mark a cache stale, so the collector re-reads it on its own thread. The callback still only stores (rule 1: here it stores the stale mark), and the registration is still cancelled first (rule 2). Rules 3 and 4 change: the cache starts stale, so the first `collect()` reads, and `collect()` reads again only when the cache is stale or has expired. An expiry age also replaces rule 5, because it keeps the value current when registration fails. The network collector's adapter details (`AdapterDetailsCache`) and `NetworkProfileCollector` follow this form.
+
 ### Data flow
 
 1. The scheduler thread sleeps for the configured interval (default 1 second), then wakes and calls fast collectors for aggregate CPU, memory, disk, and network samples.
 2. Fast collectors obtain data from the Windows integration layer and return typed results, including any access or availability errors.
-3. The scheduler merges the latest results from slow collectors (process list, connectivity) with the fresh fast-collector samples into an immutable `SystemSnapshot` timestamped with `std::chrono::steady_clock`.
+3. The scheduler merges the latest results from slow collectors (process list, connectivity, network names) with the fresh fast-collector samples into an immutable `SystemSnapshot` timestamped with `std::chrono::steady_clock`.
 4. Bounded ring buffers (`domain::RingBuffer`) retain recent samples for sparkline charts. The dashboard keeps its own short presentation history for its mini sparklines, the Network tab keeps a minute of throughput per adapter, and each Performance tab page keeps the history for its charts; histories needed outside the UI (e.g. for alert rules) may live in `monitoring`.
 5. The scheduler emits the snapshot as a Qt signal. View models receive it via queued connection on the UI thread and update Qt item models.
 6. Optional persistence receives batched writes on a background worker; it must never block sampling or rendering.
@@ -200,7 +204,7 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 | Process owner (before termination) | `OpenProcessToken` + `GetTokenInformation(TokenUser)`, compared with `EqualSid` |
 | Process elevation (before termination) | `GetTokenInformation(TokenElevation)` + `GetTokenInformation(TokenIntegrityLevel)` |
 | Process termination | `TerminateProcess` (unelevated processes the current user owns only) |
-| Network profile names | `INetworkListManager` (COM, lazy, on change events only) |
+| Network profile names | `INetworkListManager` (COM, lazy: after a connectivity change, or once a minute) |
 | Hardware inventory | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
 | Per-disk I/O rates | PDH (only where no direct Win32 alternative exists) |
 

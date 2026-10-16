@@ -122,6 +122,13 @@ void SamplingScheduler::setConnectivityCollector(std::unique_ptr<IConnectivityCo
     m_connectivityCollector = std::move(collector);
 }
 
+void SamplingScheduler::setNetworkProfileCollector(std::unique_ptr<INetworkProfileCollector> collector)
+{
+    assert(!m_isRunning.load() && "setNetworkProfileCollector must only be called when scheduler is stopped");
+    std::lock_guard lock(m_collectorMutex);
+    m_networkProfileCollector = std::move(collector);
+}
+
 void SamplingScheduler::setUptimeCollector(std::unique_ptr<IUptimeCollector> collector)
 {
     assert(!m_isRunning.load() && "setUptimeCollector must only be called when scheduler is stopped");
@@ -198,6 +205,7 @@ domain::SystemSnapshot SamplingScheduler::sampleOnce()
         // result in, so it never waits long.
         std::lock_guard lock(m_slowResultsMutex);
         snapshot.connectivity = m_slowResults.connectivity;
+        snapshot.networkProfiles = m_slowResults.networkProfiles;
         snapshot.processes = m_slowResults.processes;
     }
 
@@ -215,10 +223,12 @@ void SamplingScheduler::refreshSlowCollectors()
 void SamplingScheduler::collectSlowResults()
 {
     IConnectivityCollector* connectivity = nullptr;
+    INetworkProfileCollector* networkProfile = nullptr;
     IProcessCollector* process = nullptr;
     {
         std::lock_guard lock(m_collectorMutex);
         connectivity = m_connectivityCollector.get();
+        networkProfile = m_networkProfileCollector.get();
         process = m_processCollector.get();
     }
 
@@ -226,6 +236,9 @@ void SamplingScheduler::collectSlowResults()
     SlowResults results;
     if (connectivity) {
         results.connectivity = connectivity->collect();
+    }
+    if (networkProfile) {
+        results.networkProfiles = networkProfile->collect();
     }
     if (process) {
         results.processes = process->collect();

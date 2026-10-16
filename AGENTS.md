@@ -30,7 +30,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 
 - **Module boundaries are strict.** The `ui` module never includes Windows headers or calls Windows APIs directly. The `domain` module has no Qt or Windows dependencies. All Windows API calls live in `platform/windows/`.
 - **Data flows through immutable snapshots.** Collectors produce data on background threads. The UI receives `SystemSnapshot` values via `Qt::QueuedConnection`. No shared mutable state crosses thread boundaries.
-- **Use the correct Windows APIs.** Use `NtQuerySystemInformation` for process enumeration, `GetSystemTimes` for CPU, `GlobalMemoryStatusEx` for memory (plus `GetPerformanceInfo` for cache, pool, and process/thread/handle counts), `GetIfTable2` for network, `GetNetworkConnectivityHint` for connectivity. Do not use PDH for core metrics. Do not use Tool Help for process enumeration. Do not poll WMI.
+- **Use the correct Windows APIs.** Use `NtQuerySystemInformation` for process enumeration, `GetSystemTimes` for CPU, `GlobalMemoryStatusEx` for memory (plus `GetPerformanceInfo` for cache, pool, and process/thread/handle counts), `GetIfTable2` for network, `GetNetworkConnectivityHint` for connectivity, `INetworkListManager` for network names (on the slow-collector thread, after a change). Do not use PDH for core metrics. Do not use Tool Help for process enumeration. Do not poll WMI.
 - **Process identity is `(PID, creation time)`.** Never use PID alone.
 
 ## Code style rules
@@ -46,7 +46,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 
 - Use `std::jthread` with `std::stop_token` for all background threads the application creates.
 - Fast collectors (CPU, memory, network counters) run on the scheduler thread.
-- Slow collectors (process enumeration, connectivity) run on the scheduler's slow-collector thread at their own cadence.
+- Slow collectors (process enumeration, connectivity, network names) run on the scheduler's slow-collector thread at their own cadence.
 - Event-driven collectors may receive OS callbacks on OS thread-pool threads (e.g. `NotifyNetworkConnectivityHintChange`) only under the rules in [architecture.md — Event-driven collectors](docs/architecture.md#event-driven-collectors-os-callback-threads): store only, cancel before teardown, seed synchronously, read from the cache.
 - Never call widget methods from a non-UI thread.
 - Use `std::mutex` with `std::lock_guard` or `std::scoped_lock`. Never lock manually.

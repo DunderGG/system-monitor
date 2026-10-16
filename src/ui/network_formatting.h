@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -7,6 +8,7 @@
 #include <QString>
 
 #include "domain/connectivity_status.h"
+#include "domain/network_profile.h"
 #include "domain/network_sample.h"
 #include "ui/performance_readouts.h"
 
@@ -57,21 +59,43 @@ listedAdapters(const std::vector<domain::NetworkSample>& networks, bool showAll)
 /** Returns the adapter's IPv6 addresses with formatAddressList(). */
 [[nodiscard]] QString ipv6AddressText(const domain::NetworkSample& adapter);
 
+/** Returns the display name of a network category: "Public", "Private", or "Domain". */
+[[nodiscard]] QString networkCategoryText(domain::NetworkCategory category);
+
+/** Names a connected network with its category, e.g. "Home-Wi-Fi (Private)", or just its name if the category is
+ * unknown. */
+[[nodiscard]] QString networkProfileText(const domain::NetworkProfile& profile);
+
 /**
- * Network tab, for one adapter: type, link speed, IPv4 and IPv6 addresses,
- * and DNS servers. The link speed is "Not connected" unless the adapter is Up,
+ * Returns the networks the adapter with interfaceId is connected to, one per
+ * line with networkProfileText(); "None" when it is connected to none, and
+ * "N/A" when profiles is std::nullopt (the networks could not be read).
+ */
+[[nodiscard]] QString adapterNetworkText(uint64_t interfaceId,
+                                         const std::optional<std::vector<domain::NetworkProfile>>& profiles);
+
+/**
+ * Network tab, for one adapter: the network it is connected to (see
+ * adapterNetworkText()), type, link speed, IPv4 and IPv6 addresses, and DNS
+ * servers. The link speed is "Not connected" unless the adapter is Up,
  * because Windows keeps reporting a speed for a disconnected adapter, and
  * "N/A" when an adapter that is Up reports none. Every value is "N/A" when
  * adapter is std::nullopt (the last read failed).
  */
-[[nodiscard]] std::vector<Readout> adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter);
+[[nodiscard]] std::vector<Readout>
+adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter,
+                      const std::optional<std::vector<domain::NetworkProfile>>& profiles);
 
 /**
  * Network tab, for the system's connectivity: the level, the cost ("Metered"
- * or "Unmetered"), and whether the connection is roaming ("Yes" or "No").
- * Each reads "Unknown" when Windows could not say, never offline, unmetered,
- * or not roaming.
+ * or "Unmetered"), whether the connection is roaming ("Yes" or "No"), and the
+ * connected networks, one per line with networkProfileText(). The first three
+ * read "Unknown" when Windows could not say, never offline, unmetered, or not
+ * roaming. The networks are "None" when there are none and "N/A" when
+ * profiles is std::nullopt.
  */
-[[nodiscard]] std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& status);
+[[nodiscard]] std::vector<Readout>
+connectivityReadouts(const domain::ConnectivityStatus& status,
+                     const std::optional<std::vector<domain::NetworkProfile>>& profiles);
 
 } // namespace sysmon::ui

@@ -108,6 +108,8 @@ private:
     HANDLE m_handle{nullptr};
 };
 
+} // namespace
+
 std::unique_ptr<ConnectivitySubscription> subscribeToConnectivityChanges(ConnectivityChangeHandler handler)
 {
     auto subscription = std::make_unique<WindowsConnectivitySubscription>(std::move(handler));
@@ -116,8 +118,6 @@ std::unique_ptr<ConnectivitySubscription> subscribeToConnectivityChanges(Connect
     }
     return subscription;
 }
-
-} // namespace
 
 ConnectivityCollector::ConnectivityCollector()
     : ConnectivityCollector(

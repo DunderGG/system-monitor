@@ -60,7 +60,7 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     layout->addWidget(m_descriptionLabel);
 
     m_readoutGrid = new ReadoutGrid(kReadoutColumns, this);
-    m_readoutGrid->setReadouts(placeholderReadouts(adapterDetailReadouts(std::nullopt)));
+    m_readoutGrid->setReadouts(placeholderReadouts(adapterDetailReadouts(std::nullopt, std::nullopt)));
     layout->addWidget(m_readoutGrid);
 
     // Set up like the Performance tab's network charts, so the two read alike.
@@ -79,7 +79,8 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     layout->addWidget(m_chart);
 }
 
-void AdapterCard::setAdapter(const domain::NetworkSample& adapter)
+void AdapterCard::setAdapter(const domain::NetworkSample& adapter,
+                             const std::optional<std::vector<domain::NetworkProfile>>& networkProfiles)
 {
     const QString title = adapterDisplayName(adapter);
     m_titleLabel->setText(title);
@@ -91,13 +92,13 @@ void AdapterCard::setAdapter(const domain::NetworkSample& adapter)
 
     setStatus(operationalStatusText(adapter.operationalStatus),
               adapter.operationalStatus == domain::OperationalStatus::Up);
-    m_readoutGrid->setReadouts(adapterDetailReadouts(adapter));
+    m_readoutGrid->setReadouts(adapterDetailReadouts(adapter, networkProfiles));
 }
 
 void AdapterCard::setUnavailable()
 {
     setStatus(kNotAvailable, false);
-    m_readoutGrid->setReadouts(adapterDetailReadouts(std::nullopt));
+    m_readoutGrid->setReadouts(adapterDetailReadouts(std::nullopt, std::nullopt));
 }
 
 void AdapterCard::setThroughput(const AdapterThroughputHistory::Adapter* history, std::uint64_t sampleIndex)

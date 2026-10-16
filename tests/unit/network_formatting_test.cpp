@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -6,8 +7,10 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QString>
 
 #include "domain/connectivity_status.h"
+#include "domain/network_profile.h"
 #include "domain/network_sample.h"
 #include "ui/network_formatting.h"
 #include "ui/performance_readouts.h"
@@ -38,6 +41,12 @@ std::vector<uint64_t> ids(const std::vector<const NetworkSample*>& adapters)
         result.push_back(sample->interfaceId);
     }
     return result;
+}
+
+QString valueOf(const std::vector<Readout>& readouts, const QString& name)
+{
+    const auto it = std::ranges::find(readouts, name, &Readout::name);
+    return it != readouts.end() ? it->value : QString("<missing>");
 }
 
 } // namespace
@@ -144,9 +153,10 @@ TEST(NetworkFormatting, AddressTexts_SplitByFamilyOnePerLine)
     EXPECT_EQ(formatAddressList({}), "None");
 }
 
-TEST(NetworkFormatting, AdapterDetailReadouts_UpAdapter_ShowsLinkSpeedAndAddresses)
+TEST(NetworkFormatting, AdapterDetailReadouts_UpAdapter_ShowsNetworkLinkSpeedAndAddresses)
 {
     const NetworkSample sample{
+        .interfaceId = 7,
         .linkSpeedBps = 2'500'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
         .type = AdapterType::Ethernet,
@@ -154,40 +164,38 @@ TEST(NetworkFormatting, AdapterDetailReadouts_UpAdapter_ShowsLinkSpeedAndAddress
         .dnsServers = {"192.168.1.1", "1.1.1.1"},
         .isHardwareInterface = true,
     };
+    const std::vector<NetworkProfile> profiles{
+        {.name = "Normandy", .category = NetworkCategory::Private, .interfaceIds = {7}},
+    };
 
-    EXPECT_EQ(adapterDetailReadouts(sample), (std::vector<Readout>{
-                                                 {"Type", "Ethernet"},
-                                                 {"Link speed", "2.5 Gbps"},
-                                                 {"IPv4 address", "192.168.1.20"},
-                                                 {"IPv6 address", "fe80::1"},
-                                                 {"DNS servers", "192.168.1.1\n1.1.1.1"},
-                                             }));
+    EXPECT_EQ(adapterDetailReadouts(sample, profiles), (std::vector<Readout>{
+                                                           {"Network", "Normandy (Private)"},
+                                                           {"Type", "Ethernet"},
+                                                           {"Link speed", "2.5 Gbps"},
+                                                           {"IPv4 address", "192.168.1.20"},
+                                                           {"IPv6 address", "fe80::1"},
+                                                           {"DNS servers", "192.168.1.1\n1.1.1.1"},
+                                                       }));
 }
 
 TEST(NetworkFormatting, AdapterDetailReadouts_DisconnectedAdapter_LinkSpeedNotConnected)
 {
     const NetworkSample sample{.linkSpeedBps = 144'400'000, .operationalStatus = OperationalStatus::Down};
 
-    const auto readouts = adapterDetailReadouts(sample);
-
-    ASSERT_EQ(readouts.size(), 5u);
-    EXPECT_EQ(readouts[1], (Readout{"Link speed", "Not connected"}));
+    EXPECT_EQ(valueOf(adapterDetailReadouts(sample, std::nullopt), "Link speed"), "Not connected");
 }
 
 TEST(NetworkFormatting, AdapterDetailReadouts_UpWithoutReportedSpeed_LinkSpeedNotAvailable)
 {
     const NetworkSample sample{.linkSpeedBps = 0, .operationalStatus = OperationalStatus::Up};
 
-    const auto readouts = adapterDetailReadouts(sample);
-
-    ASSERT_EQ(readouts.size(), 5u);
-    EXPECT_EQ(readouts[1], (Readout{"Link speed", "N/A"}));
+    EXPECT_EQ(valueOf(adapterDetailReadouts(sample, std::nullopt), "Link speed"), "N/A");
 }
 
 TEST(NetworkFormatting, AdapterDetailReadouts_ReadFailed_SameNamesAllNotAvailable)
 {
-    const auto unavailable = adapterDetailReadouts(std::nullopt);
-    const auto available = adapterDetailReadouts(NetworkSample{});
+    const auto unavailable = adapterDetailReadouts(std::nullopt, std::nullopt);
+    const auto available = adapterDetailReadouts(NetworkSample{}, std::vector<NetworkProfile>{});
 
     ASSERT_EQ(unavailable.size(), available.size());
     for (std::size_t index = 0; index < unavailable.size(); ++index) {
@@ -196,34 +204,65 @@ TEST(NetworkFormatting, AdapterDetailReadouts_ReadFailed_SameNamesAllNotAvailabl
     }
 }
 
-TEST(NetworkFormatting, ConnectivityReadouts_KnownState_LevelCostAndRoaming)
+TEST(NetworkFormatting, NetworkProfileText_NameWithCategoryWhenKnown)
 {
-    const ConnectivityStatus status{.level = ConnectivityLevel::InternetAccess, .isMetered = false, .isRoaming = false};
-
-    EXPECT_EQ(connectivityReadouts(status), (std::vector<Readout>{
-                                                {"Connectivity", "Internet access"},
-                                                {"Cost", "Unmetered"},
-                                                {"Roaming", "No"},
-                                            }));
+    EXPECT_EQ(networkProfileText({.name = "Home-Wi-Fi", .category = NetworkCategory::Private}), "Home-Wi-Fi (Private)");
+    EXPECT_EQ(networkProfileText({.name = "Airport", .category = NetworkCategory::Public}), "Airport (Public)");
+    EXPECT_EQ(networkProfileText({.name = "corp.example.com", .category = NetworkCategory::DomainAuthenticated}),
+              "corp.example.com (Domain)");
+    EXPECT_EQ(networkProfileText({.name = "Network 2", .category = std::nullopt}), "Network 2");
 }
 
-TEST(NetworkFormatting, ConnectivityReadouts_MeteredAndRoaming)
+TEST(NetworkFormatting, AdapterNetworkText_MatchesProfilesByInterfaceId)
+{
+    const std::vector<NetworkProfile> profiles{
+        {.name = "Normandy", .category = NetworkCategory::Private, .interfaceIds = {1}},
+        {.name = "Mullvad", .category = NetworkCategory::Private, .interfaceIds = {2}},
+        {.name = "Lab", .category = std::nullopt, .interfaceIds = {1, 3}},
+    };
+
+    EXPECT_EQ(adapterNetworkText(1, profiles), "Normandy (Private)\nLab");
+    EXPECT_EQ(adapterNetworkText(2, profiles), "Mullvad (Private)");
+    EXPECT_EQ(adapterNetworkText(4, profiles), "None");
+    EXPECT_EQ(adapterNetworkText(1, std::nullopt), "N/A");
+}
+
+TEST(NetworkFormatting, ConnectivityReadouts_KnownState_LevelCostRoamingAndNetworks)
+{
+    const ConnectivityStatus status{.level = ConnectivityLevel::InternetAccess, .isMetered = false, .isRoaming = false};
+    const std::vector<NetworkProfile> profiles{
+        {.name = "Normandy", .category = NetworkCategory::Private, .interfaceIds = {1}},
+        {.name = "Mullvad", .category = NetworkCategory::Public, .interfaceIds = {2}},
+    };
+
+    EXPECT_EQ(connectivityReadouts(status, profiles), (std::vector<Readout>{
+                                                          {"Connectivity", "Internet access"},
+                                                          {"Cost", "Unmetered"},
+                                                          {"Roaming", "No"},
+                                                          {"Networks", "Normandy (Private)\nMullvad (Public)"},
+                                                      }));
+}
+
+TEST(NetworkFormatting, ConnectivityReadouts_MeteredAndRoamingWithNoNetworks)
 {
     const ConnectivityStatus status{
         .level = ConnectivityLevel::ConstrainedInternetAccess, .isMetered = true, .isRoaming = true};
 
-    EXPECT_EQ(connectivityReadouts(status), (std::vector<Readout>{
-                                                {"Connectivity", "Limited internet (captive portal)"},
-                                                {"Cost", "Metered"},
-                                                {"Roaming", "Yes"},
-                                            }));
+    EXPECT_EQ(connectivityReadouts(status, std::vector<NetworkProfile>{}),
+              (std::vector<Readout>{
+                  {"Connectivity", "Limited internet (captive portal)"},
+                  {"Cost", "Metered"},
+                  {"Roaming", "Yes"},
+                  {"Networks", "None"},
+              }));
 }
 
 TEST(NetworkFormatting, ConnectivityReadouts_UnknownState_SaysUnknownNotOfflineOrUnmetered)
 {
-    EXPECT_EQ(connectivityReadouts(ConnectivityStatus{}), (std::vector<Readout>{
-                                                              {"Connectivity", "Unknown"},
-                                                              {"Cost", "Unknown"},
-                                                              {"Roaming", "Unknown"},
-                                                          }));
+    EXPECT_EQ(connectivityReadouts(ConnectivityStatus{}, std::nullopt), (std::vector<Readout>{
+                                                                            {"Connectivity", "Unknown"},
+                                                                            {"Cost", "Unknown"},
+                                                                            {"Roaming", "Unknown"},
+                                                                            {"Networks", "N/A"},
+                                                                        }));
 }

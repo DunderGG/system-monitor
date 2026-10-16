@@ -9,6 +9,7 @@
 #include "domain/cpu_sample.h"
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
+#include "domain/network_profile.h"
 #include "domain/network_sample.h"
 #include "domain/process_info.h"
 #include "domain/system_activity_sample.h"
@@ -52,6 +53,7 @@ using IMemoryCollector = ICollector<std::optional<domain::MemorySample>>;
 using IDiskCollector = ICollector<std::optional<std::vector<domain::DiskSample>>>;
 using INetworkCollector = ICollector<std::optional<std::vector<domain::NetworkSample>>>;
 using IConnectivityCollector = ICollector<domain::ConnectivityStatus>;
+using INetworkProfileCollector = ICollector<std::optional<std::vector<domain::NetworkProfile>>>;
 using IUptimeCollector = ICollector<std::chrono::milliseconds>;
 using IProcessCollector = ICollector<std::optional<std::vector<domain::ProcessInfo>>>;
 using ISystemActivityCollector = ICollector<std::optional<domain::SystemActivitySample>>;

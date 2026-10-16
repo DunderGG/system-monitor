@@ -337,6 +337,26 @@ private:
     std::atomic<int> m_calls{0};
 };
 
+class FakeNetworkProfileCollector : public sysmon::monitoring::INetworkProfileCollector
+{
+public:
+    [[nodiscard]] std::optional<std::vector<sysmon::domain::NetworkProfile>> collect() override
+    {
+        ++m_calls;
+        return std::vector<sysmon::domain::NetworkProfile>{
+            {.name = "Home", .category = sysmon::domain::NetworkCategory::Private, .interfaceIds = {7}},
+        };
+    }
+
+    [[nodiscard]] int calls() const
+    {
+        return m_calls.load();
+    }
+
+private:
+    std::atomic<int> m_calls{0};
+};
+
 // Records the thread each tick runs on.
 class ThreadRecordingCpuCollector : public sysmon::monitoring::ICpuCollector
 {
@@ -377,6 +397,25 @@ TEST(SamplingScheduler, SampleOnce_DoesNotRunSlowCollectors)
     EXPECT_EQ(connectivityPtr->calls(), 0);
     EXPECT_FALSE(snapshot.processes.has_value());
     EXPECT_EQ(snapshot.connectivity.level, sysmon::domain::ConnectivityLevel::Unknown);
+}
+
+TEST(SamplingScheduler, RefreshSlowCollectors_NetworkProfilesCarriedIntoSnapshots)
+{
+    SamplingScheduler scheduler;
+    auto profiles = std::make_unique<FakeNetworkProfileCollector>();
+    const auto* profilesPtr = profiles.get();
+    scheduler.setNetworkProfileCollector(std::move(profiles));
+
+    const SystemSnapshot before = scheduler.sampleOnce();
+    scheduler.refreshSlowCollectors();
+    const SystemSnapshot after = scheduler.sampleOnce();
+
+    EXPECT_FALSE(before.networkProfiles.has_value());
+    EXPECT_EQ(profilesPtr->calls(), 1);
+    ASSERT_TRUE(after.networkProfiles.has_value());
+    ASSERT_EQ(after.networkProfiles->size(), 1u);
+    EXPECT_EQ((*after.networkProfiles)[0].name, "Home");
+    EXPECT_EQ((*after.networkProfiles)[0].interfaceIds, (std::vector<uint64_t>{7}));
 }
 
 TEST(SamplingScheduler, RefreshSlowCollectors_NextSnapshotsCarryLatestResults)
@@ -421,6 +460,7 @@ TEST(SamplingScheduler, RefreshSlowCollectors_NoSlowCollectors_NoDataAndUnknownC
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
     EXPECT_FALSE(snapshot.processes.has_value());
+    EXPECT_FALSE(snapshot.networkProfiles.has_value());
     EXPECT_EQ(snapshot.connectivity, sysmon::domain::ConnectivityStatus{});
 }
 

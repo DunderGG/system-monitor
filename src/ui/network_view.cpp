@@ -55,7 +55,7 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
     connectivitySection->setSpacing(kItemSpacing);
     connectivitySection->addWidget(sectionLabel("Connectivity", this));
     m_connectivityGrid = new ReadoutGrid(kConnectivityColumns, this);
-    m_connectivityGrid->setReadouts(placeholderReadouts(connectivityReadouts({})));
+    m_connectivityGrid->setReadouts(placeholderReadouts(connectivityReadouts({}, std::nullopt)));
     connectivitySection->addWidget(m_connectivityGrid);
     layout->addLayout(connectivitySection);
 
@@ -95,6 +95,7 @@ void NetworkView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
     ++m_recordedCount;
     m_connectivity = snapshot.connectivity;
+    m_networkProfiles = snapshot.networkProfiles;
     m_latest = snapshot.networks;
     m_history.record(snapshot.networks);
     // Hidden widgets need no update; showEvent() catches up.
@@ -146,7 +147,7 @@ void NetworkView::refresh()
         return;
     }
 
-    m_connectivityGrid->setReadouts(connectivityReadouts(m_connectivity));
+    m_connectivityGrid->setReadouts(connectivityReadouts(m_connectivity, m_networkProfiles));
 
     // Without a successful read, keep the cards from the last one.
     if (m_latest) {
@@ -158,7 +159,7 @@ void NetworkView::refresh()
         }
         arrangeCards(ids);
         for (std::size_t index = 0; index < listed.size(); ++index) {
-            m_cards[index]->setAdapter(*listed[index]);
+            m_cards[index]->setAdapter(*listed[index], m_networkProfiles);
         }
     } else {
         for (auto* card : m_cards) {

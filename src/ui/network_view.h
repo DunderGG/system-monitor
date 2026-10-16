@@ -8,6 +8,8 @@
 #include <QString>
 #include <QWidget>
 
+#include "domain/connectivity_status.h"
+#include "domain/network_profile.h"
 #include "domain/network_sample.h"
 #include "domain/system_snapshot.h"
 #include "ui/adapter_throughput_history.h"
@@ -25,10 +27,10 @@ class AdapterCard;
 class ReadoutGrid;
 
 /**
- * Network tab: the system's connectivity (see connectivityReadouts()) above
- * one card per network adapter in a scrolling list (see listedAdapters() for
- * which adapters, and in what order). "Show all adapters" also lists the
- * hidden virtual adapters that are not bound to IP.
+ * Network tab: the system's connectivity and the connected networks (see
+ * connectivityReadouts()) above one card per network adapter in a scrolling
+ * list (see listedAdapters() for which adapters, and in what order). "Show all
+ * adapters" also lists the hidden virtual adapters that are not bound to IP.
  *
  * Cards are keyed by interface ID, so an adapter keeps its card when it is
  * renamed or moves in the list. When a read fails, the cards of the last
@@ -86,6 +88,7 @@ private:
 
     std::uint64_t m_recordedCount{0};
     domain::ConnectivityStatus m_connectivity;
+    std::optional<std::vector<domain::NetworkProfile>> m_networkProfiles;
     std::optional<std::vector<domain::NetworkSample>> m_latest;
     AdapterThroughputHistory m_history{kHistoryCapacity};
 };

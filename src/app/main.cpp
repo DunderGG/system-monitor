@@ -17,6 +17,7 @@
 #include "platform/windows/disk_collector.h"
 #include "platform/windows/memory_collector.h"
 #include "platform/windows/network_collector.h"
+#include "platform/windows/network_profile_collector.h"
 #include "platform/windows/process_collector.h"
 #include "platform/windows/process_terminator.h"
 #include "platform/windows/system_activity_collector.h"
@@ -60,6 +61,7 @@ int main(int argc, char* argv[])
     scheduler.setDiskCollector(std::make_unique<sysmon::platform::DiskCollector>());
     scheduler.setNetworkCollector(std::make_unique<sysmon::platform::NetworkCollector>());
     scheduler.setConnectivityCollector(std::make_unique<sysmon::platform::ConnectivityCollector>());
+    scheduler.setNetworkProfileCollector(std::make_unique<sysmon::platform::NetworkProfileCollector>());
     scheduler.setUptimeCollector(std::make_unique<sysmon::platform::UptimeCollector>());
     scheduler.setSystemActivityCollector(std::make_unique<sysmon::platform::SystemActivityCollector>());
     scheduler.setProcessCollector(std::make_unique<sysmon::platform::ProcessCollector>());

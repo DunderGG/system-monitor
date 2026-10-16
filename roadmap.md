@@ -153,7 +153,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 - [x] Per adapter: name/alias, type (Ethernet/Wi-Fi/etc.), operational status, link speed, IP addresses (IPv4 and IPv6), DNS servers ([DC-97](docs/design_decisions.md#dc-97-adapter-type-from-the-physical-medium-then-the-interface-type-link-speed-shown-only-while-up)).
 - [x] Per adapter: live throughput sparklines (inbound and outbound bytes/sec). One minute per card; `.\scripts\build.ps1 -Benchmark` measures the tab's tick cost ([DC-98](docs/design_decisions.md#dc-98-adapter-throughput-charts-one-minute-per-card-with-the-history-shared-with-the-performance-tab)).
 - [x] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming. Render `ConnectivityLevel::Unknown` and an unknown metered state (`isMetered == std::nullopt`) explicitly rather than as offline or unmetered ([DC-99](docs/design_decisions.md#dc-99-connectivity-section-level-cost-and-roaming-each-unknown-when-windows-cannot-say)).
-- [ ] Optionally display friendly network name from NLM (lazy, cached query).
+- [x] Optionally display friendly network name from NLM (lazy, cached query). Shown per adapter and in the connectivity section, with the network category ([DC-100](docs/design_decisions.md#dc-100-network-names-from-inetworklistmanager-re-read-after-a-connectivity-change-or-a-minute-and-matched-to-adapters-by-luid)).
 - [ ] Update connectivity status reactively via `NotifyNetworkConnectivityHintChange` rather than polling.
 - [ ] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines.
 

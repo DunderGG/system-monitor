@@ -34,6 +34,7 @@ add_executable(system_monitor_tests
     unit/repeated_failure_log_test.cpp
     unit/log_capture.h
     unit/connectivity_collector_test.cpp
+    unit/network_profile_collector_test.cpp
     unit/uptime_collector_test.cpp
     unit/system_activity_collector_test.cpp
     unit/system_process_information_reader_test.cpp
@@ -47,6 +48,7 @@ add_executable(system_monitor_tests
     integration/disk_collector_test.cpp
     integration/network_collector_test.cpp
     integration/connectivity_collector_test.cpp
+    integration/network_profile_collector_test.cpp
     integration/uptime_collector_test.cpp
     integration/system_activity_collector_test.cpp
     integration/system_process_information_reader_test.cpp
@@ -98,6 +100,7 @@ gtest_discover_tests(system_monitor_tests)
 add_executable(system_monitor_platform_tests
     platform/adapter_type_mapping_test.cpp
     platform/connectivity_hint_mapping_test.cpp
+    platform/network_category_mapping_test.cpp
     platform/system_process_information_test.cpp
     platform/process_elevation_test.cpp
 )

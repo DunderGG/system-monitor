@@ -37,6 +37,8 @@ using sysmon::domain::AdapterType;
 using sysmon::domain::CpuSample;
 using sysmon::domain::DiskSample;
 using sysmon::domain::MemorySample;
+using sysmon::domain::NetworkCategory;
+using sysmon::domain::NetworkProfile;
 using sysmon::domain::NetworkSample;
 using sysmon::domain::OperationalStatus;
 using sysmon::domain::SystemActivitySample;
@@ -170,6 +172,9 @@ SystemSnapshot makeSnapshot(std::size_t tick, int coreCount, std::size_t adapter
         networks.push_back(makeAdapter(tick, adapter));
     }
     snapshot.networks = std::move(networks);
+    snapshot.networkProfiles = std::vector<NetworkProfile>{
+        {.name = "Home", .category = NetworkCategory::Private, .interfaceIds = {1}},
+    };
 
     snapshot.activity = SystemActivitySample{.processCount = 350, .threadCount = 5'000, .handleCount = 200'000};
     snapshot.uptime = std::chrono::milliseconds{std::chrono::seconds{tick}};

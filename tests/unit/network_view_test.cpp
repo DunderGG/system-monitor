@@ -345,3 +345,31 @@ TEST(NetworkView, Connectivity_ChangesWhileHidden_ShownWhenTheViewIs)
 
     EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Local network only");
 }
+
+TEST(NetworkView, NetworkProfiles_ShownOnTheirAdaptersAndInConnectivity)
+{
+    ShownNetworkView view;
+    SystemSnapshot snapshot = snapshotWith(std::vector<NetworkSample>{
+        adapter(1, "Ethernet", OperationalStatus::Up),
+        adapter(2, "Wi-Fi", OperationalStatus::Down),
+    });
+    snapshot.networkProfiles = std::vector<NetworkProfile>{
+        {.name = "Normandy", .category = NetworkCategory::Private, .interfaceIds = {1}},
+    };
+
+    view.updateSnapshot(snapshot);
+
+    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Network"), "Normandy (Private)");
+    EXPECT_EQ(view.adapterCard(1)->readoutGrid()->value("Network"), "None");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "Normandy (Private)");
+}
+
+TEST(NetworkView, NetworkProfilesUnreadable_NotAvailable)
+{
+    ShownNetworkView view;
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+
+    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Network"), "N/A");
+    EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "N/A");
+}

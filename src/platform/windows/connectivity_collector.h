@@ -39,6 +39,15 @@ public:
 using ConnectivitySubscriber = std::function<std::unique_ptr<ConnectivitySubscription>(ConnectivityChangeHandler)>;
 
 /**
+ * The production ConnectivitySubscriber: registers handler with
+ * NotifyNetworkConnectivityHintChange, asking for an initial notification.
+ * The handler runs on OS thread-pool threads. Returns nullptr if registration
+ * fails.
+ */
+[[nodiscard]] std::unique_ptr<ConnectivitySubscription>
+subscribeToConnectivityChanges(ConnectivityChangeHandler handler);
+
+/**
  * Collector for system-wide network connectivity status. An event-driven
  * collector (see docs/architecture.md, "Event-driven collectors"):
  * - Seeds the cache synchronously with the reader so the first collect() is

@@ -6,6 +6,7 @@
 #include "domain/cpu_sample.h"
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
+#include "domain/network_profile.h"
 #include "domain/network_sample.h"
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
@@ -206,6 +207,24 @@ TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
     EXPECT_EQ(s.level, ConnectivityLevel::InternetAccess);
     EXPECT_EQ(s.isMetered, true);
     EXPECT_EQ(s.isRoaming, false);
+}
+
+TEST(NetworkProfile, DefaultConstruction_NoCategoryAndNoAdapters)
+{
+    const NetworkProfile profile;
+
+    EXPECT_TRUE(profile.name.empty());
+    EXPECT_FALSE(profile.category.has_value());
+    EXPECT_TRUE(profile.interfaceIds.empty());
+}
+
+TEST(NetworkProfile, Equality_ComparesEveryField)
+{
+    const NetworkProfile home{.name = "Home", .category = NetworkCategory::Private, .interfaceIds = {1}};
+
+    EXPECT_EQ(home, (NetworkProfile{.name = "Home", .category = NetworkCategory::Private, .interfaceIds = {1}}));
+    EXPECT_NE(home, (NetworkProfile{.name = "Home", .category = NetworkCategory::Public, .interfaceIds = {1}}));
+    EXPECT_NE(home, (NetworkProfile{.name = "Home", .category = NetworkCategory::Private, .interfaceIds = {2}}));
 }
 
 TEST(ConnectivityLevel, EnumValues_AreDistinct)
