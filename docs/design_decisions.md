@@ -121,6 +121,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-102](#dc-102-labels-that-show-text-from-the-system-or-the-network-are-plain-text-code-review-f-35): Labels that show text from the system or the network are plain text (code review F-35)
   - [DC-103](#dc-103-unusable-addresses-and-placeholder-dns-servers-dropped-addresses-and-dns-servers-shown-only-while-up-code-review-f-36): Unusable addresses and placeholder DNS servers dropped; addresses and DNS servers shown only while Up (code review F-36)
   - [DC-104](#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42): Qt's Windows style plugin deployed next to every executable (code review F-42)
+  - [DC-105](#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37): Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
 
 ---
 
@@ -513,6 +514,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 - String literals are ASCII only (no arrows or middle dots). Targets that link Qt compile with `/utf-8`, which Qt adds to its usage requirements, but `domain` and `platform/windows` do not link Qt, so a non-ASCII literal would be read in the system code page there. Non-ASCII text in code is written as escapes or code units.
 
 **Rationale:** A reusable card keeps the five resources visually consistent and reserves room for the upcoming mini sparkline so adding it does not re-lay out the dashboard. Keeping formatting and aggregation in pure functions keeps `DashboardView` thin and makes edge cases (unit boundaries, missing rates, no volumes) testable. Health comes precomputed in `SystemSnapshot::health`, so the UI only renders it, in line with `src/ui/AGENTS.md`. Binary units match how Windows reports memory and disk sizes. Other tabs are still placeholders, so snapshot forwarding to them remains deferred (code review F-4).
+
+**Extended by [DC-105](#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37):** the health status colours, and the dimmed "Unknown", reach 4.5:1 in both colour schemes and follow a change of scheme.
 
 ---
 
@@ -1298,5 +1301,33 @@ Unit tests cover every state on an Up, a Down and a Dormant adapter, the develop
 **Rationale:** The style plugin is loaded at run time, like the platform plugin. Only the platform plugin was copied, though, and the comment on that step said it was the only one needed. Without a `styles` directory, Qt falls back to its built-in classic `windows` style: bevelled check boxes, scroll bars, tabs and frames, and that style's dark palette. vcpkg's qtbase port ships no `windeployqt`, so the build copies the plugins itself, and one function deploys a plugin added later to every executable at once.
 - **Tests and benchmarks get the same plugins** as the app, so that the layouts, colours and tick costs they measure are the ones the app shows.
 - **Layout:** under `windows11` every test passes, including the 800×600 tests of the Performance pages and the Network tab. Rendered at 800×600 in both colour schemes, the main window's minimum size is 602×492 and every tab fits.
-- **Colours:** the style draws tab pages and card frames in the palette's base colour (#ffffff in the light scheme, #2d2d2d in the dark one), not the window colour. Its placeholder-text colour is the text colour at half opacity, which reaches only 4.0:1 on white. The fix for code review F-37 chooses the cards' text colours against what this style draws.
+- **Colours:** the style draws tab pages and card frames in the palette's base colour (#ffffff in the light scheme, #2d2d2d in the dark one), not the window colour. Its placeholder-text colour is the text colour at half opacity, which reaches only 4.0:1 on white. [DC-105](#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37) chooses the text colours against what this style draws.
 - **Cost:** the tick-cost benchmark ran three times with the plugin and twice without it, alternately, on the same Release binary, by renaming its `styles` directory. With the style, the Network tab cost about 1 ms more per tick: means of 5.9–8.6 ms against 5.6–7.1 ms, for 2 to 16 adapters. So did the Performance tab's network page at 1 minute: 7.2–8.9 ms against 6.1–7.1 ms. On the other pages, the ranges with and without the style overlapped. Every run on 2026-10-16 was slower than [DC-95](#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33)'s figures, with or without the style, although they printed the same processor, power plan and power mode. The Phase 5 review measured the same, so these runs are compared only with each other.
+
+### DC-105: Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
+
+**Decision:** `ui/text_tone.h` names what the colour of a text says, as a `TextTone`: Normal, Dimmed, Good, Warning or Critical. `textToneColor()` gives each tone's colour. Dimmed text is the text colour at 60% opacity (`kDimmedTextAlpha`). Good, Warning and Critical each have a darker shade for a light background and a lighter one for a dark background, picked by the lightness of the window colour:
+
+| Tone | Light background | Contrast on #f3f3f3 / #ffffff | Dark background | Contrast on #1e1e1e / #2d2d2d |
+| --- | --- | --- | --- | --- |
+| Dimmed | black at 60% | 5.58 / 5.74 | white at 60% | 6.77 / 6.00 |
+| Good | #1e7b45 | 4.76 / 5.28 | #3cb371 | 6.25 / 5.17 |
+| Warning | #a05a00 | 4.78 / 5.31 | #d98200 | 5.67 / 4.68 |
+| Critical | #c62828 | 5.07 / 5.62 | #ff6b6b | 6.01 / 4.96 |
+
+`TonedLabel` is a `QLabel` drawn in its tone's colour, in bold for Good, Warning and Critical. It works the colour out from the text and window colours it inherits, and again on every `PaletteChange`, so it follows a change of colour scheme while the app runs. It keeps the colour in its `PlaceholderText` role, which a label does not otherwise use, and draws its text with that role. The tones are used by:
+- `AdapterCard`'s status (Good while Up, otherwise Dimmed) and description (Dimmed), which used `palette(mid)` in a style sheet;
+- `ResourceCard`'s health status (Good, Warning and Critical, and Dimmed in italics for Unknown), whose colours were in a style sheet;
+- `ReadoutGrid`'s names (Dimmed), which used the `PlaceholderText` role;
+- the process table's "N/A" cells, which now use `dimmedTextColor()` of the text colour instead of `PlaceholderText`.
+
+Both cards take their margins from `kCardMargins` in `view_metrics.h`, and neither uses a style sheet any more. The rule is in [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-colours).
+
+**Rationale:** `palette(mid)` is the bevel colour of 3D frames, not a text colour. The review measured the adapter's status and description at 1.13:1 in the dark scheme. With the windows11 style ([DC-104](#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42)) they became #282828 on #2d2d2d, 1.07:1, and the dashboard's "Unknown" #a0a0a0 on white, 2.61:1. WCAG's minimum for normal text is 4.5:1.
+- **Measured on what is drawn:** the windows11 style draws tab pages and cards in the base colour, #ffffff or #2d2d2d, not in the window colour, #f3f3f3 or #1e1e1e. Every tone reaches 4.5:1 on all four.
+- **Not `PlaceholderText`:** the review suggested the role that `ReadoutGrid` used. In the windows11 style it is the text colour at 50% opacity, which reaches 4.66:1 on #2d2d2d but only 3.95:1 on white, so the readout names fell short too. At 60%, the opacity the charts already use for their muted text, it reaches 5.74:1 and 6.00:1, and readout names, descriptions and chart labels are dimmed alike.
+- **Two shades per status colour:** no colour reaches 4.5:1 on both white and #2d2d2d. The old colours each failed in one scheme: the Healthy green #2e8b57 reached 4.25:1 on white but 3.24:1 on #2d2d2d, the Warning amber #d98200 4.68:1 on #2d2d2d but 2.94:1 on white, and the Critical red #d32f2f 4.98:1 on white but 2.77:1 on #2d2d2d.
+- **Worked out in code, not in a style sheet:** a style sheet fixes a colour when it is applied. The label picks the shade from the window colour it inherits, as the charts do, and picks again on every palette change. If it set its own `WindowText`, that role would no longer follow the palette, and the label could not tell the new scheme's text colour from the one it had set. A spare role leaves `WindowText` and `Window` inherited. Setting the palette sends another `PaletteChange`, which finds the colour already set and stops.
+- **Item models:** a table cell cannot hold a label, so the process model asks `dimmedTextColor()` for the colour each time the view paints, which follows the scheme without an event.
+
+Unit tests check every tone's colour on both schemes' window and base colours, that the status tones are bold, and that a label's colour follows its parent's palette. View tests render the main window in both schemes, with `QStyleHints::setColorScheme()`, and measure the contrast of the rendered pixels: the adapter cards' status, description and a readout name, in one window switched between the schemes, and the dashboard's four statuses. Rendered into an image with an alpha channel, text is drawn with greyscale antialiasing, so the strongest pixel is the text's own colour. The old Healthy green measured 3.244:1 on #2d2d2d, against 3.24:1 computed, and the tests fail with it or with dimmed text at 30% opacity.

@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -11,11 +12,13 @@
 #include <QTabWidget>
 
 #include "domain/system_snapshot.h"
+#include "text_contrast.h"
 #include "ui/adapter_card.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/main_window.h"
 #include "ui/network_view.h"
 #include "ui/readout_grid.h"
+#include "ui/text_tone.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
@@ -450,4 +453,42 @@ TEST(NetworkView, MarkupInNamesAndDescription_WindowMinimumSizeStaysWithin800x60
     EXPECT_LE(minimum.width(), 800);
     EXPECT_LE(minimum.height(), 600);
     EXPECT_EQ(mainWindow.size(), QSize(800, 600));
+}
+
+TEST(NetworkView, Card_StatusDescriptionAndReadoutNamesReadableInBothColourSchemes)
+{
+    // One window for both schemes, so the colours must follow a change of scheme.
+    MainWindow mainWindow;
+    mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
+    // Tall enough that both cards are in view, so every label is rendered.
+    mainWindow.resize(1024, 1200);
+    mainWindow.show();
+    mainWindow.tabWidget()->setCurrentWidget(mainWindow.networkView());
+    NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
+    ethernet.description = "Realtek Gaming 2.5GbE Family Controller";
+    NetworkSample wifi = adapter(2, "WiFi", OperationalStatus::Down);
+    wifi.description = "RZ616 Wi-Fi 6E 160MHz";
+    mainWindow.onSnapshotReady(snapshotWith(std::vector<NetworkSample>{ethernet, wifi}));
+
+    for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark}) {
+        const sysmon::test::ScopedColorScheme colorScheme(scheme);
+        QCoreApplication::processEvents();
+
+        const NetworkView* view = mainWindow.networkView();
+        ASSERT_EQ(view->listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+        for (std::size_t index = 0; index < 2; ++index) {
+            const AdapterCard* card = view->adapterCard(index);
+            const auto readoutNames = card->readoutGrid()->findChildren<TonedLabel*>();
+            ASSERT_FALSE(readoutNames.isEmpty());
+            for (const QWidget* label : {static_cast<const QWidget*>(card->statusLabel()),
+                                         static_cast<const QWidget*>(card->descriptionLabel()),
+                                         static_cast<const QWidget*>(readoutNames.front())}) {
+                EXPECT_GE(sysmon::test::renderedTextContrast(mainWindow, *label), sysmon::test::kMinimumTextContrast)
+                    << (scheme == Qt::ColorScheme::Dark ? "dark: " : "light: ")
+                    << qobject_cast<const QLabel*>(label)->text().toStdString();
+            }
+        }
+        EXPECT_EQ(view->adapterCard(0)->statusLabel()->tone(), TextTone::Good);
+        EXPECT_EQ(view->adapterCard(1)->statusLabel()->tone(), TextTone::Dimmed);
+    }
 }

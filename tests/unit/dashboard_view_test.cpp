@@ -3,15 +3,19 @@
 #include <optional>
 
 #include <gtest/gtest.h>
+#include <QCoreApplication>
 #include <QEvent>
 #include <QLabel>
 #include <QObject>
 
 #include "domain/health_status.h"
 #include "domain/system_snapshot.h"
+#include "text_contrast.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/dashboard_view.h"
+#include "ui/main_window.h"
 #include "ui/resource_card.h"
+#include "ui/text_tone.h"
 
 using namespace sysmon::domain;
 using sysmon::ui::DashboardView;
@@ -20,8 +24,8 @@ using sysmon::ui::ResourceCard;
 namespace
 {
 
-// Counts QEvent::StyleChange events, which setStyleSheet() sends to a widget.
-class StyleChangeCounter : public QObject
+// Counts the palette and font changes that restyling a status label sends it.
+class RestyleCounter : public QObject
 {
 public:
     int count = 0;
@@ -29,7 +33,7 @@ public:
 protected:
     bool eventFilter(QObject* /*watched*/, QEvent* event) override
     {
-        if (event->type() == QEvent::StyleChange) {
+        if (event->type() == QEvent::PaletteChange || event->type() == QEvent::FontChange) {
             ++count;
         }
         return false;
@@ -123,7 +127,7 @@ TEST(ResourceCard, SetStatus_SameLevelAgain_DoesNotRestyle)
     card.setStatus(HealthLevel::Warning);
     auto* statusLabel = findLabel(card, "Warning");
     ASSERT_NE(statusLabel, nullptr);
-    StyleChangeCounter counter;
+    RestyleCounter counter;
     statusLabel->installEventFilter(&counter);
 
     card.setStatus(HealthLevel::Warning);
@@ -277,4 +281,37 @@ TEST(DashboardView, Sparklines_PercentFixedRangeNetworkAutoRange)
     EXPECT_FALSE(dashboard.cpuSparkline()->isAutoRange());
     EXPECT_FLOAT_EQ(dashboard.cpuSparkline()->effectiveRange().max, 100.0f);
     EXPECT_TRUE(dashboard.networkSparkline()->isAutoRange());
+}
+
+TEST(DashboardView, CardStatuses_ReadableInBothColourSchemes)
+{
+    for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark}) {
+        const sysmon::test::ScopedColorScheme colorScheme(scheme);
+        sysmon::ui::MainWindow mainWindow;
+        mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
+        mainWindow.resize(1024, 720);
+        mainWindow.show();
+        SystemSnapshot snapshot = populatedSnapshot();
+        snapshot.health = SystemHealth{
+            .cpu = HealthLevel::Healthy,
+            .memory = HealthLevel::Warning,
+            .disk = HealthLevel::Critical,
+            .network = HealthLevel::Unknown,
+            .overall = HealthLevel::Critical,
+        };
+
+        mainWindow.onSnapshotReady(snapshot);
+        QCoreApplication::processEvents();
+
+        const DashboardView* dashboard = mainWindow.dashboardView();
+        for (const ResourceCard* card :
+             {dashboard->cpuCard(), dashboard->memoryCard(), dashboard->diskCard(), dashboard->networkCard()}) {
+            EXPECT_GE(sysmon::test::renderedTextContrast(mainWindow, *card->statusLabel()),
+                      sysmon::test::kMinimumTextContrast)
+                << (scheme == Qt::ColorScheme::Dark ? "dark: " : "light: ") << card->statusText().toStdString();
+        }
+        EXPECT_EQ(dashboard->networkCard()->statusLabel()->tone(), sysmon::ui::TextTone::Dimmed);
+        EXPECT_TRUE(dashboard->networkCard()->statusLabel()->font().italic());
+        EXPECT_FALSE(dashboard->diskCard()->statusLabel()->font().italic());
+    }
 }

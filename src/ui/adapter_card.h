@@ -18,6 +18,7 @@ namespace sysmon::ui
 {
 
 class ReadoutGrid;
+class TonedLabel;
 
 namespace charts
 {
@@ -61,16 +62,17 @@ public:
     [[nodiscard]] QString statusText() const;
     [[nodiscard]] ReadoutGrid* readoutGrid() const;
     [[nodiscard]] charts::SparklineWidget* chart() const;
+    [[nodiscard]] TonedLabel* statusLabel() const;
+    [[nodiscard]] TonedLabel* descriptionLabel() const;
 
 private:
     void setStatus(const QString& text, bool isUp);
 
     QLabel* m_titleLabel{nullptr};
-    QLabel* m_statusLabel{nullptr};
-    QLabel* m_descriptionLabel{nullptr};
+    TonedLabel* m_statusLabel{nullptr};
+    TonedLabel* m_descriptionLabel{nullptr};
     ReadoutGrid* m_readoutGrid{nullptr};
     charts::SparklineWidget* m_chart{nullptr};
-    bool m_isUp{false};
 };
 
 } // namespace sysmon::ui

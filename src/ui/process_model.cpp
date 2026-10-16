@@ -20,6 +20,7 @@
 #include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 #include "ui/process_icons.h"
+#include "ui/text_tone.h"
 
 namespace sysmon::ui
 {
@@ -368,7 +369,7 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
             return QVariant::fromValue(Qt::Alignment{Qt::AlignRight | Qt::AlignVCenter});
         case Qt::ForegroundRole:
             if (isNotAvailable(node->process, column)) {
-                return QGuiApplication::palette().color(QPalette::PlaceholderText);
+                return dimmedTextColor(QGuiApplication::palette().color(QPalette::Text));
             }
             return {};
         case Qt::ToolTipRole:

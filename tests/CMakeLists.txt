@@ -25,6 +25,8 @@ add_executable(system_monitor_tests
     unit/qt_configuration_test.cpp
     unit/readout_grid_test.cpp
     unit/sparkline_widget_test.cpp
+    unit/text_contrast.h
+    unit/text_tone_test.cpp
     unit/cpu_collector_test.cpp
     unit/memory_collector_test.cpp
     unit/disk_collector_test.cpp

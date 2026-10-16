@@ -290,6 +290,12 @@ connect(m_scheduler, SIGNAL(snapshotReady(SystemSnapshot)),
 - Give a label or message box that shows such text `setTextFormat(Qt::PlainText)`. Where the text has to be rich text, such as a wrapping tooltip, pass each untrusted part through `toHtmlEscaped()`.
 - `ReadoutGrid`'s names and values are always plain text, so readouts need nothing extra.
 
+### Text colours
+
+- Text must reach WCAG's 4.5:1 contrast in both the light and the dark colour scheme, on the background it is actually drawn on. With the windows11 style, tab pages and cards are drawn in the palette's base colour, not its window colour.
+- Draw dimmed or status text with a `TextTone` (`ui/text_tone.h`): a `TonedLabel`, or `textToneColor()` and `dimmedTextColor()` where there is no label, such as an item model's foreground. Do not use `palette(mid)` or another frame colour for text, nor a fixed colour that suits only one scheme, nor a style sheet colour, which does not follow a change of scheme.
+- A new tone needs a shade for each scheme, and `text_tone_test.cpp` checks every tone against both schemes' window and base colours.
+
 ### Resource management
 
 - Pass `this` (or another appropriate parent) as the parent when constructing QObjects so Qt manages lifetime.

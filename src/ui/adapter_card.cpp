@@ -12,6 +12,7 @@
 #include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
 #include "ui/readout_grid.h"
+#include "ui/text_tone.h"
 #include "ui/view_metrics.h"
 
 namespace sysmon::ui
@@ -24,11 +25,6 @@ constexpr int kReadoutColumns = 6;
 // Room for the legend line, a short plot, and the X-axis labels.
 constexpr int kChartHeight = 110;
 
-// The Up colour is the dashboard's Healthy green; other states are dimmed.
-// Both stay readable on light and dark window backgrounds.
-constexpr const char* kUpStyleSheet = "color: #2e8b57; font-weight: bold;";
-constexpr const char* kNotUpStyleSheet = "color: palette(mid);";
-
 } // namespace
 
 AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(parent)
@@ -36,7 +32,7 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     setFrameShape(QFrame::StyledPanel);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(12, 10, 12, 10);
+    layout->setContentsMargins(kCardMargins);
     layout->setSpacing(kItemSpacing);
 
     // The alias and description are chosen by drivers and VPN clients, so
@@ -50,15 +46,14 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     m_titleLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     headerLayout->addWidget(m_titleLabel, 1);
 
-    m_statusLabel = new QLabel(this);
+    // Up is the dashboard's Healthy green, in bold; every other status is dimmed.
+    m_statusLabel = new TonedLabel(TextTone::Dimmed, this);
     m_statusLabel->setTextFormat(Qt::PlainText);
-    m_statusLabel->setStyleSheet(kNotUpStyleSheet);
     headerLayout->addWidget(m_statusLabel);
     layout->addLayout(headerLayout);
 
-    m_descriptionLabel = new QLabel(this);
+    m_descriptionLabel = new TonedLabel(TextTone::Dimmed, this);
     m_descriptionLabel->setTextFormat(Qt::PlainText);
-    m_descriptionLabel->setStyleSheet("color: palette(mid);");
     m_descriptionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_descriptionLabel->setWordWrap(true);
     m_descriptionLabel->hide();
@@ -143,14 +138,20 @@ charts::SparklineWidget* AdapterCard::chart() const
     return m_chart;
 }
 
+TonedLabel* AdapterCard::statusLabel() const
+{
+    return m_statusLabel;
+}
+
+TonedLabel* AdapterCard::descriptionLabel() const
+{
+    return m_descriptionLabel;
+}
+
 void AdapterCard::setStatus(const QString& text, bool isUp)
 {
     m_statusLabel->setText(text);
-    // setStyleSheet() re-polishes the label, so only call it on a change.
-    if (isUp != m_isUp) {
-        m_isUp = isUp;
-        m_statusLabel->setStyleSheet(isUp ? kUpStyleSheet : kNotUpStyleSheet);
-    }
+    m_statusLabel->setTone(isUp ? TextTone::Good : TextTone::Dimmed);
 }
 
 } // namespace sysmon::ui

@@ -12,6 +12,8 @@ class QLabel;
 namespace sysmon::ui
 {
 
+class TonedLabel;
+
 /**
  * Dashboard card for one resource: a title, the current value, a secondary
  * detail line, a colour-coded health status label, and a reserved slot for a
@@ -47,11 +49,13 @@ public:
     /** Container for the card's mini sparkline chart (see setChart). */
     [[nodiscard]] QWidget* sparklineSlot() const;
 
+    [[nodiscard]] TonedLabel* statusLabel() const;
+
 private:
     QLabel* m_titleLabel{nullptr};
     QLabel* m_valueLabel{nullptr};
     QLabel* m_detailLabel{nullptr};
-    QLabel* m_statusLabel{nullptr};
+    TonedLabel* m_statusLabel{nullptr};
     QWidget* m_sparklineSlot{nullptr};
     std::optional<domain::HealthLevel> m_status;
 };

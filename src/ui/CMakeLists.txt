@@ -47,6 +47,8 @@ add_library(sysmon_ui STATIC
     resource_card.h
     sample_history.cpp
     sample_history.h
+    text_tone.cpp
+    text_tone.h
     view_metrics.h
 )
 

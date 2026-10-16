@@ -86,7 +86,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | --- | --- | --- | --- |
 | [F-35](#f-35-network-names-are-rendered-as-rich-text) | Network names are rendered as rich text | Medium | Resolved |
 | [F-36](#f-36-disconnected-adapters-show-leftover-addresses-and-placeholder-dns-servers) | Disconnected adapters show leftover addresses and placeholder DNS servers | Medium | Resolved |
-| [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Open |
+| [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Resolved |
 | [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Open |
 | [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Open |
 | [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Open |
@@ -216,6 +216,15 @@ The dashboard's `ResourceCard` draws its Unknown health status with the same `pa
 3. Add a widget test that renders a card in both colour schemes (`QStyleHints::setColorScheme()`) and checks the contrast of its status and description against the background, as the probe did.
 
 **Recommendation:** Fix before Phase 6, together with F-36, since both change the card.
+
+**Status:** Resolved (2026-10-16). Items 1 to 3 are done, measured with the windows11 style that F-42 now deploys. That style draws cards on the base colour, where `palette(mid)` became #282828 on #2d2d2d (1.07:1).
+
+- A `TextTone` (`ui/text_tone.h`) names what a text's colour says: Normal, Dimmed, Good, Warning or Critical. Dimmed is the text colour at 60% opacity, the charts' muted-text opacity. The review's other suggestion, `PlaceholderText`, is the text colour at 50% in the windows11 style and reaches only 3.95:1 on white. Good, Warning and Critical each have a shade for a light and for a dark background. Every tone reaches 4.5:1 on both schemes' window and base colours.
+- `TonedLabel` draws a label in its tone's colour, and bold for the status tones, and picks the colour again on every palette change, so it follows a change of scheme. The adapter card's status and description, `ResourceCard`'s health status (Unknown stays italic) and `ReadoutGrid`'s names use it. The process table's "N/A" cells use `dimmedTextColor()`. No card uses a style sheet any more, and both share `kCardMargins` (part of F-44's first row).
+- Unit tests check each tone's contrast on the four backgrounds. View tests render the main window in both schemes and measure the rendered pixels of the adapter cards' status, description and a readout name, switching one window between schemes, and of the dashboard's four statuses. They fail with the old Healthy green (measured 3.244:1 on #2d2d2d) or with dimmed text at 30%.
+- `src/ui/AGENTS.md` and a new "Text colours" section of the coding guidelines state the rule.
+
+See [DC-105](../design_decisions.md#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37).
 
 ---
 

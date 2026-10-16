@@ -10,9 +10,10 @@
 #include <QLayout>
 #include <QLayoutItem>
 #include <QMargins>
-#include <QPalette>
 #include <QRect>
 #include <QSize>
+
+#include "ui/text_tone.h"
 
 namespace sysmon::ui
 {
@@ -333,10 +334,9 @@ void ReadoutGrid::rebuild(const std::vector<Readout>& readouts)
     for (const auto& readout : readouts) {
         // Readouts show text from the system and the network, such as a
         // network's name, which must not be rendered as rich text.
-        auto* name = new QLabel(this);
+        auto* name = new TonedLabel(TextTone::Dimmed, this);
         name->setTextFormat(Qt::PlainText);
         name->setText(readout.name);
-        name->setForegroundRole(QPalette::PlaceholderText);
 
         auto* value = new QLabel(this);
         value->setTextFormat(Qt::PlainText);

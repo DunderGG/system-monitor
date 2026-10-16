@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QMargins>
+
 namespace sysmon::ui
 {
 
@@ -18,5 +20,8 @@ inline constexpr int kItemSpacing = 8;
 
 /** Point size of view and page titles, e.g. "Dashboard" and "CPU". */
 inline constexpr int kTitlePointSize = 16;
+
+/** Margins inside a card's frame: the dashboard's resource cards and the Network tab's adapter cards. */
+inline constexpr QMargins kCardMargins{12, 10, 12, 10};
 
 } // namespace sysmon::ui

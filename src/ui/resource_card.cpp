@@ -6,6 +6,8 @@
 #include <QVBoxLayout>
 
 #include "ui/dashboard_formatting.h"
+#include "ui/text_tone.h"
+#include "ui/view_metrics.h"
 
 namespace sysmon::ui
 {
@@ -15,19 +17,18 @@ namespace
 
 constexpr int kSparklineHeight = 36;
 
-// Text colours chosen to stay readable on both light and dark window backgrounds.
-QString statusStyleSheet(domain::HealthLevel level)
+TextTone healthTone(domain::HealthLevel level)
 {
     switch (level) {
         case domain::HealthLevel::Healthy:
-            return "color: #2e8b57; font-weight: bold;";
+            return TextTone::Good;
         case domain::HealthLevel::Warning:
-            return "color: #d98200; font-weight: bold;";
+            return TextTone::Warning;
         case domain::HealthLevel::Critical:
-            return "color: #d32f2f; font-weight: bold;";
+            return TextTone::Critical;
         case domain::HealthLevel::Unknown:
         default:
-            return "color: palette(mid); font-style: italic;";
+            return TextTone::Dimmed;
     }
 }
 
@@ -39,7 +40,7 @@ ResourceCard::ResourceCard(const QString& title, QWidget* parent) : QFrame(paren
     setMinimumWidth(180);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(12, 10, 12, 10);
+    layout->setContentsMargins(kCardMargins);
     layout->setSpacing(4);
 
     auto* headerLayout = new QHBoxLayout();
@@ -50,7 +51,7 @@ ResourceCard::ResourceCard(const QString& title, QWidget* parent) : QFrame(paren
     headerLayout->addWidget(m_titleLabel);
     headerLayout->addStretch();
 
-    m_statusLabel = new QLabel(this);
+    m_statusLabel = new TonedLabel(TextTone::Dimmed, this);
     headerLayout->addWidget(m_statusLabel);
     layout->addLayout(headerLayout);
 
@@ -91,9 +92,9 @@ void ResourceCard::setValue(const QString& value, const QString& detail)
 
 void ResourceCard::setStatus(std::optional<domain::HealthLevel> level)
 {
-    // Called on every snapshot; setStyleSheet() re-polishes the label, so skip it
-    // when nothing changed. The constructor's setStatus(Unknown) always applies,
-    // because m_status starts as std::nullopt.
+    // Called on every snapshot, so skip it when nothing changed. The
+    // constructor's setStatus(Unknown) always applies, because m_status starts
+    // as std::nullopt.
     if (level == m_status) {
         return;
     }
@@ -103,7 +104,11 @@ void ResourceCard::setStatus(std::optional<domain::HealthLevel> level)
         return;
     }
     m_statusLabel->setText(healthLevelText(*level));
-    m_statusLabel->setStyleSheet(statusStyleSheet(*level));
+    m_statusLabel->setTone(healthTone(*level));
+    // Unknown is dimmed like an inactive status, and in italics because it is not a state.
+    QFont statusFont = m_statusLabel->font();
+    statusFont.setItalic(*level == domain::HealthLevel::Unknown);
+    m_statusLabel->setFont(statusFont);
     m_statusLabel->show();
 }
 
@@ -140,6 +145,11 @@ void ResourceCard::setChart(QWidget* chart)
 QWidget* ResourceCard::sparklineSlot() const
 {
     return m_sparklineSlot;
+}
+
+TonedLabel* ResourceCard::statusLabel() const
+{
+    return m_statusLabel;
 }
 
 } // namespace sysmon::ui
