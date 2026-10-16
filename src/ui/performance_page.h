@@ -7,20 +7,14 @@
 #include <QString>
 #include <QWidget>
 
-#include "domain/ring_buffer.h"
 #include "domain/system_snapshot.h"
 #include "ui/charts/sparkline_widget.h"
+#include "ui/sample_history.h"
 
 class QVBoxLayout;
 
 namespace sysmon::ui
 {
-
-/** History of one chart series, oldest first. A missing sample is std::nullopt and shows as a gap. */
-using SampleHistory = domain::RingBuffer<std::optional<float>>;
-
-/** Returns true if history holds at least one sample that is not a gap. */
-[[nodiscard]] bool hasAnyValue(const SampleHistory& history);
 
 /**
  * One detail page of the Performance tab (CPU, memory, disk, or network): a

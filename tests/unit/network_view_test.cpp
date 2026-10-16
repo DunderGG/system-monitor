@@ -9,6 +9,7 @@
 
 #include "domain/system_snapshot.h"
 #include "ui/adapter_card.h"
+#include "ui/charts/sparkline_widget.h"
 #include "ui/network_view.h"
 #include "ui/readout_grid.h"
 
@@ -238,4 +239,70 @@ TEST(NetworkView, ReadFails_CardDetailsNotAvailableThenRecover)
 
     EXPECT_EQ(card->statusText(), "Up");
     EXPECT_EQ(card->readoutGrid()->value("Link speed"), "1 Gbps");
+}
+
+TEST(NetworkView, Card_ChartsReceiveAndSend)
+{
+    ShownNetworkView view;
+    NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{ethernet}));
+    ethernet.inBytesPerSec = 4096;
+    ethernet.outBytesPerSec = std::nullopt;
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{ethernet}));
+
+    const auto* chart = view.adapterCard(0)->chart();
+    ASSERT_EQ(chart->seriesCount(), 2u);
+    EXPECT_EQ(chart->seriesLabel(0), "Receive");
+    EXPECT_EQ(chart->seriesLabel(1), "Send");
+    EXPECT_EQ(chart->capacity(), NetworkView::kHistoryCapacity);
+    EXPECT_TRUE(chart->isAutoRange());
+    const auto receive = chart->seriesSamples(0);
+    const auto send = chart->seriesSamples(1);
+    EXPECT_EQ(std::vector<std::optional<float>>(receive.begin(), receive.end()),
+              (std::vector<std::optional<float>>{2048.0f, 4096.0f}));
+    EXPECT_EQ(std::vector<std::optional<float>>(send.begin(), send.end()),
+              (std::vector<std::optional<float>>{1024.0f, std::nullopt}));
+    EXPECT_EQ(chart->sampleIndex(), 2u);
+}
+
+TEST(NetworkView, Hidden_RecordsHistoryShownWhenTheViewIs)
+{
+    NetworkView view;
+    view.setAttribute(Qt::WA_DontShowOnScreen);
+    for (int i = 0; i < 3; ++i) {
+        view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+    }
+
+    view.show();
+
+    EXPECT_EQ(view.adapterCard(0)->chart()->seriesSamples(0).size(), 3u);
+}
+
+TEST(NetworkView, ShowAllAdapters_NewlyListedAdapterShowsItsHistory)
+{
+    ShownNetworkView view;
+    for (int i = 0; i < 2; ++i) {
+        view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{
+            adapter(1, "Ethernet", OperationalStatus::Up),
+            adapter(2, "WAN Miniport (IP)", OperationalStatus::Up, false, false),
+        }));
+    }
+
+    view.setShowAllAdapters(true);
+
+    ASSERT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+    EXPECT_EQ(view.adapterCard(1)->chart()->seriesSamples(0).size(), 2u);
+}
+
+TEST(NetworkView, ReadFails_ChartsRecordGap)
+{
+    ShownNetworkView view;
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+
+    view.updateSnapshot(snapshotWith(std::nullopt));
+
+    const auto receive = view.adapterCard(0)->chart()->seriesSamples(0);
+    ASSERT_EQ(receive.size(), 2u);
+    EXPECT_FALSE(receive[1].has_value());
 }

@@ -9,6 +9,7 @@
 #include <QString>
 
 #include "domain/network_sample.h"
+#include "ui/adapter_throughput_history.h"
 #include "ui/performance_page.h"
 
 class QLabel;
@@ -23,10 +24,9 @@ class ReadoutGrid;
  * Network page of the Performance tab: a throughput chart per active adapter
  * that can carry traffic (see chartedAdapters()), each with a receive and a send series on an
  * auto-scaled byte-rate axis. History is recorded for every adapter in the
- * snapshots, so an adapter that comes up shows what it did while it was
- * down. An adapter that leaves the snapshots records gaps and is dropped once
- * its history holds no samples. Each chart has the adapter's readouts below it
- * (see adapterReadouts()).
+ * snapshots (see AdapterThroughputHistory), so an adapter that comes up shows
+ * what it did while it was down. Each chart has the adapter's readouts below
+ * it (see adapterReadouts()).
  */
 class NetworkPerformancePage : public PerformancePage
 {
@@ -54,14 +54,6 @@ protected:
     void recordSamples(const domain::SystemSnapshot& snapshot) override;
 
 private:
-    struct AdapterHistory
-    {
-        uint64_t interfaceId{0};
-        SampleHistory receive{kHistoryCapacity};
-        SampleHistory send{kHistoryCapacity};
-    };
-
-    [[nodiscard]] const AdapterHistory* findHistory(uint64_t interfaceId) const;
     void rebuildAdapterCharts(const std::vector<uint64_t>& interfaceIds);
 
     QLabel* m_placeholderLabel{nullptr};
@@ -72,7 +64,7 @@ private:
     std::vector<charts::SparklineWidget*> m_charts;
     std::vector<ReadoutGrid*> m_readoutGrids;
 
-    std::vector<AdapterHistory> m_adapters;
+    AdapterThroughputHistory m_history{kHistoryCapacity};
     std::optional<std::vector<domain::NetworkSample>> m_latest;
 };
 

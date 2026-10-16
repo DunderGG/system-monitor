@@ -20,11 +20,6 @@ constexpr int kHistoryChartMinimumHeight = 120;
 
 } // namespace
 
-bool hasAnyValue(const SampleHistory& history)
-{
-    return std::ranges::any_of(history, [](const std::optional<float>& sample) { return sample.has_value(); });
-}
-
 PerformancePage::PerformancePage(const QString& title, QWidget* parent) : QWidget(parent), m_title(title)
 {
     auto* layout = new QVBoxLayout(this);

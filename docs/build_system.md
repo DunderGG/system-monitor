@@ -54,7 +54,8 @@ Use it to measure performance: the Debug Qt libraries that `default` links are
 many times slower, especially for painting. `.\scripts\build.ps1 -Release`
 selects it. `.\scripts\build.ps1 -Benchmark` also selects it, then runs the
 two executables in `benchmarks/`: `system_monitor_benchmark`, which prints the
-Performance tab's cost per tick for each page and chart window, and
+Performance tab's cost per tick for each page and chart window and the Network
+tab's for 2 to 16 adapters, and
 `system_monitor_process_benchmark`, which prints the Processes tab's cost per
 tick for flat and tree views of 400 to 2,000 processes. The benchmarks are
 built with every preset so they keep compiling, but they are not registered

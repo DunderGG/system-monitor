@@ -1,6 +1,5 @@
 #include "ui/network_performance_page.h"
 
-#include <algorithm>
 #include <cassert>
 #include <utility>
 
@@ -24,11 +23,6 @@ namespace
 constexpr int kAdapterChartMinimumHeight = 160;
 constexpr int kReadoutColumns = 5;
 
-std::optional<float> toChartValue(const std::optional<uint64_t>& bytesPerSecond)
-{
-    return bytesPerSecond ? std::optional<float>{static_cast<float>(*bytesPerSecond)} : std::nullopt;
-}
-
 } // namespace
 
 NetworkPerformancePage::NetworkPerformancePage(QWidget* parent) : PerformancePage("Network", parent)
@@ -49,40 +43,7 @@ NetworkPerformancePage::NetworkPerformancePage(QWidget* parent) : PerformancePag
 void NetworkPerformancePage::recordSamples(const domain::SystemSnapshot& snapshot)
 {
     m_latest = snapshot.networks;
-
-    const auto inSnapshot = [&snapshot](uint64_t interfaceId) {
-        return snapshot.networks && std::ranges::any_of(*snapshot.networks, [interfaceId](const auto& adapter) {
-                   return adapter.interfaceId == interfaceId;
-               });
-    };
-
-    if (snapshot.networks) {
-        for (const auto& adapter : *snapshot.networks) {
-            auto it = std::ranges::find(m_adapters, adapter.interfaceId, &AdapterHistory::interfaceId);
-            if (it == m_adapters.end()) {
-                it = m_adapters.insert(m_adapters.end(), AdapterHistory{.interfaceId = adapter.interfaceId});
-            }
-            it->receive.push(toChartValue(adapter.inBytesPerSec));
-            it->send.push(toChartValue(adapter.outBytesPerSec));
-        }
-    }
-    for (auto& history : m_adapters) {
-        if (!inSnapshot(history.interfaceId)) {
-            history.receive.push(std::nullopt);
-            history.send.push(std::nullopt);
-        }
-    }
-    // Adapters still in the snapshot are kept even without values: a new
-    // adapter has no rate until its second sample.
-    std::erase_if(m_adapters, [&inSnapshot](const AdapterHistory& history) {
-        return !inSnapshot(history.interfaceId) && !hasAnyValue(history.receive) && !hasAnyValue(history.send);
-    });
-}
-
-const NetworkPerformancePage::AdapterHistory* NetworkPerformancePage::findHistory(uint64_t interfaceId) const
-{
-    const auto it = std::ranges::find(m_adapters, interfaceId, &AdapterHistory::interfaceId);
-    return it != m_adapters.end() ? &*it : nullptr;
+    m_history.record(snapshot.networks);
 }
 
 void NetworkPerformancePage::refresh()
@@ -115,7 +76,7 @@ void NetworkPerformancePage::refresh()
     }
 
     for (std::size_t index = 0; index < m_charts.size(); ++index) {
-        const AdapterHistory* history = findHistory(m_chartedIds[index]);
+        const auto* history = m_history.find(m_chartedIds[index]);
         if (history == nullptr) {
             m_charts[index]->setSeriesSamples(0, {});
             m_charts[index]->setSeriesSamples(1, {});

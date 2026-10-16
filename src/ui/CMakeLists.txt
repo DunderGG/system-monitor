@@ -3,6 +3,8 @@ find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
 add_library(sysmon_ui STATIC
     adapter_card.cpp
     adapter_card.h
+    adapter_throughput_history.cpp
+    adapter_throughput_history.h
     cpu_performance_page.cpp
     cpu_performance_page.h
     dashboard_formatting.cpp
@@ -43,6 +45,8 @@ add_library(sysmon_ui STATIC
     readout_grid.h
     resource_card.cpp
     resource_card.h
+    sample_history.cpp
+    sample_history.h
     view_metrics.h
 )
 

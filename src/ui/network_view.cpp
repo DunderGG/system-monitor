@@ -71,8 +71,9 @@ NetworkView::NetworkView(QWidget* parent) : QWidget(parent)
 
 void NetworkView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
-    m_hasSnapshot = true;
+    ++m_recordedCount;
     m_latest = snapshot.networks;
+    m_history.record(snapshot.networks);
     // Hidden widgets need no update; showEvent() catches up.
     if (isVisible()) {
         refresh();
@@ -113,7 +114,7 @@ void NetworkView::showEvent(QShowEvent* event)
 
 void NetworkView::refresh()
 {
-    if (!m_hasSnapshot) {
+    if (m_recordedCount == 0) {
         return;
     }
 
@@ -133,6 +134,9 @@ void NetworkView::refresh()
         for (auto* card : m_cards) {
             card->setUnavailable();
         }
+    }
+    for (std::size_t index = 0; index < m_cards.size(); ++index) {
+        m_cards[index]->setThroughput(m_history.find(m_listedIds[index]), m_recordedCount);
     }
 
     if (m_cards.empty()) {
@@ -162,7 +166,7 @@ void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds)
             cards.push_back(it->second);
             previous.erase(it);
         } else {
-            cards.push_back(new AdapterCard(m_scrollArea->widget()));
+            cards.push_back(new AdapterCard(kHistoryCapacity, m_scrollArea->widget()));
         }
     }
     for (auto& [interfaceId, card] : previous) {

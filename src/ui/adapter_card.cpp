@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+#include "ui/charts/sparkline_widget.h"
 #include "ui/dashboard_formatting.h"
 #include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
@@ -20,6 +21,8 @@ namespace
 {
 
 constexpr int kReadoutColumns = 6;
+// Room for the legend line, a short plot, and the X-axis labels.
+constexpr int kChartHeight = 110;
 
 // The Up colour is the dashboard's Healthy green; other states are dimmed.
 // Both stay readable on light and dark window backgrounds.
@@ -28,7 +31,7 @@ constexpr const char* kNotUpStyleSheet = "color: palette(mid);";
 
 } // namespace
 
-AdapterCard::AdapterCard(QWidget* parent) : QFrame(parent)
+AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(parent)
 {
     setFrameShape(QFrame::StyledPanel);
 
@@ -59,6 +62,21 @@ AdapterCard::AdapterCard(QWidget* parent) : QFrame(parent)
     m_readoutGrid = new ReadoutGrid(kReadoutColumns, this);
     m_readoutGrid->setReadouts(placeholderReadouts(adapterDetailReadouts(std::nullopt)));
     layout->addWidget(m_readoutGrid);
+
+    // Set up like the Performance tab's network charts, so the two read alike.
+    m_chart = new charts::SparklineWidget(this);
+    m_chart->setCapacity(chartCapacity);
+    m_chart->setAutoRange();
+    m_chart->setSeriesCount(2);
+    m_chart->setSeriesLabel(0, "Receive");
+    m_chart->setSeriesLabel(1, "Send");
+    m_chart->setValueFormatter(formatChartByteRate);
+    m_chart->setAxisLabelTemplates(chartByteRateAxisTemplates());
+    m_chart->setGridVisible(true);
+    m_chart->setAxisLabelsVisible(true);
+    m_chart->setAnnotationsVisible(true);
+    m_chart->setFixedHeight(kChartHeight);
+    layout->addWidget(m_chart);
 }
 
 void AdapterCard::setAdapter(const domain::NetworkSample& adapter)
@@ -82,6 +100,18 @@ void AdapterCard::setUnavailable()
     m_readoutGrid->setReadouts(adapterDetailReadouts(std::nullopt));
 }
 
+void AdapterCard::setThroughput(const AdapterThroughputHistory::Adapter* history, std::uint64_t sampleIndex)
+{
+    if (history == nullptr) {
+        m_chart->setSeriesSamples(0, {});
+        m_chart->setSeriesSamples(1, {});
+    } else {
+        m_chart->setSeriesSamples(0, history->receive.samples());
+        m_chart->setSeriesSamples(1, history->send.samples());
+    }
+    m_chart->setSampleIndex(sampleIndex);
+}
+
 QString AdapterCard::title() const
 {
     return m_titleLabel->text();
@@ -100,6 +130,11 @@ QString AdapterCard::statusText() const
 ReadoutGrid* AdapterCard::readoutGrid() const
 {
     return m_readoutGrid;
+}
+
+charts::SparklineWidget* AdapterCard::chart() const
+{
+    return m_chart;
 }
 
 void AdapterCard::setStatus(const QString& text, bool isUp)

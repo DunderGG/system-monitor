@@ -10,6 +10,7 @@
 
 #include "domain/network_sample.h"
 #include "domain/system_snapshot.h"
+#include "ui/adapter_throughput_history.h"
 
 class QCheckBox;
 class QLabel;
@@ -29,11 +30,13 @@ class AdapterCard;
  *
  * Cards are keyed by interface ID, so an adapter keeps its card when it is
  * renamed or moves in the list. When a read fails, the cards of the last
- * successful read stay, with their details shown as "N/A".
+ * successful read stay, with their details shown as "N/A" and a gap in their
+ * charts.
  *
- * Like the Performance tab, the view records every snapshot and updates its
- * widgets only while it is visible: updateSnapshot() always stores the
- * snapshot, and showEvent() catches up.
+ * Each card charts the adapter's throughput over the last kHistoryCapacity
+ * snapshots. Like the Performance tab, the view records every snapshot, so the
+ * charts have no holes, and updates its widgets only while it is visible:
+ * updateSnapshot() always records, and showEvent() catches up.
  *
  * Not thread-safe; use only on the UI thread.
  */
@@ -42,6 +45,9 @@ class NetworkView : public QWidget
     Q_OBJECT
 
 public:
+    /** Samples of history per chart: one minute at the default 1 Hz sampling rate, as on the dashboard. */
+    static constexpr std::size_t kHistoryCapacity = 60;
+
     explicit NetworkView(QWidget* parent = nullptr);
     ~NetworkView() override = default;
 
@@ -73,8 +79,9 @@ private:
     std::vector<uint64_t> m_listedIds;
     std::vector<AdapterCard*> m_cards;
 
-    bool m_hasSnapshot{false};
+    std::uint64_t m_recordedCount{0};
     std::optional<std::vector<domain::NetworkSample>> m_latest;
+    AdapterThroughputHistory m_history{kHistoryCapacity};
 };
 
 } // namespace sysmon::ui
