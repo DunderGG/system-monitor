@@ -25,6 +25,47 @@
 #include "ui/main_window.h"
 #include "ui/processes_view.h"
 
+namespace
+{
+
+// Runs the monitor until its window closes and returns the exit code. The
+// scheduler, its collectors and the window are local to this function, so
+// they are destroyed when it returns, before main() shuts the logger down:
+// their teardown can log, and spdlog's free functions dereference the default
+// logger without a check once spdlog::shutdown() has dropped it.
+int runMonitor(QApplication& application)
+{
+    sysmon::monitoring::SamplingScheduler scheduler;
+    scheduler.setCpuCollector(std::make_unique<sysmon::platform::CpuCollector>());
+    scheduler.setMemoryCollector(std::make_unique<sysmon::platform::MemoryCollector>());
+    scheduler.setDiskCollector(std::make_unique<sysmon::platform::DiskCollector>());
+    scheduler.setNetworkCollector(std::make_unique<sysmon::platform::NetworkCollector>());
+    scheduler.setConnectivityCollector(std::make_unique<sysmon::platform::ConnectivityCollector>());
+    scheduler.setNetworkProfileCollector(std::make_unique<sysmon::platform::NetworkProfileCollector>());
+    scheduler.setUptimeCollector(std::make_unique<sysmon::platform::UptimeCollector>());
+    scheduler.setSystemActivityCollector(std::make_unique<sysmon::platform::SystemActivityCollector>());
+    scheduler.setProcessCollector(std::make_unique<sysmon::platform::ProcessCollector>());
+
+    sysmon::ui::MainWindow mainWindow;
+    mainWindow.processesView()->setProcessTerminator(sysmon::platform::terminateOwnedProcess);
+    if (const auto monitor = sysmon::platform::currentProcessIdentity()) {
+        mainWindow.processesView()->setMonitorIdentity(*monitor);
+    }
+
+    QObject::connect(&scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
+                     &sysmon::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);
+
+    scheduler.start();
+    mainWindow.show();
+
+    const int exitCode = application.exec();
+
+    scheduler.stop();
+    return exitCode;
+}
+
+} // namespace
+
 int main(int argc, char* argv[])
 {
     QApplication application(argc, argv);
@@ -55,32 +96,7 @@ int main(int argc, char* argv[])
     sysmon::app::configureLogging(logFilePath, *logLevel);
     spdlog::info("Application started with log level '{}'", logLevelValue);
 
-    sysmon::monitoring::SamplingScheduler scheduler;
-    scheduler.setCpuCollector(std::make_unique<sysmon::platform::CpuCollector>());
-    scheduler.setMemoryCollector(std::make_unique<sysmon::platform::MemoryCollector>());
-    scheduler.setDiskCollector(std::make_unique<sysmon::platform::DiskCollector>());
-    scheduler.setNetworkCollector(std::make_unique<sysmon::platform::NetworkCollector>());
-    scheduler.setConnectivityCollector(std::make_unique<sysmon::platform::ConnectivityCollector>());
-    scheduler.setNetworkProfileCollector(std::make_unique<sysmon::platform::NetworkProfileCollector>());
-    scheduler.setUptimeCollector(std::make_unique<sysmon::platform::UptimeCollector>());
-    scheduler.setSystemActivityCollector(std::make_unique<sysmon::platform::SystemActivityCollector>());
-    scheduler.setProcessCollector(std::make_unique<sysmon::platform::ProcessCollector>());
-
-    sysmon::ui::MainWindow mainWindow;
-    mainWindow.processesView()->setProcessTerminator(sysmon::platform::terminateOwnedProcess);
-    if (const auto monitor = sysmon::platform::currentProcessIdentity()) {
-        mainWindow.processesView()->setMonitorIdentity(*monitor);
-    }
-
-    QObject::connect(&scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
-                     &sysmon::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);
-
-    scheduler.start();
-    mainWindow.show();
-
-    const int exitCode = application.exec();
-
-    scheduler.stop();
+    const int exitCode = runMonitor(application);
 
     spdlog::info("Application exited with code {}", exitCode);
     spdlog::shutdown();

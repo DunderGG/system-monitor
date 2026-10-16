@@ -261,6 +261,8 @@ Use spdlog through vcpkg. Configure in the `app` module at startup.
 
 Rotate log files by size (5 MB × 3 files). Make the log level configurable in the settings file.
 
+Shut the logger down last. `main()` destroys the window, the scheduler and the collectors before it calls `spdlog::shutdown()`, because their teardown can log, and once the default logger has been dropped a log call dereferences a null pointer.
+
 ## Elevation and security
 
 ### Run unelevated by default

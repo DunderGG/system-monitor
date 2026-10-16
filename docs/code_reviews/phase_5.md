@@ -92,7 +92,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Open |
 | [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Open |
 | [F-42](#f-42-qts-windows-style-plugin-is-not-deployed) | Qt's Windows style plugin is not deployed (pre-existing) | Low | Open |
-| [F-43](#f-43-the-logger-is-shut-down-before-the-collectors-are-destroyed) | The logger is shut down before the collectors are destroyed (pre-existing) | Low | Open |
+| [F-43](#f-43-the-logger-is-shut-down-before-the-collectors-are-destroyed) | The logger is shut down before the collectors are destroyed (pre-existing) | Low | Resolved |
 | [F-44](#f-44-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
 
 **Open findings from earlier reviews:** none.
@@ -357,6 +357,8 @@ Phase 5 adds a third registration that logs this way (`NetworkProfileCollector`'
 Destroy the window and the scheduler before the logger is shut down. For example, put them in a block that ends before `spdlog::shutdown()`, or hold the scheduler in a `std::optional` and `reset()` it after `stop()`.
 
 **Recommendation:** Fix when convenient. It is a small change to `main.cpp`.
+
+**Status:** Resolved (2026-10-16). `main()` now calls `runMonitor()`, which owns the scheduler and the window. They and the collectors are destroyed when it returns, before `main()` logs its exit and calls `spdlog::shutdown()`. A comment there gives the reason, and the architecture's logging section states the order. The app still exits with code 0, and its log now records the exit after the collectors are gone.
 
 ---
 
