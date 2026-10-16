@@ -80,16 +80,8 @@ target_link_libraries(system_monitor_tests
         spdlog::spdlog
 )
 
-if(WIN32)
-    add_custom_command(TARGET system_monitor_tests POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E make_directory
-            "$<TARGET_FILE_DIR:system_monitor_tests>/platforms"
-        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "$<TARGET_FILE:Qt6::QWindowsIntegrationPlugin>"
-            "$<TARGET_FILE_DIR:system_monitor_tests>/platforms/$<TARGET_FILE_NAME:Qt6::QWindowsIntegrationPlugin>"
-        COMMENT "Deploying Qt platform plugin for tests"
-    )
-endif()
+# The same plugins as the app, so the tests run with the app's style.
+sysmon_deploy_qt_plugins(system_monitor_tests)
 
 gtest_discover_tests(system_monitor_tests)
 

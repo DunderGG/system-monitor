@@ -91,7 +91,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Open |
 | [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Open |
 | [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Open |
-| [F-42](#f-42-qts-windows-style-plugin-is-not-deployed) | Qt's Windows style plugin is not deployed (pre-existing) | Low | Open |
+| [F-42](#f-42-qts-windows-style-plugin-is-not-deployed) | Qt's Windows style plugin is not deployed (pre-existing) | Low | Resolved |
 | [F-43](#f-43-the-logger-is-shut-down-before-the-collectors-are-destroyed) | The logger is shut down before the collectors are destroyed (pre-existing) | Low | Resolved |
 | [F-44](#f-44-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
 
@@ -336,6 +336,15 @@ This predates Phase 5 and was found while measuring it.
 3. Re-measure the benchmarks and F-37's contrast with the new style, and record the decision.
 
 **Recommendation:** Fix in Phase 6, with the manifest and DPI items. It changes how every tab looks, so check the pages at 800×600 again afterwards.
+
+**Status:** Resolved (2026-10-16). Items 1 to 3 are done, ahead of Phase 6 because F-37's colours depend on the style.
+
+- A top-level CMake function, `sysmon_deploy_qt_plugins()`, copies the platform plugin and `Qt6::QModernWindowsStylePlugin` next to the app, the tests and both benchmarks, in place of three copies of the platform plugin's step. Its comment says which plugins are loaded at run time, which corrects the comment in `src/app/CMakeLists.txt` (F-41's last row).
+- `qt_configuration_test.cpp` checks that `QStyleFactory::keys()` lists `windows11` and `windowsvista`, and that the application runs with one of them.
+- Under `windows11` every test passes, including the 800×600 tests. Renders of every tab at 800×600 in both colour schemes fit, with a minimum size of 602×492. The style draws tab pages and cards in the base colour (#ffffff, or #2d2d2d in the dark scheme), so F-37's contrast is measured against that.
+- The benchmark ran alternately with and without the plugin on the same binary. The style adds about 1 ms per tick on the Network tab and on the network page, and nothing measurable on the other pages.
+
+See [DC-104](../design_decisions.md#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42).
 
 ---
 

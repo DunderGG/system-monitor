@@ -37,6 +37,31 @@ endif()
 
 include(CTest)
 
+# Copies the Qt plugins that Qt loads at run time, rather than links, into
+# the directories next to target where Qt looks for them: the Windows platform
+# plugin, and the style plugin that provides the windows11 and windowsvista
+# styles (DC-104). vcpkg's qtbase port does not ship windeployqt, so
+# qt_generate_deploy_app_script() has no deploy tool to call, and
+# VCPKG_APPLOCAL_DEPS copies only the linked DLLs. The caller must have found
+# Qt6 Widgets, which imports both plugin targets.
+function(sysmon_deploy_qt_plugins target)
+    if(NOT WIN32)
+        return()
+    endif()
+    add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:${target}>/platforms"
+            "$<TARGET_FILE_DIR:${target}>/styles"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:Qt6::QWindowsIntegrationPlugin>"
+            "$<TARGET_FILE_DIR:${target}>/platforms/$<TARGET_FILE_NAME:Qt6::QWindowsIntegrationPlugin>"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:Qt6::QModernWindowsStylePlugin>"
+            "$<TARGET_FILE_DIR:${target}>/styles/$<TARGET_FILE_NAME:Qt6::QModernWindowsStylePlugin>"
+        COMMENT "Deploying Qt plugins for ${target}"
+    )
+endfunction()
+
 function(add_sysmon_module moduleDirectory)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${moduleDirectory}/CMakeLists.txt")
         add_subdirectory("${moduleDirectory}")

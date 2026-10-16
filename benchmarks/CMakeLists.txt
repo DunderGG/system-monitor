@@ -19,16 +19,8 @@ function(add_sysmon_benchmark name source)
             sysmon_ui
     )
 
-    if(WIN32)
-        add_custom_command(TARGET ${name} POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E make_directory
-                "$<TARGET_FILE_DIR:${name}>/platforms"
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "$<TARGET_FILE:Qt6::QWindowsIntegrationPlugin>"
-                "$<TARGET_FILE_DIR:${name}>/platforms/$<TARGET_FILE_NAME:Qt6::QWindowsIntegrationPlugin>"
-            COMMENT "Deploying Qt platform plugin for ${name}"
-        )
-    endif()
+    # The same plugins as the app, so the benchmark paints with the app's style.
+    sysmon_deploy_qt_plugins(${name})
 endfunction()
 
 add_sysmon_benchmark(system_monitor_benchmark performance_tick_benchmark.cpp)

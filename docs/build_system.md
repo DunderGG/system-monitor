@@ -30,6 +30,11 @@ installed dependency packages ──> CMake find_package() calls and targets
 standard, common warning flags, Windows preprocessor definitions, testing, and
 the module build hierarchy. Module `CMakeLists.txt` files, added as their
 modules are implemented, define the application, library, and test targets.
+The root file also defines `sysmon_deploy_qt_plugins()`, which the app, the
+tests, and the benchmarks call. It copies the Qt plugins that Qt loads at run
+time rather than links next to each executable: the Windows platform plugin
+into `platforms/`, and the Windows 11 and Vista styles into `styles/`. Without
+the style plugin Qt falls back to its classic Windows style.
 
 `CMakePresets.json` is the checked-in build entry point. Its `default`
 configure preset selects the Ninja generator, uses `build/default` for generated
