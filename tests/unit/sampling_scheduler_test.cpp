@@ -328,6 +328,8 @@ public:
                                                   .isMetered = false};
     }
 
+    void setChangeListener(sysmon::monitoring::ChangeListener /*listener*/) override {}
+
     [[nodiscard]] int calls() const
     {
         return m_calls.load();
@@ -348,6 +350,8 @@ public:
         };
     }
 
+    void setChangeListener(sysmon::monitoring::ChangeListener /*listener*/) override {}
+
     [[nodiscard]] int calls() const
     {
         return m_calls.load();
@@ -356,6 +360,49 @@ public:
 private:
     std::atomic<int> m_calls{0};
 };
+
+// State shared by a test and its FakeEventDrivenConnectivityCollector, which
+// the scheduler owns. It outlives the scheduler, so the test can check what the
+// scheduler left behind.
+struct EventDrivenState
+{
+    std::mutex mutex;
+    sysmon::domain::ConnectivityStatus status{.level = sysmon::domain::ConnectivityLevel::InternetAccess};
+    sysmon::monitoring::ChangeListener listener;
+    int collectCalls = 0;
+};
+
+class FakeEventDrivenConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
+{
+public:
+    explicit FakeEventDrivenConnectivityCollector(EventDrivenState& state) : m_state(state) {}
+
+    [[nodiscard]] sysmon::domain::ConnectivityStatus collect() override
+    {
+        std::lock_guard lock(m_state.mutex);
+        ++m_state.collectCalls;
+        return m_state.status;
+    }
+
+    void setChangeListener(sysmon::monitoring::ChangeListener listener) override
+    {
+        std::lock_guard lock(m_state.mutex);
+        m_state.listener = std::move(listener);
+    }
+
+private:
+    EventDrivenState& m_state;
+};
+
+// Stores a new status and calls the listener, as an OS notification does.
+void notifyChange(EventDrivenState& state, sysmon::domain::ConnectivityLevel level)
+{
+    std::lock_guard lock(state.mutex);
+    state.status = sysmon::domain::ConnectivityStatus{.level = level};
+    if (state.listener) {
+        state.listener();
+    }
+}
 
 // Records the thread each tick runs on.
 class ThreadRecordingCpuCollector : public sysmon::monitoring::ICpuCollector
@@ -541,4 +588,74 @@ TEST(SamplingScheduler, Stop_LongSlowInterval_RespondsImmediately)
 
     EXPECT_FALSE(scheduler.isRunning());
     EXPECT_LT(stopDuration.count(), 1000);
+}
+
+TEST(SamplingScheduler, EventDrivenCollector_ListenerSetOnRegistrationAndClearedOnDestruction)
+{
+    EventDrivenState state;
+    {
+        SamplingScheduler scheduler;
+        scheduler.setConnectivityCollector(std::make_unique<FakeEventDrivenConnectivityCollector>(state));
+        {
+            std::lock_guard lock(state.mutex);
+            EXPECT_TRUE(static_cast<bool>(state.listener));
+        }
+    }
+
+    std::lock_guard lock(state.mutex);
+    EXPECT_FALSE(static_cast<bool>(state.listener));
+}
+
+TEST(SamplingScheduler, RefreshEventDrivenCollectors_UpdatesConnectivityAndKeepsProcessList)
+{
+    SamplingScheduler scheduler;
+    EventDrivenState state;
+    auto process = std::make_unique<FakeProcessCollector>();
+    const auto* processPtr = process.get();
+    scheduler.setProcessCollector(std::move(process));
+    scheduler.setConnectivityCollector(std::make_unique<FakeEventDrivenConnectivityCollector>(state));
+    scheduler.refreshSlowCollectors();
+    notifyChange(state, sysmon::domain::ConnectivityLevel::LocalAccess);
+
+    scheduler.refreshEventDrivenCollectors();
+    const SystemSnapshot snapshot = scheduler.sampleOnce();
+
+    EXPECT_EQ(snapshot.connectivity.level, sysmon::domain::ConnectivityLevel::LocalAccess);
+    ASSERT_TRUE(snapshot.processes.has_value());
+    EXPECT_EQ((*snapshot.processes)[0].pid, 1u);
+    EXPECT_EQ(processPtr->calls(), 1);
+}
+
+TEST(SamplingScheduler, Running_ChangeNotification_ReachesNextSnapshotWithoutAFullSlowRefresh)
+{
+    using sysmon::domain::ConnectivityLevel;
+    SamplingScheduler scheduler(std::chrono::milliseconds{10});
+    scheduler.setSlowInterval(std::chrono::seconds{60});
+    EventDrivenState state;
+    auto process = std::make_unique<FakeProcessCollector>();
+    const auto* processPtr = process.get();
+    scheduler.setProcessCollector(std::move(process));
+    scheduler.setConnectivityCollector(std::make_unique<FakeEventDrivenConnectivityCollector>(state));
+    std::atomic<ConnectivityLevel> lastLevel{ConnectivityLevel::Unknown};
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
+                     [&lastLevel](const SystemSnapshot& snapshot) { lastLevel = snapshot.connectivity.level; });
+    const auto waitFor = [&lastLevel](ConnectivityLevel level) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{3};
+        while (lastLevel.load() != level && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{5});
+        }
+    };
+    scheduler.start();
+    waitFor(ConnectivityLevel::InternetAccess); // The first full slow refresh.
+
+    const auto notified = std::chrono::steady_clock::now();
+    notifyChange(state, ConnectivityLevel::LocalAccess);
+    waitFor(ConnectivityLevel::LocalAccess);
+    const auto latency = std::chrono::steady_clock::now() - notified;
+    scheduler.stop();
+
+    EXPECT_EQ(lastLevel.load(), ConnectivityLevel::LocalAccess);
+    // Within a few ticks, not the 60-second slow interval.
+    EXPECT_LT(latency, std::chrono::seconds{2});
+    EXPECT_EQ(processPtr->calls(), 1);
 }

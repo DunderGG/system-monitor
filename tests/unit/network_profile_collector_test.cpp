@@ -178,3 +178,38 @@ TEST(NetworkProfileCollector, Destruction_CancelsSubscription)
 
     EXPECT_TRUE(state.isCancelled);
 }
+
+TEST(NetworkProfileCollector, ConnectivityChange_CallsChangeListenerOnceUntilRead)
+{
+    FakeState state;
+    auto collector = makeCollector(state);
+    int calls = 0;
+    collector.setChangeListener([&calls] { ++calls; });
+
+    // Stale until the first read, so a notification needs no wake-up yet.
+    state.handler(ConnectivityStatus{});
+    EXPECT_EQ(calls, 0);
+    static_cast<void>(collector.collect());
+
+    state.handler(ConnectivityStatus{});
+    state.handler(ConnectivityStatus{});
+    EXPECT_EQ(calls, 1);
+
+    static_cast<void>(collector.collect());
+    state.handler(ConnectivityStatus{});
+    EXPECT_EQ(calls, 2);
+}
+
+TEST(NetworkProfileCollector, ChangeListenerCleared_NoLongerCalled)
+{
+    FakeState state;
+    auto collector = makeCollector(state);
+    static_cast<void>(collector.collect());
+    int calls = 0;
+    collector.setChangeListener([&calls] { ++calls; });
+
+    collector.setChangeListener({});
+    state.handler(ConnectivityStatus{});
+
+    EXPECT_EQ(calls, 0);
+}

@@ -138,7 +138,7 @@ ConnectivityCollector::ConnectivityCollector(ConnectivityReader reader, Connecti
         storeStatus(*status);
     }
 
-    m_subscription = subscriber([this](domain::ConnectivityStatus status) { storeStatus(status); });
+    m_subscription = subscriber([this](domain::ConnectivityStatus status) { storeNotifiedStatus(status); });
     if (!m_subscription) {
         // collect() then polls; the scheduler calls it on the slow-collector thread.
         spdlog::warn("Connectivity change notifications unavailable; falling back to polling");
@@ -171,10 +171,30 @@ domain::ConnectivityStatus ConnectivityCollector::collect()
     return status;
 }
 
+void ConnectivityCollector::setChangeListener(monitoring::ChangeListener listener)
+{
+    const std::lock_guard lock(m_mutex);
+    m_changeListener = std::move(listener);
+}
+
 void ConnectivityCollector::storeStatus(domain::ConnectivityStatus status)
 {
     const std::lock_guard lock(m_mutex);
     m_cachedStatus = status;
+}
+
+void ConnectivityCollector::storeNotifiedStatus(domain::ConnectivityStatus status)
+{
+    const std::lock_guard lock(m_mutex);
+    if (status == m_cachedStatus) {
+        return;
+    }
+    m_cachedStatus = status;
+    // The listener only marks a refresh as due (it must not block), so calling
+    // it under the lock keeps the callback short.
+    if (m_changeListener) {
+        m_changeListener();
+    }
 }
 
 } // namespace sysmon::platform

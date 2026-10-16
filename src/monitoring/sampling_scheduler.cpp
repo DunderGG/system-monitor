@@ -20,6 +20,16 @@ SamplingScheduler::SamplingScheduler(std::chrono::milliseconds interval, QObject
 SamplingScheduler::~SamplingScheduler()
 {
     stop();
+
+    // The listeners call back into this scheduler. Clearing them waits for a
+    // call in progress, so none runs once the members start being destroyed.
+    std::lock_guard lock(m_collectorMutex);
+    if (m_connectivityCollector) {
+        m_connectivityCollector->setChangeListener({});
+    }
+    if (m_networkProfileCollector) {
+        m_networkProfileCollector->setChangeListener({});
+    }
 }
 
 void SamplingScheduler::start()
@@ -118,6 +128,9 @@ void SamplingScheduler::setNetworkCollector(std::unique_ptr<INetworkCollector> c
 void SamplingScheduler::setConnectivityCollector(std::unique_ptr<IConnectivityCollector> collector)
 {
     assert(!m_isRunning.load() && "setConnectivityCollector must only be called when scheduler is stopped");
+    if (collector) {
+        collector->setChangeListener([this] { requestEventRefresh(); });
+    }
     std::lock_guard lock(m_collectorMutex);
     m_connectivityCollector = std::move(collector);
 }
@@ -125,6 +138,9 @@ void SamplingScheduler::setConnectivityCollector(std::unique_ptr<IConnectivityCo
 void SamplingScheduler::setNetworkProfileCollector(std::unique_ptr<INetworkProfileCollector> collector)
 {
     assert(!m_isRunning.load() && "setNetworkProfileCollector must only be called when scheduler is stopped");
+    if (collector) {
+        collector->setChangeListener([this] { requestEventRefresh(); });
+    }
     std::lock_guard lock(m_collectorMutex);
     m_networkProfileCollector = std::move(collector);
 }
@@ -220,6 +236,44 @@ void SamplingScheduler::refreshSlowCollectors()
     collectSlowResults();
 }
 
+void SamplingScheduler::refreshEventDrivenCollectors()
+{
+    assert(!m_isRunning.load() && "refreshEventDrivenCollectors must only be called when scheduler is stopped");
+    collectEventDrivenResults();
+}
+
+void SamplingScheduler::requestEventRefresh()
+{
+    std::lock_guard lock(m_sleepMutex);
+    m_isEventRefreshPending = true;
+    m_sleepCv.notify_all();
+}
+
+void SamplingScheduler::collectEventDrivenResults()
+{
+    IConnectivityCollector* connectivity = nullptr;
+    INetworkProfileCollector* networkProfile = nullptr;
+    {
+        std::lock_guard lock(m_collectorMutex);
+        connectivity = m_connectivityCollector.get();
+        networkProfile = m_networkProfileCollector.get();
+    }
+
+    domain::ConnectivityStatus connectivityStatus;
+    std::optional<std::vector<domain::NetworkProfile>> networkProfiles;
+    if (connectivity) {
+        connectivityStatus = connectivity->collect();
+    }
+    if (networkProfile) {
+        networkProfiles = networkProfile->collect();
+    }
+
+    // The process list stays as the last full refresh left it.
+    std::lock_guard lock(m_slowResultsMutex);
+    m_slowResults.connectivity = connectivityStatus;
+    m_slowResults.networkProfiles = std::move(networkProfiles);
+}
+
 void SamplingScheduler::collectSlowResults()
 {
     IConnectivityCollector* connectivity = nullptr;
@@ -276,14 +330,34 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
         spdlog::info("SamplingScheduler slow-collector thread started (interval: {}ms)", m_slowInterval.count());
     }
 
+    // Waits for the next full refresh, or for an event-driven collector to
+    // report a change, which collects only the event-driven collectors so the
+    // process list keeps its own cadence. The first wait ends at once.
+    auto nextRefresh = std::chrono::steady_clock::now();
     while (!stopToken.stop_requested()) {
+        bool isEventRefresh = false;
+        {
+            std::unique_lock lock(m_sleepMutex);
+            const bool isEventPending =
+                m_sleepCv.wait_until(lock, stopToken, nextRefresh, [this] { return m_isEventRefreshPending; });
+            if (stopToken.stop_requested()) {
+                break;
+            }
+            // A full refresh collects the event-driven collectors too, so it
+            // also answers a change that is pending when it starts.
+            isEventRefresh = isEventPending && std::chrono::steady_clock::now() < nextRefresh;
+            m_isEventRefreshPending = false;
+        }
+
+        if (isEventRefresh) {
+            collectEventDrivenResults();
+            continue;
+        }
+
         const auto refreshStart = std::chrono::steady_clock::now();
-
         collectSlowResults();
-
-        std::unique_lock lock(m_sleepMutex);
-        const auto nextRefresh = refreshStart + m_slowInterval;
-        m_sleepCv.wait_until(lock, stopToken, nextRefresh, [&stopToken] { return stopToken.stop_requested(); });
+        std::lock_guard lock(m_sleepMutex);
+        nextRefresh = refreshStart + m_slowInterval;
     }
 
     spdlog::info("SamplingScheduler slow-collector thread stopped");

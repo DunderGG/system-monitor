@@ -339,3 +339,57 @@ TEST(ConnectivityCollector, NotificationsFromAnotherThread_CollectSeesLatestAfte
 
     EXPECT_EQ(collector.collect().level, ConnectivityLevel::InternetAccess);
 }
+
+TEST(ConnectivityCollector, NotifiedChange_CallsChangeListener)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false), fakeSubscriber(state));
+    int calls = 0;
+    collector.setChangeListener([&calls] { ++calls; });
+
+    state.handler(status(ConnectivityLevel::InternetAccess));
+
+    EXPECT_EQ(calls, 1);
+    EXPECT_EQ(collector.collect().level, ConnectivityLevel::InternetAccess);
+}
+
+TEST(ConnectivityCollector, NotifiedSameStatus_DoesNotCallChangeListener)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false), fakeSubscriber(state));
+    int calls = 0;
+    collector.setChangeListener([&calls] { ++calls; });
+
+    // The initial notification Windows sends usually repeats the seeded status.
+    state.handler(status(ConnectivityLevel::LocalAccess));
+
+    EXPECT_EQ(calls, 0);
+}
+
+TEST(ConnectivityCollector, ChangeListenerCleared_NoLongerCalled)
+{
+    FakeSubscriptionState state;
+    ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false), fakeSubscriber(state));
+    int calls = 0;
+    collector.setChangeListener([&calls] { ++calls; });
+
+    collector.setChangeListener({});
+    state.handler(status(ConnectivityLevel::InternetAccess));
+
+    EXPECT_EQ(calls, 0);
+}
+
+TEST(ConnectivityCollector, PollingMode_PolledChangeDoesNotCallChangeListener)
+{
+    ConnectivityLevel level = ConnectivityLevel::LocalAccess;
+    ConnectivityCollector collector([&level] { return std::optional<ConnectivityStatus>{status(level)}; });
+    int calls = 0;
+    collector.setChangeListener([&calls] { ++calls; });
+    static_cast<void>(collector.collect());
+
+    level = ConnectivityLevel::InternetAccess;
+    const auto polled = collector.collect();
+
+    EXPECT_EQ(polled.level, ConnectivityLevel::InternetAccess);
+    EXPECT_EQ(calls, 0);
+}

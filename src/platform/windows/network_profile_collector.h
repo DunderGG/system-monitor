@@ -39,11 +39,13 @@ using NetworkProfileReader = std::function<std::optional<std::vector<domain::Net
  * these rather than on every slow-collector refresh.
  *
  * It is an event-driven collector (docs/architecture.md, "Event-driven
- * collectors"): the notification callback only marks the cache stale, and the
- * subscription is the last member, so it is cancelled before the state it
- * writes is destroyed. If subscribing fails, the maximum age alone refreshes
- * the names. The scheduler runs collect() on the slow-collector thread, so
- * the query never runs on the 1 Hz tick.
+ * collectors"): the notification callback only marks the cache stale and, if
+ * it was not stale yet, calls the change listener, so the scheduler reads the
+ * new names at once instead of at its next slow refresh. The subscription is
+ * the last member, so it is cancelled before the state it writes is
+ * destroyed. If subscribing fails, the maximum age alone refreshes the names.
+ * The scheduler runs collect() on the slow-collector thread, so the query
+ * never runs on the 1 Hz tick.
  */
 class NetworkProfileCollector : public monitoring::INetworkProfileCollector
 {
@@ -67,8 +69,11 @@ public:
 
     [[nodiscard]] std::optional<std::vector<domain::NetworkProfile>> collect() override;
 
+    void setChangeListener(monitoring::ChangeListener listener) override;
+
 private:
-    // Marks the cache stale. Thread-safe; called from notification callbacks.
+    // Marks the cache stale and calls the change listener if it was not stale
+    // yet. Thread-safe; called from notification callbacks.
     void markStale();
 
     // Used only on the collecting thread.
@@ -77,11 +82,14 @@ private:
     std::optional<std::vector<domain::NetworkProfile>> m_cached;
     std::optional<std::chrono::steady_clock::time_point> m_lastRead;
 
+    // Guards the stale mark and the listener. The listener is called with it
+    // held, so setChangeListener() waits for a call in progress.
     std::mutex m_staleMutex;
     bool m_isStale{true};
+    monitoring::ChangeListener m_changeListener;
 
     // Declared last so it is destroyed first: notifications are cancelled
-    // before m_staleMutex and m_isStale go away.
+    // before the state they write goes away.
     std::unique_ptr<ConnectivitySubscription> m_subscription;
 };
 

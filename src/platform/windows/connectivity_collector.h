@@ -54,12 +54,16 @@ subscribeToConnectivityChanges(ConnectivityChangeHandler handler);
  *   accurate, then subscribes to change notifications. Seeding first means a
  *   notification can never be overwritten by an older seed value.
  * - Stores each notified status in a mutex-protected cache; collect() only
- *   returns the cached value on the notification path.
+ *   returns the cached value on the notification path. When a notified status
+ *   differs from the cached one, it then calls the change listener, so the
+ *   scheduler collects it at once instead of at its next slow refresh.
  * - Holds the subscription as its last member, so it is cancelled (waiting for
  *   in-flight callbacks) before the cache is destroyed.
  * - If subscribing fails, falls back to polling the reader on every collect().
- *   The scheduler registers it as a slow collector, so either way collect()
- *   runs on the slow-collector thread, never on the 1 Hz tick.
+ *   Polled changes do not call the listener, because collect() is already
+ *   collecting them. The scheduler registers it as a slow collector, so
+ *   either way collect() runs on the slow-collector thread, never on the 1 Hz
+ *   tick.
  *
  * Missing data is explicit: before the first successful read, or after a failed
  * read, collect() returns ConnectivityLevel::Unknown with isMetered and
@@ -89,10 +93,15 @@ public:
 
     [[nodiscard]] domain::ConnectivityStatus collect() override;
 
+    void setChangeListener(monitoring::ChangeListener listener) override;
+
 private:
-    // Stores the status in the cache and does nothing else. Thread-safe; called
-    // from notification callbacks on OS thread-pool threads.
+    // Stores the status in the cache and does nothing else. Thread-safe.
     void storeStatus(domain::ConnectivityStatus status);
+
+    // Stores the status and, if it changed, calls the change listener.
+    // Thread-safe; called from notification callbacks on OS thread-pool threads.
+    void storeNotifiedStatus(domain::ConnectivityStatus status);
 
     // Polled on every collect() in polling mode; empty on the notification path.
     ConnectivityReader m_pollingReader;
@@ -100,8 +109,11 @@ private:
     // The last status collect() logged. Used only on the collecting thread.
     domain::ConnectivityStatus m_lastLoggedStatus;
 
+    // Guards the cache and the listener. The listener is called with it held,
+    // so setChangeListener() waits for a call in progress.
     std::mutex m_mutex;
     domain::ConnectivityStatus m_cachedStatus;
+    monitoring::ChangeListener m_changeListener;
 
     // Declared last so it is destroyed first: notifications are cancelled
     // before m_mutex and m_cachedStatus go away.

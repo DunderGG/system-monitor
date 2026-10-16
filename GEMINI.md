@@ -47,7 +47,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 - Use `std::jthread` with `std::stop_token` for all background threads the application creates.
 - Fast collectors (CPU, memory, network counters) run on the scheduler thread.
 - Slow collectors (process enumeration, connectivity, network names) run on the scheduler's slow-collector thread at their own cadence.
-- Event-driven collectors may receive OS callbacks on OS thread-pool threads (e.g. `NotifyNetworkConnectivityHintChange`) only under the rules in [architecture.md — Event-driven collectors](docs/architecture.md#event-driven-collectors-os-callback-threads): store only, cancel before teardown, seed synchronously, read from the cache.
+- Event-driven collectors may receive OS callbacks on OS thread-pool threads (e.g. `NotifyNetworkConnectivityHintChange`) only under the rules in [architecture.md — Event-driven collectors](docs/architecture.md#event-driven-collectors-os-callback-threads): store, then wake the scheduler; cancel before teardown; seed synchronously; read from the cache.
 - Never call widget methods from a non-UI thread.
 - Use `std::mutex` with `std::lock_guard` or `std::scoped_lock`. Never lock manually.
 

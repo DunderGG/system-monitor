@@ -139,6 +139,8 @@ Windows integration layer (platform/windows)
 │  - Network names via INetworkListManager (COM,   │
 │    after a change or once a minute)              │
 │  - Runs at own cadence (default every 2 seconds) │
+│  - Woken early to collect connectivity and       │
+│    network names when either changes             │
 │  - Posts results for scheduler to pick up         │
 │  - Uses std::stop_token for clean shutdown       │
 └──────────────────────────────────────────────────┘
@@ -148,7 +150,7 @@ Key threading rules:
 
 - Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in about 1 ms combined; `GetIfTable2` dominates, and its cost grows with the number of interfaces (about 0.7 ms for 42 rows on a desktop). Adapter names, addresses, and DNS servers (`GetAdaptersAddresses`, about 2 ms) are cached and re-read only on change.
 - Slow collectors (process enumeration, connectivity, and network names) run on the scheduler's slow-collector `std::jthread`, every 2 seconds by default (`SamplingScheduler::setSlowInterval()`). Each run stores its results under a mutex, and every tick copies the latest ones into the snapshot. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet. Until the first slow refresh, the snapshot has no process list, no network names, and `ConnectivityLevel::Unknown`. The network names come from a COM query that `NetworkProfileCollector` makes only after a connectivity change or once its answer is a minute old, so most slow refreshes return its cached answer ([DC-100](design_decisions.md#dc-100-network-names-from-inetworklistmanager-re-read-after-a-connectivity-change-or-a-minute-and-matched-to-adapters-by-luid)).
-- Event-driven collectors receive changes from the OS instead of polling (see below), so their `collect()` only returns a cached value. Connectivity, the event-driven collector, is still registered as a slow collector so that its polling fallback never runs on the tick; a change reaches the snapshot within one slow interval.
+- Event-driven collectors receive changes from the OS instead of polling (see below), so their `collect()` returns a cached value. Connectivity and the network names are event-driven, and are still registered as slow collectors so that their queries and the connectivity polling fallback never run on the tick. When one of them stores a change, it calls its change listener, which wakes the slow-collector thread to collect only these two at once. The change reaches the next tick's snapshot, about a second after the notification at most, instead of waiting for the next slow refresh. The process list keeps its own cadence, and no extra snapshot is emitted, so every history keeps one sample per tick ([DC-101](design_decisions.md#dc-101-connectivity-changes-wake-the-slow-collector-thread-which-collects-only-the-event-driven-collectors)).
 - Snapshots cross from the scheduler thread to the UI thread via `Qt::QueuedConnection`. The snapshot is an immutable value type; no shared mutable state crosses the boundary.
 - All background threads the application creates are `std::jthread`s and use `std::stop_token` for cooperative cancellation at shutdown.
 
@@ -156,7 +158,7 @@ Key threading rules:
 
 Some Windows APIs deliver change notifications by invoking a callback on a thread from the OS thread pool, for example `NotifyNetworkConnectivityHintChange`. The application does not own these threads, so the `std::jthread` rule cannot apply to them. A collector may use such a callback instead of a polling thread when it follows all of these rules:
 
-1. **Store only.** The callback converts the notification to a domain value and stores it in mutex-protected state (`std::lock_guard`). It does no blocking or long-running work, and it never touches Qt objects or emits signals.
+1. **Store, then wake.** The callback converts the notification to a domain value and stores it in mutex-protected state (`std::lock_guard`). If the value changed, it then calls the collector's change listener (`monitoring::IEventDrivenCollector::setChangeListener()`), which the scheduler sets. The listener only sets a flag and notifies a condition variable. The callback does no other blocking or long-running work, and it never touches Qt objects or emits signals.
 2. **Cancel before teardown.** The registration handle is an RAII member whose deleter cancels the registration with an API that waits for in-flight callbacks (e.g. `CancelMibChangeNotify2`). The handle is declared after the state the callback writes, so it is destroyed first.
 3. **Seed synchronously.** The constructor reads the current value synchronously before registering, so the first `collect()` does not depend on callback timing.
 4. **Read from the cache.** `collect()` only copies the cached value under the mutex; it makes no OS calls.
@@ -164,7 +166,7 @@ Some Windows APIs deliver change notifications by invoking a callback on a threa
 
 `ConnectivityCollector` is the reference implementation.
 
-When the value is costly to read, a notification can instead mark a cache stale, so the collector re-reads it on its own thread. The callback still only stores (rule 1: here it stores the stale mark), and the registration is still cancelled first (rule 2). Rules 3 and 4 change: the cache starts stale, so the first `collect()` reads, and `collect()` reads again only when the cache is stale or has expired. An expiry age also replaces rule 5, because it keeps the value current when registration fails. The network collector's adapter details (`AdapterDetailsCache`) and `NetworkProfileCollector` follow this form.
+When the value is costly to read, a notification can instead mark a cache stale, so the collector re-reads it on its own thread. The callback still follows rule 1: it stores the stale mark and, if the cache was not stale yet, calls the change listener. The registration is still cancelled first (rule 2). Rules 3 and 4 change: the cache starts stale, so the first `collect()` reads, and `collect()` reads again only when the cache is stale or has expired. An expiry age also replaces rule 5, because it keeps the value current when registration fails. `NetworkProfileCollector` follows this form. So do the network collector's adapter details (`AdapterDetailsCache`), except that they have no change listener: the network collector is a fast collector, collected on every tick anyway.
 
 ### Data flow
 

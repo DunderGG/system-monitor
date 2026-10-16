@@ -216,10 +216,23 @@ std::optional<std::vector<domain::NetworkProfile>> NetworkProfileCollector::coll
     return m_cached;
 }
 
+void NetworkProfileCollector::setChangeListener(monitoring::ChangeListener listener)
+{
+    const std::lock_guard lock(m_staleMutex);
+    m_changeListener = std::move(listener);
+}
+
 void NetworkProfileCollector::markStale()
 {
     const std::lock_guard lock(m_staleMutex);
+    // While the cache is already stale, a read is already due.
+    if (m_isStale) {
+        return;
+    }
     m_isStale = true;
+    if (m_changeListener) {
+        m_changeListener();
+    }
 }
 
 } // namespace sysmon::platform

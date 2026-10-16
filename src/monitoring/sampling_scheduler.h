@@ -32,9 +32,14 @@ namespace sysmon::monitoring
  * - The slow-collector thread (a second std::jthread) runs the slow collectors
  *   (processes, connectivity, and network profiles) every slowInterval() and
  *   stores their results under a mutex. Each tick merges the latest stored
- *   results, so a snapshot's processes, connectivity, and network profiles can
- *   be up to slowInterval() old, and are empty (std::nullopt,
- *   ConnectivityLevel::Unknown) until the first slow refresh.
+ *   results, so a snapshot's processes can be up to slowInterval() old. All
+ *   three are empty (std::nullopt, ConnectivityLevel::Unknown) until the first
+ *   slow refresh.
+ * - Connectivity and network profiles are event-driven collectors. When one
+ *   reports a change through its change listener, the slow-collector thread
+ *   wakes and collects those two again, without waiting for its next refresh
+ *   and without running the process collector. The change reaches the next
+ *   tick's snapshot; no extra snapshot is emitted.
  * - Clean shutdown is coordinated using std::stop_token and std::condition_variable_any.
  */
 class SamplingScheduler : public QObject
@@ -78,7 +83,8 @@ public:
      * Collector registration.
      * Invariant: These methods must only be called while the scheduler is stopped
      * (before start() or after stop()). Hot-swapping collectors while the background
-     * sampling thread is running is not supported.
+     * sampling thread is running is not supported. The scheduler sets the change
+     * listener of each event-driven collector, and clears it on destruction.
      */
     void setCpuCollector(std::unique_ptr<ICpuCollector> collector);
     void setMemoryCollector(std::unique_ptr<IMemoryCollector> collector);
@@ -112,6 +118,14 @@ public:
      */
     void refreshSlowCollectors();
 
+    /**
+     * Synchronously runs only the event-driven collectors (connectivity and
+     * network profiles) and stores their results, keeping the process list.
+     * The slow-collector thread does this when one of them reports a change;
+     * call it directly only while the scheduler is stopped.
+     */
+    void refreshEventDrivenCollectors();
+
 signals:
     /** Emitted on each sampling tick with the newly assembled snapshot. */
     void snapshotReady(const sysmon::domain::SystemSnapshot& snapshot);
@@ -128,6 +142,12 @@ private:
     void run(std::stop_token stopToken);
     void runSlowCollectors(std::stop_token stopToken);
     void collectSlowResults();
+    void collectEventDrivenResults();
+
+    // The change listener of the event-driven collectors: marks an event
+    // refresh as due and wakes the slow-collector thread. Thread-safe and
+    // non-blocking; called from OS notification threads.
+    void requestEventRefresh();
 
     std::chrono::milliseconds m_interval{1000};
     std::chrono::milliseconds m_slowInterval{kDefaultSlowInterval};
@@ -135,6 +155,8 @@ private:
 
     mutable std::mutex m_sleepMutex;
     std::condition_variable_any m_sleepCv;
+    // Set by requestEventRefresh(), cleared by the slow-collector thread. Guarded by m_sleepMutex.
+    bool m_isEventRefreshPending{false};
 
     std::jthread m_thread;
     std::jthread m_slowThread;
