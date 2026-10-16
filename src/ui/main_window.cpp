@@ -77,7 +77,6 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
 {
     // Every view records every snapshot so its history has no holes when it is
     // shown; each view skips repainting its own widgets while it is hidden.
-    // The Network view takes snapshots once it is implemented.
     if (m_dashboardView != nullptr) {
         m_dashboardView->updateSnapshot(snapshot);
     }
@@ -86,6 +85,9 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
     }
     if (m_processesView != nullptr) {
         m_processesView->updateSnapshot(snapshot);
+    }
+    if (m_networkView != nullptr) {
+        m_networkView->updateSnapshot(snapshot);
     }
 }
 

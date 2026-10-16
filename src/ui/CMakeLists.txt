@@ -1,6 +1,8 @@
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
 
 add_library(sysmon_ui STATIC
+    adapter_card.cpp
+    adapter_card.h
     cpu_performance_page.cpp
     cpu_performance_page.h
     dashboard_formatting.cpp
@@ -13,6 +15,8 @@ add_library(sysmon_ui STATIC
     main_window.h
     memory_performance_page.cpp
     memory_performance_page.h
+    network_formatting.cpp
+    network_formatting.h
     network_performance_page.cpp
     network_performance_page.h
     network_view.cpp
