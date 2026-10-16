@@ -29,7 +29,7 @@ class AdapterCard;
  *
  * Cards are keyed by interface ID, so an adapter keeps its card when it is
  * renamed or moves in the list. When a read fails, the cards of the last
- * successful read stay.
+ * successful read stay, with their details shown as "N/A".
  *
  * Like the Performance tab, the view records every snapshot and updates its
  * widgets only while it is visible: updateSnapshot() always stores the

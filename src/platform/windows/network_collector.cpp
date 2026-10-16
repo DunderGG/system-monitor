@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "platform/windows/adapter_details_cache.h"
+#include "platform/windows/adapter_type_mapping.h"
 #include "platform/windows/byte_rate.h"
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/utf8_conversion.h"
@@ -257,6 +258,7 @@ public:
             raw.linkSpeedBps =
                 (row.ReceiveLinkSpeed > row.TransmitLinkSpeed) ? row.ReceiveLinkSpeed : row.TransmitLinkSpeed;
             raw.operationalStatus = toOperationalStatus(row.OperStatus);
+            raw.type = toAdapterType(row.Type, row.PhysicalMediumType);
 
             const std::string alias = wideToUtf8(row.Alias);
             const std::string desc = wideToUtf8(row.Description);
@@ -380,6 +382,7 @@ std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<Raw
             .outBytesPerSec = outBytesPerSec,
             .linkSpeedBps = adapter.linkSpeedBps,
             .operationalStatus = adapter.operationalStatus,
+            .type = adapter.type,
             .ipAddresses = adapter.ipAddresses,
             .dnsServers = adapter.dnsServers,
             .isHardwareInterface = adapter.isHardwareInterface,

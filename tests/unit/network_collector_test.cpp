@@ -159,6 +159,23 @@ TEST(NetworkCollector, CalculateNetworkSamples_HardwareFlag_PreservedInSample)
     EXPECT_FALSE(samples[1].isHardwareInterface);
 }
 
+TEST(NetworkCollector, CalculateNetworkSamples_AdapterType_PreservedInSample)
+{
+    std::unordered_map<uint64_t, NetworkBaseline> baselines;
+    const auto now = std::chrono::steady_clock::now();
+
+    const std::vector<RawNetworkAdapter> adapters = {
+        RawNetworkAdapter{.luid = 1, .adapterName = "Wi-Fi", .type = AdapterType::WiFi},
+        RawNetworkAdapter{.luid = 2, .adapterName = "Teredo", .type = AdapterType::Tunnel},
+    };
+
+    const auto samples = calculateNetworkSamples(adapters, baselines, now);
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_EQ(samples[0].type, AdapterType::WiFi);
+    EXPECT_EQ(samples[1].type, AdapterType::Tunnel);
+}
+
 TEST(NetworkCollector, CalculateNetworkSamples_InterfaceId_LuidThenIfIndex)
 {
     std::unordered_map<uint64_t, NetworkBaseline> baselines;

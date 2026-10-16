@@ -48,6 +48,7 @@ NetworkSample adapter(std::string name, OperationalStatus status, std::optional<
         .inBytesPerSec = inRate,
         .outBytesPerSec = outRate,
         .operationalStatus = status,
+        .type = AdapterType::Ethernet,
         .isHardwareInterface = true,
         .hasIpInterface = true,
     };
@@ -608,7 +609,7 @@ TEST(NetworkPerformancePage, Readouts_PerChartedAdapter)
     page.refresh();
 
     EXPECT_EQ(page.adapterReadoutGrid(0)->value("Receive"), "2.0 KiB/s");
-    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Type"), "Hardware");
+    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Type"), "Ethernet");
 }
 
 TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)

@@ -3,11 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <string>
-
-#include <QStringList>
 
 #include "ui/dashboard_formatting.h"
+#include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
 
 namespace sysmon::ui
@@ -20,24 +18,6 @@ namespace
 template <typename T, typename Format> QString valueOr(const std::optional<T>& value, Format format)
 {
     return value ? format(*value) : kNotAvailable;
-}
-
-// Joins addresses one per line, or "None" when there are none.
-QString addressList(const std::vector<std::string>& addresses)
-{
-    if (addresses.empty()) {
-        return "None";
-    }
-    QStringList lines;
-    for (const auto& address : addresses) {
-        lines.append(QString::fromStdString(address));
-    }
-    return lines.join('\n');
-}
-
-bool isIpv6(const std::string& address)
-{
-    return address.find(':') != std::string::npos;
 }
 
 } // namespace
@@ -169,22 +149,17 @@ std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>&
         };
     }
 
-    std::vector<std::string> ipv4;
-    std::vector<std::string> ipv6;
-    for (const auto& address : adapter->ipAddresses) {
-        (isIpv6(address) ? ipv6 : ipv4).push_back(address);
-    }
     // A link speed of 0 means the adapter did not report one.
     const auto linkSpeed = adapter->linkSpeedBps > 0 ? std::optional<uint64_t>{adapter->linkSpeedBps} : std::nullopt;
     return {
         {"Receive", valueOr(adapter->inBytesPerSec, formatByteRate)},
         {"Send", valueOr(adapter->outBytesPerSec, formatByteRate)},
         {"Link speed", valueOr(linkSpeed, formatLinkSpeed)},
-        {"Type", adapter->isHardwareInterface ? "Hardware" : "Virtual"},
+        {"Type", adapterTypeText(*adapter)},
         {"Adapter", adapter->description.empty() ? kNotAvailable : QString::fromStdString(adapter->description)},
-        {"IPv4 address", addressList(ipv4)},
-        {"IPv6 address", addressList(ipv6)},
-        {"DNS servers", addressList(adapter->dnsServers)},
+        {"IPv4 address", ipv4AddressText(*adapter)},
+        {"IPv6 address", ipv6AddressText(*adapter)},
+        {"DNS servers", formatAddressList(adapter->dnsServers)},
         {"Received", formatBytes(adapter->inBytesTotal)},
         {"Sent", formatBytes(adapter->outBytesTotal)},
     };

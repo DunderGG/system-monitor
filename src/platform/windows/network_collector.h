@@ -31,6 +31,7 @@ struct RawNetworkAdapter
     uint64_t outBytesTotal{0};
     uint64_t linkSpeedBps{0};
     domain::OperationalStatus operationalStatus{domain::OperationalStatus::Unknown};
+    domain::AdapterType type{domain::AdapterType::Other};
     std::vector<std::string> ipAddresses;
     std::vector<std::string> dnsServers;
     bool isLoopback{false};
@@ -73,7 +74,7 @@ class WindowsAdapterReader;
  *
  * Windows implementation uses:
  * - GetIfTable2 (releasing table with FreeMibTable) on every collect() for 64-bit
- *   traffic counters, link speed, and operational status.
+ *   traffic counters, link speed, operational status, and the adapter type.
  * - GetAdaptersAddresses for friendly names, device descriptions, IP addresses, and
  *   DNS servers, re-read only when AdapterDetailsCache says they are due. Address
  *   and interface change notifications mark the cache stale.

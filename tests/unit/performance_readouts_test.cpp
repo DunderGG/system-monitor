@@ -182,6 +182,7 @@ TEST(PerformanceReadouts, AdapterReadouts_SplitsAddressesAndFormatsRates)
         .outBytesPerSec = std::nullopt,
         .linkSpeedBps = 2'500'000'000ULL,
         .operationalStatus = OperationalStatus::Up,
+        .type = AdapterType::Ethernet,
         .ipAddresses = {"192.168.1.20", "fe80::1", "10.0.0.5"},
         .dnsServers = {"192.168.1.1"},
         .isHardwareInterface = true,
@@ -192,7 +193,7 @@ TEST(PerformanceReadouts, AdapterReadouts_SplitsAddressesAndFormatsRates)
     EXPECT_EQ(valueOf(readouts, "Receive"), "2.0 KiB/s");
     EXPECT_EQ(valueOf(readouts, "Send"), "N/A");
     EXPECT_EQ(valueOf(readouts, "Link speed"), "2.5 Gbps");
-    EXPECT_EQ(valueOf(readouts, "Type"), "Hardware");
+    EXPECT_EQ(valueOf(readouts, "Type"), "Ethernet");
     EXPECT_EQ(valueOf(readouts, "Adapter"), "Intel(R) Ethernet Controller I225-V");
     EXPECT_EQ(valueOf(readouts, "IPv4 address"), "192.168.1.20\n10.0.0.5");
     EXPECT_EQ(valueOf(readouts, "IPv6 address"), "fe80::1");

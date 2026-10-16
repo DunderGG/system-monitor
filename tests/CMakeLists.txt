@@ -95,6 +95,7 @@ gtest_discover_tests(system_monitor_tests)
 # They may include Windows headers but must not call Windows APIs. Kept in a
 # separate target so tests/unit/ stays free of Windows headers. No Qt needed.
 add_executable(system_monitor_platform_tests
+    platform/adapter_type_mapping_test.cpp
     platform/connectivity_hint_mapping_test.cpp
     platform/system_process_information_test.cpp
     platform/process_elevation_test.cpp

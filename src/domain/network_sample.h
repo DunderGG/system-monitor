@@ -24,6 +24,25 @@ enum class OperationalStatus
 };
 
 /**
+ * The kind of link a network adapter uses, from its physical medium where
+ * Windows reports one and otherwise from its interface type (GetIfTable2).
+ * Whether the adapter is physical or virtual is NetworkSample::isHardwareInterface:
+ * a Hyper-V or kernel debugger adapter is a virtual Ethernet adapter.
+ * Other covers interface types with no category here, such as the
+ * proprietary virtual interfaces of many VPN clients.
+ */
+enum class AdapterType
+{
+    Ethernet,
+    WiFi,
+    Bluetooth,
+    MobileBroadband,
+    Tunnel,
+    Ppp,
+    Other,
+};
+
+/**
  * A single snapshot of one network adapter's traffic counters, throughput, and link state.
  *
  * interfaceId identifies the interface while it exists: its LUID, which does
@@ -41,7 +60,10 @@ enum class OperationalStatus
  * (no baseline yet), zero elapsed time, or a counter that went backwards (reset).
  * A genuinely idle link reports 0.
  *
- * linkSpeedBps is the negotiated link speed in bits per second.
+ * linkSpeedBps is the negotiated link speed in bits per second. Windows keeps
+ * reporting the last speed, or a nominal one, while the adapter is not Up.
+ *
+ * type is the kind of link (see AdapterType); it is always known.
  *
  * isHardwareInterface is true for a physical adapter and false for tunnels,
  * VPNs, and other virtual interfaces. Traffic through a virtual interface
@@ -66,6 +88,7 @@ struct NetworkSample
     std::optional<uint64_t> outBytesPerSec;
     uint64_t linkSpeedBps{0};
     OperationalStatus operationalStatus{OperationalStatus::Unknown};
+    AdapterType type{AdapterType::Other};
     std::vector<std::string> ipAddresses;
     std::vector<std::string> dnsServers;
     bool isHardwareInterface{false};

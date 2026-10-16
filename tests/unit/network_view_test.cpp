@@ -10,6 +10,7 @@
 #include "domain/system_snapshot.h"
 #include "ui/adapter_card.h"
 #include "ui/network_view.h"
+#include "ui/readout_grid.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
@@ -183,4 +184,58 @@ TEST(NetworkView, Hidden_UpdatesCardsOnlyWhenShown)
     view.show();
 
     EXPECT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1}));
+}
+
+TEST(NetworkView, Card_ShowsStatusDescriptionAndDetails)
+{
+    ShownNetworkView view;
+    NetworkSample wifi = adapter(1, "Wi-Fi", OperationalStatus::Up);
+    wifi.description = "Intel(R) Wi-Fi 6 AX201 160MHz";
+    wifi.type = AdapterType::WiFi;
+    wifi.ipAddresses = {"192.168.1.23", "fe80::1c2b"};
+    wifi.dnsServers = {"192.168.1.1"};
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{wifi}));
+
+    const AdapterCard* card = view.adapterCard(0);
+    EXPECT_EQ(card->title(), "Wi-Fi");
+    EXPECT_EQ(card->description(), "Intel(R) Wi-Fi 6 AX201 160MHz");
+    EXPECT_EQ(card->statusText(), "Up");
+    EXPECT_EQ(card->readoutGrid()->value("Type"), "Wi-Fi");
+    EXPECT_EQ(card->readoutGrid()->value("Link speed"), "1 Gbps");
+    EXPECT_EQ(card->readoutGrid()->value("IPv4 address"), "192.168.1.23");
+    EXPECT_EQ(card->readoutGrid()->value("IPv6 address"), "fe80::1c2b");
+    EXPECT_EQ(card->readoutGrid()->value("DNS servers"), "192.168.1.1");
+}
+
+TEST(NetworkView, Card_DescriptionSameAsTitle_Hidden)
+{
+    ShownNetworkView view;
+    NetworkSample unnamed = adapter(1, "", OperationalStatus::Down);
+    unnamed.description = "Realtek Gaming 2.5GbE Family Controller";
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{unnamed}));
+
+    EXPECT_EQ(view.adapterCard(0)->title(), "Realtek Gaming 2.5GbE Family Controller");
+    EXPECT_TRUE(view.adapterCard(0)->description().isEmpty());
+    EXPECT_EQ(view.adapterCard(0)->statusText(), "Down");
+    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Link speed"), "Not connected");
+}
+
+TEST(NetworkView, ReadFails_CardDetailsNotAvailableThenRecover)
+{
+    ShownNetworkView view;
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+
+    view.updateSnapshot(snapshotWith(std::nullopt));
+
+    const AdapterCard* card = view.adapterCard(0);
+    EXPECT_EQ(card->title(), "Ethernet");
+    EXPECT_EQ(card->statusText(), "N/A");
+    EXPECT_EQ(card->readoutGrid()->value("Link speed"), "N/A");
+
+    view.updateSnapshot(snapshotWith(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+
+    EXPECT_EQ(card->statusText(), "Up");
+    EXPECT_EQ(card->readoutGrid()->value("Link speed"), "1 Gbps");
 }

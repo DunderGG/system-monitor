@@ -129,6 +129,10 @@ void NetworkView::refresh()
         for (std::size_t index = 0; index < listed.size(); ++index) {
             m_cards[index]->setAdapter(*listed[index]);
         }
+    } else {
+        for (auto* card : m_cards) {
+            card->setUnavailable();
+        }
     }
 
     if (m_cards.empty()) {

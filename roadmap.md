@@ -150,7 +150,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 ## Phase 5 — Network view
 
 - [x] Create a network tab showing all non-loopback adapters in a list or card layout. Hidden virtual adapters that are not bound to IP are listed with "Show all adapters" ([DC-96](docs/design_decisions.md#dc-96-network-tab-a-card-per-adapter-keyed-by-interface-id-with-unbound-virtual-adapters-behind-show-all-adapters)).
-- [ ] Per adapter: name/alias, type (Ethernet/Wi-Fi/etc.), operational status, link speed, IP addresses (IPv4 and IPv6), DNS servers.
+- [x] Per adapter: name/alias, type (Ethernet/Wi-Fi/etc.), operational status, link speed, IP addresses (IPv4 and IPv6), DNS servers ([DC-97](docs/design_decisions.md#dc-97-adapter-type-from-the-physical-medium-then-the-interface-type-link-speed-shown-only-while-up)).
 - [ ] Per adapter: live throughput sparklines (inbound and outbound bytes/sec).
 - [ ] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming. Render `ConnectivityLevel::Unknown` and an unknown metered state (`isMetered == std::nullopt`) explicitly rather than as offline or unmetered.
 - [ ] Optionally display friendly network name from NLM (lazy, cached query).
