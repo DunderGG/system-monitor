@@ -15,7 +15,7 @@ This module contains all Windows API wrappers. It is the only module that includ
 - Use `GlobalMemoryStatusEx` for memory, and `GetPerformanceInfo` for the cache and kernel pool sizes and the system-wide process, thread, and handle counts. Use `GetDiskFreeSpaceExW` for disk space.
 - Use `GetIfTable2` for network throughput (64-bit counters). Never use legacy `GetIfTable` (32-bit counters that overflow).
 - Use `GetNetworkConnectivityHint` for connectivity status.
-- Use `INetworkListManager` (COM) only for network names and categories, only from a slow collector, and only after a connectivity change or when the cached answer has expired (`NetworkProfileCollector`). Initialize COM for each query with an RAII apartment declared before the COM objects, so they are released before `CoUninitialize`, and hold no COM object between queries.
+- Use `INetworkListManager` (COM) only for network names and categories, only on `NetworkProfileCollector`'s own worker thread, and only after a connectivity change or when the cached answer has expired, at most once a second. The worker's RAII apartment is created and destroyed on that thread and outlives every COM object. Hold no COM object between queries.
 - Use SetupAPI (`SetupDiGetClassDevsW` on the network adapter class, then each driver key's `Characteristics`) only to find the adapters Windows hides (`NCF_HIDDEN`), and only when an interface appears that was not there at the last read (`queryHiddenAdapterGuids()`).
 - Use PDH only for advanced per-instance counters where no direct Win32 alternative exists. Always use `PdhAddEnglishCounterW`.
 - Use WMI only for one-shot startup queries (hardware inventory). Never poll WMI.

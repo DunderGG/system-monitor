@@ -87,7 +87,7 @@ As in Phases 3 and 4, the tests are thorough for what they model. But their fake
 | [F-35](#f-35-network-names-are-rendered-as-rich-text) | Network names are rendered as rich text | Medium | Resolved |
 | [F-36](#f-36-disconnected-adapters-show-leftover-addresses-and-placeholder-dns-servers) | Disconnected adapters show leftover addresses and placeholder DNS servers | Medium | Resolved |
 | [F-37](#f-37-adapter-status-and-description-are-unreadable) | Adapter status and description are unreadable | Medium | Resolved |
-| [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Open |
+| [F-38](#f-38-the-network-list-manager-query-has-no-rate-limit-and-no-time-limit) | The Network List Manager query has no rate limit and no time limit | Low | Resolved |
 | [F-39](#f-39-cards-that-cannot-carry-traffic-dominate-the-adapter-list-and-the-order-shifts) | Cards that cannot carry traffic dominate the adapter list, and the order shifts | Low | Resolved |
 | [F-40](#f-40-test-coverage-gaps) | Test coverage gaps | Low | Open |
 | [F-41](#f-41-documentation-out-of-date) | Documentation out of date | Low | Open |
@@ -257,6 +257,16 @@ The cost in normal operation is fine. What the probe shows is that the cost is n
 3. **Record the read's cost** in DC-100 and in the architecture's slow-collector box, which gives a figure for every other slow collector.
 
 **Recommendation:** Items 1 and 3 when convenient. Item 2 is a design choice: a dedicated thread, or a recorded risk.
+
+**Status:** Resolved (2026-10-16). Items 1 to 3 are done; for item 2, the names get their own worker.
+
+1. `NetworkProfileCollector` reads at most once per `kMinimumReadInterval` (a second) from the start of one read to the next, however many notifications arrive. A unit test sends hundreds of notifications in half a second with a 200 ms minimum and gets at most four reads.
+2. The collector owns a `std::jthread` that makes every query, holding a multithreaded apartment for its lifetime. The notification marks the names stale and wakes the worker; the worker stores each result and calls the change listener only when it differs. `collect()` on the slow-collector thread only copies, so a stuck service delays only the names. Shutdown still waits for a read in progress: `NetworkListManager` is an in-process object (`netprofm.dll`) that calls the service over its own RPC, so `CoCancelCall` cannot interrupt it. That residual risk is recorded in DC-107.
+3. A read costs about 11 ms the first time in the process and 4.4–6.1 ms after that (Release, measured on a thread that keeps its apartment). The figure is in the architecture's new network-name worker box, which also covers F-41's fourth row, and `INetworkListManager` is now in the system design diagram (F-41's third row).
+
+The collector's unit tests were rewritten for the worker. They include F-40's third row: a change reported during a read causes another read, and the test fails if the stale mark is cleared after the read.
+
+See [DC-107](../design_decisions.md#dc-107-network-names-read-on-the-collectors-own-thread-at-most-once-a-second-code-review-f-38); DC-06, DC-100 and DC-101 point to it.
 
 ---
 

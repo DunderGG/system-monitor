@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <set>
@@ -42,7 +43,19 @@ private:
     HRESULT m_result;
 };
 
-std::optional<std::vector<NetworkProfile>> collectOnNewThread(bool withSingleThreadedApartment)
+// Waits for the collector's first read, which runs on the collector's own thread.
+bool waitForFirstRead(const NetworkProfileCollector& collector)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{10};
+    while (collector.readCount() == 0 && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+    return collector.readCount() > 0;
+}
+
+// Creates a collector on a new thread, which may have a single-threaded
+// apartment as a UI thread has, and returns its first read.
+std::optional<std::vector<NetworkProfile>> collectFromCollectorCreatedOnNewThread(bool withSingleThreadedApartment)
 {
     std::optional<std::vector<NetworkProfile>> profiles;
     std::jthread thread([&profiles, withSingleThreadedApartment] {
@@ -51,7 +64,9 @@ std::optional<std::vector<NetworkProfile>> collectOnNewThread(bool withSingleThr
             apartment.emplace();
         }
         NetworkProfileCollector collector;
-        profiles = collector.collect();
+        if (waitForFirstRead(collector)) {
+            profiles = collector.collect();
+        }
     });
     thread.join();
     return profiles;
@@ -62,6 +77,7 @@ std::optional<std::vector<NetworkProfile>> collectOnNewThread(bool withSingleThr
 TEST(NetworkProfileCollectorIntegration, RealHost_ConnectedNetworksNamedAndMatchedToListedAdapters)
 {
     NetworkProfileCollector collector;
+    ASSERT_TRUE(waitForFirstRead(collector));
     const auto profiles = collector.collect();
     if (!profiles) {
         GTEST_SKIP() << "The Network List Manager is unavailable on this host";
@@ -87,6 +103,7 @@ TEST(NetworkProfileCollectorIntegration, RealHost_ConnectedNetworksNamedAndMatch
 TEST(NetworkProfileCollectorIntegration, ConsecutiveCollects_ReturnTheCachedProfiles)
 {
     NetworkProfileCollector collector;
+    ASSERT_TRUE(waitForFirstRead(collector));
 
     const auto first = collector.collect();
     const auto second = collector.collect();
@@ -94,20 +111,25 @@ TEST(NetworkProfileCollectorIntegration, ConsecutiveCollects_ReturnTheCachedProf
     EXPECT_EQ(first, second);
 }
 
-TEST(NetworkProfileCollectorIntegration, ThreadWithSingleThreadedApartment_ReadsLikeAnyOtherThread)
+TEST(NetworkProfileCollectorIntegration, CreatedOnThreadWithSingleThreadedApartment_ReadsLikeAnyOtherCollector)
 {
-    const auto multithreaded = collectOnNewThread(false);
-    const auto singleThreaded = collectOnNewThread(true);
+    // The collector reads on its own thread, in its own apartment, whatever
+    // the apartment of the thread that creates it.
+    const auto multithreaded = collectFromCollectorCreatedOnNewThread(false);
+    const auto singleThreaded = collectFromCollectorCreatedOnNewThread(true);
 
     // The networks could change between the reads, but whether they can be read cannot.
     EXPECT_EQ(singleThreaded.has_value(), multithreaded.has_value());
 }
 
-TEST(NetworkProfileCollectorIntegration, RepeatedConstructionAndDestruction_CancelsNotificationsCleanly)
+TEST(NetworkProfileCollectorIntegration, RepeatedConstructionAndDestruction_StopsTheWorkerAndNotificationsCleanly)
 {
+    // Half of the collectors are destroyed while their first read may still be running.
     for (int i = 0; i < 20; ++i) {
         NetworkProfileCollector collector;
-        static_cast<void>(collector.collect());
+        if (i % 2 == 0) {
+            EXPECT_TRUE(waitForFirstRead(collector));
+        }
     }
     SUCCEED();
 }

@@ -1,11 +1,16 @@
 #include "platform/windows/network_profile_collector.h"
 
+#include <algorithm>
 #include <cassert>
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -30,8 +35,9 @@ namespace
 {
 
 // Initializes COM on the calling thread for the lifetime of the object, in the
-// multithreaded apartment, and uninitializes it again. If the thread already
-// has a single-threaded apartment, COM calls use that one instead.
+// multithreaded apartment, and uninitializes it again on destruction, which
+// must happen on the same thread. If the thread already has a single-threaded
+// apartment, COM calls use that one instead.
 class ScopedComApartment
 {
 public:
@@ -128,13 +134,13 @@ std::optional<domain::NetworkProfile> toNetworkProfile(INetwork& network)
     };
 }
 
-// Lists the connected networks with INetworkListManager. A network whose name
-// cannot be read is left out; the list as a whole fails only when the manager
-// or its enumeration cannot be reached.
-std::optional<std::vector<domain::NetworkProfile>> queryConnectedNetworks(RepeatedFailureLog& failureLog)
+// Lists the connected networks with INetworkListManager, in the calling
+// thread's apartment, which outlives every COM object created here. A network
+// whose name cannot be read is left out; the list as a whole fails only when
+// the manager or its enumeration cannot be reached.
+std::optional<std::vector<domain::NetworkProfile>> queryConnectedNetworks(const ScopedComApartment& apartment,
+                                                                          RepeatedFailureLog& failureLog)
 {
-    // Declared first, so the COM objects below are released before COM is uninitialized.
-    const ScopedComApartment apartment;
     if (!apartment.isUsable()) {
         failureLog.failure(spdlog::level::warn, "CoInitializeEx failed with HRESULT {:#010x}",
                            static_cast<unsigned long>(apartment.result()));
@@ -178,60 +184,107 @@ std::optional<std::vector<domain::NetworkProfile>> queryConnectedNetworks(Repeat
 
 NetworkProfileCollector::NetworkProfileCollector()
     : NetworkProfileCollector(
-          [failureLog = RepeatedFailureLog{"INetworkListManager"}]() mutable {
-              return queryConnectedNetworks(failureLog);
+          [] {
+              // Called on the worker thread, which keeps this apartment until
+              // the reader is destroyed there, after its last read.
+              auto apartment = std::make_shared<const ScopedComApartment>();
+              return NetworkProfileReader(
+                  [apartment, failureLog = RepeatedFailureLog{"INetworkListManager"}]() mutable {
+                      return queryConnectedNetworks(*apartment, failureLog);
+                  });
           },
-          subscribeToConnectivityChanges, [] { return std::chrono::steady_clock::now(); })
+          subscribeToConnectivityChanges)
 {}
 
-NetworkProfileCollector::NetworkProfileCollector(NetworkProfileReader reader, ConnectivitySubscriber subscriber,
-                                                 SteadyClockReader clockReader)
-    : m_reader(std::move(reader)), m_clockReader(std::move(clockReader))
+NetworkProfileCollector::NetworkProfileCollector(NetworkProfileReaderFactory readerFactory,
+                                                 ConnectivitySubscriber subscriber, ReadIntervals intervals)
+    : m_readerFactory(std::move(readerFactory)), m_intervals(intervals)
 {
-    assert(m_reader && subscriber && m_clockReader && "reader, subscriber, and clock reader are required");
+    assert(m_readerFactory && subscriber && "reader factory and subscriber are required");
 
-    // The query itself waits for the first collect(), on the slow-collector thread.
     m_subscription = subscriber([this](domain::ConnectivityStatus /*status*/) { markStale(); });
     if (!m_subscription) {
-        spdlog::warn("Connectivity change notifications unavailable; network names refresh every {}s", kMaxAge.count());
+        spdlog::warn("Connectivity change notifications unavailable; network names refresh every {}s",
+                     std::chrono::duration_cast<std::chrono::seconds>(m_intervals.maximumAge).count());
     }
+    m_worker = std::jthread([this](std::stop_token stopToken) { run(std::move(stopToken)); });
 }
 
 std::optional<std::vector<domain::NetworkProfile>> NetworkProfileCollector::collect()
 {
-    const auto now = m_clockReader();
-    bool isDue = !m_lastRead || now - *m_lastRead >= kMaxAge;
-    {
-        // Cleared before reading, so a change reported during the read
-        // triggers another read on the next call.
-        const std::lock_guard lock(m_staleMutex);
-        isDue = isDue || m_isStale;
-        m_isStale = false;
-    }
-
-    if (isDue) {
-        m_cached = m_reader();
-        m_lastRead = now;
-    }
-    return m_cached;
+    const std::lock_guard lock(m_mutex);
+    return m_latest;
 }
 
 void NetworkProfileCollector::setChangeListener(monitoring::ChangeListener listener)
 {
-    const std::lock_guard lock(m_staleMutex);
+    const std::lock_guard lock(m_mutex);
     m_changeListener = std::move(listener);
+}
+
+std::uint64_t NetworkProfileCollector::readCount() const
+{
+    const std::lock_guard lock(m_mutex);
+    return m_readCount;
 }
 
 void NetworkProfileCollector::markStale()
 {
-    const std::lock_guard lock(m_staleMutex);
-    // While the cache is already stale, a read is already due.
-    if (m_isStale) {
-        return;
-    }
+    const std::lock_guard lock(m_mutex);
     m_isStale = true;
-    if (m_changeListener) {
-        m_changeListener();
+    m_wake.notify_all();
+}
+
+bool NetworkProfileCollector::waitUntilReadIsDue(std::unique_lock<std::mutex>& lock, const std::stop_token& stopToken,
+                                                 std::optional<std::chrono::steady_clock::time_point> lastRead)
+{
+    while (!stopToken.stop_requested()) {
+        if (!lastRead) {
+            return true;
+        }
+        const auto earliest = *lastRead + m_intervals.minimum;
+        const auto due = m_isStale ? earliest : std::max(earliest, *lastRead + m_intervals.maximumAge);
+        if (std::chrono::steady_clock::now() >= due) {
+            return true;
+        }
+        if (m_isStale) {
+            // Only the minimum interval is left: a notification cannot bring the read forward.
+            m_wake.wait_until(lock, stopToken, due, [] { return false; });
+        } else {
+            // A notification makes the names stale and brings the read forward.
+            m_wake.wait_until(lock, stopToken, due, [this] { return m_isStale; });
+        }
+    }
+    return false;
+}
+
+void NetworkProfileCollector::run(std::stop_token stopToken)
+{
+    // Created and destroyed on this thread (see NetworkProfileReaderFactory).
+    const NetworkProfileReader reader = m_readerFactory();
+    std::optional<std::chrono::steady_clock::time_point> lastRead;
+    while (true) {
+        {
+            std::unique_lock lock(m_mutex);
+            if (!waitUntilReadIsDue(lock, stopToken, lastRead)) {
+                return;
+            }
+            // Cleared before reading, so a change reported during the read
+            // causes another read.
+            m_isStale = false;
+        }
+
+        lastRead = std::chrono::steady_clock::now();
+        auto profiles = reader();
+
+        const std::lock_guard lock(m_mutex);
+        ++m_readCount;
+        if (profiles != m_latest) {
+            m_latest = std::move(profiles);
+            if (m_changeListener) {
+                m_changeListener();
+            }
+        }
     }
 }
 
