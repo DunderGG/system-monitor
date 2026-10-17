@@ -1,7 +1,6 @@
 #pragma once
 
 #include <chrono>
-#include <concepts>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -61,14 +60,6 @@ public:
      * it returns the previous listener is no longer called.
      */
     virtual void setChangeListener(ChangeListener listener) = 0;
-};
-
-/**
- * Concept constraining types that can act as a typed sample collector.
- */
-template <typename C, typename T>
-concept Collector = requires(C collector) {
-    { collector.collect() } -> std::convertible_to<T>;
 };
 
 // Collectors return std::nullopt when no valid sample is available

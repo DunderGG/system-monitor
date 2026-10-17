@@ -286,6 +286,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 
 **Rationale:** `SamplingScheduler` must store heterogeneous collectors (CPU, memory, disk, etc.) whose concrete implementations can be swapped between synthetic implementations (for testing and early phases) and real Windows collectors (in later phases). Making `SamplingScheduler` an un-templated `QObject` holding `std::unique_ptr<ICollector<T>>` keeps Qt signal/slot metadata clean and avoids template bloat. Meanwhile, the `Collector<C, T>` concept enables compile-time verification in tests and non-virtual template contexts, ensuring consistency across static and dynamic collection code.
 
+**Note:** The `Collector<C, T>` concept is removed, and `ICollector<T>` alone remains. No template ever took collectors without virtual calls: the scheduler holds `std::unique_ptr<ICollector<T>>`, and `override` already checks each collector's `collect()` against the interface at compile time. The concept's only users were `static_assert`s in tests ([DC-111](#dc-111-fixed-value-fake-collectors-in-testssupport-not-synthetic-collectors-in-monitoring)). If such a template is ever needed, it gets a concept written for that use.
+
 ---
 
 ### DC-19: `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
@@ -1450,6 +1452,8 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 **Decision:** `SyntheticCpuCollector` and `SyntheticMemoryCollector`, which generated varying values for Phase 1, are removed from `src/monitoring/` with their tests. Tests that need a CPU or memory collector use `FakeCpuCollector` and `FakeMemoryCollector` from `tests/support/fake_collectors.h`, which return the same sample from every `collect()`, by default `populatedSnapshot()`'s.
 
 **Rationale:** Since Phase 2 only tests used the synthetic collectors, so they were test code in a production library, with tests of their own that checked the generated values. The three tests that used them needed a collector that returns a sample, and none depended on the variation. A fixed sample lets those tests check exact values instead of "not the placeholder", like the other fakes (`FakeUptimeCollector`, `FakeProcessCollector`, …), which return what the test sets. Moving the generators to `tests/support/` unchanged would have kept code, and tests of it, that no test needs. The deleted test's `static_assert`s on the `Collector` concept, its only users, now check the fakes.
+
+**Note:** The concept and these `static_assert`s are removed since; see the note on [DC-18](#dc-18-icollectort-dual-layer-interface-and-c20-concept).
 
 ### DC-112: A mapping's values tested in one test, as a table of named cases
 

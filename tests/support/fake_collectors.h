@@ -86,7 +86,4 @@ private:
     std::thread::id m_lastThread;
 };
 
-static_assert(monitoring::Collector<FakeCpuCollector, std::optional<domain::CpuSample>>);
-static_assert(monitoring::Collector<FakeMemoryCollector, std::optional<domain::MemorySample>>);
-
 } // namespace sysmon::tests
