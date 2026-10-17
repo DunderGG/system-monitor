@@ -129,6 +129,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-109](#dc-109-shared-test-builders-and-harnesses-in-testssupport-header-only): Shared test builders and harnesses in `tests/support/`, header-only
   - [DC-110](#dc-110-one-scheduler-pipeline-test-with-the-collectors-registersystemcollectors-registers): One scheduler pipeline test, with the collectors `registerSystemCollectors()` registers
   - [DC-111](#dc-111-fixed-value-fake-collectors-in-testssupport-not-synthetic-collectors-in-monitoring): Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
+  - [DC-112](#dc-112-a-mappings-values-tested-in-one-test-as-a-table-of-named-cases): A mapping's values tested in one test, as a table of named cases
 
 ---
 
@@ -1444,3 +1445,9 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 **Decision:** `SyntheticCpuCollector` and `SyntheticMemoryCollector`, which generated varying values for Phase 1, are removed from `src/monitoring/` with their tests. Tests that need a CPU or memory collector use `FakeCpuCollector` and `FakeMemoryCollector` from `tests/support/fake_collectors.h`, which return the same sample from every `collect()`, by default `populatedSnapshot()`'s.
 
 **Rationale:** Since Phase 2 only tests used the synthetic collectors, so they were test code in a production library, with tests of their own that checked the generated values. The three tests that used them needed a collector that returns a sample, and none depended on the variation. A fixed sample lets those tests check exact values instead of "not the placeholder", like the other fakes (`FakeUptimeCollector`, `FakeProcessCollector`, …), which return what the test sets. Moving the generators to `tests/support/` unchanged would have kept code, and tests of it, that no test needs. The deleted test's `static_assert`s on the `Collector` concept, its only users, now check the fakes.
+
+### DC-112: A mapping's values tested in one test, as a table of named cases
+
+**Decision:** A mapping or a threshold function is tested by one test that loops over a table of cases, a local `Case` struct in a `std::array`, and passes each case's name to `SCOPED_TRACE`. It is not tested by one `TEST` per value, nor by a parameterized `TEST_P`.
+
+**Rationale:** A test per value repeated the same line under a name that restated the value (`ToConnectivityLevel_LocalAccess_ReturnsLocalAccess`), and one mapping's cases were spread over as many as fourteen tests. A table shows them side by side, so a missing value stands out, and `SCOPED_TRACE` names the row that fails. `TEST_P` also reports each row on its own, but it needs a fixture, an instantiation and a printer for the parameter, and `gtest_discover_tests` runs each row in a process of its own. `TEST_P` remains the tool for running a whole test over different inputs, as `SparklineBufferSize` runs the same checks at three buffer sizes.

@@ -1,6 +1,5 @@
+#include <array>
 #include <cstdint>
-#include <string>
-#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -10,49 +9,36 @@
 using namespace sysmon::domain;
 using namespace sysmon::platform;
 
-namespace
+TEST(ProcessAccessPolicy, IsNeverOpenedProcess_LsassCsrssAndNamelessProcessesButIdle)
 {
+    struct Case
+    {
+        const char* imageName;
+        uint32_t pid;
+        bool expected;
+    };
+    const std::array cases{
+        Case{"lsass.exe", 900, true},
+        Case{"csrss.exe", 900, true},
+        Case{"LSASS.EXE", 900, true},
+        Case{"Csrss.Exe", 900, true},
+        Case{"lsass", 900, false},
+        Case{"lsass.exe.bak", 900, false},
+        Case{"mylsass.exe", 900, false},
+        Case{"lsaiso.exe", 900, false},
+        Case{"svchost.exe", 900, false},
+        // A process without a name could be lsass.exe or csrss.exe, whatever its PID.
+        Case{"", 4, true},
+        Case{"", 900, true},
+        Case{"", 1234, true},
+        // The Idle process has no name.
+        Case{"", 0, false},
+    };
 
-ProcessInfo named(std::string imageName, uint32_t pid = 900)
-{
-    return ProcessInfo{.pid = pid, .imageName = std::move(imageName)};
-}
-
-} // namespace
-
-TEST(ProcessAccessPolicy, IsNeverOpenedProcess_LsassAndCsrss_True)
-{
-    EXPECT_TRUE(isNeverOpenedProcess(named("lsass.exe")));
-    EXPECT_TRUE(isNeverOpenedProcess(named("csrss.exe")));
-}
-
-TEST(ProcessAccessPolicy, IsNeverOpenedProcess_DifferentCase_True)
-{
-    EXPECT_TRUE(isNeverOpenedProcess(named("LSASS.EXE")));
-    EXPECT_TRUE(isNeverOpenedProcess(named("Csrss.Exe")));
-}
-
-TEST(ProcessAccessPolicy, IsNeverOpenedProcess_OtherNames_False)
-{
-    EXPECT_FALSE(isNeverOpenedProcess(named("lsass")));
-    EXPECT_FALSE(isNeverOpenedProcess(named("lsass.exe.bak")));
-    EXPECT_FALSE(isNeverOpenedProcess(named("mylsass.exe")));
-    EXPECT_FALSE(isNeverOpenedProcess(named("lsaiso.exe")));
-    EXPECT_FALSE(isNeverOpenedProcess(named("svchost.exe")));
-}
-
-TEST(ProcessAccessPolicy, IsNeverOpenedProcess_EmptyName_TrueWhateverThePid)
-{
-    // The name could have been lsass.exe's or csrss.exe's.
-    EXPECT_TRUE(isNeverOpenedProcess(named("", 4)));
-    EXPECT_TRUE(isNeverOpenedProcess(named("", 900)));
-    EXPECT_TRUE(isNeverOpenedProcess(ProcessInfo{.pid = 1234}));
-}
-
-TEST(ProcessAccessPolicy, IsNeverOpenedProcess_IdleProcessWithoutName_False)
-{
-    EXPECT_FALSE(isNeverOpenedProcess(named("", 0)));
-    EXPECT_FALSE(isNeverOpenedProcess(ProcessInfo{.pid = 0}));
+    for (const auto& [imageName, pid, expected] : cases) {
+        SCOPED_TRACE(testing::Message() << "\"" << imageName << "\" (PID " << pid << ")");
+        EXPECT_EQ(isNeverOpenedProcess(ProcessInfo{.pid = pid, .imageName = imageName}), expected);
+    }
 }
 
 TEST(ProcessAccessPolicy, SkippingNeverOpenedProcesses_Lsass_ReaderNotCalledAndNotQueried)

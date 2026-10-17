@@ -1,3 +1,4 @@
+#include <array>
 #include <optional>
 
 #include <gtest/gtest.h>
@@ -36,57 +37,51 @@ SystemSnapshot healthySnapshot()
 // evaluateUsage
 // ---------------------------------------------------------------------------
 
-TEST(HealthEvaluator, EvaluateUsage_NoData_ReturnsUnknown)
+TEST(HealthEvaluator, EvaluateUsage_EachLevelStartsAboveItsThreshold)
 {
-    EXPECT_EQ(evaluateUsage(std::nullopt, kThresholds), HealthLevel::Unknown);
-}
+    struct Case
+    {
+        const char* name;
+        std::optional<float> usagePercent;
+        HealthLevel expected;
+    };
+    const std::array cases{
+        Case{"no data", std::nullopt, HealthLevel::Unknown},  Case{"idle", 0.0f, HealthLevel::Healthy},
+        Case{"below warning", 50.0f, HealthLevel::Healthy},   Case{"exactly at warning", 90.0f, HealthLevel::Healthy},
+        Case{"above warning", 90.5f, HealthLevel::Warning},   Case{"exactly at critical", 95.0f, HealthLevel::Warning},
+        Case{"above critical", 95.5f, HealthLevel::Critical}, Case{"full", 100.0f, HealthLevel::Critical},
+    };
 
-TEST(HealthEvaluator, EvaluateUsage_BelowWarning_ReturnsHealthy)
-{
-    EXPECT_EQ(evaluateUsage(0.0f, kThresholds), HealthLevel::Healthy);
-    EXPECT_EQ(evaluateUsage(50.0f, kThresholds), HealthLevel::Healthy);
-}
-
-TEST(HealthEvaluator, EvaluateUsage_ExactlyAtWarning_ReturnsHealthy)
-{
-    EXPECT_EQ(evaluateUsage(90.0f, kThresholds), HealthLevel::Healthy);
-}
-
-TEST(HealthEvaluator, EvaluateUsage_AboveWarning_ReturnsWarning)
-{
-    EXPECT_EQ(evaluateUsage(90.5f, kThresholds), HealthLevel::Warning);
-}
-
-TEST(HealthEvaluator, EvaluateUsage_ExactlyAtCritical_ReturnsWarning)
-{
-    EXPECT_EQ(evaluateUsage(95.0f, kThresholds), HealthLevel::Warning);
-}
-
-TEST(HealthEvaluator, EvaluateUsage_AboveCritical_ReturnsCritical)
-{
-    EXPECT_EQ(evaluateUsage(95.5f, kThresholds), HealthLevel::Critical);
-    EXPECT_EQ(evaluateUsage(100.0f, kThresholds), HealthLevel::Critical);
+    for (const auto& [name, usagePercent, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(evaluateUsage(usagePercent, kThresholds), expected);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // evaluateConnectivity
 // ---------------------------------------------------------------------------
 
-TEST(HealthEvaluator, EvaluateConnectivity_InternetAccess_ReturnsHealthy)
+TEST(HealthEvaluator, EvaluateConnectivity_InternetHealthyDegradedWarningUnknownUnknown)
 {
-    EXPECT_EQ(evaluateConnectivity(ConnectivityLevel::InternetAccess), HealthLevel::Healthy);
-}
+    struct Case
+    {
+        const char* name;
+        ConnectivityLevel level;
+        HealthLevel expected;
+    };
+    const std::array cases{
+        Case{"InternetAccess", ConnectivityLevel::InternetAccess, HealthLevel::Healthy},
+        Case{"ConstrainedInternetAccess", ConnectivityLevel::ConstrainedInternetAccess, HealthLevel::Warning},
+        Case{"LocalAccess", ConnectivityLevel::LocalAccess, HealthLevel::Warning},
+        Case{"None", ConnectivityLevel::None, HealthLevel::Warning},
+        Case{"Unknown", ConnectivityLevel::Unknown, HealthLevel::Unknown},
+    };
 
-TEST(HealthEvaluator, EvaluateConnectivity_DegradedLevels_ReturnWarning)
-{
-    EXPECT_EQ(evaluateConnectivity(ConnectivityLevel::None), HealthLevel::Warning);
-    EXPECT_EQ(evaluateConnectivity(ConnectivityLevel::LocalAccess), HealthLevel::Warning);
-    EXPECT_EQ(evaluateConnectivity(ConnectivityLevel::ConstrainedInternetAccess), HealthLevel::Warning);
-}
-
-TEST(HealthEvaluator, EvaluateConnectivity_Unknown_ReturnsUnknown)
-{
-    EXPECT_EQ(evaluateConnectivity(ConnectivityLevel::Unknown), HealthLevel::Unknown);
+    for (const auto& [name, level, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(evaluateConnectivity(level), expected);
+    }
 }
 
 // ---------------------------------------------------------------------------

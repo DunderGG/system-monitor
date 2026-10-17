@@ -1,3 +1,4 @@
+#include <array>
 #include <optional>
 
 #include <gtest/gtest.h>
@@ -8,77 +9,82 @@
 using namespace sysmon::domain;
 using namespace sysmon::platform;
 
-TEST(ConnectivityHintMapping, ToConnectivityLevel_None_ReturnsNone)
+namespace
 {
-    EXPECT_EQ(toConnectivityLevel(NetworkConnectivityLevelHintNone), ConnectivityLevel::None);
+
+// A cost value this mapping does not know, such as one a later SDK adds.
+const auto kCostFromALaterSdk = static_cast<NL_NETWORK_CONNECTIVITY_COST_HINT>(NetworkConnectivityCostHintVariable + 1);
+
+} // namespace
+
+TEST(ConnectivityHintMapping, ToConnectivityLevel_MapsEveryLevelHiddenAsUnknown)
+{
+    struct Case
+    {
+        const char* name;
+        NL_NETWORK_CONNECTIVITY_LEVEL_HINT hint;
+        ConnectivityLevel expected;
+    };
+    const std::array cases{
+        Case{"None", NetworkConnectivityLevelHintNone, ConnectivityLevel::None},
+        Case{"LocalAccess", NetworkConnectivityLevelHintLocalAccess, ConnectivityLevel::LocalAccess},
+        Case{"InternetAccess", NetworkConnectivityLevelHintInternetAccess, ConnectivityLevel::InternetAccess},
+        Case{"ConstrainedInternetAccess", NetworkConnectivityLevelHintConstrainedInternetAccess,
+             ConnectivityLevel::ConstrainedInternetAccess},
+        Case{"Unknown", NetworkConnectivityLevelHintUnknown, ConnectivityLevel::Unknown},
+        Case{"Hidden", NetworkConnectivityLevelHintHidden, ConnectivityLevel::Unknown},
+    };
+
+    for (const auto& [name, hint, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(toConnectivityLevel(hint), expected);
+    }
 }
 
-TEST(ConnectivityHintMapping, ToConnectivityLevel_LocalAccess_ReturnsLocalAccess)
+TEST(ConnectivityHintMapping, ToIsMetered_FixedAndVariableMeteredUnknownCostNullopt)
 {
-    EXPECT_EQ(toConnectivityLevel(NetworkConnectivityLevelHintLocalAccess), ConnectivityLevel::LocalAccess);
+    struct Case
+    {
+        const char* name;
+        NL_NETWORK_CONNECTIVITY_COST_HINT cost;
+        std::optional<bool> expected;
+    };
+    const std::array cases{
+        Case{"Unrestricted", NetworkConnectivityCostHintUnrestricted, false},
+        Case{"Fixed", NetworkConnectivityCostHintFixed, true},
+        Case{"Variable", NetworkConnectivityCostHintVariable, true},
+        Case{"Unknown", NetworkConnectivityCostHintUnknown, std::nullopt},
+        Case{"from a later SDK", kCostFromALaterSdk, std::nullopt},
+    };
+
+    for (const auto& [name, cost, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(toIsMetered(cost), expected);
+    }
 }
 
-TEST(ConnectivityHintMapping, ToConnectivityLevel_InternetAccess_ReturnsInternetAccess)
+TEST(ConnectivityHintMapping, ToIsRoaming_FlagWhileTheCostIsKnownOtherwiseNullopt)
 {
-    EXPECT_EQ(toConnectivityLevel(NetworkConnectivityLevelHintInternetAccess), ConnectivityLevel::InternetAccess);
-}
+    struct Case
+    {
+        const char* name;
+        NL_NETWORK_CONNECTIVITY_COST_HINT cost;
+        BOOLEAN roaming;
+        std::optional<bool> expected;
+    };
+    const std::array cases{
+        Case{"Variable, roaming", NetworkConnectivityCostHintVariable, TRUE, true},
+        Case{"Unrestricted, not roaming", NetworkConnectivityCostHintUnrestricted, FALSE, false},
+        Case{"Unknown, roaming", NetworkConnectivityCostHintUnknown, TRUE, std::nullopt},
+        Case{"Unknown, not roaming", NetworkConnectivityCostHintUnknown, FALSE, std::nullopt},
+        Case{"from a later SDK, roaming", kCostFromALaterSdk, TRUE, std::nullopt},
+        Case{"from a later SDK, not roaming", kCostFromALaterSdk, FALSE, std::nullopt},
+    };
 
-TEST(ConnectivityHintMapping, ToConnectivityLevel_ConstrainedInternetAccess_ReturnsConstrainedInternetAccess)
-{
-    EXPECT_EQ(toConnectivityLevel(NetworkConnectivityLevelHintConstrainedInternetAccess),
-              ConnectivityLevel::ConstrainedInternetAccess);
-}
-
-TEST(ConnectivityHintMapping, ToConnectivityLevel_Unknown_ReturnsUnknown)
-{
-    EXPECT_EQ(toConnectivityLevel(NetworkConnectivityLevelHintUnknown), ConnectivityLevel::Unknown);
-}
-
-TEST(ConnectivityHintMapping, ToConnectivityLevel_Hidden_ReturnsUnknown)
-{
-    EXPECT_EQ(toConnectivityLevel(NetworkConnectivityLevelHintHidden), ConnectivityLevel::Unknown);
-}
-
-TEST(ConnectivityHintMapping, ToIsMetered_Unrestricted_ReturnsFalse)
-{
-    EXPECT_EQ(toIsMetered(NetworkConnectivityCostHintUnrestricted), std::optional<bool>{false});
-}
-
-TEST(ConnectivityHintMapping, ToIsMetered_Fixed_ReturnsTrue)
-{
-    EXPECT_EQ(toIsMetered(NetworkConnectivityCostHintFixed), std::optional<bool>{true});
-}
-
-TEST(ConnectivityHintMapping, ToIsMetered_Variable_ReturnsTrue)
-{
-    EXPECT_EQ(toIsMetered(NetworkConnectivityCostHintVariable), std::optional<bool>{true});
-}
-
-TEST(ConnectivityHintMapping, ToIsMetered_Unknown_ReturnsNullopt)
-{
-    EXPECT_FALSE(toIsMetered(NetworkConnectivityCostHintUnknown).has_value());
-}
-
-TEST(ConnectivityHintMapping, ToIsRoaming_KnownCost_ReturnsFlag)
-{
-    EXPECT_EQ(toIsRoaming(NetworkConnectivityCostHintVariable, TRUE), std::optional<bool>{true});
-    EXPECT_EQ(toIsRoaming(NetworkConnectivityCostHintUnrestricted, FALSE), std::optional<bool>{false});
-}
-
-TEST(ConnectivityHintMapping, ToIsRoaming_UnknownCost_ReturnsNullopt)
-{
-    EXPECT_FALSE(toIsRoaming(NetworkConnectivityCostHintUnknown, FALSE).has_value());
-    EXPECT_FALSE(toIsRoaming(NetworkConnectivityCostHintUnknown, TRUE).has_value());
-}
-
-TEST(ConnectivityHintMapping, ToIsRoaming_CostFromALaterSdk_NulloptLikeTheCost)
-{
-    // A cost value this mapping does not know, such as one a later SDK adds.
-    const auto laterCost = static_cast<NL_NETWORK_CONNECTIVITY_COST_HINT>(NetworkConnectivityCostHintVariable + 1);
-
-    EXPECT_FALSE(toIsMetered(laterCost).has_value());
-    EXPECT_FALSE(toIsRoaming(laterCost, TRUE).has_value());
-    EXPECT_FALSE(toIsRoaming(laterCost, FALSE).has_value());
+    for (const auto& [name, cost, roaming, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(toIsRoaming(cost, roaming), expected);
+    }
 }
 
 TEST(ConnectivityHintMapping, ToConnectivityStatus_FullHint_MapsEveryField)

@@ -16,37 +16,31 @@ constexpr TOKEN_ELEVATION kNotElevated{.TokenIsElevated = 0};
 
 } // namespace
 
-TEST(ProcessElevation, RunsElevated_ElevatedTokenAtHighIntegrity_True)
+TEST(ProcessElevation, RunsElevated_ElevatedTokenOrHighIntegrityOrAbove)
 {
-    EXPECT_TRUE(runsElevated(kElevated, SECURITY_MANDATORY_HIGH_RID));
-}
-
-TEST(ProcessElevation, RunsElevated_ElevatedTokenLoweredToMediumIntegrity_True)
-{
-    EXPECT_TRUE(runsElevated(kElevated, SECURITY_MANDATORY_MEDIUM_RID));
-}
-
-TEST(ProcessElevation, RunsElevated_UnelevatedTokenAtHighIntegrity_True)
-{
-    // As a UIAccess program, such as ctfmon.exe, runs for an administrator.
-    EXPECT_TRUE(runsElevated(kNotElevated, SECURITY_MANDATORY_HIGH_RID));
-}
-
-TEST(ProcessElevation, RunsElevated_UnelevatedTokenAtSystemOrProtectedIntegrity_True)
-{
-    EXPECT_TRUE(runsElevated(kNotElevated, SECURITY_MANDATORY_SYSTEM_RID));
-    EXPECT_TRUE(runsElevated(kNotElevated, SECURITY_MANDATORY_PROTECTED_PROCESS_RID));
-}
-
-TEST(ProcessElevation, RunsElevated_UnelevatedTokenBelowHighIntegrity_False)
-{
-    const std::array<DWORD, 5> rids{
-        SECURITY_MANDATORY_UNTRUSTED_RID,   SECURITY_MANDATORY_LOW_RID,      SECURITY_MANDATORY_MEDIUM_RID,
-        SECURITY_MANDATORY_MEDIUM_PLUS_RID, SECURITY_MANDATORY_HIGH_RID - 1,
+    struct Case
+    {
+        const char* name;
+        TOKEN_ELEVATION elevation;
+        DWORD integrityRid;
+        bool expected;
+    };
+    const std::array cases{
+        Case{"elevated at high integrity", kElevated, SECURITY_MANDATORY_HIGH_RID, true},
+        Case{"elevated, lowered to medium integrity", kElevated, SECURITY_MANDATORY_MEDIUM_RID, true},
+        // As a UIAccess program, such as ctfmon.exe, runs for an administrator.
+        Case{"unelevated at high integrity", kNotElevated, SECURITY_MANDATORY_HIGH_RID, true},
+        Case{"unelevated at system integrity", kNotElevated, SECURITY_MANDATORY_SYSTEM_RID, true},
+        Case{"unelevated at protected process integrity", kNotElevated, SECURITY_MANDATORY_PROTECTED_PROCESS_RID, true},
+        Case{"unelevated just below high integrity", kNotElevated, SECURITY_MANDATORY_HIGH_RID - 1, false},
+        Case{"unelevated at medium plus integrity", kNotElevated, SECURITY_MANDATORY_MEDIUM_PLUS_RID, false},
+        Case{"unelevated at medium integrity", kNotElevated, SECURITY_MANDATORY_MEDIUM_RID, false},
+        Case{"unelevated at low integrity", kNotElevated, SECURITY_MANDATORY_LOW_RID, false},
+        Case{"unelevated at untrusted integrity", kNotElevated, SECURITY_MANDATORY_UNTRUSTED_RID, false},
     };
 
-    for (const auto rid : rids) {
-        SCOPED_TRACE(rid);
-        EXPECT_FALSE(runsElevated(kNotElevated, rid));
+    for (const auto& [name, elevation, integrityRid, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(runsElevated(elevation, integrityRid), expected);
     }
 }
