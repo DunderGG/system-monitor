@@ -218,7 +218,7 @@ Every phase adds to both. [design_decisions.md](docs/design_decisions.md) has 10
 
 ## Future phases (post-MVP)
 
-These features are on the roadmap but not scheduled. Each can be picked up independently once the MVP is stable.
+> These features are on the roadmap but not scheduled. Each can be picked up independently once the MVP is stable.
 
 The *Seen in* lines, and the monitors named in items, come from a comparison on 2026-10-17 with Task Manager, Resource Monitor, Process Explorer, TCPView, Autoruns, System Informer, Process Lasso, TrafficMonitor, HWiNFO, LibreHardwareMonitor, GlassWire, CrystalDiskInfo, Glances, Mission Center and btop. Items that need access beyond the current rules say so. Features of those monitors that conflict with the rules are listed under [Considered and not planned](#considered-and-not-planned).
 
@@ -232,7 +232,7 @@ The *Seen in* lines, and the monitors named in items, come from a comparison on 
 
 ### Processes tab: columns and grouping
 
-*Seen in: Task Manager, Process Explorer, System Informer.*
+> *Seen in: Task Manager, Process Explorer, System Informer.*
 
 - [ ] Let the user choose, order and size the columns from the header's context menu, and keep them and the sort order in the settings file.
 - [ ] Add columns from data the process list already carries, which need no process handle: session ID, base priority, start time, total CPU time, peak working set, virtual size and page faults.
@@ -249,14 +249,14 @@ The *Seen in* lines, and the monitors named in items, come from a comparison on 
 
 ### Process details
 
-*Seen in: Process Explorer, System Informer.*
+> *Seen in: Process Explorer, System Informer.*
 
 - [ ] A details pane or dialog for the selected process: image path, command line, parent, start time, user, integrity level and hosted services, with CPU, memory and I/O history charts built from the snapshots the process model already receives.
 - [ ] A thread list from the thread entries in the process list: thread ID, state, wait reason, priority, CPU time and usage, and context switches. Start addresses and stacks are out of scope (see [Considered and not planned](#considered-and-not-planned)).
 
 ### Process actions
 
-*Seen in: Task Manager, Process Explorer, Resource Monitor, System Informer.*
+> *Seen in: Task Manager, Process Explorer, Resource Monitor, System Informer.*
 
 - [ ] End process tree: end the selected process and its descendants, found through the tree's `(PID, creation time)` parents ([DC-82](docs/design_decisions.md#dc-82-process-tree-parents-matched-by-pid-and-creation-time-orphans-at-the-top-level-and-a-reset-only-on-toggle)), each through `terminateOwnedProcess()`. One confirmation says how many processes will be ended and which will be refused.
 - [ ] Find which processes use a file. Restart Manager (`RmStartSession`, `RmRegisterResources`, `RmGetList`) returns each one as an `RM_UNIQUE_PROCESS`, a PID and a start time, which matches the process identity. Accept a dropped file or one picked in a file dialog. Process Explorer's and System Informer's handle search answer the same question, but need access the monitor does not request.
@@ -266,7 +266,7 @@ The *Seen in* lines, and the monitors named in items, come from a comparison on 
 
 ### Process control: priority, efficiency mode, affinity and suspend
 
-*Seen in: Task Manager, Process Explorer, Resource Monitor, Process Lasso.*
+> *Seen in: Task Manager, Process Explorer, Resource Monitor, Process Lasso.*
 
 Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so it extends the exception that termination has in AGENTS.md and architecture.md. It keeps the identity, ownership and elevation checks of [DC-87](docs/design_decisions.md#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested) and [DC-90](docs/design_decisions.md#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated), and gets a design decision.
 
@@ -288,7 +288,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Compact views and window behaviour
 
-*Seen in: Task Manager, TrafficMonitor, Process Explorer.*
+> *Seen in: Task Manager, TrafficMonitor, Process Explorer.*
 
 - [ ] A small always-on-top window with chosen readouts and sparklines (Task Manager's summary view, TrafficMonitor's floating window), which can optionally let mouse clicks pass through to the windows below.
 - [ ] An "Always on top" option for the main window.
@@ -305,10 +305,11 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 - [ ] Ensure sparkline charts and all custom widgets respect the active theme.
 - [ ] Add support for customizing the theme colors for all widgets, including sparklines and adapter cards.
 - [ ] Add support for exporting and importing theme settings, so users can share or backup their custom themes.
+- [ ] Investigate font options.
 
 ### Accessibility
 
-*Seen in: Task Manager.*
+> *Seen in: Task Manager.*
 
 - [ ] Give the custom widgets (`SparklineWidget`, `ResourceCard`, `ReadoutGrid`, the adapter cards) accessible names and values through `QAccessibleInterface`, so that Narrator reads a chart's current value and range.
 - [ ] Make every action reachable from the keyboard, with a logical tab order and shortcuts for the filter (Ctrl+F) and for switching tabs (Ctrl+Tab).
@@ -346,7 +347,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Users and sessions
 
-*Seen in: Task Manager.*
+> *Seen in: Task Manager.*
 
 - [ ] A Users tab: the signed-in sessions (`WTSEnumerateSessionsW`), each with its user's processes and their CPU, memory and I/O totals, grouped by each process's session ID and user. An unelevated monitor cannot read other users' tokens, so their user names show as unknown and their processes group by session.
 
@@ -362,7 +363,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Disk activity and drive health
 
-*Seen in: Task Manager, Resource Monitor, CrystalDiskInfo, Mission Center.*
+> *Seen in: Task Manager, Resource Monitor, CrystalDiskInfo, Mission Center.*
 
 - [ ] Show each physical disk's read and write rates, active time and average response time, as Task Manager's disk pages do. `IOCTL_DISK_PERFORMANCE` on each `\\.\PhysicalDriveN` returns the byte, count, time and idle counters they come from. That is a direct alternative to the PDH counters that [DC-02](docs/design_decisions.md#dc-02-core-metrics-direct-win32-apis-over-pdh) and architecture.md's API table set aside for per-disk I/O. Check that it works unelevated on a handle opened without read access, and measure it before making it a fast collector.
 - [ ] Map volumes to disks (`IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS`), so each disk page lists its volumes and their space. Show the disk's model, bus type, SSD or HDD (`IOCTL_STORAGE_QUERY_PROPERTY` with `StorageDeviceProperty` and `StorageDeviceSeekPenaltyProperty`), and whether it holds the system volume or a page file.
@@ -371,7 +372,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### CPU and memory detail
 
-*Seen in: Task Manager, Process Explorer, HWiNFO.*
+> *Seen in: Task Manager, Process Explorer, HWiNFO.*
 
 - [ ] Show the CPU topology from `GetLogicalProcessorInformationEx`: sockets, cores, logical processors, L1, L2 and L3 cache sizes, and NUMA nodes, with a per-node view of the per-core grid. Mark performance and efficiency cores on hybrid processors from each core's `EfficiencyClass`.
 - [ ] Show kernel time on the CPU charts (Task Manager's "Show kernel times"), from the kernel and idle times the CPU collector already reads.
@@ -382,7 +383,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Battery and power
 
-*Seen in: Mission Center, btop, HWiNFO, iStat Menus.*
+> *Seen in: Mission Center, btop, HWiNFO, iStat Menus.*
 
 - [ ] Add a battery card and Performance page, shown only when the system has a battery: charge, on AC or battery, time remaining and battery saver (`GetSystemPowerStatus`).
 - [ ] Show the charge or discharge rate, voltage, full-charge and design capacity (the wear) and cycle count, from `IOCTL_BATTERY_QUERY_INFORMATION` and `IOCTL_BATTERY_QUERY_STATUS` on the battery devices SetupAPI lists (`GUID_DEVCLASS_BATTERY`), not from WMI.
@@ -390,7 +391,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Network: connections, Wi-Fi, data usage and latency
 
-*Seen in: TCPView, Resource Monitor, System Informer, Task Manager, TrafficMonitor, GlassWire.*
+> *Seen in: TCPView, Resource Monitor, System Informer, Task Manager, TrafficMonitor, GlassWire.*
 
 - [ ] A connections table: TCP connections and listening ports and UDP endpoints, for IPv4 and IPv6, each with its owning process (`GetExtendedTcpTable` with `TCP_TABLE_OWNER_PID_ALL`, `GetExtendedUdpTable` with `UDP_TABLE_OWNER_PID`), collected on the slow-collector thread. The tables give only a PID, so match it against the process list read closest in time, and show the process as unknown once it has gone.
 - [ ] Resolve remote addresses to host names on request, or behind a setting, because each lookup sends a query to the DNS server. Cache the names.
@@ -401,9 +402,11 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Hardware sensors
 
-*Seen in: HWiNFO, HWMonitor, LibreHardwareMonitor, TrafficMonitor (through LibreHardwareMonitor).*
+> *Seen in: HWiNFO, HWMonitor, LibreHardwareMonitor, TrafficMonitor (through LibreHardwareMonitor).*
 
 - [ ] Decide whether to show CPU and motherboard temperatures, fan speeds and voltages, and record the decision. Reading them needs a kernel driver. Microsoft Defender has flagged WinRing0, the driver these tools shipped, since 2025, and they are moving to PawnIO. Any such driver conflicts with running unelevated and with the antivirus and EDR rules in architecture.md. Without a driver, the monitor can still show GPU temperature ([GPU monitoring](#gpu-monitoring)), drive temperature ([Disk activity and drive health](#disk-activity-and-drive-health)) and battery data ([Battery and power](#battery-and-power)). An alternative to investigate is reading the values another monitor already publishes, such as HWiNFO's shared memory; LibreHardwareMonitor publishes through WMI, which the monitor does not poll.
+- [ ] Investigate possibility of sending sensors data to Stream Deck.
+  - [ ] We would also need a Stream Deck plugin to receive and display the sensor data.
 
 ### ETW-powered diagnostics
 
@@ -425,7 +428,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Packaging and distribution
 
-*Seen in: Process Explorer and System Informer (portable, no installation), winget.*
+> *Seen in: Process Explorer and System Informer (portable, no installation), winget.*
 
 - [ ] Publish a portable release: a zip with the executable and the Qt files it needs ([DC-104](docs/design_decisions.md#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42)) that runs without installation, and a portable mode that keeps the settings file next to the executable.
 - [ ] Sign the release binaries in CI, as architecture.md's antivirus section asks, and publish a winget manifest.
@@ -450,10 +453,14 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Considered and not planned
 
-These features of other monitors conflict with the rules in AGENTS.md and architecture.md. Reconsider one only with a design decision that changes the rule.
+> These features of other monitors conflict with the rules in AGENTS.md and architecture.md. Reconsider one only with a design decision that changes the rule.
 
 - DLL and module lists, memory regions, thread stacks, environment variables, strings and memory dumps (Process Explorer, System Informer, Task Manager's "Create memory dump file"): each reads another process's memory, which needs `PROCESS_VM_READ`.
 - Handle lists and handle search (Process Explorer, System Informer): naming another process's handles needs `PROCESS_DUP_HANDLE`. Restart Manager answers the usual question, which process holds a file (see [Process actions](#process-actions)).
 - Replacing Task Manager (Process Explorer, System Informer): this sets a `Debugger` value for `taskmgr.exe` under Image File Execution Options. That needs administrator rights, and it is a persistence technique that EDR products flag.
 - A readout embedded in the taskbar (TrafficMonitor): Windows has no API for it, so it relies on the taskbar's undocumented windows. The tray icon and the small always-on-top window meet the same need.
 - VirusTotal lookups (Process Explorer, System Informer): these send a hash of every executable to a third-party service. If ever added, it should only be an explicit action on one file.
+
+### Issues found while testing
+
+- [ ] Uptime seems incorrect, not sure what it is actually showing.
