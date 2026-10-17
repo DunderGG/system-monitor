@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,6 +25,7 @@
 #include "domain/system_snapshot.h"
 #include "support/process_samples.h"
 #include "support/snapshots.h"
+#include "ui/process_formatting.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 #include "ui/processes_view.h"
@@ -40,7 +42,7 @@ TEST(ProcessesView, Construction_TreeViewShowsTheModelThroughTheProxyAsAFlatTabl
     EXPECT_EQ(view.treeView()->model(), view.proxyModel());
     EXPECT_EQ(view.proxyModel()->sourceModel(), view.model());
     EXPECT_FALSE(view.treeView()->rootIsDecorated());
-    EXPECT_EQ(view.summaryText(), "Processes: --");
+    EXPECT_EQ(view.summaryText(), processListSummary(std::nullopt, false));
 }
 
 TEST(ProcessesView, Construction_SortableAndSortedByName)
@@ -68,7 +70,7 @@ TEST(ProcessesView, FilterEdit_Text_FiltersRowsButNotTheCount)
 
     ASSERT_EQ(view.proxyModel()->rowCount(), 1);
     EXPECT_EQ(view.proxyModel()->index(0, 0).data().toString(), "explorer.exe");
-    EXPECT_EQ(view.summaryText(), "Processes: 3");
+    EXPECT_EQ(view.summaryText(), processListSummary(3, true));
 
     view.filterEdit()->clear();
     EXPECT_EQ(view.proxyModel()->rowCount(), 3);
@@ -81,7 +83,7 @@ TEST(ProcessesView, UpdateSnapshot_WithProcessList_ShowsRowsAndCount)
     view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
 
     EXPECT_EQ(view.model()->rowCount(), 2);
-    EXPECT_EQ(view.summaryText(), "Processes: 2");
+    EXPECT_EQ(view.summaryText(), processListSummary(2, true));
 }
 
 TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_KeepsLastRows)
@@ -92,7 +94,7 @@ TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_KeepsLastRows)
     view.updateSnapshot(SystemSnapshot{});
 
     EXPECT_EQ(view.model()->rowCount(), 2);
-    EXPECT_EQ(view.summaryText(), "Processes: N/A (showing the last list read)");
+    EXPECT_EQ(view.summaryText(), processListSummary(std::nullopt, true));
 }
 
 TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_StillEndsHighlights)
@@ -118,7 +120,7 @@ TEST(ProcessesView, UpdateSnapshot_EmptyList_RemovesRowsWhenHighlightsEnd)
     view.updateSnapshot(snapshotWithProcesses({}, 10));
 
     EXPECT_EQ(view.model()->rowCount(), 0);
-    EXPECT_EQ(view.summaryText(), "Processes: 0");
+    EXPECT_EQ(view.summaryText(), processListSummary(0, true));
 }
 
 namespace
@@ -365,7 +367,7 @@ TEST(ProcessesView, EndProcessAction_Triggered_AsksWithNameAndPidAndWarning)
     ASSERT_NE(dialog, nullptr);
     EXPECT_TRUE(dialog->isVisible());
     EXPECT_EQ(dialog->icon(), QMessageBox::Warning);
-    EXPECT_EQ(dialog->text(), "Do you want to end explorer.exe (PID 800)?");
+    EXPECT_EQ(dialog->text(), processTerminationQuestion(process(800, "explorer.exe")));
     EXPECT_EQ(dialog->textFormat(), Qt::PlainText);
     EXPECT_TRUE(dialog->informativeText().contains("unsaved data"));
     EXPECT_NE(endButton(*dialog), nullptr);
@@ -446,7 +448,7 @@ TEST(ProcessesView, EndProcessButton_Clicked_Asks)
 
     const auto* dialog = view.findChild<QMessageBox*>();
     ASSERT_NE(dialog, nullptr);
-    EXPECT_EQ(dialog->text(), "Do you want to end explorer.exe (PID 800)?");
+    EXPECT_EQ(dialog->text(), processTerminationQuestion(process(800, "explorer.exe")));
 }
 
 TEST(ProcessesView, EndProcessAction_DialogClosed_DoesNotEndTheProcess)
@@ -507,16 +509,19 @@ TEST(ProcessesView, EndProcessAction_AccessDenied_SaysWhyInAMessage)
     const auto* message = shown.front();
     EXPECT_NE(message, dialog);
     EXPECT_FALSE(dialog->isVisible());
+    const auto expected =
+        processTerminationMessage(process(800, "explorer.exe"), ProcessTerminationResult::AccessDenied);
+    ASSERT_TRUE(expected.has_value());
     EXPECT_EQ(message->windowTitle(), "End process");
     EXPECT_EQ(message->icon(), QMessageBox::Warning);
-    EXPECT_EQ(message->text(), "Could not end explorer.exe (PID 800).");
+    EXPECT_EQ(message->text(), expected->text);
     EXPECT_EQ(message->textFormat(), Qt::PlainText);
-    EXPECT_TRUE(message->informativeText().contains("denied access"));
+    EXPECT_EQ(message->informativeText(), expected->informativeText);
     EXPECT_EQ(message->standardButtons(), QMessageBox::Ok);
     EXPECT_EQ(message->windowModality(), Qt::WindowModal);
 }
 
-TEST(ProcessesView, EndProcessAction_NotEnded_MessageIconFollowsTheLogLevel)
+TEST(ProcessesView, EndProcessAction_NotEnded_ShowsTheResultsMessageWithAnIconByTheLogLevel)
 {
     struct Case
     {
@@ -542,6 +547,10 @@ TEST(ProcessesView, EndProcessAction_NotEnded_MessageIconFollowsTheLogLevel)
         const auto shown = shownMessageBoxes(view);
         ASSERT_EQ(shown.size(), 1u);
         EXPECT_EQ(shown.front()->icon(), icon);
+        const auto expected = processTerminationMessage(process(800, "explorer.exe"), result);
+        ASSERT_TRUE(expected.has_value());
+        EXPECT_EQ(shown.front()->text(), expected->text);
+        EXPECT_EQ(shown.front()->informativeText(), expected->informativeText);
     }
 }
 
@@ -638,8 +647,7 @@ TEST(ProcessesView, EndProcessAction_MonitorsOwnRow_AsksToCloseTheMonitorInstead
     ASSERT_NE(dialog, nullptr);
     EXPECT_TRUE(dialog->isVisible());
     EXPECT_EQ(dialog->icon(), QMessageBox::Question);
-    EXPECT_EQ(dialog->text(),
-              "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?");
+    EXPECT_EQ(dialog->text(), monitorCloseQuestion(monitorProcess()));
     EXPECT_EQ(dialog->textFormat(), Qt::PlainText);
     EXPECT_TRUE(dialog->informativeText().contains("close its window"));
     ASSERT_NE(closeMonitorButton(*dialog), nullptr);

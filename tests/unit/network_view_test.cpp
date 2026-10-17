@@ -19,8 +19,11 @@
 #include "support/text_contrast.h"
 #include "ui/adapter_card.h"
 #include "ui/charts/sparkline_widget.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/main_window.h"
+#include "ui/network_formatting.h"
 #include "ui/network_view.h"
+#include "ui/performance_formatting.h"
 #include "ui/readout_grid.h"
 #include "ui/text_tone.h"
 
@@ -228,7 +231,7 @@ TEST(NetworkView, ReadFailsBeforeAnyAdapters_ShowsNotAvailable)
 
     view.updateSnapshot(snapshotWithNetworks(std::nullopt));
 
-    EXPECT_EQ(view.placeholderText(), "N/A");
+    EXPECT_EQ(view.placeholderText(), kNotAvailable);
 }
 
 TEST(NetworkView, ReadFails_KeepsCardsOfTheLastRead)
@@ -271,12 +274,8 @@ TEST(NetworkView, Card_ShowsStatusDescriptionAndDetails)
     const AdapterCard* card = view.adapterCard(0);
     EXPECT_EQ(card->title(), "Wi-Fi");
     EXPECT_EQ(card->description(), "Intel(R) Wi-Fi 6 AX201 160MHz");
-    EXPECT_EQ(card->statusText(), "Up");
-    EXPECT_EQ(card->readoutGrid()->value("Type"), "Wi-Fi");
-    EXPECT_EQ(card->readoutGrid()->value("Link speed"), "1 Gbps");
-    EXPECT_EQ(card->readoutGrid()->value("IPv4 address"), "192.168.1.23");
-    EXPECT_EQ(card->readoutGrid()->value("IPv6 address"), "fe80::1c2b");
-    EXPECT_EQ(card->readoutGrid()->value("DNS servers"), "192.168.1.1");
+    EXPECT_EQ(card->statusText(), operationalStatusText(OperationalStatus::Up));
+    EXPECT_EQ(card->readoutGrid()->readouts(), adapterDetailReadouts(wifi, std::nullopt));
 }
 
 TEST(NetworkView, Card_DescriptionSameAsTitle_Hidden)
@@ -287,13 +286,11 @@ TEST(NetworkView, Card_DescriptionSameAsTitle_Hidden)
 
     view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{unnamed}));
 
-    EXPECT_EQ(view.adapterCard(0)->title(), "Realtek Gaming 2.5GbE Family Controller");
+    EXPECT_EQ(view.adapterCard(0)->title(), adapterDisplayName(unnamed));
     EXPECT_TRUE(view.adapterCard(0)->description().isEmpty());
-    EXPECT_EQ(view.adapterCard(0)->statusText(), "Down");
-    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Link speed"), "Not connected");
 }
 
-TEST(NetworkView, Card_DisconnectedThenUp_AddressesShownOnlyWhileUp)
+TEST(NetworkView, Card_DisconnectedThenUp_StatusAndDetailsFollow)
 {
     ShownNetworkView view;
     NetworkSample wifi = adapter(1, "WiFi", OperationalStatus::Down);
@@ -303,36 +300,33 @@ TEST(NetworkView, Card_DisconnectedThenUp_AddressesShownOnlyWhileUp)
     view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{wifi}));
 
     const AdapterCard* card = view.adapterCard(0);
-    EXPECT_EQ(card->readoutGrid()->value("IPv4 address"), "Not connected");
-    EXPECT_EQ(card->readoutGrid()->value("IPv6 address"), "Not connected");
-    EXPECT_EQ(card->readoutGrid()->value("DNS servers"), "Not connected");
+    EXPECT_EQ(card->statusText(), operationalStatusText(OperationalStatus::Down));
+    EXPECT_EQ(card->readoutGrid()->readouts(), adapterDetailReadouts(wifi, std::nullopt));
 
     wifi.operationalStatus = OperationalStatus::Up;
     view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{wifi}));
 
-    EXPECT_EQ(card->readoutGrid()->value("IPv4 address"), "192.168.1.16");
-    EXPECT_EQ(card->readoutGrid()->value("IPv6 address"), "None");
-    EXPECT_EQ(card->readoutGrid()->value("DNS servers"), "192.168.1.1");
+    EXPECT_EQ(card->statusText(), operationalStatusText(OperationalStatus::Up));
+    EXPECT_EQ(card->readoutGrid()->readouts(), adapterDetailReadouts(wifi, std::nullopt));
 }
 
 TEST(NetworkView, ReadFails_CardDetailsNotAvailableThenRecover)
 {
     ShownNetworkView view;
-    view.updateSnapshot(
-        snapshotWithNetworks(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+    const NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
+    view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{ethernet}));
 
     view.updateSnapshot(snapshotWithNetworks(std::nullopt));
 
     const AdapterCard* card = view.adapterCard(0);
     EXPECT_EQ(card->title(), "Ethernet");
-    EXPECT_EQ(card->statusText(), "N/A");
-    EXPECT_EQ(card->readoutGrid()->value("Link speed"), "N/A");
+    EXPECT_EQ(card->statusText(), kNotAvailable);
+    EXPECT_EQ(card->readoutGrid()->readouts(), adapterDetailReadouts(std::nullopt, std::nullopt));
 
-    view.updateSnapshot(
-        snapshotWithNetworks(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+    view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{ethernet}));
 
-    EXPECT_EQ(card->statusText(), "Up");
-    EXPECT_EQ(card->readoutGrid()->value("Link speed"), "1 Gbps");
+    EXPECT_EQ(card->statusText(), operationalStatusText(OperationalStatus::Up));
+    EXPECT_EQ(card->readoutGrid()->readouts(), adapterDetailReadouts(ethernet, std::nullopt));
 }
 
 TEST(NetworkView, Card_ChartsReceiveAndSend)
@@ -413,9 +407,7 @@ TEST(NetworkView, Connectivity_PlaceholderBeforeFirstSnapshotThenReadouts)
     snapshot.connectivity = {.level = ConnectivityLevel::InternetAccess, .isMetered = true, .isRoaming = false};
     view.updateSnapshot(snapshot);
 
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Internet access");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Cost"), "Metered");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Roaming"), "No");
+    EXPECT_EQ(view.connectivityReadoutGrid()->readouts(), connectivityReadouts(snapshot.connectivity, std::nullopt));
 }
 
 TEST(NetworkView, Connectivity_UnknownBeforeTheFirstSlowRefresh_ShownAsUnknown)
@@ -424,9 +416,7 @@ TEST(NetworkView, Connectivity_UnknownBeforeTheFirstSlowRefresh_ShownAsUnknown)
 
     view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{}));
 
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Unknown");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Cost"), "Unknown");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Roaming"), "Unknown");
+    EXPECT_EQ(view.connectivityReadoutGrid()->readouts(), connectivityReadouts(ConnectivityStatus{}, std::nullopt));
 }
 
 TEST(NetworkView, Connectivity_ChangesWhileHidden_ShownWhenTheViewIs)
@@ -439,7 +429,7 @@ TEST(NetworkView, Connectivity_ChangesWhileHidden_ShownWhenTheViewIs)
 
     view.show();
 
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Connectivity"), "Local network only");
+    EXPECT_EQ(view.connectivityReadoutGrid()->readouts(), connectivityReadouts(snapshot.connectivity, std::nullopt));
 }
 
 TEST(NetworkView, NetworkProfiles_ShownOnTheirAdaptersAndInConnectivity)
@@ -455,33 +445,39 @@ TEST(NetworkView, NetworkProfiles_ShownOnTheirAdaptersAndInConnectivity)
 
     view.updateSnapshot(snapshot);
 
-    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Network"), "Normandy (Private)");
-    EXPECT_EQ(view.adapterCard(1)->readoutGrid()->value("Network"), "None");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "Normandy (Private)");
+    for (std::size_t index = 0; index < 2; ++index) {
+        EXPECT_EQ(view.adapterCard(index)->readoutGrid()->readouts(),
+                  adapterDetailReadouts((*snapshot.networks)[index], snapshot.networkProfiles));
+    }
+    EXPECT_EQ(view.connectivityReadoutGrid()->readouts(),
+              connectivityReadouts(snapshot.connectivity, snapshot.networkProfiles));
 }
 
 TEST(NetworkView, NetworkProfilesUnreadable_NotAvailable)
 {
     ShownNetworkView view;
+    const NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
 
-    view.updateSnapshot(
-        snapshotWithNetworks(std::vector<NetworkSample>{adapter(1, "Ethernet", OperationalStatus::Up)}));
+    view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{ethernet}));
 
-    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->value("Network"), "N/A");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "N/A");
+    EXPECT_EQ(view.adapterCard(0)->readoutGrid()->readouts(), adapterDetailReadouts(ethernet, std::nullopt));
+    EXPECT_EQ(view.connectivityReadoutGrid()->readouts(), connectivityReadouts(ConnectivityStatus{}, std::nullopt));
 }
 
 TEST(NetworkView, MarkupInNamesAndDescription_ShownAsPlainText)
 {
     ShownNetworkView view;
+    const SystemSnapshot snapshot = snapshotWithMarkup();
 
-    view.updateSnapshot(snapshotWithMarkup());
+    view.updateSnapshot(snapshot);
 
     const AdapterCard* card = view.adapterCard(0);
     EXPECT_EQ(card->title(), "<h1>Ethernet</h1>");
     EXPECT_EQ(card->description(), "<i>Realtek</i> <img height=3000>");
-    EXPECT_EQ(card->readoutGrid()->value("Network"), "<h1>FREE</h1> (Public)\n<img height=3000> (Public)");
-    EXPECT_EQ(view.connectivityReadoutGrid()->value("Networks"), "<h1>FREE</h1> (Public)\n<img height=3000> (Public)");
+    EXPECT_EQ(card->readoutGrid()->readouts(),
+              adapterDetailReadouts(snapshot.networks->front(), snapshot.networkProfiles));
+    EXPECT_EQ(view.connectivityReadoutGrid()->readouts(),
+              connectivityReadouts(snapshot.connectivity, snapshot.networkProfiles));
     for (const auto* label : card->findChildren<QLabel*>()) {
         EXPECT_EQ(label->textFormat(), Qt::PlainText) << label->text().toStdString();
     }

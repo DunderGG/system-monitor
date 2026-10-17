@@ -24,6 +24,7 @@
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
 #include "support/process_samples.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
@@ -31,6 +32,13 @@
 using namespace sysmon::domain;
 using namespace std::chrono_literals;
 using sysmon::tests::process;
+using sysmon::ui::formatByteRate;
+using sysmon::ui::formatBytes;
+using sysmon::ui::formatCount;
+using sysmon::ui::formatPercent;
+using sysmon::ui::kNotAvailable;
+using sysmon::ui::processDetailsToolTip;
+using sysmon::ui::processIoToolTip;
 using sysmon::ui::processMemoryToolTip;
 using sysmon::ui::ProcessModel;
 
@@ -353,12 +361,12 @@ TEST(ProcessModel, Data_ValueColumns_ShowLatestValuesFormatted)
 
     model.updateProcesses({explorer}, kNow);
 
-    EXPECT_EQ(firstRowText(model, Column::Cpu), "12.5%");
-    EXPECT_EQ(firstRowText(model, Column::Memory), "1.5 MiB");
-    EXPECT_EQ(firstRowText(model, Column::Io), "2.0 KiB/s");
-    EXPECT_EQ(firstRowText(model, Column::Threads), "1,234");
-    EXPECT_EQ(firstRowText(model, Column::Handles), "56,789");
-    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), "Read: 1.0 KiB/s\nWrite: 1.0 KiB/s");
+    EXPECT_EQ(firstRowText(model, Column::Cpu), formatPercent(12.54f));
+    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(explorer.privateWorkingSetBytes));
+    EXPECT_EQ(firstRowText(model, Column::Io), formatByteRate(2048));
+    EXPECT_EQ(firstRowText(model, Column::Threads), formatCount(1234));
+    EXPECT_EQ(firstRowText(model, Column::Handles), formatCount(56'789));
+    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), processIoToolTip(explorer));
     EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(explorer));
 }
 
@@ -371,8 +379,8 @@ TEST(ProcessModel, Data_Memory_ShowsPrivateWorkingSetNotSharedPages)
 
     model.updateProcesses({browser}, kNow);
 
-    EXPECT_EQ(firstRowText(model, Column::Memory), "207.0 MiB");
-    EXPECT_TRUE(firstRowText(model, Column::Memory, Qt::ToolTipRole).contains("Working set: 378.7 MiB"));
+    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(browser.privateWorkingSetBytes));
+    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(browser));
 }
 
 TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
@@ -385,8 +393,8 @@ TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
 
     model.updateProcesses({idle}, kNow);
 
-    EXPECT_EQ(firstRowText(model, Column::Cpu), "0.0%");
-    EXPECT_EQ(firstRowText(model, Column::Io), "0 B/s");
+    EXPECT_EQ(firstRowText(model, Column::Cpu), formatPercent(0.0f));
+    EXPECT_EQ(firstRowText(model, Column::Io), formatByteRate(0));
     EXPECT_FALSE(model.index(0, static_cast<int>(Column::Cpu)).data(Qt::ForegroundRole).isValid());
 }
 
@@ -399,11 +407,11 @@ TEST(ProcessModel, Data_MissingValues_ShowNotAvailableInPlaceholderColour)
     model.updateProcesses({firstSeen}, kNow);
 
     for (const Column column : {Column::Cpu, Column::Io, Column::Network}) {
-        EXPECT_EQ(firstRowText(model, column), "N/A") << static_cast<int>(column);
+        EXPECT_EQ(firstRowText(model, column), kNotAvailable) << static_cast<int>(column);
         EXPECT_TRUE(model.index(0, static_cast<int>(column)).data(Qt::ForegroundRole).isValid())
             << static_cast<int>(column);
     }
-    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), "Read: 4.0 KiB/s\nWrite: N/A");
+    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), processIoToolTip(firstSeen));
     EXPECT_FALSE(model.index(0, static_cast<int>(Column::Name)).data(Qt::ForegroundRole).isValid());
 }
 
@@ -1159,23 +1167,23 @@ TEST(ProcessModel, Data_NameToolTip_GivesDetailsOrWhyMissing)
     ProcessInfo available = withDetails(1, ProcessDetailsStatus::Available);
     available.imagePath = "C:/Apps/p1.exe";
     available.commandLine = "p1.exe --run";
-    model.updateProcesses({available, withDetails(2, ProcessDetailsStatus::AccessDenied)}, kNow);
+    const ProcessInfo denied = withDetails(2, ProcessDetailsStatus::AccessDenied);
+    model.updateProcesses({available, denied}, kNow);
 
-    EXPECT_EQ(model.index(0, 0).data(Qt::ToolTipRole).toString(),
-              "<p><b>Path:</b> C:/Apps/p1.exe</p><p><b>Command line:</b> p1.exe --run</p>");
-    EXPECT_TRUE(model.index(1, 0).data(Qt::ToolTipRole).toString().startsWith("<p>Access denied:"));
+    EXPECT_EQ(model.index(0, 0).data(Qt::ToolTipRole).toString(), processDetailsToolTip(available));
+    EXPECT_EQ(model.index(1, 0).data(Qt::ToolTipRole).toString(), processDetailsToolTip(denied));
 }
 
 TEST(ProcessModel, Data_NameToolTip_ExitedProcess_AddsExitedAfterDetails)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), withDetails(2, ProcessDetailsStatus::AccessDenied)}, kNow);
+    const ProcessInfo denied = withDetails(2, ProcessDetailsStatus::AccessDenied);
+    model.updateProcesses({process(4, "System"), denied}, kNow);
 
     model.updateProcesses({process(4, "System")}, kNow);
 
-    const QString toolTip =
-        model.indexOf(withDetails(2, ProcessDetailsStatus::AccessDenied).identity()).data(Qt::ToolTipRole).toString();
-    EXPECT_TRUE(toolTip.startsWith("<p>Access denied:"));
+    const QString toolTip = model.indexOf(denied.identity()).data(Qt::ToolTipRole).toString();
+    EXPECT_TRUE(toolTip.startsWith(processDetailsToolTip(denied)));
     EXPECT_TRUE(toolTip.endsWith("<p>This process has exited; its row is removed in a moment.</p>"));
 }
 

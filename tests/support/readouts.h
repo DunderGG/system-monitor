@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ostream>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -8,6 +9,21 @@
 
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
+
+namespace sysmon::ui
+{
+
+/** Prints a readout in a failed expectation as {name, value, toolTip}. GoogleTest finds it by argument lookup. */
+inline void PrintTo(const Readout& readout, std::ostream* stream)
+{
+    *stream << "{\"" << readout.name.toStdString() << "\", \"" << readout.value.toStdString() << "\"";
+    if (!readout.toolTip.isEmpty()) {
+        *stream << ", \"" << readout.toolTip.toStdString() << "\"";
+    }
+    *stream << "}";
+}
+
+} // namespace sysmon::ui
 
 namespace sysmon::tests
 {

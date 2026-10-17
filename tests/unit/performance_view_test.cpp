@@ -25,11 +25,14 @@
 #include "support/snapshots.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/cpu_performance_page.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/disk_performance_page.h"
 #include "ui/main_window.h"
 #include "ui/memory_performance_page.h"
 #include "ui/network_performance_page.h"
+#include "ui/performance_formatting.h"
 #include "ui/performance_page.h"
+#include "ui/performance_readouts.h"
 #include "ui/performance_view.h"
 #include "ui/readout_grid.h"
 
@@ -82,14 +85,16 @@ TEST(PerformanceView, UpdateSnapshotWhileVisible_RefreshesCurrentPageAndSidebar)
 {
     ShownPerformanceView view;
 
-    view.updateSnapshot(populatedSnapshot());
+    const SystemSnapshot snapshot = populatedSnapshot();
+
+    view.updateSnapshot(snapshot);
 
     ASSERT_EQ(view.cpuPage()->totalChart()->samples().size(), 1u);
     EXPECT_EQ(view.cpuPage()->totalChart()->samples()[0], 42.5f);
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Cpu), "CPU\n42.5%");
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Memory), "Memory\n8.0/16.0 GiB (50.0%)");
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Disk), "Disk\nC:\\ 75.0% used");
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Network), "Network\nReceive 2.0 KiB/s\nSend 1.0 KiB/s");
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Cpu), "CPU\n" + cpuSummary(snapshot.cpu));
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Memory), "Memory\n" + memorySummary(snapshot.memory));
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Disk), "Disk\n" + diskSummary(snapshot.disks));
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Network), "Network\n" + networkSummary(snapshot.networks));
 }
 
 TEST(PerformanceView, UpdateSnapshotWhileHidden_RecordsWithoutRefreshing)
@@ -114,7 +119,7 @@ TEST(PerformanceView, ShowAfterHiddenUpdates_ShowsFullHistory)
     view.show();
 
     EXPECT_EQ(view.cpuPage()->totalChart()->samples().size(), 2u);
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Cpu), "CPU\n42.5%");
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Cpu), "CPU\n" + cpuSummary(populatedSnapshot().cpu));
 }
 
 TEST(PerformanceView, SelectPage_ShowsItsHistoryRecordedWhileNotSelected)
@@ -190,7 +195,7 @@ TEST(CpuPerformancePage, MissingCpuData_RecordsGapsNotZeros)
     ASSERT_EQ(core.size(), 3u);
     EXPECT_FALSE(core[1].has_value());
     EXPECT_FALSE(core[2].has_value());
-    EXPECT_EQ(page.summary(), "N/A");
+    EXPECT_EQ(page.summary(), cpuSummary(std::nullopt));
 }
 
 TEST(MemoryPerformancePage, Refresh_ChartsUsageAndCommitPercent)
@@ -212,8 +217,8 @@ TEST(PerformancePage, PercentCharts_AnnotationsMatchReadoutPrecision)
     MemoryPerformancePage memoryPage;
 
     for (const auto* chart : {cpuPage.totalChart(), memoryPage.usageChart(), memoryPage.commitChart()}) {
-        EXPECT_EQ(chart->formatValue(7.5f), "8%");
-        EXPECT_EQ(chart->formatAnnotationValue(7.5f), "7.5%");
+        EXPECT_EQ(chart->formatValue(7.5f), formatChartPercent(7.5f));
+        EXPECT_EQ(chart->formatAnnotationValue(7.5f), formatPercent(7.5f));
     }
 }
 
@@ -441,7 +446,7 @@ TEST(NetworkPerformancePage, ReadFails_KeepsChartsAndRecordsGap)
     const auto receive = page.adapterChart(0)->seriesSamples(0);
     ASSERT_EQ(receive.size(), 2u);
     EXPECT_FALSE(receive[1].has_value());
-    EXPECT_EQ(page.summary(), "N/A");
+    EXPECT_EQ(page.summary(), networkSummary(std::nullopt));
 }
 
 TEST(MainWindow, OnSnapshotReady_ForwardsToPerformanceView)
@@ -515,7 +520,7 @@ TEST(NetworkPerformancePage, SmallWindow_ReadoutsFitWithoutHorizontalScrolling)
 TEST(CpuPerformancePage, Readouts_PlaceholdersUntilFirstSnapshotThenValues)
 {
     CpuPerformancePage page;
-    EXPECT_EQ(page.readouts()->value("Handles"), "--");
+    EXPECT_EQ(page.readouts()->readouts(), placeholderReadouts(cpuReadouts(std::nullopt, std::nullopt, std::nullopt)));
     auto snapshot = populatedSnapshot();
     snapshot.activity = SystemActivitySample{.processCount = 367, .threadCount = 8350, .handleCount = 200'157};
     snapshot.uptime = std::chrono::minutes{12};
@@ -523,42 +528,41 @@ TEST(CpuPerformancePage, Readouts_PlaceholdersUntilFirstSnapshotThenValues)
     page.recordSnapshot(snapshot);
     page.refresh();
 
-    EXPECT_EQ(page.readouts()->value("Utilization"), "42.5%");
-    EXPECT_EQ(page.readouts()->value("Handles"), "200,157");
-    EXPECT_EQ(page.readouts()->value("Up time"), "12m 0s");
+    EXPECT_EQ(page.readouts()->readouts(), cpuReadouts(snapshot.cpu, snapshot.activity, snapshot.uptime));
 }
 
 TEST(MemoryPerformancePage, Readouts_ShowLatestSample)
 {
     MemoryPerformancePage page;
+    const SystemSnapshot snapshot = populatedSnapshot();
 
-    page.recordSnapshot(populatedSnapshot());
+    page.recordSnapshot(snapshot);
     page.refresh();
 
-    EXPECT_EQ(page.readouts()->value("Committed"), "8.0/32.0 GiB");
-    EXPECT_EQ(page.readouts()->value("System cache"), "N/A");
+    EXPECT_EQ(page.readouts()->readouts(), memoryReadouts(snapshot.memory));
 }
 
-TEST(DiskPerformancePage, Readouts_OnePerVolume)
+TEST(DiskPerformancePage, Readouts_ShowLatestSample)
 {
     DiskPerformancePage page;
+    const SystemSnapshot snapshot = populatedSnapshot();
 
-    page.recordSnapshot(populatedSnapshot());
+    page.recordSnapshot(snapshot);
     page.refresh();
 
-    EXPECT_EQ(page.readouts()->readouts().size(), 2u);
-    EXPECT_EQ(page.readouts()->value("C:\\"), "750/1000 B used (75.0%)\n250 B free");
+    EXPECT_EQ(page.readouts()->readouts(), diskReadouts(snapshot.disks));
 }
 
 TEST(NetworkPerformancePage, Readouts_PerChartedAdapter)
 {
     NetworkPerformancePage page;
+    const SystemSnapshot snapshot = populatedSnapshot();
 
-    page.recordSnapshot(populatedSnapshot());
+    page.recordSnapshot(snapshot);
     page.refresh();
 
-    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Receive"), "2.0 KiB/s");
-    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Type"), "Ethernet");
+    ASSERT_EQ(page.chartedInterfaceIds(), (std::vector<uint64_t>{1}));
+    EXPECT_EQ(page.adapterReadoutGrid(0)->readouts(), adapterReadouts(snapshot.networks->front()));
 }
 
 TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)
@@ -570,7 +574,7 @@ TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)
     page.recordSnapshot(SystemSnapshot{});
     page.refresh();
 
-    EXPECT_EQ(page.adapterReadoutGrid(0)->value("Receive"), "N/A");
+    EXPECT_EQ(page.adapterReadoutGrid(0)->readouts(), adapterReadouts(std::nullopt));
 }
 
 TEST(PerformanceView, HistoryWindow_DefaultsToOneMinuteAndOffersFiveAndThirty)

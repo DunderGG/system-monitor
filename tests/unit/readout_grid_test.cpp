@@ -6,6 +6,7 @@
 #include <QLayout>
 #include <QString>
 
+#include "support/readouts.h"
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
 

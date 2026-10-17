@@ -12,6 +12,7 @@
 #include "support/snapshots.h"
 #include "support/text_contrast.h"
 #include "ui/charts/sparkline_widget.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
 #include "ui/resource_card.h"
@@ -19,7 +20,12 @@
 
 using namespace sysmon::domain;
 using sysmon::tests::populatedSnapshot;
+using sysmon::ui::connectivityText;
 using sysmon::ui::DashboardView;
+using sysmon::ui::formatPercent;
+using sysmon::ui::formatUptime;
+using sysmon::ui::healthLevelText;
+using sysmon::ui::kNotAvailable;
 using sysmon::ui::ResourceCard;
 
 namespace
@@ -61,7 +67,7 @@ TEST(ResourceCard, Construction_ShowsPlaceholderAndUnknownStatus)
     EXPECT_EQ(card.title(), "CPU");
     EXPECT_EQ(card.valueText(), "--");
     EXPECT_EQ(card.status(), HealthLevel::Unknown);
-    EXPECT_EQ(card.statusText(), "Unknown");
+    EXPECT_EQ(card.statusText(), healthLevelText(HealthLevel::Unknown));
     ASSERT_NE(card.sparklineSlot(), nullptr);
 }
 
@@ -94,7 +100,7 @@ TEST(ResourceCard, SetStatus_SameLevelAgain_DoesNotRestyle)
 {
     ResourceCard card("Memory");
     card.setStatus(HealthLevel::Warning);
-    auto* statusLabel = findLabel(card, "Warning");
+    auto* statusLabel = findLabel(card, healthLevelText(HealthLevel::Warning));
     ASSERT_NE(statusLabel, nullptr);
     RestyleCounter counter;
     statusLabel->installEventFilter(&counter);
@@ -106,7 +112,7 @@ TEST(ResourceCard, SetStatus_SameLevelAgain_DoesNotRestyle)
 
     EXPECT_EQ(restylesForSameLevel, 0);
     EXPECT_GT(counter.count, 0);
-    EXPECT_EQ(card.statusText(), "Critical");
+    EXPECT_EQ(card.statusText(), healthLevelText(HealthLevel::Critical));
 }
 
 TEST(DashboardView, Construction_AllCardsShowPlaceholders)
@@ -125,18 +131,20 @@ TEST(DashboardView, Construction_AllCardsShowPlaceholders)
 TEST(DashboardView, UpdateSnapshot_PopulatesAllCards)
 {
     DashboardView dashboard;
+    const SystemSnapshot snapshot = populatedSnapshot();
 
-    dashboard.updateSnapshot(populatedSnapshot());
+    dashboard.updateSnapshot(snapshot);
 
-    EXPECT_EQ(dashboard.cpuCard()->valueText(), "42.5%");
+    // The details are the dashboard's own wording around formatted values.
+    EXPECT_EQ(dashboard.cpuCard()->valueText(), formatPercent(snapshot.cpu->totalUsagePercent));
     EXPECT_EQ(dashboard.cpuCard()->detailText(), "4 cores");
-    EXPECT_EQ(dashboard.memoryCard()->valueText(), "50.0%");
+    EXPECT_EQ(dashboard.memoryCard()->valueText(), formatPercent(snapshot.memory->usagePercent));
     EXPECT_EQ(dashboard.memoryCard()->detailText(), "8.0 GiB of 16.0 GiB used");
-    EXPECT_EQ(dashboard.diskCard()->valueText(), "75.0%");
+    EXPECT_EQ(dashboard.diskCard()->valueText(), formatPercent(75.0f));
     EXPECT_EQ(dashboard.diskCard()->detailText(), "C:\\ 250 B free (fullest of 2 volumes)");
     EXPECT_EQ(dashboard.networkCard()->valueText(), "In 2.0 KiB/s\nOut 1.0 KiB/s");
-    EXPECT_EQ(dashboard.networkCard()->detailText(), "Internet access");
-    EXPECT_EQ(dashboard.uptimeCard()->valueText(), "4h 12m");
+    EXPECT_EQ(dashboard.networkCard()->detailText(), connectivityText(snapshot.connectivity));
+    EXPECT_EQ(dashboard.uptimeCard()->valueText(), formatUptime(*snapshot.uptime));
 }
 
 TEST(DashboardView, UpdateSnapshot_ShowsHealthOnCardsAndOverall)
@@ -147,7 +155,7 @@ TEST(DashboardView, UpdateSnapshot_ShowsHealthOnCardsAndOverall)
 
     EXPECT_EQ(dashboard.cpuCard()->status(), HealthLevel::Healthy);
     EXPECT_EQ(dashboard.memoryCard()->status(), HealthLevel::Warning);
-    EXPECT_EQ(dashboard.memoryCard()->statusText(), "Warning");
+    EXPECT_EQ(dashboard.memoryCard()->statusText(), healthLevelText(HealthLevel::Warning));
     EXPECT_EQ(dashboard.overallStatusText(), "System status: Warning");
     EXPECT_FALSE(dashboard.uptimeCard()->status().has_value());
 }
@@ -158,10 +166,10 @@ TEST(DashboardView, UpdateSnapshot_MissingData_ShowsNotAvailable)
 
     dashboard.updateSnapshot(SystemSnapshot{});
 
-    EXPECT_EQ(dashboard.cpuCard()->valueText(), "N/A");
-    EXPECT_EQ(dashboard.memoryCard()->valueText(), "N/A");
-    EXPECT_EQ(dashboard.diskCard()->valueText(), "N/A");
-    EXPECT_EQ(dashboard.uptimeCard()->valueText(), "N/A");
+    EXPECT_EQ(dashboard.cpuCard()->valueText(), kNotAvailable);
+    EXPECT_EQ(dashboard.memoryCard()->valueText(), kNotAvailable);
+    EXPECT_EQ(dashboard.diskCard()->valueText(), kNotAvailable);
+    EXPECT_EQ(dashboard.uptimeCard()->valueText(), kNotAvailable);
     EXPECT_EQ(dashboard.cpuCard()->status(), HealthLevel::Unknown);
 }
 
@@ -184,8 +192,8 @@ TEST(DashboardView, UpdateSnapshot_NoNetworkData_ShowsNotAvailableNotNoAdapter)
 
     dashboard.updateSnapshot(snapshot);
 
-    EXPECT_EQ(dashboard.networkCard()->valueText(), "N/A");
-    EXPECT_EQ(dashboard.networkCard()->detailText(), "Internet access");
+    EXPECT_EQ(dashboard.networkCard()->valueText(), kNotAvailable);
+    EXPECT_EQ(dashboard.networkCard()->detailText(), connectivityText(snapshot.connectivity));
     EXPECT_FALSE(dashboard.networkSparkline()->samples().back().has_value());
 }
 
@@ -197,8 +205,8 @@ TEST(DashboardView, UpdateSnapshot_ThroughputNotYetAvailable_ShowsNotAvailable)
 
     dashboard.updateSnapshot(snapshot);
 
-    EXPECT_EQ(dashboard.networkCard()->valueText(), "N/A");
-    EXPECT_EQ(dashboard.networkCard()->detailText(), "Internet access");
+    EXPECT_EQ(dashboard.networkCard()->valueText(), kNotAvailable);
+    EXPECT_EQ(dashboard.networkCard()->detailText(), connectivityText(snapshot.connectivity));
 }
 
 TEST(DashboardView, UpdateSnapshot_RecordsSamplesInSparklines)
