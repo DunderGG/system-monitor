@@ -56,15 +56,22 @@ Windows versions it runs with; record them with the figures.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
-place with clang-format, using the repository's .clang-format, then exits
-without building. New files count even before they are added to git; files
-ignored by .gitignore do not.
+place with clang-format, using the repository's .clang-format, then checks the
+design decision links (see -CheckFormat) and exits without building. New files
+count even before they are added to git; files ignored by .gitignore do not.
 
 .PARAMETER CheckFormat
 Checks that every C++ source and header under src/, tests/, and benchmarks/
 (the same files as -Format) matches .clang-format, without changing files, then
-exits without building. Fails and lists the differences in every file that
-needs formatting, after checking them all. CI runs this check.
+checks the design decision links and exits without building. Fails and lists
+the differences in every file that needs formatting and every link that does
+not resolve, after checking them all. CI runs this check.
+
+The link check reads docs\design_decisions.md and the text files that are
+tracked or new. Each entry's "### DC-NN:" heading needs <a id="dc-NN"></a> on
+the line above it. A link into the file must name such an anchor or a "## "
+section heading, a link whose text is DC-NN must name that entry's anchor, and
+every DC-NN that a file cites must be an entry.
 
 clang-format is taken from the CLANG_FORMAT environment variable if set, then
 PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
@@ -357,15 +364,184 @@ function Invoke-ClangFormat
     }
 }
 
+# Returns the line number, from 1, of a character index in a text.
+function Get-LineNumber
+{
+    param(
+        [Parameter(Mandatory)][string]$Text,
+        [Parameter(Mandatory)][int]$Index
+    )
+
+    return $Text.Substring(0, $Index).Split("`n").Count
+}
+
+# Checks that links and citations of design decisions resolve (DC-114). Every
+# "### DC-NN:" heading in docs\design_decisions.md needs <a id="dc-NN"></a> on
+# the line above it. A Markdown link into that file must name one of these
+# anchors or a "## " section heading. An entry heading's own slug changes when
+# the entry is retitled, so a link to it fails. A link whose text is DC-NN must
+# name that entry, and every DC-NN that a tracked or new text file cites must be
+# an entry. Prints each problem and returns whether there were none.
+function Test-DesignDecisionLinks
+{
+    $decisionsName = "docs/design_decisions.md"
+    $decisionsPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $decisionsName))
+    $problems = New-Object System.Collections.Generic.List[string]
+
+    # The entries' IDs, and what a link may name. URL fragments are case-sensitive.
+    $entries = New-Object "System.Collections.Generic.HashSet[string]" ([StringComparer]::Ordinal)
+    $targets = New-Object "System.Collections.Generic.HashSet[string]" ([StringComparer]::Ordinal)
+    $decisionLines = [System.IO.File]::ReadAllLines($decisionsPath)
+    for ($index = 0; $index -lt $decisionLines.Count; $index++)
+    {
+        $line = $decisionLines[$index]
+        if ($line -cmatch '^<a id="([^"]+)"></a>$')
+        {
+            if (-not $targets.Add($Matches[1]))
+            {
+                $problems.Add("${decisionsName}:$($index + 1): the anchor $($Matches[1]) is defined more than once.")
+            }
+        }
+        elseif ($line -cmatch '^### DC-(\d+):')
+        {
+            [void]$entries.Add("DC-$($Matches[1])")
+            $anchor = "<a id=`"dc-$($Matches[1])`"></a>"
+            if ($index -eq 0 -or $decisionLines[$index - 1] -cne $anchor)
+            {
+                $problems.Add("${decisionsName}:$($index + 1): DC-$($Matches[1]) needs $anchor on the line above its heading.")
+            }
+        }
+        elseif ($line -cmatch '^## (.+)$')
+        {
+            # GitHub's heading slug: lower case, without characters other than
+            # letters, digits, underscores, hyphens and spaces, and with each
+            # space replaced by a hyphen.
+            $slug = ($Matches[1].ToLowerInvariant() -replace '[^\p{L}\p{M}\p{N}\p{Pc} -]', '') -replace ' ', '-'
+            [void]$targets.Add($slug)
+        }
+    }
+
+    Push-Location $projectRoot
+    try
+    {
+        $files = @(& git ls-files --cached --others --exclude-standard -- "*.md" "*.h" "*.cpp" "*.txt" "*.cmake" `
+                "*.json" "*.yml" "*.ps1" "*.manifest")
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "git ls-files failed with exit code $LASTEXITCODE."
+        }
+        $files = @($files | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+    }
+    finally
+    {
+        Pop-Location
+    }
+
+    foreach ($file in $files)
+    {
+        $path = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $file))
+        $text = [System.IO.File]::ReadAllText($path)
+
+        foreach ($citation in [regex]::Matches($text, '\bDC-\d+'))
+        {
+            if (-not $entries.Contains($citation.Value))
+            {
+                $problems.Add("${file}:$(Get-LineNumber $text $citation.Index): " +
+                    "$($citation.Value) is not an entry in $decisionsName.")
+            }
+        }
+
+        if (-not $file.EndsWith(".md"))
+        {
+            continue
+        }
+        foreach ($link in [regex]::Matches($text, '\[([^\]]*)\]\(([^)\s]*)\)'))
+        {
+            $linkText = $link.Groups[1].Value
+            $destination = $link.Groups[2].Value
+            $hashIndex = $destination.IndexOf("#")
+            $linkPath = if ($hashIndex -ge 0) { $destination.Substring(0, $hashIndex) } else { $destination }
+            $fragment = if ($hashIndex -ge 0) { $destination.Substring($hashIndex + 1) } else { $null }
+            $citedEntry = if ($linkText -cmatch '^DC-(\d+)$') { "dc-$($Matches[1])" } else { $null }
+
+            # Only a relative path can lead to the file; a URL's colon would
+            # make GetFullPath throw.
+            $leadsToDecisions = if ($linkPath -eq "")
+            {
+                $path -eq $decisionsPath
+            }
+            elseif ($linkPath.EndsWith("design_decisions.md") -and -not $linkPath.Contains(":"))
+            {
+                $linkedPath = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($path), $linkPath)
+                [System.IO.Path]::GetFullPath($linkedPath) -eq $decisionsPath
+            }
+            else
+            {
+                $false
+            }
+
+            $problem = $null
+            if (-not $leadsToDecisions)
+            {
+                if ($null -ne $citedEntry -or $linkPath.EndsWith("design_decisions.md"))
+                {
+                    $problem = "does not lead to $decisionsName"
+                }
+            }
+            elseif ($null -ne $fragment -and -not $targets.Contains($fragment))
+            {
+                $problem = "names no anchor or section heading in $decisionsName"
+            }
+            elseif ($null -ne $citedEntry -and $fragment -cne $citedEntry)
+            {
+                $problem = "should end in #$citedEntry"
+            }
+            if ($null -ne $problem)
+            {
+                $problems.Add("${file}:$(Get-LineNumber $text $link.Index): [$linkText]($destination) $problem.")
+            }
+        }
+    }
+
+    foreach ($problem in $problems)
+    {
+        Write-Host $problem
+    }
+    if ($problems.Count -eq 0)
+    {
+        Write-Host "All design decision links and citations in $($files.Count) files resolve."
+    }
+    return $problems.Count -eq 0
+}
+
 if ($Format -and $CheckFormat)
 {
     throw "Use either -Format or -CheckFormat, not both."
 }
 
-# Formatting needs neither vcpkg nor the MSVC environment, so it runs first and exits.
+# Formatting and the link check need neither vcpkg nor the MSVC environment, so
+# they run first and exit. Both run before either fails, so that every problem
+# is listed.
 if ($Format -or $CheckFormat)
 {
-    Invoke-ClangFormat -IsCheckOnly $CheckFormat.IsPresent
+    $formatError = $null
+    try
+    {
+        Invoke-ClangFormat -IsCheckOnly $CheckFormat.IsPresent
+    }
+    catch
+    {
+        $formatError = $_
+    }
+    $linksResolve = Test-DesignDecisionLinks
+    if ($null -ne $formatError)
+    {
+        throw $formatError
+    }
+    if (-not $linksResolve)
+    {
+        throw "Some design decision links or citations do not resolve (see above)."
+    }
     return
 }
 

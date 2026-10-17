@@ -141,7 +141,7 @@ Every list entry already has the private working set in `FullSystemProcessInform
 - A new integration test checks that the private working sets of all processes add up to less than physical memory. The existing test of the monitor's own entry also checks that its private working set is above zero and no larger than its working set.
 - The benchmark's simulated processes have a private working set. DC-80 and DC-71 point to the new decision, and the roadmap's column list says what Memory shows.
 
-See [DC-91](../design_decisions.md#dc-91-memory-column-shows-the-private-working-set-with-the-working-set-and-commit-size-in-its-tooltip-code-review-f-29).
+See [DC-91](../design_decisions.md#dc-91).
 
 ---
 
@@ -187,7 +187,7 @@ A process that first appears in a refresh was created after the previous list wa
 - New unit tests reproduce the probe through an insertion and through `setTreeMode()`. `TreeMode_ChildOfProcessThatJustExited_ShownUnderIt` now uses a later time for its second refresh, so it tells the two cases apart.
 - The churn test checks that no parent was marked exited before its child was first listed. Before the fix, that check failed at three of its 300 refreshes.
 
-See [DC-92](../design_decisions.md#dc-92-an-exited-row-parents-only-processes-listed-no-later-than-its-exit-code-review-f-30).
+See [DC-92](../design_decisions.md#dc-92).
 
 ---
 
@@ -218,7 +218,7 @@ See [DC-92](../design_decisions.md#dc-92-an-exited-row-parents-only-processes-li
 - End process on the monitor's row asks "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?", with Cancel as the default. Confirming closes the main window, so `main()` stops the scheduler and flushes the log. The terminator is never called for the row.
 - New view tests cover a current row that exits and is listed again, an exited row that becomes current, and the monitor's dialog, its confirmation and its Cancel. Model, formatting and integration tests cover `hasExited()`, the question, and that `currentProcessIdentity()` matches this process's entry in the list.
 
-See [DC-93](../design_decisions.md#dc-93-end-process-disabled-on-exited-rows-and-an-offer-to-close-the-monitor-on-its-own-row-code-review-f-31).
+See [DC-93](../design_decisions.md#dc-93).
 
 ---
 
@@ -251,7 +251,7 @@ DC-74 says that the reader's second check means "code that calls it directly can
 - The log lines, the name tooltip and the termination message give their own reason for a process without a name, rather than calling it a critical Windows process.
 - `process_access_policy_test.cpp` covers an empty name with several PIDs and the Idle process, for the rule and the reader filter. New integration tests check that the details reader refuses this process with its name cleared, and that the terminator refuses a child passed with only its identity and leaves it running. `RealHost_IdleProcess_NotOwnedByCurrentUser` still passes.
 
-See [DC-94](../design_decisions.md#dc-94-a-process-without-an-image-name-is-never-opened-except-the-idle-process-code-review-f-32).
+See [DC-94](../design_decisions.md#dc-94).
 
 ---
 
@@ -293,7 +293,7 @@ DC-66 says its means stayed within 3 ms over three runs. Today they are 25–45%
 - **CPU column:** DC-76 says that the column adds up to slightly less than the total, because interrupt and DPC time is charged to no process and processes that exited during the interval drop out.
 - **DC-74:** corrected under F-32.
 
-See [DC-95](../design_decisions.md#dc-95-benchmarks-print-the-build-and-the-machine-they-ran-on-and-the-figures-re-measured-code-review-f-33).
+See [DC-95](../design_decisions.md#dc-95).
 
 ---
 

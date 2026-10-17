@@ -27,7 +27,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 **Plan:** Build the slow-collector thread and merge in Phase 4 ([roadmap: "Run the process collector on a slow-collector thread"](../roadmap.md#process-collector-srcplatformwindows)), and move connectivity onto it at the same time.
 
-**Status:** Resolved (2026-10-13). `SamplingScheduler` now owns a second `std::jthread` that runs the process and connectivity collectors every `slowInterval()` (2 seconds by default) and stores their results under a mutex. `sampleOnce()` runs only the fast collectors and copies the latest slow results into the snapshot. `refreshSlowCollectors()` runs the slow collectors synchronously for tests. `ProcessCollector` is registered in `main.cpp`. See design decision [DC-77](design_decisions.md#dc-77-a-slow-collector-thread-in-the-scheduler-shared-by-processes-and-connectivity).
+**Status:** Resolved (2026-10-13). `SamplingScheduler` now owns a second `std::jthread` that runs the process and connectivity collectors every `slowInterval()` (2 seconds by default) and stores their results under a mutex. `sampleOnce()` runs only the fast collectors and copies the latest slow results into the snapshot. `refreshSlowCollectors()` runs the slow collectors synchronously for tests. `ProcessCollector` is registered in `main.cpp`. See design decision [DC-77](design_decisions.md#dc-77).
 
 ---
 
@@ -111,7 +111,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 **Plan:** Make the `cpu` and `memory` snapshot fields `std::optional` (as `uptime` already is) and return `std::nullopt` on collector failure. Audit `CpuCollector` at the same time. Best done before the dashboard cards consume these fields.
 
-**Status:** Resolved (2026-09-25). `ICpuCollector` / `IMemoryCollector` and the `cpu` / `memory` snapshot fields are now `std::optional`. The `CpuCollector` audit found four more zero placeholders, all fixed: both queries failing, the baseline-only first sample, uncomputable rates in `calculateCpuUsage` (including counters that went backwards), and zero-filled per-core values on a core-count change. `MemoryCollector` returns `std::nullopt` on failure or a zero total. The dashboard shows "N/A". See design decision [DC-43](design_decisions.md#dc-43-no-zero-placeholders-for-cpu-and-memory-optional-samples-end-to-end).
+**Status:** Resolved (2026-09-25). `ICpuCollector` / `IMemoryCollector` and the `cpu` / `memory` snapshot fields are now `std::optional`. The `CpuCollector` audit found four more zero placeholders, all fixed: both queries failing, the baseline-only first sample, uncomputable rates in `calculateCpuUsage` (including counters that went backwards), and zero-filled per-core values on a core-count change. `MemoryCollector` returns `std::nullopt` on failure or a zero total. The dashboard shows "N/A". See design decision [DC-43](design_decisions.md#dc-43).
 
 ---
 

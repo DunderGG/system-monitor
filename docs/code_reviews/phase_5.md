@@ -139,7 +139,7 @@ Phase 4 handled the same risk for process names and command lines: its tooltips 
 - `src/ui/AGENTS.md` and a new "Text from outside the program" section in the coding guidelines state the rule: `Qt::PlainText` for a label, and `toHtmlEscaped()` for each untrusted part of rich text.
 - New tests give an alias, a description and two network names (`<h1>FREE</h1>` and `<img height=3000>`) markup. They check that every label on the card and in the connectivity section is plain text and shows the literal string, and that `MainWindow` shown at 800×600 on the Network tab keeps a minimum size within 800×600. Before the fix, that test reproduced the 3142×3301 above. Further tests cover `ReadoutGrid` (markup in a name, and in a value updated in place), the Performance tab's chart title and `ResourceCard`.
 
-See [DC-102](../design_decisions.md#dc-102-labels-that-show-text-from-the-system-or-the-network-are-plain-text-code-review-f-35).
+See [DC-102](../design_decisions.md#dc-102).
 
 ---
 
@@ -185,7 +185,7 @@ The tests did not catch this: the fake samples have addresses but no address sta
 - Tests: collector tests give a Down, a Dormant and an Up adapter every address state, and model the WiFi card's Deprecated lease and the Bluetooth card's Tentative 169.254 address; a Deprecated address is kept once its adapter comes Up. Formatting tests show "Not connected" for every status other than Up, with the `fec0:0:0:ffff::` servers in the sample. A view test takes a card from Down to Up. Platform tests cover the mapping and the placeholder check, and an integration test checks that no real adapter reports a placeholder. With F-35's tests for untrusted names, this covers the second row of F-40.
 - On the review machine, the collector now reports no addresses for the four Down cards in the table above, no DNS servers for the Bluetooth and two Wi-Fi Direct cards, and every Preferred address of the Ethernet and Mullvad adapters.
 
-See [DC-103](../design_decisions.md#dc-103-unusable-addresses-and-placeholder-dns-servers-dropped-addresses-and-dns-servers-shown-only-while-up-code-review-f-36); DC-35 and DC-97 point to it.
+See [DC-103](../design_decisions.md#dc-103); DC-35 and DC-97 point to it.
 
 ---
 
@@ -224,7 +224,7 @@ The dashboard's `ResourceCard` draws its Unknown health status with the same `pa
 - Unit tests check each tone's contrast on the four backgrounds. View tests render the main window in both schemes and measure the rendered pixels of the adapter cards' status, description and a readout name, switching one window between schemes, and of the dashboard's four statuses. They fail with the old Healthy green (measured 3.244:1 on #2d2d2d) or with dimmed text at 30%.
 - `src/ui/AGENTS.md` and a new "Text colours" section of the coding guidelines state the rule.
 
-See [DC-105](../design_decisions.md#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37).
+See [DC-105](../design_decisions.md#dc-105).
 
 ---
 
@@ -266,7 +266,7 @@ The cost in normal operation is fine. What the probe shows is that the cost is n
 
 The collector's unit tests were rewritten for the worker. They include F-40's third row: a change reported during a read causes another read, and the test fails if the stale mark is cleared after the read.
 
-See [DC-107](../design_decisions.md#dc-107-network-names-read-on-the-collectors-own-thread-at-most-once-a-second-code-review-f-38); DC-06, DC-100 and DC-101 point to it.
+See [DC-107](../design_decisions.md#dc-107); DC-06, DC-100 and DC-101 point to it.
 
 ---
 
@@ -305,7 +305,7 @@ Rendered from the review machine's 19 adapters:
 
 On the review machine the tab now lists four cards by default, the adapters Network Connections shows: Ethernet, WiFi, Bluetooth Network Connection and Mullvad. The two Down cards have no chart. "Show all adapters" appends the other 15 in natural order. DC-96's adapter count is corrected (F-41's first row).
 
-See [DC-106](../design_decisions.md#dc-106-adapters-listed-in-a-fixed-order-with-the-ones-windows-hides-last-disconnected-adapters-charts-collapsed-code-review-f-39).
+See [DC-106](../design_decisions.md#dc-106).
 
 ---
 
@@ -391,7 +391,7 @@ This predates Phase 5 and was found while measuring it.
 - Under `windows11` every test passes, including the 800×600 tests. Renders of every tab at 800×600 in both colour schemes fit, with a minimum size of 602×492. The style draws tab pages and cards in the base colour (#ffffff, or #2d2d2d in the dark scheme), so F-37's contrast is measured against that.
 - The benchmark ran alternately with and without the plugin on the same binary. The style adds about 1 ms per tick on the Network tab and on the network page, and nothing measurable on the other pages.
 
-See [DC-104](../design_decisions.md#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42).
+See [DC-104](../design_decisions.md#dc-104).
 
 ---
 
@@ -447,7 +447,7 @@ Destroy the window and the scheduler before the logger is shut down. For example
 - **A VPN's link speed:** shown as reported, with a tooltip on a virtual adapter's speed that its driver chooses the figure. `Readout` has an optional tooltip, which `ReadoutGrid` shows as plain text. Leaving the speed out would also have hidden the real link rates that the Wi-Fi Direct and Bluetooth PAN adapters report.
 - **`-CheckFormat`:** every batch is checked before the script fails, so every unformatted file is listed. Tried with unformatted files in the first and the last batch.
 
-See [DC-108](../design_decisions.md#dc-108-addresses-marked-temporary-or-link-local-with-the-zone-index-a-virtual-adapters-link-speed-explained-in-a-tooltip-code-review-f-44).
+See [DC-108](../design_decisions.md#dc-108).
 
 ---
 

@@ -182,7 +182,15 @@ A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
 `.\scripts\build.ps1 -CheckFormat`, which fails if any file under `src/`,
 `tests/`, or `benchmarks/` differs from `.clang-format`. It checks every file
 before it fails, so the log lists all of them. Run `.\scripts\build.ps1 -Format` locally
-before pushing. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
+before pushing.
+
+Both `-Format` and `-CheckFormat` then check the links to design decisions
+([DC-114](design_decisions.md#dc-114)). They fail when an entry heading in
+`docs/design_decisions.md` lacks its `<a id="dc-NN"></a>` anchor, when a
+Markdown link into that file names neither an anchor nor a section heading,
+when a link whose text is `DC-NN` names another entry, or when any tracked or
+new text file cites a `DC-NN` that is not an entry. Every problem is listed
+before the script fails. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also
 recorded in `build.ps1`: locally a different version is a warning, and in CI it

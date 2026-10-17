@@ -198,7 +198,7 @@ The exact standby and modified sizes come from `NtQuerySystemInformation(SystemM
 
 **Recommendation:** Fix before Phase 4. It is a small change, and the readout currently states something that is not true.
 
-**Status:** Resolved (2026-10-13). Items 1 to 3 are done. The readout is now "System cache" and the field `systemCacheBytes`. The domain comment says what `SystemCache` is, that Microsoft's description does not match measured values, and that it is not Task Manager's "Cached". "In use" is now "Used", and the `MemorySample` comment says that it includes the modified list. The dashboard already said "… of … used", and the sidebar summary has no label, so neither changed. The fix's own reading put `SystemCache` 0.6 GiB above the standby list, where the review's reading was 3.2 GiB below it, which confirms that no fixed correction would reproduce Task Manager's figure. Item 4 is recorded in the design decision as the way to get Task Manager's breakdown. See [DC-63](../design_decisions.md#dc-63-memory-readouts-name-what-getperformanceinfo-reports-not-task-managers-figures-code-review-f-22).
+**Status:** Resolved (2026-10-13). Items 1 to 3 are done. The readout is now "System cache" and the field `systemCacheBytes`. The domain comment says what `SystemCache` is, that Microsoft's description does not match measured values, and that it is not Task Manager's "Cached". "In use" is now "Used", and the `MemorySample` comment says that it includes the modified list. The dashboard already said "… of … used", and the sidebar summary has no label, so neither changed. The fix's own reading put `SystemCache` 0.6 GiB above the standby list, where the review's reading was 3.2 GiB below it, which confirms that no fixed correction would reproduce Task Manager's figure. Item 4 is recorded in the design decision as the way to get Task Manager's breakdown. See [DC-63](../design_decisions.md#dc-63).
 
 ---
 
@@ -220,7 +220,7 @@ Add a stable identifier to the domain type, for example `uint64_t interfaceId` h
 
 **Recommendation:** Fix before Phase 5, or together with F-21 if the charted-adapter logic is being changed anyway.
 
-**Status:** Resolved (2026-10-13). `NetworkSample::interfaceId` carries the collector's key (the LUID, falling back to the interface index). `NetworkPerformancePage` keys its histories and charts by it, and keeps `adapterName` for display. New page tests cover two adapters that share a name (two charts, one sample each after one tick) and a renamed adapter (same chart, new title, history kept). A collector test covers the LUID and interface-index cases, and an integration check confirms the IDs are unique on the real machine. See [DC-64](../design_decisions.md#dc-64-network-adapters-identified-by-interface-luid-not-by-name-code-review-f-23).
+**Status:** Resolved (2026-10-13). `NetworkSample::interfaceId` carries the collector's key (the LUID, falling back to the interface index). `NetworkPerformancePage` keys its histories and charts by it, and keeps `adapterName` for display. New page tests cover two adapters that share a name (two charts, one sample each after one tick) and a renamed adapter (same chart, new title, history kept). A collector test covers the LUID and interface-index cases, and an integration check confirms the IDs are unique on the real machine. See [DC-64](../design_decisions.md#dc-64).
 
 ---
 
@@ -249,7 +249,7 @@ Give the gutter a width that does not depend on the current values. For example,
 
 **Recommendation:** Fix when convenient. Doing it together with F-20 avoids adjusting the network page's layout twice.
 
-**Status:** Resolved (2026-10-13). `SparklineWidget::setAxisLabelTemplates()` takes a list of templates, because unit letters differ in width. The gutter is the widest of the templates and the current labels, so a label wider than every template still fits. The network charts share `chartByteRateAxisTemplates()`, which formats one byte below each unit boundary up to GiB/s ("1024.0 MiB/s"). Percentage charts have a fixed range and so already had a fixed gutter. New tests check that the plot's left edge stays put when the auto range changes, that it still moves without templates, that a label wider than the templates widens the gutter, the template texts, and that an idle and a busy network chart line up. See [DC-65](../design_decisions.md#dc-65-y-axis-gutter-sized-from-caller-supplied-label-templates-code-review-f-24).
+**Status:** Resolved (2026-10-13). `SparklineWidget::setAxisLabelTemplates()` takes a list of templates, because unit letters differ in width. The gutter is the widest of the templates and the current labels, so a label wider than every template still fits. The network charts share `chartByteRateAxisTemplates()`, which formats one byte below each unit boundary up to GiB/s ("1024.0 MiB/s"). Percentage charts have a fixed range and so already had a fixed gutter. New tests check that the plot's left edge stays put when the auto range changes, that it still moves without templates, that a label wider than the templates widens the gutter, the template texts, and that an idle and a busy network chart line up. See [DC-65](../design_decisions.md#dc-65).
 
 ---
 
@@ -309,7 +309,7 @@ Commit the benchmark as an opt-in executable, for example `benchmarks/performanc
 - **Disk colours:** `setSeriesColorSlot()` lets the disk page give each volume a colour slot when it first appears, which it keeps.
 - **Test name:** the envelope test is now `ZigzagWithinColumns_KeepsHighestPointPerColumn`.
 
-See [DC-67](../design_decisions.md#dc-67-chart-annotations-at-readout-precision-named-extremes-and-stable-volume-colours-code-review-f-26).
+See [DC-67](../design_decisions.md#dc-67).
 
 ---
 
@@ -359,7 +359,7 @@ See [DC-67](../design_decisions.md#dc-67-chart-annotations-at-readout-precision-
 - **Layout literals:** the shared margins, spacing and title size are named in the new `view_metrics.h`, and the dashboard, performance view, pages and placeholder views use them. The 120-pixel chart minimum is a named constant.
 - **Adapter sort:** `chartedAdapters()` sorts with `QString::compare(…, Qt::CaseInsensitive)`.
 
-New tests cover `usedMemoryBytes()`, `kNotAvailable` and the case-insensitive adapter order. See [DC-68](../design_decisions.md#dc-68-shared-ui-constants-and-helpers-where-each-one-lives-code-review-f-28).
+New tests cover `usedMemoryBytes()`, `kNotAvailable` and the case-insensitive adapter order. See [DC-68](../design_decisions.md#dc-68).
 
 ---
 

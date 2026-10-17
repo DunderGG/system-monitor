@@ -19,8 +19,8 @@ The rules below are self-contained. For deeper rationale or design context, cons
 - Build and test: `.\scripts\build.ps1 -Test`
 - Release build, for measuring performance (Debug Qt paints many times slower): add `-Release`, e.g. `.\scripts\build.ps1 -Test -Release`
 - Measure the Performance, Network and Processes tabs' tick cost (Release build; prints tables; not a test): `.\scripts\build.ps1 -Benchmark`
-- Format C++ files: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code)
-- Check formatting only: `.\scripts\build.ps1 -CheckFormat`
+- Format C++ files and check design decision links: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code or a link that does not resolve)
+- Check formatting and design decision links only: `.\scripts\build.ps1 -CheckFormat`
 
 Do **not** invoke `cmake` directly. `build.ps1` initializes the x64 MSVC developer environment automatically, which is required for the build to succeed regardless of which terminal the agent runs in. Calling the raw `cmake` commands without this initialization will fail with a broken compiler or linker error.
 
@@ -77,7 +77,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 
 ## Design decisions
 
-- When you make a non-obvious implementation choice (API selection, data representation, threading approach, CMake target type, etc.), document it in [docs/design_decisions.md](docs/design_decisions.md) under the relevant phase heading with the next unused `DC-xx` ID, using a **Decision / Rationale** structure, and add it to the table of contents before finishing the task.
+- When you make a non-obvious implementation choice (API selection, data representation, threading approach, CMake target type, etc.), document it in [docs/design_decisions.md](docs/design_decisions.md) under the relevant phase heading with the next unused `DC-xx` ID and an `<a id="dc-xx"></a>` anchor on the line above its heading, using a **Decision / Rationale** structure, and add it to the table of contents before finishing the task. Link to an entry by that anchor (`design_decisions.md#dc-xx`), never by its heading.
 - If a change knowingly deviates from [architecture.md](docs/architecture.md), [coding_guidelines.md](docs/coding_guidelines.md), or these rules, record it in [docs/known_deviations.md](docs/known_deviations.md) with a new ID, reference that ID in a comment at the deviating code, and tell the user. Check that list before working in an affected area, and mark entries Resolved when you fix them.
 
 ## What NOT to do

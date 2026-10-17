@@ -258,7 +258,7 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
 
 **Recommendation:** Decide the approach when implementing Phase 2. No action needed now.
 
-**Status:** Resolved (2026-09-29, `d12d097`). `MainWindow::onSnapshotReady` forwards every snapshot to the dashboard and the performance view. Views with history record every snapshot and skip widget work while hidden, so no history gaps appear when another tab is open. See [DC-54](../design_decisions.md#dc-54-snapshot-forwarding-every-view-records-every-snapshot-and-hidden-views-skip-repainting-code-review-f-4). (Earlier status, 2026-09-25: deferred to Phase 3, because the other tabs were still placeholders.)
+**Status:** Resolved (2026-09-29, `d12d097`). `MainWindow::onSnapshotReady` forwards every snapshot to the dashboard and the performance view. Views with history record every snapshot and skip widget work while hidden, so no history gaps appear when another tab is open. See [DC-54](../design_decisions.md#dc-54). (Earlier status, 2026-09-25: deferred to Phase 3, because the other tabs were still placeholders.)
 
 ---
 

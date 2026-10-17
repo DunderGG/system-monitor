@@ -347,6 +347,8 @@ std::optional<std::wstring> queryProcessImagePath(DWORD pid) {
 .\scripts\build.ps1 -CheckFormat   # check only; CI runs this and fails on differences
 ```
 
+Both also check the links to design decisions, so that a link to an entry that does not resolve fails as unformatted code does ([DC-114](design_decisions.md#dc-114)).
+
 CI uses clang-format 22 (pinned in `.github/workflows/ci.yml`). Visual Studio's "C++ Clang tools for Windows" component includes a matching version, and `bootstrap.ps1` reports whether one is available. A different major version can format code differently, so `build.ps1` warns locally and fails in CI when the version differs.
 
 ### Pointers and references
@@ -503,7 +505,7 @@ TEST(RingBuffer, PushBeyondCapacity_OverwritesOldest)
 
 ### Mappings and thresholds: one table per function
 
-Test the values of a mapping or a threshold function in one test that loops over a table of named cases, and pass each case's name to `SCOPED_TRACE`, so a failure names its row ([DC-112](design_decisions.md#dc-112-a-mappings-values-tested-in-one-test-as-a-table-of-named-cases)):
+Test the values of a mapping or a threshold function in one test that loops over a table of named cases, and pass each case's name to `SCOPED_TRACE`, so a failure names its row ([DC-112](design_decisions.md#dc-112)):
 
 ```cpp
 TEST(HealthEvaluator, EvaluateConnectivity_InternetHealthyDegradedWarningUnknownUnknown)
@@ -531,7 +533,7 @@ Use `TEST_P` when a whole test, not one call, runs over different inputs, as `Sp
 
 ### Shared builders and harnesses
 
-Test data builders, fakes and harnesses that more than one test file uses live in `tests/support/`, as inline functions and classes in headers in namespace `sysmon::tests`, included as `"support/<name>.h"` ([DC-109](design_decisions.md#dc-109-shared-test-builders-and-harnesses-in-testssupport-header-only)). Look there before writing a builder, and move a helper there when a second file needs it rather than copying it. A helper that one file uses stays in that file's anonymous namespace.
+Test data builders, fakes and harnesses that more than one test file uses live in `tests/support/`, as inline functions and classes in headers in namespace `sysmon::tests`, included as `"support/<name>.h"` ([DC-109](design_decisions.md#dc-109)). Look there before writing a builder, and move a helper there when a second file needs it rather than copying it. A helper that one file uses stays in that file's anonymous namespace.
 
 - A builder returns a realistic default and takes only the values its callers' cases differ in, e.g. `adapter(1, "Wi-Fi", OperationalStatus::Down, kVirtualAdapter)` or `process(800, "explorer.exe")`. Set any other field on the result. Prefer named constants to positional `bool` arguments, and a type such as `std::chrono::seconds` to a plain number that another argument could be mistaken for.
 - `tests/support/` follows the rules of `tests/unit/`: no Windows headers. A helper that needs the Windows SDK, such as `SuspendedChildProcess`, stays beside the integration tests that use it.
