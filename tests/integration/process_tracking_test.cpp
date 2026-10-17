@@ -1,9 +1,7 @@
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <set>
 #include <string>
@@ -14,7 +12,6 @@
 #include <windows.h>
 
 #include <gtest/gtest.h>
-#include <QObject>
 
 #include "current_process_elevation.h"
 #include "domain/process_identity.h"
@@ -26,6 +23,7 @@
 #include "platform/windows/process_details_reader.h"
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/system_process_information_reader.h"
+#include "support/scheduler_harness.h"
 #include "suspended_child_process.h"
 
 using namespace sysmon::domain;
@@ -33,6 +31,7 @@ using namespace sysmon::platform;
 using sysmon::monitoring::SamplingScheduler;
 using sysmon::tests::isCurrentProcessElevated;
 using sysmon::tests::SuspendedChildProcess;
+using sysmon::tests::waitForSnapshot;
 
 namespace
 {
@@ -215,25 +214,9 @@ TEST(ProcessTrackingIntegration, RealHost_SchedulerWithRealCollector_SnapshotsCa
     scheduler.setSlowInterval(std::chrono::milliseconds{200});
     scheduler.setProcessCollector(std::make_unique<ProcessCollector>());
 
-    std::mutex mutex;
-    std::optional<SystemSnapshot> snapshotWithProcesses;
-    std::atomic<bool> found{false};
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
-        if (snapshot.processes.has_value() && !found.load()) {
-            std::lock_guard lock(mutex);
-            snapshotWithProcesses = snapshot;
-            found = true;
-        }
-    });
+    const auto snapshotWithProcesses =
+        waitForSnapshot(scheduler, [](const SystemSnapshot& snapshot) { return snapshot.processes.has_value(); });
 
-    scheduler.start();
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
-    while (!found.load() && std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(std::chrono::milliseconds{20});
-    }
-    scheduler.stop();
-
-    std::lock_guard lock(mutex);
     ASSERT_TRUE(snapshotWithProcesses.has_value());
     const auto& processes = *snapshotWithProcesses->processes;
     const auto self = std::ranges::find(processes, static_cast<uint32_t>(::GetCurrentProcessId()), &ProcessInfo::pid);

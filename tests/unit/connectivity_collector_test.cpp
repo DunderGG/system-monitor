@@ -6,11 +6,13 @@
 #include <gtest/gtest.h>
 
 #include "domain/connectivity_status.h"
-#include "log_capture.h"
 #include "platform/windows/connectivity_collector.h"
+#include "support/fake_subscription.h"
+#include "support/log_capture.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
+using sysmon::tests::FakeSubscription;
 
 namespace
 {
@@ -178,20 +180,6 @@ struct FakeSubscriptionState
     bool shouldFail = false;
 };
 
-class FakeSubscription : public ConnectivitySubscription
-{
-public:
-    explicit FakeSubscription(FakeSubscriptionState& state) : m_state(state) {}
-
-    ~FakeSubscription() override
-    {
-        m_state.isCancelled = true;
-    }
-
-private:
-    FakeSubscriptionState& m_state;
-};
-
 ConnectivitySubscriber fakeSubscriber(FakeSubscriptionState& state)
 {
     return [&state](ConnectivityChangeHandler handler) -> std::unique_ptr<ConnectivitySubscription> {
@@ -200,7 +188,7 @@ ConnectivitySubscriber fakeSubscriber(FakeSubscriptionState& state)
             return nullptr;
         }
         state.handler = std::move(handler);
-        return std::make_unique<FakeSubscription>(state);
+        return std::make_unique<FakeSubscription>([&state] { state.isCancelled = true; });
     };
 }
 

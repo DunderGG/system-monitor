@@ -3,10 +3,9 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
+#include <format>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -21,6 +20,9 @@
 #include <QTabWidget>
 
 #include "domain/system_snapshot.h"
+#include "support/network_samples.h"
+#include "support/readouts.h"
+#include "support/snapshots.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/cpu_performance_page.h"
 #include "ui/disk_performance_page.h"
@@ -33,76 +35,10 @@
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
+using namespace sysmon::tests;
 
 namespace
 {
-
-constexpr uint64_t kGiB = 1024ULL * 1024ULL * 1024ULL;
-
-NetworkSample adapter(std::string name, OperationalStatus status, std::optional<uint64_t> inRate = 2048,
-                      std::optional<uint64_t> outRate = 1024)
-{
-    return NetworkSample{
-        .interfaceId = std::hash<std::string>{}(name),
-        .adapterName = "{" + name + "}",
-        .friendlyName = std::move(name),
-        .inBytesPerSec = inRate,
-        .outBytesPerSec = outRate,
-        .operationalStatus = status,
-        .type = AdapterType::Ethernet,
-        .isHardwareInterface = true,
-        .hasIpInterface = true,
-    };
-}
-
-SystemSnapshot populatedSnapshot()
-{
-    SystemSnapshot snapshot;
-    snapshot.cpu =
-        CpuSample{.totalUsagePercent = 42.5f, .coreUsagePercents = {10.0f, 20.0f, 30.0f, 40.0f}, .coreCount = 4};
-    snapshot.memory = MemorySample{
-        .totalBytes = 16 * kGiB,
-        .availableBytes = 8 * kGiB,
-        .usagePercent = 50.0f,
-        .commitLimit = 32 * kGiB,
-        .commitCurrent = 8 * kGiB,
-    };
-    snapshot.disks = std::vector<DiskSample>{
-        DiskSample{.volumeName = "D:\\", .totalBytes = 1000, .freeBytes = 900, .usagePercent = 10.0f},
-        DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .freeBytes = 250, .usagePercent = 75.0f},
-    };
-    snapshot.networks = std::vector<NetworkSample>{
-        adapter("Ethernet", OperationalStatus::Up),
-        adapter("Wi-Fi", OperationalStatus::Down),
-    };
-    return snapshot;
-}
-
-// What the fullest real pages hold: 256 logical processors, and adapters with
-// long descriptions, IPv6 addresses, and DNS server lists.
-SystemSnapshot demandingSnapshot()
-{
-    auto snapshot = populatedSnapshot();
-    snapshot.cpu->coreUsagePercents.assign(256, 50.0f);
-    snapshot.cpu->coreCount = 256;
-
-    NetworkSample wired = adapter("Ethernet", OperationalStatus::Up);
-    wired.description = "Realtek Gaming 2.5GbE Family Controller #2";
-    wired.linkSpeedBps = 2'500'000'000;
-    wired.ipAddresses = {{.text = "192.168.1.23"},
-                         {.text = "fd44:555c:2315:4176:c6d0:77e0:5d11:3727", .isTemporary = true},
-                         {.text = "fe80::4a1c:9d2e:77b0:1f3a%12", .isLinkLocal = true}};
-    wired.dnsServers = {"fd44:555c:2315:4176:c6d0:77e0:5d11:1", "2001:4860:4860::8888", "192.168.1.1"};
-    wired.inBytesTotal = 987'654'321'098;
-    wired.outBytesTotal = 123'456'789'012;
-    NetworkSample tunnel = adapter("Mullvad", OperationalStatus::Up);
-    tunnel.description = "Mullvad Tunnel (WireGuard) Virtual Network Adapter";
-    tunnel.isHardwareInterface = false;
-    tunnel.ipAddresses = {{.text = "10.64.12.34"}, {.text = "fc00:bbbb:bbbb:bb01:d:0:1c:2f45"}};
-    tunnel.dnsServers = {"10.64.0.1"};
-    snapshot.networks = std::vector<NetworkSample>{wired, tunnel};
-    return snapshot;
-}
 
 // A main window at 800x600, the smallest size its content must fit, showing
 // the Performance tab without opening a window on screen.
@@ -376,8 +312,7 @@ TEST(NetworkPerformancePage, FirstSampleWithoutRates_KeepsAdapterWithGap)
 {
     NetworkPerformancePage page;
     SystemSnapshot snapshot;
-    snapshot.networks =
-        std::vector<NetworkSample>{adapter("Ethernet", OperationalStatus::Up, std::nullopt, std::nullopt)};
+    snapshot.networks = std::vector<NetworkSample>{withRates(adapter(1, "Ethernet"), std::nullopt, std::nullopt)};
 
     page.recordSnapshot(snapshot);
     page.refresh();
@@ -404,15 +339,14 @@ TEST(NetworkPerformancePage, HiddenVirtualAdaptersUp_ChartsOnlyAdaptersThatCarry
 {
     NetworkPerformancePage page;
     auto snapshot = populatedSnapshot();
-    NetworkSample tunnel = adapter("Mullvad", OperationalStatus::Up);
-    tunnel.isHardwareInterface = false;
+    NetworkSample tunnel = adapter(3, "Mullvad", OperationalStatus::Up, kVirtualAdapter);
     tunnel.ipAddresses = {{.text = "10.64.12.34"}};
     snapshot.networks->push_back(tunnel);
-    for (const char* name : {"Local Area Connection* 7", "Local Area Connection* 8"}) {
-        NetworkSample miniport = adapter(name, OperationalStatus::Up, 0, 0);
+    for (const uint64_t interfaceId : {7, 8}) {
+        NetworkSample miniport = withRates(adapter(interfaceId, std::format("Local Area Connection* {}", interfaceId),
+                                                   OperationalStatus::Up, kUnboundVirtualAdapter),
+                                           0, 0);
         miniport.description = "WAN Miniport (IP)";
-        miniport.isHardwareInterface = false;
-        miniport.hasIpInterface = false;
         snapshot.networks->push_back(miniport);
     }
 
@@ -425,10 +359,8 @@ TEST(NetworkPerformancePage, HiddenVirtualAdaptersUp_ChartsOnlyAdaptersThatCarry
 TEST(NetworkPerformancePage, TwoAdaptersShareAName_SeparateChartsAndHistories)
 {
     // Descriptions stand in for names when an alias is empty, and they repeat.
-    NetworkSample first = adapter("WAN Miniport (IP)", OperationalStatus::Up, 100, 10);
-    NetworkSample second = adapter("WAN Miniport (IP)", OperationalStatus::Up, 200, 20);
-    first.interfaceId = 1;
-    second.interfaceId = 2;
+    const NetworkSample first = withRates(adapter(1, "WAN Miniport (IP)"), 100, 10);
+    const NetworkSample second = withRates(adapter(2, "WAN Miniport (IP)"), 200, 20);
     SystemSnapshot snapshot;
     snapshot.networks = std::vector<NetworkSample>{first, second};
     NetworkPerformancePage page;
@@ -451,7 +383,7 @@ TEST(NetworkPerformancePage, IdleAndBusyAdapters_PlotsLineUp)
     auto snapshot = populatedSnapshot();
     (*snapshot.networks)[0].inBytesPerSec = 0;
     (*snapshot.networks)[0].outBytesPerSec = 0;
-    (*snapshot.networks)[1] = adapter("Wi-Fi", OperationalStatus::Up, 12'000'000, 900'000);
+    (*snapshot.networks)[1] = withRates(adapter(2, "Wi-Fi"), 12'000'000, 900'000);
 
     page.recordSnapshot(snapshot);
     page.refresh();
@@ -483,7 +415,7 @@ TEST(NetworkPerformancePage, MarkupInAdapterName_TitleShownAsPlainText)
 {
     NetworkPerformancePage page;
     SystemSnapshot snapshot;
-    snapshot.networks = std::vector<NetworkSample>{adapter("<h1>Ethernet</h1>", OperationalStatus::Up)};
+    snapshot.networks = std::vector<NetworkSample>{adapter(1, "<h1>Ethernet</h1>")};
 
     page.recordSnapshot(snapshot);
     page.refresh();
@@ -531,7 +463,7 @@ TEST(MainWindow, DemandingSnapshot_MinimumSizeStaysWithin800x600)
     QCoreApplication::processEvents();
 
     ASSERT_EQ(view->cpuPage()->coreChartCount(), 256u);
-    ASSERT_EQ(view->networkPage()->chartedAdapterNames().size(), 2u);
+    ASSERT_EQ(view->networkPage()->chartedAdapterNames().size(), 3u);
     const QSize minimum = mainWindow.minimumSizeHint();
     EXPECT_LE(minimum.width(), 800);
     EXPECT_LE(minimum.height(), 600);
@@ -566,20 +498,17 @@ TEST(NetworkPerformancePage, SmallWindow_ReadoutsFitWithoutHorizontalScrolling)
 
     const auto* scrollArea = view->networkPage()->findChild<QScrollArea*>();
     ASSERT_NE(scrollArea, nullptr);
-    ASSERT_EQ(view->networkPage()->chartedAdapterNames().size(), 2u);
+    ASSERT_EQ(view->networkPage()->chartedAdapterNames().size(), 3u);
     // With horizontal scrolling off, the scroll area squeezes content that is
     // too wide instead of scrolling it, so check the content's minimum width
     // and that no label is narrower than its text.
     EXPECT_EQ(scrollArea->horizontalScrollBar()->maximum(), 0);
     EXPECT_LE(scrollArea->widget()->minimumSizeHint().width(), scrollArea->viewport()->width());
     EXPECT_LE(scrollArea->widget()->width(), scrollArea->viewport()->width());
-    for (std::size_t index = 0; index < 2; ++index) {
+    for (std::size_t index = 0; index < 3; ++index) {
         const ReadoutGrid* grid = view->networkPage()->adapterReadoutGrid(index);
         EXPECT_LE(grid->mapTo(scrollArea->viewport(), QPoint(grid->width(), 0)).x(), scrollArea->viewport()->width());
-        for (const auto* label : grid->findChildren<QLabel*>()) {
-            EXPECT_GE(label->width(), label->sizeHint().width()) << label->text().toStdString();
-            EXPECT_LE(label->x() + label->width(), grid->width()) << label->text().toStdString();
-        }
+        expectLabelsFit(*grid);
     }
 }
 

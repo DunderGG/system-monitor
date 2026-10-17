@@ -5,12 +5,12 @@
 #include <QPalette>
 #include <QWidget>
 
-#include "text_contrast.h"
+#include "support/text_contrast.h"
 #include "ui/text_tone.h"
 
-using sysmon::test::blendedOver;
-using sysmon::test::contrastRatio;
-using sysmon::test::kMinimumTextContrast;
+using sysmon::tests::blendedOver;
+using sysmon::tests::contrastRatio;
+using sysmon::tests::kMinimumTextContrast;
 using sysmon::ui::dimmedTextColor;
 using sysmon::ui::TextTone;
 using sysmon::ui::textToneColor;

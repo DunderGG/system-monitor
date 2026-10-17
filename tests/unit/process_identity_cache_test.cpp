@@ -1,15 +1,17 @@
 #include <chrono>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "domain/process_info.h"
 #include "platform/windows/process_identity_cache.h"
+#include "support/process_samples.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
+using namespace std::chrono_literals;
+using sysmon::tests::process;
 
 namespace
 {
@@ -17,11 +19,6 @@ namespace
 std::chrono::system_clock::time_point createdAt(int seconds)
 {
     return std::chrono::system_clock::time_point{std::chrono::seconds{seconds}};
-}
-
-ProcessInfo process(uint32_t pid, int createdSeconds, std::string imageName = "app.exe")
-{
-    return ProcessInfo{.pid = pid, .creationTime = createdAt(createdSeconds), .imageName = std::move(imageName)};
 }
 
 // Returns details derived from the process, and records every call.
@@ -48,7 +45,7 @@ TEST(ProcessIdentityCache, Apply_NewProcess_ReadsAndFillsDetails)
 {
     RecordingDetailsReader reader;
     ProcessIdentityCache cache([&reader](const ProcessInfo& info) { return reader(info); });
-    std::vector<ProcessInfo> processes{process(100, 10)};
+    std::vector<ProcessInfo> processes{process(100, "app.exe", 10s)};
 
     cache.apply(processes);
 
@@ -63,10 +60,10 @@ TEST(ProcessIdentityCache, Apply_SameProcessInLaterList_UsesCacheWithoutReading)
 {
     RecordingDetailsReader reader;
     ProcessIdentityCache cache([&reader](const ProcessInfo& info) { return reader(info); });
-    std::vector<ProcessInfo> first{process(100, 10), process(200, 20)};
+    std::vector<ProcessInfo> first{process(100, "app.exe", 10s), process(200, "app.exe", 20s)};
     cache.apply(first);
 
-    std::vector<ProcessInfo> second{process(100, 10), process(200, 20)};
+    std::vector<ProcessInfo> second{process(100, "app.exe", 10s), process(200, "app.exe", 20s)};
     cache.apply(second);
 
     EXPECT_EQ(reader.reads.size(), 2u);
@@ -79,10 +76,10 @@ TEST(ProcessIdentityCache, Apply_PidReusedWithNewCreationTime_ReadsNewProcess)
 {
     RecordingDetailsReader reader;
     ProcessIdentityCache cache([&reader](const ProcessInfo& info) { return reader(info); });
-    std::vector<ProcessInfo> before{process(100, 10, "old.exe")};
+    std::vector<ProcessInfo> before{process(100, "old.exe", 10s)};
     cache.apply(before);
 
-    std::vector<ProcessInfo> after{process(100, 99, "new.exe")};
+    std::vector<ProcessInfo> after{process(100, "new.exe", 99s)};
     cache.apply(after);
 
     ASSERT_EQ(reader.reads.size(), 2u);
@@ -95,10 +92,11 @@ TEST(ProcessIdentityCache, Apply_ProcessExited_EvictsItsEntry)
 {
     RecordingDetailsReader reader;
     ProcessIdentityCache cache([&reader](const ProcessInfo& info) { return reader(info); });
-    std::vector<ProcessInfo> first{process(100, 10), process(200, 20), process(300, 30)};
+    std::vector<ProcessInfo> first{process(100, "app.exe", 10s), process(200, "app.exe", 20s),
+                                   process(300, "app.exe", 30s)};
     cache.apply(first);
 
-    std::vector<ProcessInfo> second{process(100, 10), process(300, 30)};
+    std::vector<ProcessInfo> second{process(100, "app.exe", 10s), process(300, "app.exe", 30s)};
     cache.apply(second);
 
     EXPECT_EQ(cache.size(), 2u);
@@ -113,10 +111,10 @@ TEST(ProcessIdentityCache, Apply_FailedRead_CachedAndNotRetried)
         return ProcessDetails{.imagePath = "C:\\Windows\\System32\\svchost.exe",
                               .status = ProcessDetailsStatus::AccessDenied};
     });
-    std::vector<ProcessInfo> first{process(100, 10)};
+    std::vector<ProcessInfo> first{process(100, "app.exe", 10s)};
     cache.apply(first);
 
-    std::vector<ProcessInfo> second{process(100, 10)};
+    std::vector<ProcessInfo> second{process(100, "app.exe", 10s)};
     cache.apply(second);
 
     EXPECT_EQ(reads, 1);
@@ -128,7 +126,7 @@ TEST(ProcessIdentityCache, Apply_FailedRead_CachedAndNotRetried)
 TEST(ProcessIdentityCache, Apply_NoReader_LeavesDetailsNotQueried)
 {
     ProcessIdentityCache cache(nullptr);
-    std::vector<ProcessInfo> processes{process(100, 10)};
+    std::vector<ProcessInfo> processes{process(100, "app.exe", 10s)};
 
     cache.apply(processes);
 
@@ -141,7 +139,7 @@ TEST(ProcessIdentityCache, Apply_EmptyList_EvictsEverything)
 {
     RecordingDetailsReader reader;
     ProcessIdentityCache cache([&reader](const ProcessInfo& info) { return reader(info); });
-    std::vector<ProcessInfo> first{process(100, 10), process(200, 20)};
+    std::vector<ProcessInfo> first{process(100, "app.exe", 10s), process(200, "app.exe", 20s)};
     cache.apply(first);
 
     std::vector<ProcessInfo> empty;

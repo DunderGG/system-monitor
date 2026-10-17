@@ -6,17 +6,17 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <QCoreApplication>
-#include <QObject>
 
 #include "domain/network_sample.h"
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
 #include "platform/windows/network_collector.h"
+#include "support/scheduler_harness.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::monitoring;
 using namespace sysmon::platform;
+using sysmon::tests::waitForSnapshot;
 
 TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMetrics)
 {
@@ -167,30 +167,16 @@ TEST(NetworkCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealNetwor
     SamplingScheduler scheduler(std::chrono::milliseconds{40});
     scheduler.setNetworkCollector(std::make_unique<NetworkCollector>());
 
-    std::vector<SystemSnapshot> receivedSnapshots;
+    // The second snapshot has a baseline for each adapter's rates.
+    int snapshotCount = 0;
+    const auto snapshot =
+        waitForSnapshot(scheduler, [&snapshotCount](const SystemSnapshot&) { return ++snapshotCount == 2; });
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-                     [&receivedSnapshots](const SystemSnapshot& snapshot) { receivedSnapshots.push_back(snapshot); });
-
-    scheduler.start();
-
-    const auto startTime = std::chrono::steady_clock::now();
-    while (receivedSnapshots.size() < 2 &&
-           std::chrono::steady_clock::now() - startTime < std::chrono::milliseconds{1000}) {
-        QCoreApplication::processEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-
-    scheduler.stop();
-
-    ASSERT_GE(receivedSnapshots.size(), 2u);
-
-    for (const auto& snapshot : receivedSnapshots) {
-        ASSERT_TRUE(snapshot.networks.has_value());
-        for (const auto& adapter : *snapshot.networks) {
-            EXPECT_FALSE(adapter.adapterName.empty());
-            EXPECT_GE(adapter.inBytesTotal, 0u);
-            EXPECT_GE(adapter.outBytesTotal, 0u);
-        }
+    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_TRUE(snapshot->networks.has_value());
+    for (const auto& adapter : *snapshot->networks) {
+        EXPECT_FALSE(adapter.adapterName.empty());
+        EXPECT_GE(adapter.inBytesTotal, 0u);
+        EXPECT_GE(adapter.outBytesTotal, 0u);
     }
 }

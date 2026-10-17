@@ -3,8 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
-#include <string>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -13,27 +11,17 @@
 #include "domain/connectivity_status.h"
 #include "domain/network_profile.h"
 #include "domain/network_sample.h"
+#include "support/network_samples.h"
+#include "support/readouts.h"
 #include "ui/network_formatting.h"
 #include "ui/performance_readouts.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
+using namespace sysmon::tests;
 
 namespace
 {
-
-NetworkSample adapter(uint64_t interfaceId, std::string name, OperationalStatus status, bool isHardware = true,
-                      bool hasIpInterface = true)
-{
-    return NetworkSample{
-        .interfaceId = interfaceId,
-        .adapterName = name,
-        .friendlyName = std::move(name),
-        .operationalStatus = status,
-        .isHardwareInterface = isHardware,
-        .hasIpInterface = hasIpInterface,
-    };
-}
 
 std::vector<uint64_t> ids(const std::vector<const NetworkSample*>& adapters)
 {
@@ -49,32 +37,28 @@ std::weak_ordering naturally(const char* left, const char* right)
     return compareNaturally(QString(left), QString(right));
 }
 
-QString valueOf(const std::vector<Readout>& readouts, const QString& name)
-{
-    const auto it = std::ranges::find(readouts, name, &Readout::name);
-    return it != readouts.end() ? it->value : QString("<missing>");
-}
-
 } // namespace
 
 TEST(NetworkFormatting, IsListedByDefault_NotHiddenAndHardwareOrIpBound)
 {
-    EXPECT_TRUE(isListedByDefault(adapter(1, "Ethernet", OperationalStatus::Down, true, false)));
-    EXPECT_TRUE(isListedByDefault(adapter(2, "Mullvad", OperationalStatus::Up, false, true)));
-    EXPECT_FALSE(isListedByDefault(adapter(3, "WAN Miniport (IP)", OperationalStatus::Up, false, false)));
+    EXPECT_TRUE(isListedByDefault(adapter(1, "Ethernet", OperationalStatus::Down, kUnboundPhysicalAdapter)));
+    EXPECT_TRUE(isListedByDefault(adapter(2, "Mullvad", OperationalStatus::Up, kVirtualAdapter)));
+    EXPECT_FALSE(isListedByDefault(adapter(3, "WAN Miniport (IP)", OperationalStatus::Up, kUnboundVirtualAdapter)));
 }
 
 TEST(NetworkFormatting, IsListedByDefault_HiddenByWindows_NotListedEvenIfBoundToIp)
 {
     // The Wi-Fi Direct virtual adapters are bound to IP, but Windows hides them.
-    NetworkSample wifiDirect = adapter(1, "Local Area Connection* 1", OperationalStatus::Down, false, true);
+    NetworkSample wifiDirect = adapter(1, "Local Area Connection* 1", OperationalStatus::Down, kVirtualAdapter);
     wifiDirect.isHidden = true;
-    NetworkSample hiddenHardware = adapter(2, "Ethernet (Kernel Debugger)", OperationalStatus::NotPresent, true, false);
+    NetworkSample hiddenHardware =
+        adapter(2, "Ethernet (Kernel Debugger)", OperationalStatus::NotPresent, kUnboundPhysicalAdapter);
     hiddenHardware.isHidden = true;
 
     EXPECT_FALSE(isListedByDefault(wifiDirect));
     EXPECT_FALSE(isListedByDefault(hiddenHardware));
-    EXPECT_TRUE(isListedByDefault(adapter(3, "Bluetooth Network Connection", OperationalStatus::Down, false, true)));
+    EXPECT_TRUE(
+        isListedByDefault(adapter(3, "Bluetooth Network Connection", OperationalStatus::Down, kVirtualAdapter)));
 }
 
 TEST(NetworkFormatting, CompareNaturally_NumbersCompareByValue)
@@ -100,8 +84,8 @@ TEST(NetworkFormatting, ListedAdapters_HidesUnboundVirtualAdaptersUnlessShowAll)
 {
     const std::vector<NetworkSample> networks{
         adapter(1, "Ethernet", OperationalStatus::Up),
-        adapter(2, "WAN Miniport (IP)", OperationalStatus::Up, false, false),
-        adapter(3, "Teredo Tunneling Pseudo-Interface", OperationalStatus::NotPresent, false, false),
+        adapter(2, "WAN Miniport (IP)", OperationalStatus::Up, kUnboundVirtualAdapter),
+        adapter(3, "Teredo Tunneling Pseudo-Interface", OperationalStatus::NotPresent, kUnboundVirtualAdapter),
     };
 
     EXPECT_EQ(ids(listedAdapters(networks, false)), (std::vector<uint64_t>{1}));
@@ -113,7 +97,7 @@ TEST(NetworkFormatting, ListedAdapters_StatusDoesNotChangeTheOrder)
     std::vector<NetworkSample> networks{
         adapter(1, "Wi-Fi", OperationalStatus::Up),
         adapter(2, "Ethernet", OperationalStatus::Down),
-        adapter(3, "Bluetooth Network Connection", OperationalStatus::LowerLayerDown, false, true),
+        adapter(3, "Bluetooth Network Connection", OperationalStatus::LowerLayerDown, kVirtualAdapter),
     };
     const auto before = ids(listedAdapters(networks, false));
 
@@ -128,13 +112,13 @@ TEST(NetworkFormatting, ListedAdapters_StatusDoesNotChangeTheOrder)
 TEST(NetworkFormatting, ListedAdapters_HardwareThenNaturalNameThenId)
 {
     const std::vector<NetworkSample> networks{
-        adapter(1, "mullvad", OperationalStatus::Up, false, true),
+        adapter(1, "mullvad", OperationalStatus::Up, kVirtualAdapter),
         adapter(2, "Wi-Fi", OperationalStatus::Up),
         adapter(3, "Ethernet", OperationalStatus::Down),
-        adapter(5, "Local Area Connection* 10", OperationalStatus::Down, false, true),
-        adapter(4, "Local Area Connection* 2", OperationalStatus::Down, false, true),
-        adapter(8, "Local Area Connection* 2", OperationalStatus::Down, false, true),
-        adapter(6, "Bluetooth", OperationalStatus::Up, false, true),
+        adapter(5, "Local Area Connection* 10", OperationalStatus::Down, kVirtualAdapter),
+        adapter(4, "Local Area Connection* 2", OperationalStatus::Down, kVirtualAdapter),
+        adapter(8, "Local Area Connection* 2", OperationalStatus::Down, kVirtualAdapter),
+        adapter(6, "Bluetooth", OperationalStatus::Up, kVirtualAdapter),
     };
 
     EXPECT_EQ(ids(listedAdapters(networks, false)), (std::vector<uint64_t>{3, 2, 6, 4, 8, 5, 1}));
@@ -142,13 +126,13 @@ TEST(NetworkFormatting, ListedAdapters_HardwareThenNaturalNameThenId)
 
 TEST(NetworkFormatting, ListedAdapters_ShowAll_AddedAdaptersAfterTheOthers)
 {
-    NetworkSample wifiDirect = adapter(3, "Local Area Connection* 1", OperationalStatus::Down, false, true);
+    NetworkSample wifiDirect = adapter(3, "Local Area Connection* 1", OperationalStatus::Down, kVirtualAdapter);
     wifiDirect.isHidden = true;
     const std::vector<NetworkSample> networks{
-        adapter(1, "6to4 Adapter", OperationalStatus::NotPresent, false, false),
+        adapter(1, "6to4 Adapter", OperationalStatus::NotPresent, kUnboundVirtualAdapter),
         adapter(2, "Wi-Fi", OperationalStatus::Down),
         wifiDirect,
-        adapter(4, "Bluetooth Network Connection", OperationalStatus::Down, false, true),
+        adapter(4, "Bluetooth Network Connection", OperationalStatus::Down, kVirtualAdapter),
         adapter(5, "Ethernet", OperationalStatus::Up),
     };
 

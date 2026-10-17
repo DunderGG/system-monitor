@@ -1,8 +1,6 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
-#include <string>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -11,10 +9,13 @@
 #include <QString>
 
 #include "domain/process_info.h"
+#include "support/process_samples.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 
 using namespace sysmon::domain;
+using sysmon::tests::process;
+using sysmon::tests::withCpuUsage;
 using sysmon::ui::ProcessModel;
 using sysmon::ui::ProcessSortFilterProxyModel;
 
@@ -25,16 +26,6 @@ using Column = ProcessModel::Column;
 
 // The monotonic time of each refresh, unless a test moves it on.
 const auto kNow = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
-
-ProcessInfo process(uint32_t pid, std::string name, std::optional<float> cpu = std::nullopt)
-{
-    return ProcessInfo{
-        .pid = pid,
-        .creationTime = std::chrono::system_clock::time_point{std::chrono::seconds{pid}},
-        .imageName = std::move(name),
-        .cpuUsagePercent = cpu,
-    };
-}
 
 // A ProcessModel shown through a proxy.
 struct SortedModel
@@ -68,7 +59,8 @@ struct SortedModel
 
 TEST(ProcessSortFilterProxyModel, Sort_Cpu_ByValueNotText)
 {
-    SortedModel sorted({process(1, "a.exe", 10.0f), process(2, "b.exe", 9.0f), process(3, "c.exe", 100.0f)});
+    SortedModel sorted({withCpuUsage(process(1, "a.exe"), 10.0f), withCpuUsage(process(2, "b.exe"), 9.0f),
+                        withCpuUsage(process(3, "c.exe"), 100.0f)});
 
     sorted.sort(Column::Cpu, Qt::DescendingOrder);
 
@@ -78,7 +70,8 @@ TEST(ProcessSortFilterProxyModel, Sort_Cpu_ByValueNotText)
 
 TEST(ProcessSortFilterProxyModel, Sort_MissingValue_BelowEveryValue)
 {
-    SortedModel sorted({process(1, "a.exe", std::nullopt), process(2, "b.exe", 0.0f), process(3, "c.exe", 5.0f)});
+    SortedModel sorted({withCpuUsage(process(1, "a.exe"), std::nullopt), withCpuUsage(process(2, "b.exe"), 0.0f),
+                        withCpuUsage(process(3, "c.exe"), 5.0f)});
 
     sorted.sort(Column::Cpu, Qt::DescendingOrder);
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{3, 2, 1}));
@@ -89,8 +82,8 @@ TEST(ProcessSortFilterProxyModel, Sort_MissingValue_BelowEveryValue)
 
 TEST(ProcessSortFilterProxyModel, Sort_EqualValues_FallBackToNameThenPid)
 {
-    SortedModel sorted(
-        {process(30, "svchost.exe", 0.0f), process(10, "svchost.exe", 0.0f), process(20, "audiodg.exe", 0.0f)});
+    SortedModel sorted({withCpuUsage(process(30, "svchost.exe"), 0.0f), withCpuUsage(process(10, "svchost.exe"), 0.0f),
+                        withCpuUsage(process(20, "audiodg.exe"), 0.0f)});
 
     sorted.sort(Column::Cpu, Qt::AscendingOrder);
 
@@ -164,10 +157,11 @@ TEST(ProcessSortFilterProxyModel, Sort_Memory_ByPrivateWorkingSetNotWorkingSet)
 
 TEST(ProcessSortFilterProxyModel, Sort_ValueChanges_Resorts)
 {
-    SortedModel sorted({process(1, "a.exe", 50.0f), process(2, "b.exe", 10.0f)});
+    SortedModel sorted({withCpuUsage(process(1, "a.exe"), 50.0f), withCpuUsage(process(2, "b.exe"), 10.0f)});
     sorted.sort(Column::Cpu, Qt::DescendingOrder);
 
-    sorted.model.updateProcesses({process(1, "a.exe", 5.0f), process(2, "b.exe", 60.0f)}, kNow);
+    sorted.model.updateProcesses({withCpuUsage(process(1, "a.exe"), 5.0f), withCpuUsage(process(2, "b.exe"), 60.0f)},
+                                 kNow);
 
     EXPECT_EQ(sorted.pids(), (std::vector<uint32_t>{2, 1}));
 }
@@ -268,9 +262,9 @@ TEST(ProcessSortFilterProxyModel, Filter_TreeMode_ValueChanges_KeepMatchesAndRes
 {
     ProcessModel model;
     model.setTreeMode(true);
-    ProcessInfo first = process(500, "svchost.exe", 1.0f);
+    ProcessInfo first = withCpuUsage(process(500, "svchost.exe"), 1.0f);
     first.parentPid = 400;
-    ProcessInfo second = process(600, "svchost.exe", 2.0f);
+    ProcessInfo second = withCpuUsage(process(600, "svchost.exe"), 2.0f);
     second.parentPid = 400;
     model.updateProcesses({process(400, "services.exe"), first, second, process(700, "other.exe")}, kNow);
     ProcessSortFilterProxyModel proxy;
@@ -295,15 +289,16 @@ namespace
 // services (400) over 500 and 600, and explorer (700) over 800 and 900.
 std::vector<ProcessInfo> twoFamilies(float a, float b, float c, float d)
 {
-    ProcessInfo first = process(500, "first.exe", a);
+    ProcessInfo first = withCpuUsage(process(500, "first.exe"), a);
     first.parentPid = 400;
-    ProcessInfo second = process(600, "second.exe", b);
+    ProcessInfo second = withCpuUsage(process(600, "second.exe"), b);
     second.parentPid = 400;
-    ProcessInfo third = process(800, "third.exe", c);
+    ProcessInfo third = withCpuUsage(process(800, "third.exe"), c);
     third.parentPid = 700;
-    ProcessInfo fourth = process(900, "fourth.exe", d);
+    ProcessInfo fourth = withCpuUsage(process(900, "fourth.exe"), d);
     fourth.parentPid = 700;
-    return {process(400, "services.exe", 0.0f), first, second, process(700, "explorer.exe", 0.0f), third, fourth};
+    return {withCpuUsage(process(400, "services.exe"), 0.0f), first, second,
+            withCpuUsage(process(700, "explorer.exe"), 0.0f), third, fourth};
 }
 
 std::vector<uint32_t> childPids(const QAbstractItemModel& proxy, const QModelIndex& parent)
@@ -372,7 +367,7 @@ TEST(ProcessSortFilterProxyModel, Sort_NewProcessesAfterDeferredSort_InsertedInO
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
 
     std::vector<ProcessInfo> processes = twoFamilies(9.0f, 2.0f, 3.0f, 8.0f);
-    ProcessInfo newcomer = process(950, "newcomer.exe", 5.0f);
+    ProcessInfo newcomer = withCpuUsage(process(950, "newcomer.exe"), 5.0f);
     newcomer.parentPid = 700;
     processes.push_back(newcomer);
     model.updateProcesses(processes, kNow);

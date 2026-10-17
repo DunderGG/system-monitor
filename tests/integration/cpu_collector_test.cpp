@@ -4,24 +4,23 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <vector>
 
 #include <windows.h>
 
 #include <gtest/gtest.h>
-#include <QCoreApplication>
-#include <QObject>
 
 #include "domain/cpu_sample.h"
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
 #include "platform/windows/cpu_collector.h"
+#include "support/scheduler_harness.h"
 
 using namespace sysmon::platform;
 using sysmon::domain::SystemSnapshot;
 using sysmon::monitoring::SamplingScheduler;
+using sysmon::tests::waitForSnapshot;
 
 TEST(CpuCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
 {
@@ -133,37 +132,16 @@ TEST(CpuCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics)
     SamplingScheduler scheduler(std::chrono::milliseconds{50});
     scheduler.setCpuCollector(std::make_unique<CpuCollector>());
 
-    std::atomic<int> snapshotCount{0};
-    SystemSnapshot lastSnapshot;
-    std::mutex snapshotMutex;
+    // The first tick may only establish the CPU baseline.
+    const auto snapshot =
+        waitForSnapshot(scheduler, [](const SystemSnapshot& candidate) { return candidate.cpu.has_value(); });
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
-        std::lock_guard lock(snapshotMutex);
-        lastSnapshot = snapshot;
-        ++snapshotCount;
-    });
-
-    scheduler.start();
-
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{1000};
-    while (snapshotCount.load() < 3 && std::chrono::steady_clock::now() < deadline) {
-        QCoreApplication::processEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-
-    scheduler.stop();
-
-    // The first tick may only establish the CPU baseline, so require at least two.
-    ASSERT_GE(snapshotCount.load(), 2);
-    {
-        std::lock_guard lock(snapshotMutex);
-        ASSERT_TRUE(lastSnapshot.cpu.has_value());
-        EXPECT_EQ(lastSnapshot.cpu->coreCount, static_cast<int>(expectedCores));
-        EXPECT_EQ(lastSnapshot.cpu->coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
-        EXPECT_FALSE(std::isnan(lastSnapshot.cpu->totalUsagePercent));
-        EXPECT_GE(lastSnapshot.cpu->totalUsagePercent, 0.0f);
-        EXPECT_LE(lastSnapshot.cpu->totalUsagePercent, 100.0f);
-    }
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->cpu->coreCount, static_cast<int>(expectedCores));
+    EXPECT_EQ(snapshot->cpu->coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
+    EXPECT_FALSE(std::isnan(snapshot->cpu->totalUsagePercent));
+    EXPECT_GE(snapshot->cpu->totalUsagePercent, 0.0f);
+    EXPECT_LE(snapshot->cpu->totalUsagePercent, 100.0f);
 }
 
 TEST(CpuCollectorIntegration, RealHost_BaseSpeedIsPlausibleWhenReported)

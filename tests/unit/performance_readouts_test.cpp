@@ -1,6 +1,5 @@
 #include <chrono>
 #include <optional>
-#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -11,26 +10,17 @@
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
 #include "domain/system_activity_sample.h"
+#include "support/readouts.h"
 #include "ui/performance_readouts.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
+using sysmon::tests::valueOf;
 
 namespace
 {
 
 constexpr uint64_t kGiB = 1024ULL * 1024ULL * 1024ULL;
-
-QString valueOf(const std::vector<Readout>& readouts, const QString& name)
-{
-    for (const auto& readout : readouts) {
-        if (readout.name == name) {
-            return readout.value;
-        }
-    }
-    ADD_FAILURE() << "no readout named " << name.toStdString();
-    return {};
-}
 
 std::vector<QString> namesOf(const std::vector<Readout>& readouts)
 {

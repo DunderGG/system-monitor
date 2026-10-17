@@ -22,34 +22,15 @@
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
 #include "domain/system_snapshot.h"
+#include "support/process_samples.h"
+#include "support/snapshots.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 #include "ui/processes_view.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
-
-namespace
-{
-
-ProcessInfo process(uint32_t pid, std::string name)
-{
-    return ProcessInfo{
-        .pid = pid,
-        .creationTime = std::chrono::system_clock::time_point{std::chrono::seconds{pid}},
-        .imageName = std::move(name),
-    };
-}
-
-SystemSnapshot snapshotWith(std::vector<ProcessInfo> processes, int atSecond = 0)
-{
-    SystemSnapshot snapshot;
-    snapshot.timestamp = std::chrono::steady_clock::time_point{std::chrono::seconds{atSecond}};
-    snapshot.processes = std::move(processes);
-    return snapshot;
-}
-
-} // namespace
+using namespace sysmon::tests;
 
 TEST(ProcessesView, Construction_TreeViewShowsTheModelThroughTheProxyAsAFlatTable)
 {
@@ -65,7 +46,8 @@ TEST(ProcessesView, Construction_TreeViewShowsTheModelThroughTheProxyAsAFlatTabl
 TEST(ProcessesView, Construction_SortableAndSortedByName)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}));
+    view.updateSnapshot(
+        snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}));
 
     const auto* proxy = view.proxyModel();
 
@@ -79,7 +61,8 @@ TEST(ProcessesView, Construction_SortableAndSortedByName)
 TEST(ProcessesView, FilterEdit_Text_FiltersRowsButNotTheCount)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}));
+    view.updateSnapshot(
+        snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe"), process(12, "smss.exe")}));
 
     view.filterEdit()->setText("EXPLO");
 
@@ -95,7 +78,7 @@ TEST(ProcessesView, UpdateSnapshot_WithProcessList_ShowsRowsAndCount)
 {
     ProcessesView view;
 
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
 
     EXPECT_EQ(view.model()->rowCount(), 2);
     EXPECT_EQ(view.summaryText(), "Processes: 2");
@@ -104,7 +87,7 @@ TEST(ProcessesView, UpdateSnapshot_WithProcessList_ShowsRowsAndCount)
 TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_KeepsLastRows)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
 
     view.updateSnapshot(SystemSnapshot{});
 
@@ -115,8 +98,8 @@ TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_KeepsLastRows)
 TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_StillEndsHighlights)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}, 0));
-    view.updateSnapshot(snapshotWith({process(4, "System")}, 1));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}, 0));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System")}, 1));
 
     SystemSnapshot withoutList;
     withoutList.timestamp = std::chrono::steady_clock::time_point{std::chrono::seconds{10}};
@@ -128,11 +111,11 @@ TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_StillEndsHighlights)
 TEST(ProcessesView, UpdateSnapshot_EmptyList_RemovesRowsWhenHighlightsEnd)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System")}, 0));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System")}, 0));
 
-    view.updateSnapshot(snapshotWith({}, 1));
+    view.updateSnapshot(snapshotWithProcesses({}, 1));
     EXPECT_EQ(view.model()->rowCount(), 1);
-    view.updateSnapshot(snapshotWith({}, 10));
+    view.updateSnapshot(snapshotWithProcesses({}, 10));
 
     EXPECT_EQ(view.model()->rowCount(), 0);
     EXPECT_EQ(view.summaryText(), "Processes: 0");
@@ -153,7 +136,7 @@ ProcessInfo childOf(uint32_t parentPid, uint32_t pid, std::string name)
 TEST(ProcessesView, SetTreeMode_ShowsBranchesExpanded)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
 
     view.setTreeMode(true);
 
@@ -170,7 +153,7 @@ TEST(ProcessesView, SetTreeMode_ShowsBranchesExpanded)
 TEST(ProcessesView, TreeModeCheckBox_Unchecked_ShowsFlatListAgain)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
     view.treeModeCheckBox()->setChecked(true);
 
     view.treeModeCheckBox()->setChecked(false);
@@ -183,7 +166,7 @@ TEST(ProcessesView, TreeModeCheckBox_Unchecked_ShowsFlatListAgain)
 TEST(ProcessesView, SetTreeMode_SelectedProcessStaysSelected)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
     const auto smssIdentity = childOf(4, 100, "smss.exe").identity();
     view.treeView()->setCurrentIndex(view.proxyModel()->mapFromSource(view.model()->indexOf(smssIdentity)));
 
@@ -199,9 +182,9 @@ TEST(ProcessesView, TreeMode_ProcessGainsFirstChild_Expanded)
 {
     ProcessesView view;
     view.setTreeMode(true);
-    view.updateSnapshot(snapshotWith({process(400, "services.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe")}));
 
-    view.updateSnapshot(snapshotWith({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
 
     EXPECT_TRUE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
 }
@@ -210,10 +193,10 @@ TEST(ProcessesView, TreeMode_CollapsedBranch_StaysCollapsedWhenChildrenArrive)
 {
     ProcessesView view;
     view.setTreeMode(true);
-    view.updateSnapshot(snapshotWith({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
     view.treeView()->collapse(view.proxyModel()->index(0, 0));
 
-    view.updateSnapshot(snapshotWith(
+    view.updateSnapshot(snapshotWithProcesses(
         {process(400, "services.exe"), childOf(400, 500, "svchost.exe"), childOf(400, 600, "spoolsv.exe")}));
 
     EXPECT_FALSE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
@@ -269,7 +252,7 @@ std::vector<QMessageBox*> shownMessageBoxes(const ProcessesView& view)
 // the confirmation dialog, or nullptr if it did not open.
 QMessageBox* confirmEndingExplorer(ProcessesView& view)
 {
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
     view.endProcessAction()->trigger();
 
@@ -288,7 +271,7 @@ TEST(ProcessesView, EndProcessAction_NoProcessSelected_Disabled)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
 
     EXPECT_FALSE(view.endProcessAction()->isEnabled());
     EXPECT_FALSE(view.endProcessButton()->isEnabled());
@@ -297,7 +280,7 @@ TEST(ProcessesView, EndProcessAction_NoProcessSelected_Disabled)
 TEST(ProcessesView, EndProcessAction_NoTerminator_Disabled)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
 
     selectProcess(view, process(800, "explorer.exe").identity());
 
@@ -310,7 +293,7 @@ TEST(ProcessesView, EndProcessAction_ProcessSelected_EnabledWithTheButton)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
 
     selectProcess(view, process(800, "explorer.exe").identity());
 
@@ -321,7 +304,7 @@ TEST(ProcessesView, EndProcessAction_ProcessSelected_EnabledWithTheButton)
 TEST(ProcessesView, EndProcessAction_TerminatorSetAfterSelection_Enabled)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
 
     std::vector<ProcessIdentity> ended;
@@ -335,11 +318,11 @@ TEST(ProcessesView, EndProcessAction_SelectedRowRemoved_DisabledWhenNoRowIsLeft)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(800, "explorer.exe")}, 0));
+    view.updateSnapshot(snapshotWithProcesses({process(800, "explorer.exe")}, 0));
     selectProcess(view, process(800, "explorer.exe").identity());
 
-    view.updateSnapshot(snapshotWith({}, 1));
-    view.updateSnapshot(snapshotWith({}, 10));
+    view.updateSnapshot(snapshotWithProcesses({}, 1));
+    view.updateSnapshot(snapshotWithProcesses({}, 10));
 
     ASSERT_EQ(view.model()->rowCount(), 0);
     EXPECT_FALSE(view.endProcessAction()->isEnabled());
@@ -350,7 +333,7 @@ TEST(ProcessesView, EndProcessAction_SelectedProcessKeptAcrossTreeMode_StaysEnab
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
     selectProcess(view, childOf(4, 100, "smss.exe").identity());
 
     view.setTreeMode(true);
@@ -373,7 +356,7 @@ TEST(ProcessesView, EndProcessAction_Triggered_AsksWithNameAndPidAndWarning)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
 
     view.endProcessAction()->trigger();
@@ -396,7 +379,7 @@ TEST(ProcessesView, EndProcessAction_Confirmed_EndsTheSelectedProcess)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
     view.endProcessAction()->trigger();
     auto* dialog = view.findChild<QMessageBox*>();
@@ -414,7 +397,7 @@ TEST(ProcessesView, EndProcessAction_Cancelled_DoesNotEndTheProcess)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
     view.endProcessAction()->trigger();
     auto* dialog = view.findChild<QMessageBox*>();
@@ -432,15 +415,15 @@ TEST(ProcessesView, EndProcessAction_ProcessLeavesTheListWhileAsking_EndsTheProc
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
     const ProcessInfo notepad = process(900, "notepad.exe");
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe"), notepad}, 0));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe"), notepad}, 0));
     selectProcess(view, notepad.identity());
     view.endProcessAction()->trigger();
     auto* dialog = view.findChild<QMessageBox*>();
     ASSERT_NE(dialog, nullptr);
 
     // Notepad exits and its row is removed; another process becomes current.
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}, 1));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}, 10));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}, 1));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}, 10));
     ASSERT_FALSE(view.model()->indexOf(notepad.identity()).isValid());
     const auto* current = view.model()->process(view.proxyModel()->mapToSource(view.treeView()->currentIndex()));
     ASSERT_NE(current, nullptr);
@@ -456,7 +439,7 @@ TEST(ProcessesView, EndProcessButton_Clicked_Asks)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
 
     view.endProcessButton()->click();
@@ -471,7 +454,7 @@ TEST(ProcessesView, EndProcessAction_DialogClosed_DoesNotEndTheProcess)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(800, "explorer.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(800, "explorer.exe")}));
     selectProcess(view, process(800, "explorer.exe").identity());
     view.endProcessAction()->trigger();
     auto* dialog = view.findChild<QMessageBox*>();
@@ -581,18 +564,18 @@ TEST(ProcessesView, EndProcessAction_SelectedProcessExits_DisabledUntilListedAga
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(900, "notepad.exe")}, 0));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(900, "notepad.exe")}, 0));
     selectProcess(view, process(900, "notepad.exe").identity());
 
     // Notepad's row stays, marked as exited, and stays the current row.
-    view.updateSnapshot(snapshotWith({process(4, "System")}, 1));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System")}, 1));
 
     EXPECT_FALSE(view.endProcessAction()->isEnabled());
     EXPECT_FALSE(view.endProcessButton()->isEnabled());
     view.endProcessAction()->trigger();
     EXPECT_EQ(view.findChild<QMessageBox*>(), nullptr);
 
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(900, "notepad.exe")}, 2));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(900, "notepad.exe")}, 2));
     EXPECT_TRUE(view.endProcessAction()->isEnabled());
 }
 
@@ -601,8 +584,8 @@ TEST(ProcessesView, EndProcessAction_ExitedRowSelected_Disabled)
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWith({process(4, "System"), process(900, "notepad.exe")}, 0));
-    view.updateSnapshot(snapshotWith({process(4, "System")}, 1));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), process(900, "notepad.exe")}, 0));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System")}, 1));
     selectProcess(view, process(4, "System").identity());
     ASSERT_TRUE(view.endProcessAction()->isEnabled());
 
@@ -637,7 +620,7 @@ QMessageBox* endMonitorProcess(ProcessesView& view, std::vector<ProcessIdentity>
 {
     view.setProcessTerminator(recordingTerminator(ended));
     view.setMonitorIdentity(monitorProcess().identity());
-    view.updateSnapshot(snapshotWith({process(4, "System"), monitorProcess()}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), monitorProcess()}));
     selectProcess(view, monitorProcess().identity());
     view.endProcessAction()->trigger();
     return view.findChild<QMessageBox*>();

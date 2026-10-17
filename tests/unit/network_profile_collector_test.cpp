@@ -16,9 +16,11 @@
 #include "domain/network_profile.h"
 #include "platform/windows/connectivity_collector.h"
 #include "platform/windows/network_profile_collector.h"
+#include "support/fake_subscription.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
+using sysmon::tests::FakeSubscription;
 using namespace std::chrono_literals;
 
 namespace
@@ -96,21 +98,6 @@ private:
     FakeState& m_state;
 };
 
-class FakeSubscription : public ConnectivitySubscription
-{
-public:
-    explicit FakeSubscription(FakeState& state) : m_state(state) {}
-
-    ~FakeSubscription() override
-    {
-        const std::lock_guard lock(m_state.mutex);
-        m_state.isCancelled = true;
-    }
-
-private:
-    FakeState& m_state;
-};
-
 // Records the thread it is destroyed on.
 class DestructionWitness
 {
@@ -170,7 +157,10 @@ makeCollector(FakeState& state, NetworkProfileCollector::ReadIntervals intervals
                 return nullptr;
             }
             state.handler = std::move(handler);
-            return std::make_unique<FakeSubscription>(state);
+            return std::make_unique<FakeSubscription>([&state] {
+                const std::lock_guard cancelLock(state.mutex);
+                state.isCancelled = true;
+            });
         },
         intervals);
     return collector;

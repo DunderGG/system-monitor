@@ -125,6 +125,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-106](#dc-106-adapters-listed-in-a-fixed-order-with-the-ones-windows-hides-last-disconnected-adapters-charts-collapsed-code-review-f-39): Adapters listed in a fixed order, with the ones Windows hides last; disconnected adapters' charts collapsed (code review F-39)
   - [DC-107](#dc-107-network-names-read-on-the-collectors-own-thread-at-most-once-a-second-code-review-f-38): Network names read on the collector's own thread, at most once a second (code review F-38)
   - [DC-108](#dc-108-addresses-marked-temporary-or-link-local-with-the-zone-index-a-virtual-adapters-link-speed-explained-in-a-tooltip-code-review-f-44): Addresses marked temporary or link-local, with the zone index; a virtual adapter's link speed explained in a tooltip (code review F-44)
+- [Maintenance — Tests (`tests/`)](#maintenance--tests-tests)
+  - [DC-109](#dc-109-shared-test-builders-and-harnesses-in-testssupport-header-only): Shared test builders and harnesses in `tests/support/`, header-only
 
 ---
 
@@ -1416,3 +1418,13 @@ The unit tests drive the worker with a fake reader that can hold reads back: the
 - **Plain text in a tooltip:** Qt shows a tooltip as rich text when it looks like markup. The grid converts each one, so a readout's tooltip, like its name and value ([DC-102](#dc-102-labels-that-show-text-from-the-system-or-the-network-are-plain-text-code-review-f-35)), never needs to be escaped by its caller.
 
 Platform tests cover the link-local test, including 169.254, and the suffix origins. Integration tests format addresses with and without a scope ID, because `formatIpAddress()` calls `inet_ntop`, and check that every link-local IPv6 address the real collector reports has a zone index. Unit tests cover the marks, the flags through `calculateNetworkSamples()`, the tooltip on a virtual adapter's speed, and the grid's tooltips as plain text, updated in place. The 800×600 tests of both tabs now include a temporary and a link-local address.
+
+---
+
+## Maintenance — Tests (`tests/`)
+
+### DC-109: Shared test builders and harnesses in `tests/support/`, header-only
+
+**Decision:** Test data builders (`adapter()`, `process()`, `populatedSnapshot()`, `demandingSnapshot()`, …) and harnesses (`waitForSnapshot()`, `FakeSubscription`, `ScopedLogCapture`, the text contrast checks) that more than one test file uses live in `tests/support/`, as inline functions and classes in headers, in namespace `sysmon::tests`. `system_monitor_tests` adds `tests/` to its include path, and tests include them as `"support/<name>.h"`. A builder returns a realistic default, such as an Ethernet adapter that is Up, bound to IP and receiving 2 KiB/s, and takes only the values its callers' cases differ in. Tests set any other field on the result. `tests/support/` follows the rules of `tests/unit/`: no Windows headers. Helpers that need the Windows SDK, such as `SuspendedChildProcess`, stay beside the integration tests that use them.
+
+**Rationale:** Six adapter builders and four process builders had drifted apart: names with and without braces, IDs from a hash or none, rates or none. A test's data depended on the file it was in, and a new field in a domain type had to be added to each copy. Helpers of a few lines need no library target of their own, and headers compile into the one test executable that uses them. Named `AdapterTraits` constants (`kUnboundVirtualAdapter`) replace the positional `bool` arguments of the old builders. `process()` takes its creation time as `std::chrono::seconds`, whose constructor is explicit, so a CPU percentage passed in its place does not compile. `waitForSnapshot()` waits on a condition variable for a snapshot that satisfies a predicate instead of polling a count. Two of the loops it replaced appended to a `std::vector` on the tick thread while the test thread read its size, which is a data race.

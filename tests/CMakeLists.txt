@@ -5,6 +5,14 @@ include(GoogleTest)
 
 add_executable(system_monitor_tests
     test_main.cpp
+    support/fake_subscription.h
+    support/log_capture.h
+    support/network_samples.h
+    support/process_samples.h
+    support/readouts.h
+    support/scheduler_harness.h
+    support/snapshots.h
+    support/text_contrast.h
     unit/domain_types_test.cpp
     unit/ring_buffer_test.cpp
     unit/synthetic_collectors_test.cpp
@@ -25,7 +33,6 @@ add_executable(system_monitor_tests
     unit/qt_configuration_test.cpp
     unit/readout_grid_test.cpp
     unit/sparkline_widget_test.cpp
-    unit/text_contrast.h
     unit/text_tone_test.cpp
     unit/cpu_collector_test.cpp
     unit/memory_collector_test.cpp
@@ -34,7 +41,6 @@ add_executable(system_monitor_tests
     unit/adapter_details_cache_test.cpp
     unit/byte_rate_test.cpp
     unit/repeated_failure_log_test.cpp
-    unit/log_capture.h
     unit/connectivity_collector_test.cpp
     unit/network_profile_collector_test.cpp
     unit/uptime_collector_test.cpp
@@ -69,6 +75,9 @@ add_executable(system_monitor_tests
 set_target_properties(system_monitor_tests PROPERTIES
     AUTOMOC ON
 )
+
+# Shared test builders and harnesses are included as "support/<name>.h".
+target_include_directories(system_monitor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(system_monitor_tests
     PRIVATE

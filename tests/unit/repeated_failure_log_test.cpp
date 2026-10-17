@@ -3,8 +3,8 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
-#include "log_capture.h"
 #include "platform/windows/repeated_failure_log.h"
+#include "support/log_capture.h"
 
 using sysmon::platform::RepeatedFailureLog;
 

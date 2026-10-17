@@ -1,25 +1,24 @@
 #include <chrono>
 #include <memory>
 #include <thread>
-#include <vector>
 
 #include <winsock2.h>
 #include <windows.h>
 #include <iphlpapi.h>
 
 #include <gtest/gtest.h>
-#include <QCoreApplication>
-#include <QObject>
 
 #include "domain/connectivity_status.h"
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
 #include "platform/windows/connectivity_collector.h"
 #include "platform/windows/connectivity_hint_mapping.h"
+#include "support/scheduler_harness.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::monitoring;
 using namespace sysmon::platform;
+using sysmon::tests::waitForSnapshot;
 
 namespace
 {
@@ -79,25 +78,10 @@ TEST(ConnectivityCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithConne
     SamplingScheduler scheduler(std::chrono::milliseconds{40});
     scheduler.setConnectivityCollector(std::make_unique<ConnectivityCollector>());
 
-    std::vector<SystemSnapshot> receivedSnapshots;
+    int snapshotCount = 0;
+    const auto snapshot =
+        waitForSnapshot(scheduler, [&snapshotCount](const SystemSnapshot&) { return ++snapshotCount == 2; });
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady,
-                     [&receivedSnapshots](const SystemSnapshot& snapshot) { receivedSnapshots.push_back(snapshot); });
-
-    scheduler.start();
-
-    const auto startTime = std::chrono::steady_clock::now();
-    while (receivedSnapshots.size() < 2 &&
-           std::chrono::steady_clock::now() - startTime < std::chrono::milliseconds{1000}) {
-        QCoreApplication::processEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-
-    scheduler.stop();
-
-    ASSERT_GE(receivedSnapshots.size(), 2u);
-
-    for (const auto& snapshot : receivedSnapshots) {
-        EXPECT_TRUE(isValidLevel(snapshot.connectivity.level));
-    }
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_TRUE(isValidLevel(snapshot->connectivity.level));
 }

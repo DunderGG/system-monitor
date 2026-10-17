@@ -501,6 +501,7 @@ TEST(RingBuffer, PushBeyondCapacity_OverwritesOldest)
 | `tests/unit/` | `system_monitor_tests` | No | No |
 | `tests/platform/` | `system_monitor_platform_tests` | Yes (SDK types and constants) | No |
 | `tests/integration/` | `system_monitor_tests` | Yes | Yes (must tolerate varying hosts) |
+| `tests/support/` | `system_monitor_tests` (headers only) | No | No |
 
 Put deterministic tests of `platform/windows` code in `tests/unit/` when they can use reader injection and plain types. Use `tests/platform/` only when the test needs Windows SDK types or constants, e.g. to test a Windows-to-domain mapping function.
 

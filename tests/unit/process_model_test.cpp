@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <random>
 #include <string>
 #include <tuple>
@@ -22,11 +23,14 @@
 
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
+#include "support/process_samples.h"
 #include "ui/process_formatting.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 
 using namespace sysmon::domain;
+using namespace std::chrono_literals;
+using sysmon::tests::process;
 using sysmon::ui::processMemoryToolTip;
 using sysmon::ui::ProcessModel;
 
@@ -40,23 +44,12 @@ const auto kNow = std::chrono::steady_clock::time_point{std::chrono::seconds{100
 // When the highlights of changes made at kNow have ended.
 const auto kLater = kNow + ProcessModel::kHighlightDuration;
 
-// A process created creationSeconds after the epoch; by default its PID, so
-// lower PIDs are older.
-ProcessInfo process(uint32_t pid, std::string name, int64_t creationSeconds = -1)
+// A process started by parentPid, created createdAfterEpoch after the epoch
+// (by default its PID in seconds).
+ProcessInfo child(uint32_t pid, std::string name, uint32_t parentPid,
+                  std::optional<std::chrono::seconds> createdAfterEpoch = std::nullopt)
 {
-    return ProcessInfo{
-        .pid = pid,
-        .creationTime = std::chrono::system_clock::time_point{std::chrono::seconds{
-            creationSeconds >= 0 ? creationSeconds : static_cast<int64_t>(pid)}},
-        .imageName = std::move(name),
-    };
-}
-
-// A process started by parentPid, created creationSeconds after the epoch (by
-// default its PID).
-ProcessInfo child(uint32_t pid, std::string name, uint32_t parentPid, int64_t creationSeconds = -1)
-{
-    ProcessInfo info = process(pid, std::move(name), creationSeconds);
+    ProcessInfo info = process(pid, std::move(name), createdAfterEpoch);
     info.parentPid = parentPid;
     return info;
 }
@@ -193,10 +186,10 @@ TEST(ProcessModel, UpdateProcesses_NewProcess_AppendsRowWithoutReset)
 TEST(ProcessModel, UpdateProcesses_ReusedPid_NewProcessGetsItsOwnRow)
 {
     ProcessModel model;
-    model.updateProcesses({process(4, "System"), process(900, "notepad.exe", 100)}, kNow);
+    model.updateProcesses({process(4, "System"), process(900, "notepad.exe", 100s)}, kNow);
     const QPersistentModelIndex oldNotepad = model.index(1, 0);
 
-    model.updateProcesses({process(4, "System"), process(900, "calc.exe", 200)}, kNow);
+    model.updateProcesses({process(4, "System"), process(900, "calc.exe", 200s)}, kNow);
     // The exited process is still shown, beside the one that reused its PID.
     EXPECT_EQ(rowNames(model), (std::vector<QString>{"System", "notepad.exe", "calc.exe"}));
     model.updateTime(kLater);
@@ -562,7 +555,7 @@ TEST(ProcessModel, TreeMode_ParentPidReusedByYoungerProcess_NotAParent)
     model.setTreeMode(true);
 
     // The orphan's parent exited and PID 400 now belongs to a later process.
-    model.updateProcesses({child(500, "orphan.exe", 400, 500), child(400, "newcomer.exe", 0, 900)}, kNow);
+    model.updateProcesses({child(500, "orphan.exe", 400, 500s), child(400, "newcomer.exe", 0, 900s)}, kNow);
 
     EXPECT_EQ(treeText(model), "orphan.exe\nnewcomer.exe\n");
 }
@@ -572,7 +565,7 @@ TEST(ProcessModel, TreeMode_ParentCreatedInSameTick_IsAParent)
     ProcessModel model;
     model.setTreeMode(true);
 
-    model.updateProcesses({child(400, "launcher.exe", 0, 500), child(500, "app.exe", 400, 500)}, kNow);
+    model.updateProcesses({child(400, "launcher.exe", 0, 500s), child(500, "app.exe", 400, 500s)}, kNow);
 
     EXPECT_EQ(treeText(model), "launcher.exe\n  app.exe\n");
 }
@@ -582,7 +575,7 @@ TEST(ProcessModel, TreeMode_ProcessesNamingEachOther_NoCycle)
     ProcessModel model;
     model.setTreeMode(true);
 
-    model.updateProcesses({child(10, "a.exe", 20, 5), child(20, "b.exe", 10, 5), child(30, "self.exe", 30)}, kNow);
+    model.updateProcesses({child(10, "a.exe", 20, 5s), child(20, "b.exe", 10, 5s), child(30, "self.exe", 30)}, kNow);
 
     EXPECT_EQ(treeText(model), "b.exe\n  a.exe\nself.exe\n");
 }
@@ -893,7 +886,7 @@ TEST(ProcessModel, RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredPro
             clock += static_cast<int64_t>(random() % 2);
             const uint32_t parentPid = !live.empty() && random() % 4 != 0 ? live[random() % live.size()].pid
                                                                           : static_cast<uint32_t>(4 * (random() % 41));
-            ProcessInfo info = child(pid, "p" + std::to_string(pid), parentPid, clock);
+            ProcessInfo info = child(pid, "p" + std::to_string(pid), parentPid, std::chrono::seconds{clock});
             info.cpuUsagePercent = static_cast<float>(random() % 100);
             if (step > 0) {
                 startedAt[info.identity()] = now;
@@ -1096,9 +1089,9 @@ TEST(ProcessModel, TreeMode_PidReusedWhileExitedRowShown_ChildFindsTheNewProcess
 {
     ProcessModel model;
     model.setTreeMode(true);
-    model.updateProcesses({child(400, "old.exe", 0, 400)}, kNow);
+    model.updateProcesses({child(400, "old.exe", 0, 400s)}, kNow);
 
-    model.updateProcesses({child(400, "new.exe", 0, 450), child(500, "app.exe", 400, 460)}, kNow);
+    model.updateProcesses({child(400, "new.exe", 0, 450s), child(500, "app.exe", 400, 460s)}, kNow);
 
     EXPECT_EQ(treeText(model), "old.exe\nnew.exe\n  app.exe\n");
 }

@@ -1,4 +1,3 @@
-#include <chrono>
 #include <cstddef>
 #include <optional>
 
@@ -10,7 +9,8 @@
 
 #include "domain/health_status.h"
 #include "domain/system_snapshot.h"
-#include "text_contrast.h"
+#include "support/snapshots.h"
+#include "support/text_contrast.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
@@ -18,6 +18,7 @@
 #include "ui/text_tone.h"
 
 using namespace sysmon::domain;
+using sysmon::tests::populatedSnapshot;
 using sysmon::ui::DashboardView;
 using sysmon::ui::ResourceCard;
 
@@ -49,38 +50,6 @@ QLabel* findLabel(const ResourceCard& card, const QString& text)
         }
     }
     return nullptr;
-}
-
-SystemSnapshot populatedSnapshot()
-{
-    SystemSnapshot snapshot;
-    snapshot.cpu = CpuSample{.totalUsagePercent = 42.5f, .coreCount = 8};
-    snapshot.memory = MemorySample{
-        .totalBytes = 34'359'738'368ULL,     // 32 GiB
-        .availableBytes = 17'179'869'184ULL, // 16 GiB
-        .usagePercent = 50.0f,
-    };
-    snapshot.disks = std::vector<DiskSample>{
-        DiskSample{.volumeName = "C:\\", .totalBytes = 1000, .freeBytes = 250, .usagePercent = 75.0f},
-        DiskSample{.volumeName = "D:\\", .totalBytes = 1000, .freeBytes = 900, .usagePercent = 10.0f},
-    };
-    snapshot.networks = std::vector<NetworkSample>{NetworkSample{
-        .adapterName = "Ethernet",
-        .inBytesPerSec = 2048,
-        .outBytesPerSec = 1024,
-        .operationalStatus = OperationalStatus::Up,
-        .isHardwareInterface = true,
-    }};
-    snapshot.connectivity = {.level = ConnectivityLevel::InternetAccess, .isMetered = false};
-    snapshot.uptime = std::chrono::hours{4} + std::chrono::minutes{12};
-    snapshot.health = SystemHealth{
-        .cpu = HealthLevel::Healthy,
-        .memory = HealthLevel::Warning,
-        .disk = HealthLevel::Healthy,
-        .network = HealthLevel::Healthy,
-        .overall = HealthLevel::Warning,
-    };
-    return snapshot;
 }
 
 } // namespace
@@ -160,9 +129,9 @@ TEST(DashboardView, UpdateSnapshot_PopulatesAllCards)
     dashboard.updateSnapshot(populatedSnapshot());
 
     EXPECT_EQ(dashboard.cpuCard()->valueText(), "42.5%");
-    EXPECT_EQ(dashboard.cpuCard()->detailText(), "8 cores");
+    EXPECT_EQ(dashboard.cpuCard()->detailText(), "4 cores");
     EXPECT_EQ(dashboard.memoryCard()->valueText(), "50.0%");
-    EXPECT_EQ(dashboard.memoryCard()->detailText(), "16.0 GiB of 32.0 GiB used");
+    EXPECT_EQ(dashboard.memoryCard()->detailText(), "8.0 GiB of 16.0 GiB used");
     EXPECT_EQ(dashboard.diskCard()->valueText(), "75.0%");
     EXPECT_EQ(dashboard.diskCard()->detailText(), "C:\\ 250 B free (fullest of 2 volumes)");
     EXPECT_EQ(dashboard.networkCard()->valueText(), "In 2.0 KiB/s\nOut 1.0 KiB/s");
@@ -286,7 +255,7 @@ TEST(DashboardView, Sparklines_PercentFixedRangeNetworkAutoRange)
 TEST(DashboardView, CardStatuses_ReadableInBothColourSchemes)
 {
     for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark}) {
-        const sysmon::test::ScopedColorScheme colorScheme(scheme);
+        const sysmon::tests::ScopedColorScheme colorScheme(scheme);
         sysmon::ui::MainWindow mainWindow;
         mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
         mainWindow.resize(1024, 720);
@@ -306,8 +275,8 @@ TEST(DashboardView, CardStatuses_ReadableInBothColourSchemes)
         const DashboardView* dashboard = mainWindow.dashboardView();
         for (const ResourceCard* card :
              {dashboard->cpuCard(), dashboard->memoryCard(), dashboard->diskCard(), dashboard->networkCard()}) {
-            EXPECT_GE(sysmon::test::renderedTextContrast(mainWindow, *card->statusLabel()),
-                      sysmon::test::kMinimumTextContrast)
+            EXPECT_GE(sysmon::tests::renderedTextContrast(mainWindow, *card->statusLabel()),
+                      sysmon::tests::kMinimumTextContrast)
                 << (scheme == Qt::ColorScheme::Dark ? "dark: " : "light: ") << card->statusText().toStdString();
         }
         EXPECT_EQ(dashboard->networkCard()->statusLabel()->tone(), sysmon::ui::TextTone::Dimmed);

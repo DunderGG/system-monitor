@@ -15,7 +15,7 @@
 // Measures text contrast as WCAG defines it, for tests that check that text is
 // readable in both colour schemes (DC-105).
 
-namespace sysmon::test
+namespace sysmon::tests
 {
 
 /** WCAG's minimum contrast ratio for normal text (level AA). */
@@ -93,4 +93,4 @@ public:
     ScopedColorScheme& operator=(ScopedColorScheme&&) = delete;
 };
 
-} // namespace sysmon::test
+} // namespace sysmon::tests

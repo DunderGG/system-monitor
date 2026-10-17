@@ -1,21 +1,20 @@
 #include <chrono>
 #include <cmath>
 #include <memory>
-#include <mutex>
 #include <thread>
 
 #include <gtest/gtest.h>
-#include <QCoreApplication>
-#include <QObject>
 
 #include "domain/memory_sample.h"
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
 #include "platform/windows/memory_collector.h"
+#include "support/scheduler_harness.h"
 
 using namespace sysmon::platform;
 using sysmon::domain::SystemSnapshot;
 using sysmon::monitoring::SamplingScheduler;
+using sysmon::tests::waitForSnapshot;
 
 TEST(MemoryCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
 {
@@ -63,35 +62,14 @@ TEST(MemoryCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics
     SamplingScheduler scheduler(std::chrono::milliseconds{50});
     scheduler.setMemoryCollector(std::make_unique<MemoryCollector>());
 
-    std::atomic<int> snapshotCount{0};
-    SystemSnapshot lastSnapshot;
-    std::mutex snapshotMutex;
+    const auto snapshot = waitForSnapshot(scheduler, [](const SystemSnapshot&) { return true; });
 
-    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot& snapshot) {
-        std::lock_guard lock(snapshotMutex);
-        lastSnapshot = snapshot;
-        ++snapshotCount;
-    });
-
-    scheduler.start();
-
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{1000};
-    while (snapshotCount.load() < 2 && std::chrono::steady_clock::now() < deadline) {
-        QCoreApplication::processEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-
-    scheduler.stop();
-
-    EXPECT_GE(snapshotCount.load(), 1);
-    {
-        std::lock_guard lock(snapshotMutex);
-        ASSERT_TRUE(lastSnapshot.memory.has_value());
-        EXPECT_GT(lastSnapshot.memory->totalBytes, 0u);
-        EXPECT_GT(lastSnapshot.memory->availableBytes, 0u);
-        EXPECT_GE(lastSnapshot.memory->usagePercent, 0.0f);
-        EXPECT_LE(lastSnapshot.memory->usagePercent, 100.0f);
-    }
+    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_TRUE(snapshot->memory.has_value());
+    EXPECT_GT(snapshot->memory->totalBytes, 0u);
+    EXPECT_GT(snapshot->memory->availableBytes, 0u);
+    EXPECT_GE(snapshot->memory->usagePercent, 0.0f);
+    EXPECT_LE(snapshot->memory->usagePercent, 100.0f);
 }
 
 TEST(MemoryCollectorIntegration, RealHost_CacheAndPoolSizesArePlausible)

@@ -9,42 +9,23 @@
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "support/network_samples.h"
 #include "ui/performance_formatting.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
+using namespace sysmon::tests;
 
 namespace
 {
 
 constexpr uint64_t kGiB = 1024ULL * 1024ULL * 1024ULL;
 
-NetworkSample adapter(std::string name, OperationalStatus status, bool isHardware)
-{
-    return NetworkSample{
-        .adapterName = "{" + name + "}",
-        .friendlyName = std::move(name),
-        .inBytesPerSec = 2048,
-        .outBytesPerSec = 1024,
-        .operationalStatus = status,
-        .isHardwareInterface = isHardware,
-        .hasIpInterface = true,
-    };
-}
-
 // A hidden virtual adapter that Windows keeps Up without binding IP to it, as
 // it does for the WAN Miniports.
-NetworkSample wanMiniport(std::string name)
+NetworkSample wanMiniport(uint64_t interfaceId, std::string name)
 {
-    return NetworkSample{
-        .adapterName = name,
-        .friendlyName = std::move(name),
-        .inBytesPerSec = 0,
-        .outBytesPerSec = 0,
-        .operationalStatus = OperationalStatus::Up,
-        .isHardwareInterface = false,
-        .hasIpInterface = false,
-    };
+    return withRates(adapter(interfaceId, std::move(name), OperationalStatus::Up, kUnboundVirtualAdapter), 0, 0);
 }
 
 } // namespace
@@ -103,10 +84,10 @@ TEST(PerformanceFormatting, AdapterDisplayName_FallsBackToDescriptionThenAdapter
 TEST(PerformanceFormatting, ChartedAdapters_UpOnlyHardwareFirstThenByName)
 {
     const std::vector<NetworkSample> networks{
-        adapter("vEthernet", OperationalStatus::Up, false),
-        adapter("Wi-Fi", OperationalStatus::Up, true),
-        adapter("Bluetooth", OperationalStatus::Down, true),
-        adapter("Ethernet", OperationalStatus::Up, true),
+        adapter(1, "vEthernet", OperationalStatus::Up, kVirtualAdapter),
+        adapter(2, "Wi-Fi", OperationalStatus::Up),
+        adapter(3, "Bluetooth", OperationalStatus::Down),
+        adapter(4, "Ethernet", OperationalStatus::Up),
     };
 
     const auto charted = chartedAdapters(networks);
@@ -120,9 +101,9 @@ TEST(PerformanceFormatting, ChartedAdapters_UpOnlyHardwareFirstThenByName)
 TEST(PerformanceFormatting, ChartedAdapters_NamesSortedIgnoringCase)
 {
     const std::vector<NetworkSample> networks{
-        adapter("wi-fi", OperationalStatus::Up, true),
-        adapter("Ethernet", OperationalStatus::Up, true),
-        adapter("bridge", OperationalStatus::Up, true),
+        adapter(1, "wi-fi", OperationalStatus::Up),
+        adapter(4, "Ethernet", OperationalStatus::Up),
+        adapter(3, "bridge", OperationalStatus::Up),
     };
 
     const auto charted = chartedAdapters(networks);
@@ -135,15 +116,9 @@ TEST(PerformanceFormatting, ChartedAdapters_NamesSortedIgnoringCase)
 
 TEST(PerformanceFormatting, ChartedAdapters_NumberedNamesInNaturalOrderThenById)
 {
-    NetworkSample first = adapter("Local Area Connection* 2", OperationalStatus::Up, false);
-    first.interfaceId = 9;
-    NetworkSample second = adapter("Local Area Connection* 2", OperationalStatus::Up, false);
-    second.interfaceId = 3;
-    NetworkSample tenth = adapter("Local Area Connection* 10", OperationalStatus::Up, false);
-    tenth.interfaceId = 1;
-    for (NetworkSample* sample : {&first, &second, &tenth}) {
-        sample->hasIpInterface = true;
-    }
+    const NetworkSample first = adapter(9, "Local Area Connection* 2", OperationalStatus::Up, kVirtualAdapter);
+    const NetworkSample second = adapter(3, "Local Area Connection* 2", OperationalStatus::Up, kVirtualAdapter);
+    const NetworkSample tenth = adapter(1, "Local Area Connection* 10", OperationalStatus::Up, kVirtualAdapter);
 
     const std::vector<NetworkSample> networks{tenth, first, second};
 
@@ -157,13 +132,13 @@ TEST(PerformanceFormatting, ChartedAdapters_NumberedNamesInNaturalOrderThenById)
 
 TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted)
 {
-    NetworkSample vpn = adapter("Mullvad", OperationalStatus::Up, false);
+    NetworkSample vpn = adapter(1, "Mullvad", OperationalStatus::Up, kVirtualAdapter);
     vpn.description = "Mullvad Tunnel";
     vpn.ipAddresses = {{.text = "10.64.12.34"}};
     const std::vector<NetworkSample> networks{
-        adapter("Ethernet", OperationalStatus::Up, true),
-        wanMiniport("Local Area Connection* 7"),
-        wanMiniport("Local Area Connection* 8"),
+        adapter(4, "Ethernet", OperationalStatus::Up),
+        wanMiniport(2, "Local Area Connection* 7"),
+        wanMiniport(3, "Local Area Connection* 8"),
         vpn,
     };
 
@@ -178,7 +153,7 @@ TEST(PerformanceFormatting, ChartedAdapters_HardwareWithoutIpInterface_StillChar
 {
     // Adapter details are unavailable (GetAdaptersAddresses failed), or IP is
     // unbound from a physical adapter: its link can still carry traffic.
-    std::vector<NetworkSample> networks{adapter("Ethernet", OperationalStatus::Up, true)};
+    std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Up)};
     networks[0].hasIpInterface = false;
 
     const auto charted = chartedAdapters(networks);
@@ -220,14 +195,14 @@ TEST(PerformanceFormatting, DiskSummary_FullestVolumeOrNoVolumes)
 
 TEST(PerformanceFormatting, NetworkSummary_ReceiveAndSendOnTwoLines)
 {
-    const std::vector<NetworkSample> networks{adapter("Ethernet", OperationalStatus::Up, true)};
+    const std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Up)};
 
     EXPECT_EQ(networkSummary(networks), "Receive 2.0 KiB/s\nSend 1.0 KiB/s");
 }
 
 TEST(PerformanceFormatting, NetworkSummary_NoActiveAdapter_SaysSo)
 {
-    const std::vector<NetworkSample> networks{adapter("Ethernet", OperationalStatus::Down, true)};
+    const std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Down)};
 
     EXPECT_EQ(networkSummary(networks), "No active adapter");
 }

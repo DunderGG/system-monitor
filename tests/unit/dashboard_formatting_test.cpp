@@ -1,5 +1,5 @@
 #include <chrono>
-#include <cstdint>
+#include <optional>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -9,27 +9,12 @@
 #include "domain/health_status.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "support/network_samples.h"
 #include "ui/dashboard_formatting.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::ui;
-
-namespace
-{
-
-NetworkSample adapter(OperationalStatus status, std::optional<uint64_t> in, std::optional<uint64_t> out,
-                      bool isHardwareInterface = true)
-{
-    return NetworkSample{
-        .adapterName = "adapter",
-        .inBytesPerSec = in,
-        .outBytesPerSec = out,
-        .operationalStatus = status,
-        .isHardwareInterface = isHardwareInterface,
-    };
-}
-
-} // namespace
+using namespace sysmon::tests;
 
 TEST(DashboardFormatting, UsedMemoryBytes_TotalMinusAvailableNeverNegative)
 {
@@ -139,9 +124,9 @@ TEST(DashboardFormatting, ConnectivityLevelText_UnknownIsNotOffline)
 TEST(DashboardFormatting, SumActiveThroughput_SumsOnlyUpAdapters)
 {
     const std::vector<NetworkSample> networks = {
-        adapter(OperationalStatus::Up, 1'000, 100),
-        adapter(OperationalStatus::Up, 2'000, 200),
-        adapter(OperationalStatus::Down, std::nullopt, std::nullopt),
+        withRates(adapter(1, "Ethernet"), 1'000, 100),
+        withRates(adapter(2, "Wi-Fi"), 2'000, 200),
+        withRates(adapter(3, "Ethernet 2", OperationalStatus::Down), std::nullopt, std::nullopt),
     };
 
     const auto totals = sumActiveThroughput(networks);
@@ -154,8 +139,8 @@ TEST(DashboardFormatting, SumActiveThroughput_SumsOnlyUpAdapters)
 TEST(DashboardFormatting, SumActiveThroughput_UpAdapterWithoutRate_ReturnsNullopt)
 {
     const std::vector<NetworkSample> networks = {
-        adapter(OperationalStatus::Up, 1'000, 100),
-        adapter(OperationalStatus::Up, std::nullopt, 200),
+        withRates(adapter(1, "Ethernet"), 1'000, 100),
+        withRates(adapter(2, "Wi-Fi"), std::nullopt, 200),
     };
 
     EXPECT_FALSE(sumActiveThroughput(networks).has_value());
@@ -163,7 +148,7 @@ TEST(DashboardFormatting, SumActiveThroughput_UpAdapterWithoutRate_ReturnsNullop
 
 TEST(DashboardFormatting, SumActiveThroughput_NoUpAdapters_ReturnsNullopt)
 {
-    const std::vector<NetworkSample> networks = {adapter(OperationalStatus::Down, 0, 0)};
+    const std::vector<NetworkSample> networks = {withRates(adapter(1, "Ethernet", OperationalStatus::Down), 0, 0)};
 
     EXPECT_FALSE(sumActiveThroughput(networks).has_value());
     EXPECT_FALSE(hasActiveAdapter(networks));
@@ -173,8 +158,8 @@ TEST(DashboardFormatting, SumActiveThroughput_VirtualAdapter_NotCountedTwice)
 {
     // A VPN tunnel's traffic also crosses the physical adapter it runs over.
     const std::vector<NetworkSample> networks = {
-        adapter(OperationalStatus::Up, 1'000, 100),
-        adapter(OperationalStatus::Up, 900, 90, false),
+        withRates(adapter(1, "Ethernet"), 1'000, 100),
+        withRates(adapter(2, "Mullvad", OperationalStatus::Up, kVirtualAdapter), 900, 90),
     };
 
     const auto totals = sumActiveThroughput(networks);
@@ -187,8 +172,8 @@ TEST(DashboardFormatting, SumActiveThroughput_VirtualAdapter_NotCountedTwice)
 TEST(DashboardFormatting, SumActiveThroughput_VirtualAdapterWithoutRate_Ignored)
 {
     const std::vector<NetworkSample> networks = {
-        adapter(OperationalStatus::Up, 1'000, 100),
-        adapter(OperationalStatus::Up, std::nullopt, std::nullopt, false),
+        withRates(adapter(1, "Ethernet"), 1'000, 100),
+        withRates(adapter(2, "Mullvad", OperationalStatus::Up, kVirtualAdapter), std::nullopt, std::nullopt),
     };
 
     EXPECT_TRUE(sumActiveThroughput(networks).has_value());
@@ -197,8 +182,8 @@ TEST(DashboardFormatting, SumActiveThroughput_VirtualAdapterWithoutRate_Ignored)
 TEST(DashboardFormatting, HasActiveAdapter_OnlyVirtualAdapterUp_ReturnsFalse)
 {
     const std::vector<NetworkSample> networks = {
-        adapter(OperationalStatus::Down, 0, 0),
-        adapter(OperationalStatus::Up, 0, 0, false),
+        withRates(adapter(1, "Ethernet", OperationalStatus::Down), 0, 0),
+        withRates(adapter(2, "Mullvad", OperationalStatus::Up, kVirtualAdapter), 0, 0),
     };
 
     EXPECT_FALSE(hasActiveAdapter(networks));
