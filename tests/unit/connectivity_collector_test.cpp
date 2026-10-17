@@ -29,62 +29,15 @@ ConnectivityReader fixedReader(ConnectivityLevel level, std::optional<bool> isMe
 
 } // namespace
 
-TEST(ConnectivityCollector, Collect_InternetAccess_ReturnsInternetAccess)
+TEST(ConnectivityCollector, Collect_ReturnsTheReadersStatusUnchanged)
 {
-    ConnectivityCollector collector(fixedReader(ConnectivityLevel::InternetAccess, false));
+    // The collector never inspects the status: ConnectivityHintMapping turns
+    // the hint into one, field by field, and is tested there.
+    const ConnectivityStatus read{
+        .level = ConnectivityLevel::ConstrainedInternetAccess, .isMetered = std::nullopt, .isRoaming = true};
+    ConnectivityCollector collector([read] { return std::optional<ConnectivityStatus>{read}; });
 
-    const auto status = collector.collect();
-
-    EXPECT_EQ(status.level, ConnectivityLevel::InternetAccess);
-    EXPECT_EQ(status.isMetered, false);
-}
-
-TEST(ConnectivityCollector, Collect_MeteredConnection_SetsIsMetered)
-{
-    ConnectivityCollector collector(fixedReader(ConnectivityLevel::InternetAccess, true));
-
-    const auto status = collector.collect();
-
-    EXPECT_EQ(status.level, ConnectivityLevel::InternetAccess);
-    EXPECT_EQ(status.isMetered, true);
-}
-
-TEST(ConnectivityCollector, Collect_LocalAccess_ReturnsLocalAccess)
-{
-    ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false));
-
-    const auto status = collector.collect();
-
-    EXPECT_EQ(status.level, ConnectivityLevel::LocalAccess);
-    EXPECT_EQ(status.isMetered, false);
-}
-
-TEST(ConnectivityCollector, Collect_CaptivePortal_ReturnsConstrainedInternetAccess)
-{
-    ConnectivityCollector collector(fixedReader(ConnectivityLevel::ConstrainedInternetAccess, false));
-
-    const auto status = collector.collect();
-
-    EXPECT_EQ(status.level, ConnectivityLevel::ConstrainedInternetAccess);
-}
-
-TEST(ConnectivityCollector, Collect_NoConnectivity_ReturnsNone)
-{
-    ConnectivityCollector collector(fixedReader(ConnectivityLevel::None, false));
-
-    const auto status = collector.collect();
-
-    EXPECT_EQ(status.level, ConnectivityLevel::None);
-}
-
-TEST(ConnectivityCollector, Collect_UnknownCost_ReturnsNulloptIsMetered)
-{
-    ConnectivityCollector collector(fixedReader(ConnectivityLevel::InternetAccess, std::nullopt));
-
-    const auto status = collector.collect();
-
-    EXPECT_EQ(status.level, ConnectivityLevel::InternetAccess);
-    EXPECT_FALSE(status.isMetered.has_value());
+    EXPECT_EQ(collector.collect(), read);
 }
 
 TEST(ConnectivityCollector, Collect_ReaderFails_ReturnsUnknown)
