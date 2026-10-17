@@ -66,6 +66,10 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 - Use fake collectors, not mocking frameworks.
 - Unit tests must be fast and deterministic with no OS dependencies. Integration tests may use real Windows APIs but must tolerate varying environments.
 - Test layout: `tests/unit/` never includes Windows headers. Unit tests of `platform/windows` code that need Windows SDK types or constants (e.g. mapping functions) go in `tests/platform/` (the separate `system_monitor_platform_tests` target); they may include SDK headers but must not call Windows APIs. `tests/integration/` may include Windows headers and call Windows APIs.
+- Builders, fakes and harnesses that more than one test file uses live in `tests/support/` (headers in `sysmon::tests`, no Windows headers). Look there before writing one, and move a helper there when a second file needs it instead of copying it.
+- Test each rule once, at the layer that owns it (a mapping at its mapping function, an order at its comparator, wording at its formatter); tests of callers check the wiring. View tests compare text with the formatter's output instead of repeating it.
+- Test a mapping's or a threshold's values in one test, as a table of named cases with `SCOPED_TRACE`. Do not test what the compiler guarantees, such as aggregate initialization or distinct enumerators.
+- When you merge or remove a test, name in the commit message the test that still covers its behaviour.
 
 ## Logging
 

@@ -494,6 +494,48 @@ TEST(RingBuffer, PushBeyondCapacity_OverwritesOldest)
 - **One logical assertion per test.** Multiple `EXPECT_*` calls that verify different aspects of the same result are fine. Separate tests for separate behaviors.
 - **Use `EXPECT_*` by default**, not `ASSERT_*`. `EXPECT` continues executing after failure, so you see all failures. Use `ASSERT` only when the rest of the test is meaningless without the assertion passing.
 
+### What to test
+
+- **Test each rule once, at the layer that owns it.** A mapping is tested at its mapping function, an order at its comparator, and wording at its formatter. A test of a caller checks the wiring, not the rule again. A collector that passes on its reader's value needs one pass-through test, not a test per value. A function that filters and sorts a list is tested for which items it keeps, and once for returning them in the comparator's order.
+- **View tests compare text with the formatter's output.** When a widget shows text that a formatter produces, expect the formatter's result (`processTerminationQuestion(process)`, or a grid's `readouts()` against `adapterDetailReadouts(adapter, profiles)`) instead of repeating the text, so a change of wording breaks one test. View tests check what is theirs: which text reaches which widget, icons, modality, and the wording the view writes itself.
+- **Do not test what the compiler guarantees**, such as aggregate initialization storing its fields, distinct enumerators, or a defaulted `operator==`. A default value is worth a test when it encodes a decision, such as missing data being `std::nullopt` or `Unknown` rather than zero.
+- **When you merge or remove a test**, name in the commit message the test that still covers its behaviour.
+
+### Mappings and thresholds: one table per function
+
+Test the values of a mapping or a threshold function in one test that loops over a table of named cases, and pass each case's name to `SCOPED_TRACE`, so a failure names its row ([DC-112](design_decisions.md#dc-112-a-mappings-values-tested-in-one-test-as-a-table-of-named-cases)):
+
+```cpp
+TEST(HealthEvaluator, EvaluateConnectivity_InternetHealthyDegradedWarningUnknownUnknown)
+{
+    struct Case
+    {
+        const char* name;
+        ConnectivityLevel level;
+        HealthLevel expected;
+    };
+    const std::array cases{
+        Case{"InternetAccess", ConnectivityLevel::InternetAccess, HealthLevel::Healthy},
+        Case{"LocalAccess", ConnectivityLevel::LocalAccess, HealthLevel::Warning},
+        Case{"Unknown", ConnectivityLevel::Unknown, HealthLevel::Unknown},
+    };
+
+    for (const auto& [name, level, expected] : cases) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(evaluateConnectivity(level), expected);
+    }
+}
+```
+
+Use `TEST_P` when a whole test, not one call, runs over different inputs, as `SparklineBufferSize` runs the same checks at three buffer sizes.
+
+### Shared builders and harnesses
+
+Test data builders, fakes and harnesses that more than one test file uses live in `tests/support/`, as inline functions and classes in headers in namespace `sysmon::tests`, included as `"support/<name>.h"` ([DC-109](design_decisions.md#dc-109-shared-test-builders-and-harnesses-in-testssupport-header-only)). Look there before writing a builder, and move a helper there when a second file needs it rather than copying it. A helper that one file uses stays in that file's anonymous namespace.
+
+- A builder returns a realistic default and takes only the values its callers' cases differ in, e.g. `adapter(1, "Wi-Fi", OperationalStatus::Down, kVirtualAdapter)` or `process(800, "explorer.exe")`. Set any other field on the result. Prefer named constants to positional `bool` arguments, and a type such as `std::chrono::seconds` to a plain number that another argument could be mistaken for.
+- `tests/support/` follows the rules of `tests/unit/`: no Windows headers. A helper that needs the Windows SDK, such as `SuspendedChildProcess`, stays beside the integration tests that use it.
+
 ### Test layout
 
 | Directory | Target | May include Windows headers | May call Windows APIs |
@@ -507,18 +549,23 @@ Put deterministic tests of `platform/windows` code in `tests/unit/` when they ca
 
 ### Fakes over mocks
 
-Prefer hand-written fake implementations over mocking frameworks. Fakes are easier to understand and maintain:
+Prefer hand-written fake implementations over mocking frameworks. Fakes are easier to understand and maintain. A collector returns a `std::optional` sample, and `std::nullopt` stands for a failed read, so a fake returns what the test gives it (`tests/support/fake_collectors.h`):
 
 ```cpp
-class FakeCpuCollector : public ICpuCollector
+class FakeCpuCollector : public monitoring::ICpuCollector
 {
 public:
-    CpuSample nextSample;  // Set this in the test
+    explicit FakeCpuCollector(std::optional<domain::CpuSample> sample = populatedSnapshot().cpu)
+        : m_sample(std::move(sample))
+    {}
 
-    CollectResult collect() override
+    [[nodiscard]] std::optional<domain::CpuSample> collect() override
     {
-        return {.sample = nextSample, .errors = {}};
+        return m_sample;
     }
+
+private:
+    const std::optional<domain::CpuSample> m_sample;
 };
 ```
 

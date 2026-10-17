@@ -294,7 +294,8 @@ GoogleTest shards, not one by one, so start the test executable with a filter:
 ### Writing tests
 
 - Use GoogleTest (`TEST`, `TEST_F`, `EXPECT_*`, `ASSERT_*`).
-- Unit tests should be fast and deterministic. Use fake/mock collectors to avoid depending on the host system.
+- Unit tests should be fast and deterministic. Use fake collectors, not a mocking framework, to avoid depending on the host system.
+- Look in `tests/support/` for shared test data builders, fakes and harnesses before writing your own, and follow [coding_guidelines.md — Testing guidelines](docs/coding_guidelines.md#testing-guidelines) on where to test each rule.
 - Integration tests may call real Windows APIs. They should be tolerant of varying machine configurations (different core counts, network adapters, permissions).
 - Test edge cases: PID reuse, sleep/resume time gaps, access-denied processes, missing performance counters.
 
