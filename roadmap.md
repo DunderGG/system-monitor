@@ -159,6 +159,48 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ---
 
+## Maintenance — design decisions and tests
+
+Every phase adds to both. [design_decisions.md](docs/design_decisions.md) has 108 entries in 256 KB, and entries grew from about 150 words on average (DC-01 to DC-48) to about 430 (DC-49 to DC-108). The suite has 775 tests in 63 files. Do this before Phase 6, so the settings work starts from the new structure.
+
+### Design decisions
+
+- [ ] Give every entry a short, stable anchor (`<a id="dc-89"></a>`) and change the links in code, `architecture.md`, `roadmap.md`, `known_deviations.md` and `docs/code_reviews/` to `#dc-89`. Links use the full title slug today, so merging or retitling an entry breaks them. Add a check (for example to `build.ps1 -CheckFormat`) that every `DC-xx` link resolves. Do this first; the items below merge and retitle entries.
+- [ ] Decide the entry model. Today the log is append-only: 36 notes ("Superseded in part", "Extended by", "Amended", …) patch earlier entries, so learning how End process works means reading DC-88, DC-89, DC-90 and DC-93 in turn. Recommended: *living entries*, where an entry states the current decision and is rewritten when it changes, with a one-line history (phase, code-review findings) and git for the rest. This replaces the rule at the top of the file that superseded entries stay in place.
+- [ ] Group entries by topic instead of by phase (platform APIs, domain model, scheduling and threading, each collector area, charts, each tab, build and tooling, testing), and record the phase and code-review finding in each entry. The phase headings already misfile entries: DC-94 sits among DC-70 to DC-78, and DC-91, DC-92 and DC-95 under the explorer view.
+- [ ] Merge each chain into one entry per topic, leaving the other IDs as one-line stubs that point to it. Candidates:
+  - process details status and never-opened processes: DC-13, 72, 74, 94;
+  - termination checks: DC-87, 90; End process UI: DC-88, 89, 93;
+  - process table: DC-79 to 84, 91, 92 (at most three entries: model and updates, sorting and filtering, tree and highlights);
+  - connectivity: DC-39, 40, 77, 99, 101; network names: DC-06, 100, 107;
+  - adapter data: DC-35, 36, 59, 64, 103, 108; Network tab: DC-96, 97, 106;
+  - sparkline widget: DC-48 to 52, 60, 65, 67;
+  - missing data as `std::optional`: DC-12, 40, 43, 44;
+  - testing approach: reader injection (DC-27, 33, 38) and integration tests (DC-30, 78).
+- [ ] Move content that is not a decision out of the entries:
+  - Benchmark tables (DC-61, 66, 83, 84, 95, 98, 104) go to a new `docs/performance.md`: one current baseline per tab with the environment lines `build.ps1 -Benchmark` prints, and a short dated history. `architecture.md` quotes figures in two places and should link there instead.
+  - Test inventories ("Tests:" bullets and paragraphs in DC-87 to 94 and DC-102 to 108) are dropped. The test names list the cases; an entry names at most the test suite.
+  - UI wording copied from the code (the message table in DC-89, the dialog and tooltip texts in DC-91, 93 and 94) is replaced by the name of the formatter function.
+  - Build-script behaviour (DC-62, 69, and DC-23's mechanics) goes to [build_system.md](docs/build_system.md); the entries keep only the rationale.
+- [ ] Retire entries that restate a rule kept elsewhere or record where code lives, leaving stubs: DC-26 (an AGENTS.md rule), DC-68 (where shared UI constants live), and DC-102 and DC-105 once their rationale is in the coding guidelines' "Text from outside the program" and "Text colours" sections, which already state the rules.
+- [ ] Set a format and a budget, at the top of the file and in the design-decision rule of AGENTS.md and its copy in GEMINI.md: **Decision** (what was chosen), **Rationale** (why, and the alternatives rejected), optional **Consequences**; about 250 words; no test lists, benchmark tables, UI copy, or measurements beyond the one that justifies the choice. The rule's "under the relevant phase heading" changes to the topic, and a change to an existing decision updates its entry.
+
+### Tests
+
+- [ ] Add `tests/support/` with shared test-data builders and harnesses, and remove the copies: six different `adapter()` builders (in the adapter throughput history, dashboard formatting, network formatting, network view, performance formatting and performance view tests), four `process()` builders, two each of `valueOf()`, `snapshotWith()`, `populatedSnapshot()` and `demandingSnapshot()`, two `FakeSubscription` classes, and the snapshot-waiting loop that the five `*Integration.SchedulerPipeline_*` tests and `ProcessTrackingIntegration.RealHost_SchedulerWithRealCollector_SnapshotsCarryProcessList` each repeat.
+- [ ] Test each rule at the layer that owns it. When a test is merged or removed, name in the commit message the test that still covers its behaviour.
+  - Adapter order: `listedAdapters()` and `chartedAdapters()` both sort with `isListedBefore()`, yet the order is tested through each of them as well as through `compareNaturally()`. Test `isListedBefore()` once, and each list function only for which adapters it keeps.
+  - Connectivity: six `ConnectivityCollector.Collect_*` tests (one per level, metered, unknown cost) check that the collector passes on a value from its reader that it never inspects. The mapping is `ConnectivityHintMapping`'s job; one pass-through test is enough.
+  - UI wording: view tests assert the same strings as the formatter tests, e.g. "Do you want to end explorer.exe (PID 800)?" in both `processes_view_test.cpp` and `process_formatting_test.cpp`, so a change of wording breaks both. View tests compare with the formatter's output and check wiring, icons and modality.
+  - Scheduler pipeline: replace the five `*Integration.SchedulerPipeline_*` tests with one that registers every real collector as `main.cpp` does and checks each snapshot field.
+- [ ] Remove tests of no project behaviour: the domain `DesignatedInit_FieldsRoundTrip` and `EnumValues_AreDistinct` tests (10) check aggregate initialization and enum values, which the compiler guarantees. Keep the default-value tests that encode decisions, such as `ConnectivityLevel::Unknown`. Decide whether the synthetic collectors, which only tests use, move from `src/monitoring/` to `tests/support/` and lose their own tests.
+- [ ] Make per-value tests of mappings and thresholds table-driven (`TEST_P`, or a loop with `SCOPED_TRACE`), as `SparklineBufferSize` already is: `ConnectivityHintMapping` (14 tests), `HealthEvaluator.EvaluateUsage_*` (6), `AdapterTypeMapping` (6), `ProcessElevation` (5) and `ProcessAccessPolicy.IsNeverOpenedProcess_*` (5).
+- [ ] Split the largest files by concern: `process_model_test.cpp` (1,198 lines, 52 tests: flat updates and signals, tree, highlights, roles), `sampling_scheduler_test.cpp` (901 lines: tick, slow-collector thread, event-driven collectors) and `sparkline_widget_test.cpp` (774 lines: pure geometry, then the widget).
+- [ ] Decide how `build.ps1 -Test` runs the tests. `gtest_discover_tests` starts a process per test, and each `system_monitor_tests` process creates a `QApplication` and loads its plugins. On 2026-10-16 (Debug), the 775 tests took 194 s of process time, 12.6 s on 16 threads, while the two test binaries ran all of them in one process each in about 9.3 s in total. [DC-62](docs/design_decisions.md#dc-62-buildps1-launch-only-with--run-configure-only-when-needed-and-parallel-tests) measured about 50 ms per process; most now take 0.1–0.5 s. Options: parallel gtest shards (`GTEST_TOTAL_SHARDS`) started by `build.ps1`, or one CTest test per suite. Check first that the tests pass in any order (`--gtest_shuffle`).
+- [ ] Add these rules to the testing section of [coding_guidelines.md](docs/coding_guidelines.md): shared builders in `tests/support/`, each rule tested at one layer, table-driven tests for mappings, no tests of aggregate initialization. Fix its fake-collector example, which returns a `CollectResult` type that does not exist; collectors return `std::optional` samples.
+
+---
+
 ## Phase 6 — Settings and polish
 
 - [ ] Implement the JSON settings file: refresh interval, display units, enabled dashboard panels, log level.
@@ -177,12 +219,61 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 These features are on the roadmap but not scheduled. Each can be picked up independently once the MVP is stable.
 
+The *Seen in* lines, and the monitors named in items, come from a comparison on 2026-10-17 with Task Manager, Resource Monitor, Process Explorer, TCPView, Autoruns, System Informer, Process Lasso, TrafficMonitor, HWiNFO, LibreHardwareMonitor, GlassWire, CrystalDiskInfo, Glances, Mission Center and btop. Items that need access beyond the current rules say so. Features of those monitors that conflict with the rules are listed under [Considered and not planned](#considered-and-not-planned).
+
 ### Elevated process termination
 
 - [ ] Create a small helper executable that accepts a PID and action via command-line arguments.
 - [ ] Launch the helper via `ShellExecuteEx` with the `runas` verb to trigger a UAC prompt.
 - [ ] Show a shield icon in the process explorer next to actions that require elevation.
 - [ ] Investigate letting the monitor end the user's elevated processes itself when it runs elevated, which the MVP refuses even then ([DC-90](docs/design_decisions.md#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated)).
+- [ ] Use the same helper for the other actions below that need administrator rights (services, the machine's startup entries, closing a connection, and drive health if it needs it), so the monitor has one elevation path.
+
+### Processes tab: columns and grouping
+
+*Seen in: Task Manager, Process Explorer, System Informer.*
+
+- [ ] Let the user choose, order and size the columns from the header's context menu, and keep them and the sort order in the settings file.
+- [ ] Add columns from data the process list already carries, which need no process handle: session ID, base priority, start time, total CPU time, peak working set, virtual size and page faults.
+- [ ] Add columns that need the limited handle the details reader opens ([DC-75](docs/design_decisions.md#dc-75-process-details-read-with-a-limited-handle-checked-against-the-identity-and-logged-at-debug)): user name (`TokenUser`, as the termination check reads it), elevated, integrity level, architecture (`GetProcessInformation(ProcessMachineTypeInfo)`, which also tells x64 emulation on Arm64 apart), and GDI and USER objects (`GetGuiResources`, which needs only `PROCESS_QUERY_LIMITED_INFORMATION` but works only for processes in the monitor's own session). Read the values that never change once per identity, with the image path. Measure the cost before reading changing values, such as the GDI objects, on every refresh.
+- [ ] Show the file description and company from the image's version resource (`GetFileVersionInfoExW`, which needs no process handle), cached by path. Offer the description as the displayed name, as Task Manager does ("Google Chrome" for `chrome.exe`).
+- [ ] Add a "Verified signer" column (Process Explorer): `WinVerifyTrust`, including catalog-signed system files, on a worker thread, cached by path and file time, and with revocation checks that do not go to the network.
+- [ ] Show each executable's icon in the Name column. `QFileIconProvider` gets the shell icon from the image path without Windows headers in `ui`; cache the icons by path.
+- [ ] Group processes as Task Manager does: apps (processes with a visible top-level window), background processes and Windows processes, with an app's processes folded under one row that shows their totals. Get window ownership from `EnumWindows` and `GetWindowThreadProcessId` on the slow-collector thread. Task Manager's rule for "Windows processes" is not documented, so decide on one.
+- [ ] Add a Status column: "Suspended" when every thread waits with the Suspended wait reason (from the thread entries that follow each process in the `SystemProcessInformation` buffer), "Not responding" when a top-level window fails `IsHungAppWindow`, and "Efficiency mode" (check which access `GetProcessInformation(ProcessPowerThrottling)` needs).
+- [ ] Shade the CPU, memory and I/O cells by how high the value is, and show the system total in each header ("23% CPU"), as Task Manager does. The shading must keep the text contrast of [DC-105](docs/design_decisions.md#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37).
+- [ ] Colour rows by kind, as Process Explorer does: services, the user's own processes, packaged apps and suspended processes, with a legend and within the same contrast.
+- [ ] Extend the filter, which matches names and PIDs today, to the description, the company and the command line.
+- [ ] Find a window's process, like Process Explorer's crosshair: drag a target onto any window to select its process (`WindowFromPoint`, `GetWindowThreadProcessId`).
+
+### Process details
+
+*Seen in: Process Explorer, System Informer.*
+
+- [ ] A details pane or dialog for the selected process: image path, command line, parent, start time, user, integrity level and hosted services, with CPU, memory and I/O history charts built from the snapshots the process model already receives.
+- [ ] A thread list from the thread entries in the process list: thread ID, state, wait reason, priority, CPU time and usage, and context switches. Start addresses and stacks are out of scope (see [Considered and not planned](#considered-and-not-planned)).
+
+### Process actions
+
+*Seen in: Task Manager, Process Explorer, Resource Monitor, System Informer.*
+
+- [ ] End process tree: end the selected process and its descendants, found through the tree's `(PID, creation time)` parents ([DC-82](docs/design_decisions.md#dc-82-process-tree-parents-matched-by-pid-and-creation-time-orphans-at-the-top-level-and-a-reset-only-on-toggle)), each through `terminateOwnedProcess()`. One confirmation says how many processes will be ended and which will be refused.
+- [ ] Find which processes use a file. Restart Manager (`RmStartSession`, `RmRegisterResources`, `RmGetList`) returns each one as an `RM_UNIQUE_PROCESS`, a PID and a start time, which matches the process identity. Accept a dropped file or one picked in a file dialog. Process Explorer's and System Informer's handle search answer the same question, but need access the monitor does not request.
+- [ ] Open file location (`SHOpenFolderAndSelectItems`), show the file's Properties dialog (`SHObjectProperties`), copy the name, path or command line, and Search online, which opens the browser only when the user picks it.
+- [ ] Run new task (Task Manager's File menu), with "Run as administrator" through `ShellExecuteExW` and the `runas` verb.
+- [ ] Restart Windows Explorer, as Task Manager offers when `explorer.exe` is selected: end the user's `explorer.exe` within the checks of [DC-87](docs/design_decisions.md#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested), then start it again.
+
+### Process control: priority, efficiency mode, affinity and suspend
+
+*Seen in: Task Manager, Process Explorer, Resource Monitor, Process Lasso.*
+
+Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so it extends the exception that termination has in AGENTS.md and architecture.md. It keeps the identity, ownership and elevation checks of [DC-87](docs/design_decisions.md#dc-87-process-termination-ownership-and-identity-checked-before-process_terminate-is-requested) and [DC-90](docs/design_decisions.md#dc-90-elevated-processes-refused-by-token-elevation-or-integrity-level-even-when-the-monitor-is-elevated), and gets a design decision.
+
+- [ ] Set the priority class (`SetPriorityClass`, which needs `PROCESS_SET_INFORMATION`). Realtime needs a privilege an unelevated user lacks, and Windows quietly sets High instead, so say so.
+- [ ] Efficiency mode, applied as Task Manager applies it: `SetProcessInformation(ProcessPowerThrottling)` with execution-speed throttling, plus `IDLE_PRIORITY_CLASS` (`PROCESS_SET_INFORMATION`).
+- [ ] CPU affinity: `SetProcessAffinityMask` within one processor group, and CPU sets (`SetProcessDefaultCpuSetMasks`) across groups on systems with more than 64 logical processors ([DC-29](docs/design_decisions.md#dc-29-multi-processor-group-support-64-logical-cores-ntquerysysteminformationex-iteration-and-total-cpu-aggregation)).
+- [ ] Suspend and resume (Resource Monitor, Process Explorer): `NtSuspendProcess` and `NtResumeProcess` from `ntdll.dll`, with `PROCESS_SUSPEND_RESUME`. Never offer it on the monitor's own row, and warn that other processes waiting on a suspended one can hang.
+- [ ] Once the actions above exist, remember a priority or affinity per executable and apply it again when the program starts (Process Lasso's persistent rules).
 
 ### System tray
 
@@ -190,6 +281,20 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Minimize to tray on window close (configurable).
 - [ ] Show mini resource summary in the tray tooltip.
 - [ ] Add a "Start minimized" setting.
+- [ ] Draw the tray icon from live data, such as a small CPU history graph redrawn each tick (Process Explorer). Offer more icons (memory, disk I/O, network, GPU), each its own `QSystemTrayIcon`, chosen in settings.
+- [ ] Show the upload and download rates in the tooltip, as TrafficMonitor does, and open the window on a left click.
+- [ ] Add a "Start with Windows" setting that writes the current user's `Run` key, which needs no elevation.
+
+### Compact views and window behaviour
+
+*Seen in: Task Manager, TrafficMonitor, Process Explorer.*
+
+- [ ] A small always-on-top window with chosen readouts and sparklines (Task Manager's summary view, TrafficMonitor's floating window), which can optionally let mouse clicks pass through to the windows below.
+- [ ] An "Always on top" option for the main window.
+- [ ] Update speeds including Paused, with Refresh now (F5) while paused, as Task Manager offers. Phase 6's refresh-interval setting is the starting point. Decide whether pausing stops the collectors or only the views, and keep the rate baselines correct either way, as the sleep and resume item does.
+- [ ] Run a single instance: starting the monitor again brings the running one to the front (`QLocalServer` and `QLocalSocket`, so it stays in Qt).
+- [ ] Remember the window's size, position and state, and the last tab and Performance page, or open a default start page chosen in settings (Task Manager).
+- [ ] An optional global hotkey that shows the window (`RegisterHotKey`).
 
 ### Dark mode and theme support
 
@@ -197,6 +302,17 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Apply a dark stylesheet/palette when dark mode is active.
 - [ ] Add a setting to override: Light / Dark / Follow System.
 - [ ] Ensure sparkline charts and all custom widgets respect the active theme.
+- [ ] Add support for customizing the theme colors for all widgets, including sparklines and adapter cards.
+- [ ] Add support for exporting and importing theme settings, so users can share or backup their custom themes.
+
+### Accessibility
+
+*Seen in: Task Manager.*
+
+- [ ] Give the custom widgets (`SparklineWidget`, `ResourceCard`, `ReadoutGrid`, the adapter cards) accessible names and values through `QAccessibleInterface`, so that Narrator reads a chart's current value and range.
+- [ ] Make every action reachable from the keyboard, with a logical tab order and shortcuts for the filter (Ctrl+F) and for switching tabs (Ctrl+Tab).
+- [ ] Follow Windows contrast themes: use the system colours in the charts and in the dimmed and status text while a contrast theme is on ([DC-105](docs/design_decisions.md#dc-105-dimmed-and-status-text-drawn-in-colours-that-reach-451-in-both-colour-schemes-code-review-f-37)).
+- [ ] Test with Narrator and with Windows text size at 200%.
 
 ### Alert rules and notification history
 
@@ -204,6 +320,9 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Evaluate rules on each snapshot tick.
 - [ ] Show toast notifications via `QSystemTrayIcon::showMessage` or Windows notification API.
 - [ ] Maintain an in-memory alert history viewable in the UI.
+- [ ] Alert on a process that stays above a CPU or memory threshold for a set time (a runaway process), naming it by its identity.
+- [ ] Alert on network events: an adapter going down, connectivity falling to local access or none, and a new listening port (with the connections table under [Network](#network-connections-wi-fi-data-usage-and-latency)).
+- [ ] Keep an event timeline beside the alert history: process starts and exits (time, name, PID, parent and command line), adapter and connectivity changes, and alerts (System Informer's log, GlassWire's timeline). The process model already finds starts and exits for its highlights ([DC-84](docs/design_decisions.md#dc-84-new-and-exited-processes-highlighted-for-three-seconds-of-snapshot-time)).
 
 ### Persistent event and metric history
 
@@ -211,17 +330,79 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Batch-insert samples every 10–30 seconds on a background thread.
 - [ ] Implement retention policies: downsample older data, expire after configurable duration.
 - [ ] Add a history view or extend sparkline charts to show historical data ranges.
+- [ ] Record the top processes by CPU, memory and I/O for each interval, so the history view can say which process was busy at a past time. Task Manager's App history keeps similar totals per app.
 
 ### Startup applications and services
 
 - [ ] Enumerate startup entries from the registry (`Run`, `RunOnce`) and startup folder.
 - [ ] Enumerate Windows services via `EnumServicesStatusEx`.
 - [ ] Display in a dedicated tab with name, status, startup type.
+- [ ] Enable and disable startup entries as Task Manager does, through the `StartupApproved` keys under `Explorer`. The current user's entries need no elevation; the machine's go through the elevated helper.
+- [ ] Show each entry's publisher and signature status (`WinVerifyTrust`, shared with the process table's signer column), and flag entries whose file is missing (Autoruns).
+- [ ] List the scheduled tasks that run at logon or startup, through the Task Scheduler COM API (`ITaskService`), as Autoruns does.
+- [ ] Show which services each process hosts, in a column or a tooltip on `svchost.exe` rows (Process Explorer, Task Manager). `EnumServicesStatusExW(SC_ENUM_PROCESS_INFO)` gives each running service's PID without opening the process. Link each service to its process row.
+- [ ] Start, stop and restart services (Task Manager, System Informer). Most services need administrator rights for this, so it goes through the elevated helper.
+
+### Users and sessions
+
+*Seen in: Task Manager.*
+
+- [ ] A Users tab: the signed-in sessions (`WTSEnumerateSessionsW`), each with its user's processes and their CPU, memory and I/O totals, grouped by each process's session ID and user. An unelevated monitor cannot read other users' tokens, so their user names show as unknown and their processes group by session.
 
 ### GPU monitoring
 
 - [ ] Query GPU utilization and memory via NVML (NVIDIA), ADL (AMD), or `D3DKMTQueryStatistics`.
 - [ ] Add GPU performance cards and sparklines.
+- [ ] Prefer the vendor-neutral `D3DKMT*` functions, which `gdi32.dll` exports and Task Manager uses, to NVML and ADL, which add vendor DLLs. Their structures are in the WDK's `d3dkmthk.h`, not the SDK, so declare them in `platform/windows`, as `cpu_collector.cpp` declares the structures the SDK omits ([DC-55](docs/design_decisions.md#dc-55-cpu-base-speed-from-callntpowerinformation-read-once-no-current-clock-speed)).
+- [ ] Chart the utilization of each engine (3D, Copy, Video Decode, Video Encode, Compute) and the dedicated and shared memory of each adapter, as Task Manager's GPU pages do.
+- [ ] Add per-process GPU usage, engine, and dedicated and shared memory as process table columns (`D3DKMTQueryStatistics` with a process handle; check that `PROCESS_QUERY_LIMITED_INFORMATION` is enough).
+- [ ] Show temperature, fan speed and power from `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` (`D3DKMT_ADAPTER_PERFDATA`, WDDM 2.4 and later), with the throttling and maximum temperatures from `D3DKMT_ADAPTER_PERFDATACAPS`. Integrated GPUs often report none, which shows as unavailable.
+- [ ] Monitor NPUs: Task Manager added NPU utilization and NPU memory columns in 2026. Find compute-only adapters with DXCore and show them like GPUs.
+
+### Disk activity and drive health
+
+*Seen in: Task Manager, Resource Monitor, CrystalDiskInfo, Mission Center.*
+
+- [ ] Show each physical disk's read and write rates, active time and average response time, as Task Manager's disk pages do. `IOCTL_DISK_PERFORMANCE` on each `\\.\PhysicalDriveN` returns the byte, count, time and idle counters they come from. That is a direct alternative to the PDH counters that [DC-02](docs/design_decisions.md#dc-02-core-metrics-direct-win32-apis-over-pdh) and architecture.md's API table set aside for per-disk I/O. Check that it works unelevated on a handle opened without read access, and measure it before making it a fast collector.
+- [ ] Map volumes to disks (`IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS`), so each disk page lists its volumes and their space. Show the disk's model, bus type, SSD or HDD (`IOCTL_STORAGE_QUERY_PROPERTY` with `StorageDeviceProperty` and `StorageDeviceSeekPenaltyProperty`), and whether it holds the system volume or a page file.
+- [ ] Add a disk-activity card with a sparkline to the dashboard, beside disk space.
+- [ ] Show NVMe drive health: temperature, percentage used, available spare, media errors and power-on hours, from the health log page (`IOCTL_STORAGE_QUERY_PROPERTY` with `StorageDeviceProtocolSpecificProperty`). Check whether it works unelevated; if it does not, read it through the elevated helper on request. SATA SMART data needs ATA pass-through, which needs administrator rights.
+
+### CPU and memory detail
+
+*Seen in: Task Manager, Process Explorer, HWiNFO.*
+
+- [ ] Show the CPU topology from `GetLogicalProcessorInformationEx`: sockets, cores, logical processors, L1, L2 and L3 cache sizes, and NUMA nodes, with a per-node view of the per-core grid. Mark performance and efficiency cores on hybrid processors from each core's `EfficiencyClass`.
+- [ ] Show kernel time on the CPU charts (Task Manager's "Show kernel times"), from the kernel and idle times the CPU collector already reads.
+- [ ] Show system-wide rates, as Process Explorer's System Information does: context switches, page faults and I/O operations per second from `NtQuerySystemInformation(SystemPerformanceInformation)`, and interrupt and DPC time from the per-processor performance information. `winternl.h` hides most of both structures, so check the layouts as [DC-71](docs/design_decisions.md#dc-71-process-list-parsed-through-a-full-system_process_information-layout-checked-against-winternlh) does.
+- [ ] Show the memory composition (in use, modified, standby, free), as Task Manager's bar does. `NtQuerySystemInformation(SystemMemoryListInformation)` gives the lists; check whether it needs a privilege an unelevated monitor lacks.
+- [ ] Show the memory hardware (speed, slots used, form factor) from the SMBIOS memory-device records (`GetSystemFirmwareTable('RSMB')`), which needs no WMI.
+- [ ] Show each page file's size, use and peak (`NtQuerySystemInformation(SystemPageFileInformation)`).
+
+### Battery and power
+
+*Seen in: Mission Center, btop, HWiNFO, iStat Menus.*
+
+- [ ] Add a battery card and Performance page, shown only when the system has a battery: charge, on AC or battery, time remaining and battery saver (`GetSystemPowerStatus`).
+- [ ] Show the charge or discharge rate, voltage, full-charge and design capacity (the wear) and cycle count, from `IOCTL_BATTERY_QUERY_INFORMATION` and `IOCTL_BATTERY_QUERY_STATUS` on the battery devices SetupAPI lists (`GUID_DEVCLASS_BATTERY`), not from WMI.
+- [ ] Show the power source and the effective power mode (`PowerRegisterForEffectivePowerModeNotifications`), received as notifications under the rules for [event-driven collectors](docs/architecture.md#event-driven-collectors-os-callback-threads).
+
+### Network: connections, Wi-Fi, data usage and latency
+
+*Seen in: TCPView, Resource Monitor, System Informer, Task Manager, TrafficMonitor, GlassWire.*
+
+- [ ] A connections table: TCP connections and listening ports and UDP endpoints, for IPv4 and IPv6, each with its owning process (`GetExtendedTcpTable` with `TCP_TABLE_OWNER_PID_ALL`, `GetExtendedUdpTable` with `UDP_TABLE_OWNER_PID`), collected on the slow-collector thread. The tables give only a PID, so match it against the process list read closest in time, and show the process as unknown once it has gone.
+- [ ] Resolve remote addresses to host names on request, or behind a setting, because each lookup sends a query to the DNS server. Cache the names.
+- [ ] Close a TCP connection (TCPView, System Informer) through the elevated helper: `SetTcpEntry` needs administrator rights and handles IPv4 only.
+- [ ] Show Wi-Fi details for wireless adapters, as Task Manager does: SSID, signal quality, band and channel, PHY type and link rates (`WlanQueryInterface`), updated through `WlanRegisterNotification` under the event-driven collector rules. Since Windows 11 24H2, desktop apps get these only while location access is on for them, so show "Location access is off" rather than blanks.
+- [ ] Count the data used per adapter since the monitor started, from the `GetIfTable2` byte deltas, and per day and month once [persistent history](#persistent-event-and-metric-history) exists, so that totals survive restarts and counter resets (TrafficMonitor, GlassWire).
+- [ ] Add a latency chart: round-trip time and loss to the default gateway and to an optional host, from `IcmpSendEcho2Ex` and `Icmp6SendEcho2` on a worker thread. `GetAdaptersAddresses` gives the gateway with `GAA_FLAG_INCLUDE_GATEWAYS`. The host is off by default because it sends traffic out of the network. The result never sets the connectivity level, which stays with `GetNetworkConnectivityHint` ([DC-03](docs/design_decisions.md#dc-03-connectivity-status-getnetworkconnectivityhint-over-ad-hoc-probes)).
+
+### Hardware sensors
+
+*Seen in: HWiNFO, HWMonitor, LibreHardwareMonitor, TrafficMonitor (through LibreHardwareMonitor).*
+
+- [ ] Decide whether to show CPU and motherboard temperatures, fan speeds and voltages, and record the decision. Reading them needs a kernel driver. Microsoft Defender has flagged WinRing0, the driver these tools shipped, since 2025, and they are moving to PawnIO. Any such driver conflicts with running unelevated and with the antivirus and EDR rules in architecture.md. Without a driver, the monitor can still show GPU temperature ([GPU monitoring](#gpu-monitoring)), drive temperature ([Disk activity and drive health](#disk-activity-and-drive-health)) and battery data ([Battery and power](#battery-and-power)). An alternative to investigate is reading the values another monitor already publishes, such as HWiNFO's shared memory; LibreHardwareMonitor publishes through WMI, which the monitor does not poll.
 
 ### ETW-powered diagnostics
 
@@ -229,11 +410,25 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 - [ ] Subscribe to `Microsoft-Windows-Kernel-Network` for per-process network bandwidth.
 - [ ] Add short "diagnostic recording" sessions with start/stop and export.
 - [ ] Handle ETW session limits (`ERROR_NO_SYSTEM_RESOURCES`) and permission requirements gracefully.
+- [ ] Break each process's network traffic down by remote address and port, as Resource Monitor's Network Activity list does, and fill the Processes tab's Network column ([DC-80](docs/design_decisions.md#dc-80-process-table-columns-io-rates-from-the-collector-and-na-for-missing-values)).
+- [ ] Show which files each process reads and writes, with the response times, from the kernel's disk I/O events (Resource Monitor's Disk tab).
+- [ ] Show hard faults per second for each process (Resource Monitor's Memory tab).
 
 ### CSV/JSON export
 
 - [ ] Export current snapshot or ring buffer history as CSV or JSON.
 - [ ] Add export actions to the UI (file dialog).
+- [ ] Log chosen metrics to a CSV file while the monitor runs, with an interval and a size limit, written on a background thread (HWiNFO's sensor logging).
+- [ ] Copy a Performance page's readouts as text with Ctrl+C, as Task Manager does.
+- [ ] Optionally serve the current snapshot in the OpenMetrics text format on `127.0.0.1`, for Prometheus and Grafana (Glances, `windows_exporter`). Off by default; `QTcpServer`, from the Qt Network module the build already includes, is enough.
+
+### Packaging and distribution
+
+*Seen in: Process Explorer and System Informer (portable, no installation), winget.*
+
+- [ ] Publish a portable release: a zip with the executable and the Qt files it needs ([DC-104](docs/design_decisions.md#dc-104-qts-windows-style-plugin-deployed-next-to-every-executable-code-review-f-42)) that runs without installation, and a portable mode that keeps the settings file next to the executable.
+- [ ] Sign the release binaries in CI, as architecture.md's antivirus section asks, and publish a winget manifest.
+- [ ] Add an Arm64 build (Process Explorer ships one). It needs the vcpkg `arm64-windows` triplet and a check of the structures `platform/windows` declares itself.
 
 ### Architecture diagrams (PlantUML)
 
@@ -251,3 +446,13 @@ These features are on the roadmap but not scheduled. Each can be picked up indep
 
 ### DevEnv
 - [x] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.
+
+### Considered and not planned
+
+These features of other monitors conflict with the rules in AGENTS.md and architecture.md. Reconsider one only with a design decision that changes the rule.
+
+- DLL and module lists, memory regions, thread stacks, environment variables, strings and memory dumps (Process Explorer, System Informer, Task Manager's "Create memory dump file"): each reads another process's memory, which needs `PROCESS_VM_READ`.
+- Handle lists and handle search (Process Explorer, System Informer): naming another process's handles needs `PROCESS_DUP_HANDLE`. Restart Manager answers the usual question, which process holds a file (see [Process actions](#process-actions)).
+- Replacing Task Manager (Process Explorer, System Informer): this sets a `Debugger` value for `taskmgr.exe` under Image File Execution Options. That needs administrator rights, and it is a persistence technique that EDR products flag.
+- A readout embedded in the taskbar (TrafficMonitor): Windows has no API for it, so it relies on the taskbar's undocumented windows. The tray icon and the small always-on-top window meet the same need.
+- VirusTotal lookups (Process Explorer, System Informer): these send a hash of every executable to a third-party service. If ever added, it should only be an explicit action on one file.
