@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <filesystem>
-#include <memory>
 #include <string>
 
 #include <QApplication>
@@ -11,17 +10,9 @@
 
 #include "app_logging.h"
 #include "monitoring/sampling_scheduler.h"
-#include "platform/windows/connectivity_collector.h"
-#include "platform/windows/cpu_collector.h"
 #include "platform/windows/current_process.h"
-#include "platform/windows/disk_collector.h"
-#include "platform/windows/memory_collector.h"
-#include "platform/windows/network_collector.h"
-#include "platform/windows/network_profile_collector.h"
-#include "platform/windows/process_collector.h"
 #include "platform/windows/process_terminator.h"
-#include "platform/windows/system_activity_collector.h"
-#include "platform/windows/uptime_collector.h"
+#include "system_collectors.h"
 #include "ui/main_window.h"
 #include "ui/processes_view.h"
 
@@ -36,15 +27,7 @@ namespace
 int runMonitor(QApplication& application)
 {
     sysmon::monitoring::SamplingScheduler scheduler;
-    scheduler.setCpuCollector(std::make_unique<sysmon::platform::CpuCollector>());
-    scheduler.setMemoryCollector(std::make_unique<sysmon::platform::MemoryCollector>());
-    scheduler.setDiskCollector(std::make_unique<sysmon::platform::DiskCollector>());
-    scheduler.setNetworkCollector(std::make_unique<sysmon::platform::NetworkCollector>());
-    scheduler.setConnectivityCollector(std::make_unique<sysmon::platform::ConnectivityCollector>());
-    scheduler.setNetworkProfileCollector(std::make_unique<sysmon::platform::NetworkProfileCollector>());
-    scheduler.setUptimeCollector(std::make_unique<sysmon::platform::UptimeCollector>());
-    scheduler.setSystemActivityCollector(std::make_unique<sysmon::platform::SystemActivityCollector>());
-    scheduler.setProcessCollector(std::make_unique<sysmon::platform::ProcessCollector>());
+    sysmon::app::registerSystemCollectors(scheduler);
 
     sysmon::ui::MainWindow mainWindow;
     mainWindow.processesView()->setProcessTerminator(sysmon::platform::terminateOwnedProcess);

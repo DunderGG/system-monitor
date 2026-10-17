@@ -9,16 +9,11 @@
 #include <gtest/gtest.h>
 
 #include "domain/connectivity_status.h"
-#include "domain/system_snapshot.h"
-#include "monitoring/sampling_scheduler.h"
 #include "platform/windows/connectivity_collector.h"
 #include "platform/windows/connectivity_hint_mapping.h"
-#include "support/scheduler_harness.h"
 
 using namespace sysmon::domain;
-using namespace sysmon::monitoring;
 using namespace sysmon::platform;
-using sysmon::tests::waitForSnapshot;
 
 namespace
 {
@@ -71,17 +66,4 @@ TEST(ConnectivityCollectorIntegration, RepeatedConstructionAndDestruction_Cancel
         auto collector = std::make_unique<ConnectivityCollector>();
         EXPECT_TRUE(isValidLevel(collector->collect().level));
     }
-}
-
-TEST(ConnectivityCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithConnectivity)
-{
-    SamplingScheduler scheduler(std::chrono::milliseconds{40});
-    scheduler.setConnectivityCollector(std::make_unique<ConnectivityCollector>());
-
-    int snapshotCount = 0;
-    const auto snapshot =
-        waitForSnapshot(scheduler, [&snapshotCount](const SystemSnapshot&) { return ++snapshotCount == 2; });
-
-    ASSERT_TRUE(snapshot.has_value());
-    EXPECT_TRUE(isValidLevel(snapshot->connectivity.level));
 }

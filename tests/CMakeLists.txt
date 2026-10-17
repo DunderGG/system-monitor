@@ -65,6 +65,7 @@ add_executable(system_monitor_tests
     integration/process_details_reader_test.cpp
     integration/process_terminator_test.cpp
     integration/process_tracking_test.cpp
+    integration/scheduler_pipeline_test.cpp
     integration/suspended_child_process.h
     integration/current_process_elevation.h
     integration/app_logging_test.cpp
@@ -83,6 +84,7 @@ target_include_directories(system_monitor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_D
 target_link_libraries(system_monitor_tests
     PRIVATE
         GTest::gtest
+        sysmon_app_collectors
         sysmon_app_logging
         sysmon_domain
         sysmon_monitoring

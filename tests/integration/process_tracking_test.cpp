@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -16,22 +15,17 @@
 #include "current_process_elevation.h"
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
-#include "domain/system_snapshot.h"
-#include "monitoring/sampling_scheduler.h"
 #include "platform/windows/process_access_policy.h"
 #include "platform/windows/process_collector.h"
 #include "platform/windows/process_details_reader.h"
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/system_process_information_reader.h"
-#include "support/scheduler_harness.h"
 #include "suspended_child_process.h"
 
 using namespace sysmon::domain;
 using namespace sysmon::platform;
-using sysmon::monitoring::SamplingScheduler;
 using sysmon::tests::isCurrentProcessElevated;
 using sysmon::tests::SuspendedChildProcess;
-using sysmon::tests::waitForSnapshot;
 
 namespace
 {
@@ -206,20 +200,4 @@ TEST(ProcessTrackingIntegration, RealHost_Unelevated_DeniedProcessesStayListedWi
     }
     // Services running as SYSTEM refuse an unelevated caller.
     EXPECT_GE(deniedCount, 1);
-}
-
-TEST(ProcessTrackingIntegration, RealHost_SchedulerWithRealCollector_SnapshotsCarryProcessList)
-{
-    SamplingScheduler scheduler(std::chrono::milliseconds{50});
-    scheduler.setSlowInterval(std::chrono::milliseconds{200});
-    scheduler.setProcessCollector(std::make_unique<ProcessCollector>());
-
-    const auto snapshotWithProcesses =
-        waitForSnapshot(scheduler, [](const SystemSnapshot& snapshot) { return snapshot.processes.has_value(); });
-
-    ASSERT_TRUE(snapshotWithProcesses.has_value());
-    const auto& processes = *snapshotWithProcesses->processes;
-    const auto self = std::ranges::find(processes, static_cast<uint32_t>(::GetCurrentProcessId()), &ProcessInfo::pid);
-    ASSERT_NE(self, processes.end());
-    EXPECT_EQ(self->detailsStatus, ProcessDetailsStatus::Available);
 }

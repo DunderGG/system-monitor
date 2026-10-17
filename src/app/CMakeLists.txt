@@ -17,6 +17,25 @@ target_link_libraries(sysmon_app_logging
         spdlog::spdlog
 )
 
+# The collectors the app registers, in their own library so the scheduler
+# pipeline integration test registers the same ones.
+add_library(sysmon_app_collectors STATIC
+    system_collectors.cpp
+    system_collectors.h
+)
+
+target_include_directories(sysmon_app_collectors
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+target_link_libraries(sysmon_app_collectors
+    PUBLIC
+        sysmon_monitoring
+    PRIVATE
+        sysmon_platform_windows
+)
+
 # The manifest sets the process code page to UTF-8. MSVC merges it with the
 # linker-generated manifest. system_monitor_tests embeds the same file.
 qt_add_executable(system_monitor
@@ -28,6 +47,7 @@ target_link_libraries(system_monitor
     PRIVATE
         Qt6::Widgets
         spdlog::spdlog
+        sysmon_app_collectors
         sysmon_app_logging
         sysmon_monitoring
         sysmon_platform_windows

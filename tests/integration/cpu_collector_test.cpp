@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <memory>
 #include <thread>
 #include <vector>
 
@@ -12,15 +11,9 @@
 #include <gtest/gtest.h>
 
 #include "domain/cpu_sample.h"
-#include "domain/system_snapshot.h"
-#include "monitoring/sampling_scheduler.h"
 #include "platform/windows/cpu_collector.h"
-#include "support/scheduler_harness.h"
 
 using namespace sysmon::platform;
-using sysmon::domain::SystemSnapshot;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::tests::waitForSnapshot;
 
 TEST(CpuCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
 {
@@ -123,25 +116,6 @@ TEST(CpuCollectorIntegration, LoadGeneration_DetectsActiveWorkload)
     }
 
     EXPECT_TRUE(anyCoreActive || activeSample->totalUsagePercent > 0.0f);
-}
-
-TEST(CpuCollectorIntegration, SchedulerPipeline_EmitsSnapshotsWithRealMetrics)
-{
-    const DWORD expectedCores = ::GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-
-    SamplingScheduler scheduler(std::chrono::milliseconds{50});
-    scheduler.setCpuCollector(std::make_unique<CpuCollector>());
-
-    // The first tick may only establish the CPU baseline.
-    const auto snapshot =
-        waitForSnapshot(scheduler, [](const SystemSnapshot& candidate) { return candidate.cpu.has_value(); });
-
-    ASSERT_TRUE(snapshot.has_value());
-    EXPECT_EQ(snapshot->cpu->coreCount, static_cast<int>(expectedCores));
-    EXPECT_EQ(snapshot->cpu->coreUsagePercents.size(), static_cast<std::size_t>(expectedCores));
-    EXPECT_FALSE(std::isnan(snapshot->cpu->totalUsagePercent));
-    EXPECT_GE(snapshot->cpu->totalUsagePercent, 0.0f);
-    EXPECT_LE(snapshot->cpu->totalUsagePercent, 100.0f);
 }
 
 TEST(CpuCollectorIntegration, RealHost_BaseSpeedIsPlausibleWhenReported)
