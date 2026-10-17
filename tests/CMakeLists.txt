@@ -1,7 +1,30 @@
 find_package(GTest CONFIG REQUIRED)
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Widgets)
 find_package(spdlog CONFIG REQUIRED)
-include(GoogleTest)
+
+# Each test executable runs as GoogleTest shards, one CTest test per shard,
+# rather than one process per test (DC-113): a process of the main test
+# executable creates a QApplication and loads its plugins before its first
+# test, which costs more than most tests. CTest runs the shards in parallel
+# (build.ps1 passes --parallel). GoogleTest deals the tests out round-robin,
+# so twice as many shards as logical processors keeps the processors busy
+# while the slowest shards finish. Run a single test with the executable's
+# --gtest_filter, e.g. system_monitor_tests --gtest_filter=RingBuffer.*.
+cmake_host_system_information(RESULT sysmonLogicalProcessors QUERY NUMBER_OF_LOGICAL_CORES)
+math(EXPR sysmonTestShards "2 * ${sysmonLogicalProcessors}")
+
+# Adds the tests of target as shardCount CTest tests named
+# <target>_shard_<index>_of_<shardCount>.
+function(sysmon_add_sharded_tests target shardCount)
+    math(EXPR lastShard "${shardCount} - 1")
+    foreach(shard RANGE ${lastShard})
+        set(testName "${target}_shard_${shard}_of_${shardCount}")
+        add_test(NAME "${testName}" COMMAND "${target}")
+        set_tests_properties("${testName}" PROPERTIES
+            ENVIRONMENT "GTEST_TOTAL_SHARDS=${shardCount};GTEST_SHARD_INDEX=${shard}"
+        )
+    endforeach()
+endfunction()
 
 add_executable(system_monitor_tests
     test_main.cpp
@@ -106,7 +129,7 @@ target_link_libraries(system_monitor_tests
 # The same plugins as the app, so the tests run with the app's style.
 sysmon_deploy_qt_plugins(system_monitor_tests)
 
-gtest_discover_tests(system_monitor_tests)
+sysmon_add_sharded_tests(system_monitor_tests ${sysmonTestShards})
 
 # Platform unit tests: deterministic tests of platform/windows code that need
 # Windows SDK types or constants (e.g. Windows-to-domain mapping functions).
@@ -128,4 +151,5 @@ target_link_libraries(system_monitor_platform_tests
         sysmon_platform_windows
 )
 
-gtest_discover_tests(system_monitor_platform_tests)
+# Without Qt to start, all of these run in a fraction of a second in one process.
+sysmon_add_sharded_tests(system_monitor_platform_tests 1)

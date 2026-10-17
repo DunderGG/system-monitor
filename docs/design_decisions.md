@@ -130,6 +130,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
   - [DC-110](#dc-110-one-scheduler-pipeline-test-with-the-collectors-registersystemcollectors-registers): One scheduler pipeline test, with the collectors `registerSystemCollectors()` registers
   - [DC-111](#dc-111-fixed-value-fake-collectors-in-testssupport-not-synthetic-collectors-in-monitoring): Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
   - [DC-112](#dc-112-a-mappings-values-tested-in-one-test-as-a-table-of-named-cases): A mapping's values tested in one test, as a table of named cases
+  - [DC-113](#dc-113-tests-run-as-googletest-shards-one-ctest-test-each-not-one-process-per-test): Tests run as GoogleTest shards, one CTest test each, not one process per test
 
 ---
 
@@ -310,6 +311,8 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 **Decision:** In the test runner (`tests/test_main.cpp`), `QApplication` instantiation is bypassed when `--gtest_list_tests` is passed during CMake's `gtest_discover_tests` step.
 
 **Rationale:** When CMake invokes the test binary with `--gtest_list_tests` at build time to discover tests, initializing `QApplication` would attempt to load platform plugins before they are fully deployed or in headless environments without an active display session, risking modal error dialogues or timeouts. Bypassing `QApplication` for list-only execution allows instantaneous and reliable test discovery, while full test execution creates `QApplication` and leverages the deployed platform plugin.
+
+**Note:** Since [DC-113](#dc-113-tests-run-as-googletest-shards-one-ctest-test-each-not-one-process-per-test) the build no longer lists the tests, because CTest runs shards rather than discovered tests. The check stays, so that listing the tests by hand starts no `QApplication` either.
 
 ---
 
@@ -678,6 +681,8 @@ The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its p
 **Decision:** `build.ps1` builds (and tests, with `-Test`) without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory has no `build.ninja`, has not been configured by the script yet (a `build_ps1_configure.stamp` file in the build directory records the last successful configure), or a presets file is newer than that stamp. `-Configure` forces it. CTest runs with `--parallel` set to the number of logical processors.
 
 **Rationale:** Builds and test runs far outnumber launches, especially for agents, so launching is the opt-in. Measured on the 16-thread development machine, an edit to one UI file followed by `-Test` took about 26 s: about 3 s re-configuring although nothing had changed, about 4 s compiling and linking, and about 18 s of tests. `gtest_discover_tests` runs each of the 362 tests in its own process at about 50 ms each, so process startup dominates and the tests parallelize well. Together the two changes cut that cycle to about 8 s (tests about 4 s), and a build with nothing to do from about 5 s to under 2 s. Skipping configure is safe because Ninja re-runs CMake itself when a `CMakeLists.txt` changes, and the vcpkg toolchain adds `vcpkg.json` and `vcpkg-configuration.json` to `CMAKE_CONFIGURE_DEPENDS`. Ninja does not track the presets files, hence the stamp. `CMakeCache.txt` cannot serve as the stamp, because CMake rewrites it only when its contents change. Ten consecutive parallel runs passed. The integration tests' timing checks allow up to a second, and the one test that writes a file uses its own directory, so the tests do not interfere with each other.
+
+**Note:** [DC-113](#dc-113-tests-run-as-googletest-shards-one-ctest-test-each-not-one-process-per-test) replaces the process per test with GoogleTest shards; CTest still runs them with `--parallel`.
 
 ### DC-63: Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
 
@@ -1451,3 +1456,9 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 **Decision:** A mapping or a threshold function is tested by one test that loops over a table of cases, a local `Case` struct in a `std::array`, and passes each case's name to `SCOPED_TRACE`. It is not tested by one `TEST` per value, nor by a parameterized `TEST_P`.
 
 **Rationale:** A test per value repeated the same line under a name that restated the value (`ToConnectivityLevel_LocalAccess_ReturnsLocalAccess`), and one mapping's cases were spread over as many as fourteen tests. A table shows them side by side, so a missing value stands out, and `SCOPED_TRACE` names the row that fails. `TEST_P` also reports each row on its own, but it needs a fixture, an instantiation and a printer for the parameter, and `gtest_discover_tests` runs each row in a process of its own. `TEST_P` remains the tool for running a whole test over different inputs, as `SparklineBufferSize` runs the same checks at three buffer sizes.
+
+### DC-113: Tests run as GoogleTest shards, one CTest test each, not one process per test
+
+**Decision:** `tests/CMakeLists.txt` registers each test executable as GoogleTest shards rather than calling `gtest_discover_tests`: `system_monitor_tests` as twice as many shards as the configuring machine has logical processors, and `system_monitor_platform_tests` as one. Each shard is a CTest test that sets `GTEST_TOTAL_SHARDS` and `GTEST_SHARD_INDEX`. `build.ps1 -Test` still runs CTest with `--parallel` set to the number of logical processors.
+
+**Rationale:** Every `system_monitor_tests` process creates a `QApplication` and loads its plugins before its first test. With a process per test, the 775 tests took 194 s of process time, and 12.6 s on 16 threads, while each executable ran all of its tests in one process in about 9 s together. On the same machine, in Debug, the 717 tests took 11.7 s with a process per test, 4.0 s with a process per suite (75 suites), 2.8 s as 16 shards, and 2.1 to 2.6 s as 32. GoogleTest deals the tests to the shards round-robin, so a shard's time depends on the slow tests it draws (the slowest takes 1.1 s), and with more shards than processors CTest starts another while the slowest finish. Registered with CTest, the shards keep its scheduling, `--output-on-failure` and timeouts, with no process management in `build.ps1`, and CI, which runs CTest without `--parallel`, starts a few processes rather than one per test. Before the change the tests passed in shuffled orders (`--gtest_shuffle`: ten of the main executable, twenty of the platform one), so the order within a shard cannot change a result, and eight consecutive runs as shards passed. A failed shard's output names the failing tests, and one test runs with the executable's `--gtest_filter` rather than `ctest -R`.

@@ -114,7 +114,12 @@ For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well. `scripts/build.ps1` does this
 automatically (via `Enter-VsDevShell`), so it works from any terminal,
 including VS Code's built-in one. Pass `-Test` to run CTest after the build
-(`.\scripts\build.ps1 -Test`); tests run in parallel, one per logical processor.
+(`.\scripts\build.ps1 -Test`). Each test executable runs as GoogleTest shards,
+one CTest test per shard (about two per logical processor for
+`system_monitor_tests`), and CTest runs one shard per logical processor at a
+time. A failed shard's output lists the tests that failed. To run one test,
+or a suite, start the executable with a filter, e.g.
+`build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*`.
 Builds are incremental, and the script runs the configure step only when the
 build directory has not been configured by it yet or a presets file changed
 since; Ninja re-runs configuration itself when a `CMakeLists.txt` or

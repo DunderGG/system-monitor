@@ -24,9 +24,13 @@ Launches the application after a successful build. Without it, the script only
 configures and builds (and tests, with -Test).
 
 .PARAMETER Test
-Runs the test suite with CTest after a successful build, one test process per
-logical processor in parallel. The script fails if any test fails. Combine with
--Run to launch the application after the tests pass.
+Runs the test suite with CTest after a successful build. Each test executable
+runs as GoogleTest shards, one CTest test each, and CTest runs one shard per
+logical processor at a time. A failed shard's output names the tests that
+failed; run one test with the executable's --gtest_filter, for example
+build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*.
+The script fails if any test fails. Combine with -Run to launch the
+application after the tests pass.
 
 .PARAMETER Configure
 Runs CMake's configure step even when the build directory looks up to date, for
@@ -534,9 +538,9 @@ try
 
     if ($Test)
     {
-        # Each test runs in its own process and most finish in about 50 ms, so
-        # process startup dominates and running them in parallel cuts the time
-        # several-fold.
+        # The tests run as GoogleTest shards, about two per logical processor
+        # (tests\CMakeLists.txt), so running one shard per processor at a time
+        # keeps every processor busy until the slowest shards finish.
         Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
             -Arguments @("--preset", $preset, "--output-on-failure", "--parallel", [Environment]::ProcessorCount)
     }
