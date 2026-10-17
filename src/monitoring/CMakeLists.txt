@@ -23,10 +23,6 @@ add_library(sysmon_monitoring STATIC
     health_evaluator.h
     sampling_scheduler.cpp
     sampling_scheduler.h
-    synthetic_cpu_collector.cpp
-    synthetic_cpu_collector.h
-    synthetic_memory_collector.cpp
-    synthetic_memory_collector.h
 )
 
 set_target_properties(sysmon_monitoring PROPERTIES

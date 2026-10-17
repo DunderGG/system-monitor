@@ -20,20 +20,20 @@
 
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
-#include "monitoring/synthetic_cpu_collector.h"
-#include "monitoring/synthetic_memory_collector.h"
+#include "support/fake_collectors.h"
 
 using sysmon::domain::SystemSnapshot;
 using sysmon::monitoring::SamplingScheduler;
-using sysmon::monitoring::SyntheticCpuCollector;
-using sysmon::monitoring::SyntheticMemoryCollector;
+using sysmon::tests::FakeCpuCollector;
+using sysmon::tests::FakeMemoryCollector;
+using sysmon::tests::populatedSnapshot;
 
 TEST(SamplingScheduler, SampleOnce_AssemblesRegisteredCollectors)
 {
     SamplingScheduler scheduler;
 
-    scheduler.setCpuCollector(std::make_unique<SyntheticCpuCollector>(6, 45.0f));
-    scheduler.setMemoryCollector(std::make_unique<SyntheticMemoryCollector>());
+    scheduler.setCpuCollector(std::make_unique<FakeCpuCollector>());
+    scheduler.setMemoryCollector(std::make_unique<FakeMemoryCollector>());
 
     const auto before = std::chrono::steady_clock::now();
     const SystemSnapshot snapshot = scheduler.sampleOnce();
@@ -42,10 +42,10 @@ TEST(SamplingScheduler, SampleOnce_AssemblesRegisteredCollectors)
     EXPECT_GE(snapshot.timestamp, before);
     EXPECT_LE(snapshot.timestamp, after);
     ASSERT_TRUE(snapshot.cpu.has_value());
-    EXPECT_EQ(snapshot.cpu->coreCount, 6);
-    ASSERT_EQ(snapshot.cpu->coreUsagePercents.size(), 6u);
+    EXPECT_EQ(snapshot.cpu->totalUsagePercent, populatedSnapshot().cpu->totalUsagePercent);
+    EXPECT_EQ(snapshot.cpu->coreUsagePercents, populatedSnapshot().cpu->coreUsagePercents);
     ASSERT_TRUE(snapshot.memory.has_value());
-    EXPECT_GT(snapshot.memory->totalBytes, 0ULL);
+    EXPECT_EQ(snapshot.memory->totalBytes, populatedSnapshot().memory->totalBytes);
     EXPECT_FALSE(snapshot.disks.has_value());
     EXPECT_FALSE(snapshot.networks.has_value());
     EXPECT_FALSE(snapshot.processes.has_value());
@@ -81,8 +81,8 @@ TEST(SamplingScheduler, EmitsSnapshotReadySignal_ReceivedViaQtConnection)
 {
     SamplingScheduler scheduler(std::chrono::milliseconds{20});
 
-    scheduler.setCpuCollector(std::make_unique<SyntheticCpuCollector>(4));
-    scheduler.setMemoryCollector(std::make_unique<SyntheticMemoryCollector>());
+    scheduler.setCpuCollector(std::make_unique<FakeCpuCollector>());
+    scheduler.setMemoryCollector(std::make_unique<FakeMemoryCollector>());
 
     std::atomic<int> snapshotCount{0};
     SystemSnapshot lastSnapshot;
@@ -107,9 +107,9 @@ TEST(SamplingScheduler, EmitsSnapshotReadySignal_ReceivedViaQtConnection)
     {
         std::lock_guard lock(snapMutex);
         ASSERT_TRUE(lastSnapshot.cpu.has_value());
-        EXPECT_EQ(lastSnapshot.cpu->coreCount, 4);
+        EXPECT_EQ(lastSnapshot.cpu->totalUsagePercent, populatedSnapshot().cpu->totalUsagePercent);
         ASSERT_TRUE(lastSnapshot.memory.has_value());
-        EXPECT_GT(lastSnapshot.memory->totalBytes, 0ULL);
+        EXPECT_EQ(lastSnapshot.memory->totalBytes, populatedSnapshot().memory->totalBytes);
     }
 }
 

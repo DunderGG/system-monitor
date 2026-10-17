@@ -128,6 +128,7 @@ Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and c
 - [Maintenance — Tests (`tests/`)](#maintenance--tests-tests)
   - [DC-109](#dc-109-shared-test-builders-and-harnesses-in-testssupport-header-only): Shared test builders and harnesses in `tests/support/`, header-only
   - [DC-110](#dc-110-one-scheduler-pipeline-test-with-the-collectors-registersystemcollectors-registers): One scheduler pipeline test, with the collectors `registerSystemCollectors()` registers
+  - [DC-111](#dc-111-fixed-value-fake-collectors-in-testssupport-not-synthetic-collectors-in-monitoring): Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
 
 ---
 
@@ -1437,3 +1438,9 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 **Decision:** `sysmon::app::registerSystemCollectors()` (`src/app/system_collectors.h`, in the `sysmon_app_collectors` library) registers the Windows collector of every metric with a `SamplingScheduler`. `main.cpp` calls it, and so does `SchedulerPipelineIntegration.AppCollectors_SnapshotCarriesEveryField`, the one integration test that runs the scheduler with real collectors. The test waits for a snapshot that has per-core CPU values and the slow collectors' results, then checks every field of `SystemSnapshot`, including the health the scheduler evaluated from it. It replaces the five per-collector `SchedulerPipeline_*` tests and the process tracking tests' scheduler test.
 
 **Rationale:** Each per-collector test registered one collector and checked one field. Together they showed that each collector works with the scheduler, but not that the app registers them all, or that every field is right while all of them run at once, as they do in the app. A copy of `main.cpp`'s registrations in the test could drift from it; a shared function cannot. A library of its own follows `sysmon_app_logging`, which exists so that tests can exercise it. The test waits for a condition, not a number of snapshots: the old CPU test took the third snapshot and failed now and then under the parallel run, because the collector leaves out the per-core values of a tick in which some core's counters did not advance. A collector of the test's own first finds out whether the Network List Manager answers on the host, so a host without it does not fail the test.
+
+### DC-111: Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
+
+**Decision:** `SyntheticCpuCollector` and `SyntheticMemoryCollector`, which generated varying values for Phase 1, are removed from `src/monitoring/` with their tests. Tests that need a CPU or memory collector use `FakeCpuCollector` and `FakeMemoryCollector` from `tests/support/fake_collectors.h`, which return the same sample from every `collect()`, by default `populatedSnapshot()`'s.
+
+**Rationale:** Since Phase 2 only tests used the synthetic collectors, so they were test code in a production library, with tests of their own that checked the generated values. The three tests that used them needed a collector that returns a sample, and none depended on the variation. A fixed sample lets those tests check exact values instead of "not the placeholder", like the other fakes (`FakeUptimeCollector`, `FakeProcessCollector`, …), which return what the test sets. Moving the generators to `tests/support/` unchanged would have kept code, and tests of it, that no test needs. The deleted test's `static_assert`s on the `Collector` concept, its only users, now check the fakes.

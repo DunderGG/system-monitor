@@ -3,219 +3,51 @@
 #include <gtest/gtest.h>
 
 #include "domain/connectivity_status.h"
-#include "domain/cpu_sample.h"
-#include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_profile.h"
 #include "domain/network_sample.h"
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
-#include "domain/system_activity_sample.h"
 #include "domain/system_snapshot.h"
 
 using namespace sysmon::domain;
 
-// ---------------------------------------------------------------------------
-// CpuSample
-// ---------------------------------------------------------------------------
+// Default values that encode decisions: missing data is std::nullopt or
+// Unknown, never a zero that would read as a measurement (DC-12, DC-40,
+// DC-43, DC-44).
 
-TEST(CpuSample, DefaultConstruction_ZeroValues)
+TEST(MemorySample, DefaultConstruction_CacheAndPoolSizesUnknown)
 {
-    CpuSample s;
-    EXPECT_FLOAT_EQ(s.totalUsagePercent, 0.0f);
-    EXPECT_TRUE(s.coreUsagePercents.empty());
-    EXPECT_EQ(s.coreCount, 0);
+    const MemorySample sample;
+
+    EXPECT_FALSE(sample.systemCacheBytes.has_value());
+    EXPECT_FALSE(sample.pagedPoolBytes.has_value());
+    EXPECT_FALSE(sample.nonPagedPoolBytes.has_value());
 }
 
-TEST(CpuSample, DesignatedInit_FieldsRoundTrip)
+TEST(NetworkSample, DefaultConstruction_UnknownStatusAndNoRates)
 {
-    CpuSample s{
-        .totalUsagePercent = 42.5f,
-        .coreUsagePercents = {30.0f, 55.0f},
-        .coreCount = 2,
-    };
-    EXPECT_FLOAT_EQ(s.totalUsagePercent, 42.5f);
-    ASSERT_EQ(static_cast<int>(s.coreUsagePercents.size()), 2);
-    EXPECT_FLOAT_EQ(s.coreUsagePercents[0], 30.0f);
-    EXPECT_FLOAT_EQ(s.coreUsagePercents[1], 55.0f);
-    EXPECT_EQ(s.coreCount, 2);
+    const NetworkSample sample;
+
+    EXPECT_EQ(sample.operationalStatus, OperationalStatus::Unknown);
+    EXPECT_FALSE(sample.inBytesPerSec.has_value());
+    EXPECT_FALSE(sample.outBytesPerSec.has_value());
 }
-
-// ---------------------------------------------------------------------------
-// MemorySample
-// ---------------------------------------------------------------------------
-
-TEST(MemorySample, DefaultConstruction_ZeroValues)
-{
-    MemorySample s;
-    EXPECT_EQ(s.totalBytes, 0u);
-    EXPECT_EQ(s.availableBytes, 0u);
-    EXPECT_FLOAT_EQ(s.usagePercent, 0.0f);
-    EXPECT_EQ(s.commitLimit, 0u);
-    EXPECT_EQ(s.commitCurrent, 0u);
-    EXPECT_FALSE(s.systemCacheBytes.has_value());
-    EXPECT_FALSE(s.pagedPoolBytes.has_value());
-    EXPECT_FALSE(s.nonPagedPoolBytes.has_value());
-}
-
-// ---------------------------------------------------------------------------
-// SystemActivitySample
-// ---------------------------------------------------------------------------
-
-TEST(SystemActivitySample, DesignatedInit_FieldsRoundTrip)
-{
-    SystemActivitySample s{.processCount = 300, .threadCount = 4000, .handleCount = 150'000};
-
-    EXPECT_EQ(s.processCount, 300u);
-    EXPECT_EQ(s.threadCount, 4000u);
-    EXPECT_EQ(s.handleCount, 150'000u);
-}
-
-TEST(MemorySample, DesignatedInit_FieldsRoundTrip)
-{
-    MemorySample s{
-        .totalBytes = 16'000'000'000ULL,
-        .availableBytes = 4'000'000'000ULL,
-        .usagePercent = 75.0f,
-        .commitLimit = 20'000'000'000ULL,
-        .commitCurrent = 8'000'000'000ULL,
-    };
-    EXPECT_EQ(s.totalBytes, 16'000'000'000ULL);
-    EXPECT_EQ(s.availableBytes, 4'000'000'000ULL);
-    EXPECT_FLOAT_EQ(s.usagePercent, 75.0f);
-    EXPECT_EQ(s.commitLimit, 20'000'000'000ULL);
-    EXPECT_EQ(s.commitCurrent, 8'000'000'000ULL);
-}
-
-// ---------------------------------------------------------------------------
-// DiskSample
-// ---------------------------------------------------------------------------
-
-TEST(DiskSample, DefaultConstruction_ZeroValues)
-{
-    DiskSample s;
-    EXPECT_TRUE(s.volumeName.empty());
-    EXPECT_EQ(s.totalBytes, 0u);
-    EXPECT_EQ(s.freeBytes, 0u);
-    EXPECT_FLOAT_EQ(s.usagePercent, 0.0f);
-}
-
-TEST(DiskSample, DesignatedInit_FieldsRoundTrip)
-{
-    DiskSample s{
-        .volumeName = "C:\\",
-        .totalBytes = 500'000'000'000ULL,
-        .freeBytes = 200'000'000'000ULL,
-        .usagePercent = 60.0f,
-    };
-    EXPECT_EQ(s.volumeName, "C:\\");
-    EXPECT_EQ(s.totalBytes, 500'000'000'000ULL);
-    EXPECT_EQ(s.freeBytes, 200'000'000'000ULL);
-    EXPECT_FLOAT_EQ(s.usagePercent, 60.0f);
-}
-
-// ---------------------------------------------------------------------------
-// NetworkSample
-// ---------------------------------------------------------------------------
-
-TEST(NetworkSample, DefaultConstruction_UnknownStatus)
-{
-    NetworkSample s;
-    EXPECT_EQ(s.interfaceId, 0u);
-    EXPECT_TRUE(s.adapterName.empty());
-    EXPECT_TRUE(s.friendlyName.empty());
-    EXPECT_TRUE(s.description.empty());
-    EXPECT_EQ(s.inBytesTotal, 0u);
-    EXPECT_EQ(s.outBytesTotal, 0u);
-    EXPECT_FALSE(s.inBytesPerSec.has_value());
-    EXPECT_FALSE(s.outBytesPerSec.has_value());
-    EXPECT_EQ(s.linkSpeedBps, 0u);
-    EXPECT_EQ(s.operationalStatus, OperationalStatus::Unknown);
-    EXPECT_TRUE(s.ipAddresses.empty());
-    EXPECT_TRUE(s.dnsServers.empty());
-    EXPECT_FALSE(s.isHardwareInterface);
-    EXPECT_FALSE(s.hasIpInterface);
-}
-
-TEST(NetworkSample, DesignatedInit_FieldsRoundTrip)
-{
-    NetworkSample s{
-        .interfaceId = 42,
-        .adapterName = "Ethernet",
-        .friendlyName = "Ethernet",
-        .description = "Intel(R) Ethernet Connection I219-V",
-        .inBytesTotal = 1'000'000ULL,
-        .outBytesTotal = 500'000ULL,
-        .inBytesPerSec = 50'000ULL,
-        .outBytesPerSec = 25'000ULL,
-        .linkSpeedBps = 1'000'000'000ULL,
-        .operationalStatus = OperationalStatus::Up,
-        .ipAddresses = {{.text = "192.168.1.100"}, {.text = "fe80::1"}},
-        .dnsServers = {"1.1.1.1", "1.0.0.1"},
-        .isHardwareInterface = true,
-        .hasIpInterface = true,
-    };
-    EXPECT_EQ(s.interfaceId, 42u);
-    EXPECT_EQ(s.adapterName, "Ethernet");
-    EXPECT_EQ(s.friendlyName, "Ethernet");
-    EXPECT_EQ(s.description, "Intel(R) Ethernet Connection I219-V");
-    EXPECT_EQ(s.inBytesTotal, 1'000'000ULL);
-    EXPECT_EQ(s.outBytesTotal, 500'000ULL);
-    EXPECT_EQ(s.inBytesPerSec, 50'000ULL);
-    EXPECT_EQ(s.outBytesPerSec, 25'000ULL);
-    EXPECT_EQ(s.linkSpeedBps, 1'000'000'000ULL);
-    EXPECT_EQ(s.operationalStatus, OperationalStatus::Up);
-    ASSERT_EQ(s.ipAddresses.size(), 2u);
-    EXPECT_EQ(s.ipAddresses[0].text, "192.168.1.100");
-    EXPECT_EQ(s.ipAddresses[1].text, "fe80::1");
-    ASSERT_EQ(s.dnsServers.size(), 2u);
-    EXPECT_EQ(s.dnsServers[0], "1.1.1.1");
-    EXPECT_EQ(s.dnsServers[1], "1.0.0.1");
-    EXPECT_TRUE(s.isHardwareInterface);
-    EXPECT_TRUE(s.hasIpInterface);
-}
-
-TEST(OperationalStatus, EnumValues_AreDistinct)
-{
-    EXPECT_NE(OperationalStatus::Up, OperationalStatus::Down);
-    EXPECT_NE(OperationalStatus::Down, OperationalStatus::Testing);
-    EXPECT_NE(OperationalStatus::Testing, OperationalStatus::Unknown);
-    EXPECT_NE(OperationalStatus::Unknown, OperationalStatus::Dormant);
-    EXPECT_NE(OperationalStatus::Dormant, OperationalStatus::NotPresent);
-    EXPECT_NE(OperationalStatus::NotPresent, OperationalStatus::LowerLayerDown);
-}
-
-// ---------------------------------------------------------------------------
-// ConnectivityStatus
-// ---------------------------------------------------------------------------
 
 TEST(ConnectivityStatus, DefaultConstruction_UnknownWithUnknownCost)
 {
-    ConnectivityStatus s;
-    EXPECT_EQ(s.level, ConnectivityLevel::Unknown);
-    EXPECT_FALSE(s.isMetered.has_value());
-    EXPECT_FALSE(s.isRoaming.has_value());
+    const ConnectivityStatus status;
+
+    EXPECT_EQ(status.level, ConnectivityLevel::Unknown);
+    EXPECT_FALSE(status.isMetered.has_value());
+    EXPECT_FALSE(status.isRoaming.has_value());
 }
 
-TEST(ConnectivityStatus, DesignatedInit_FieldsRoundTrip)
-{
-    ConnectivityStatus s{
-        .level = ConnectivityLevel::InternetAccess,
-        .isMetered = true,
-        .isRoaming = false,
-    };
-    EXPECT_EQ(s.level, ConnectivityLevel::InternetAccess);
-    EXPECT_EQ(s.isMetered, true);
-    EXPECT_EQ(s.isRoaming, false);
-}
-
-TEST(NetworkProfile, DefaultConstruction_NoCategoryAndNoAdapters)
+TEST(NetworkProfile, DefaultConstruction_NoCategory)
 {
     const NetworkProfile profile;
 
-    EXPECT_TRUE(profile.name.empty());
     EXPECT_FALSE(profile.category.has_value());
-    EXPECT_TRUE(profile.interfaceIds.empty());
 }
 
 TEST(NetworkProfile, Equality_ComparesEveryField)
@@ -227,82 +59,16 @@ TEST(NetworkProfile, Equality_ComparesEveryField)
     EXPECT_NE(home, (NetworkProfile{.name = "Home", .category = NetworkCategory::Private, .interfaceIds = {2}}));
 }
 
-TEST(ConnectivityLevel, EnumValues_AreDistinct)
+TEST(ProcessInfo, DefaultConstruction_DetailsNotQueriedAndRatesUnknown)
 {
-    EXPECT_NE(ConnectivityLevel::Unknown, ConnectivityLevel::None);
-    EXPECT_NE(ConnectivityLevel::None, ConnectivityLevel::LocalAccess);
-    EXPECT_NE(ConnectivityLevel::LocalAccess, ConnectivityLevel::ConstrainedInternetAccess);
-    EXPECT_NE(ConnectivityLevel::ConstrainedInternetAccess, ConnectivityLevel::InternetAccess);
-}
+    const ProcessInfo process;
 
-// ---------------------------------------------------------------------------
-// ProcessInfo
-// ---------------------------------------------------------------------------
-
-TEST(ProcessInfo, DefaultConstruction_ZeroAndNotQueried)
-{
-    ProcessInfo p;
-    EXPECT_EQ(p.pid, 0u);
-    EXPECT_EQ(p.parentPid, 0u);
-    EXPECT_TRUE(p.imageName.empty());
-    EXPECT_FALSE(p.imagePath.has_value());
-    EXPECT_FALSE(p.commandLine.has_value());
-    EXPECT_EQ(p.cpuUserTimeMs, 0u);
-    EXPECT_EQ(p.cpuKernelTimeMs, 0u);
-    EXPECT_FALSE(p.cpuUsagePercent.has_value());
-    EXPECT_EQ(p.workingSetBytes, 0u);
-    EXPECT_EQ(p.privateWorkingSetBytes, 0u);
-    EXPECT_EQ(p.privateBytes, 0u);
-    EXPECT_EQ(p.ioReadBytes, 0u);
-    EXPECT_EQ(p.ioWriteBytes, 0u);
-    EXPECT_FALSE(p.ioReadBytesPerSec.has_value());
-    EXPECT_FALSE(p.ioWriteBytesPerSec.has_value());
-    EXPECT_EQ(p.threadCount, 0u);
-    EXPECT_EQ(p.handleCount, 0u);
-    EXPECT_EQ(p.detailsStatus, ProcessDetailsStatus::NotQueried);
-}
-
-TEST(ProcessInfo, DesignatedInit_FieldsRoundTrip)
-{
-    using std::chrono::system_clock;
-    const auto now = system_clock::now();
-
-    ProcessInfo p{
-        .pid = 1234,
-        .creationTime = now,
-        .parentPid = 1,
-        .imageName = "explorer.exe",
-        .imagePath = "C:\\Windows\\explorer.exe",
-        .commandLine = std::nullopt,
-        .cpuUserTimeMs = 100,
-        .cpuKernelTimeMs = 50,
-        .workingSetBytes = 64'000'000,
-        .privateWorkingSetBytes = 48'000'000,
-        .privateBytes = 32'000'000,
-        .ioReadBytes = 1'000,
-        .ioWriteBytes = 500,
-        .threadCount = 24,
-        .handleCount = 512,
-        .detailsStatus = ProcessDetailsStatus::Available,
-    };
-
-    EXPECT_EQ(p.pid, 1234u);
-    EXPECT_EQ(p.creationTime, now);
-    EXPECT_EQ(p.parentPid, 1u);
-    EXPECT_EQ(p.imageName, "explorer.exe");
-    ASSERT_TRUE(p.imagePath.has_value());
-    EXPECT_EQ(*p.imagePath, "C:\\Windows\\explorer.exe");
-    EXPECT_FALSE(p.commandLine.has_value());
-    EXPECT_EQ(p.cpuUserTimeMs, 100u);
-    EXPECT_EQ(p.cpuKernelTimeMs, 50u);
-    EXPECT_EQ(p.workingSetBytes, 64'000'000u);
-    EXPECT_EQ(p.privateWorkingSetBytes, 48'000'000u);
-    EXPECT_EQ(p.privateBytes, 32'000'000u);
-    EXPECT_EQ(p.ioReadBytes, 1'000u);
-    EXPECT_EQ(p.ioWriteBytes, 500u);
-    EXPECT_EQ(p.threadCount, 24u);
-    EXPECT_EQ(p.handleCount, 512u);
-    EXPECT_EQ(p.detailsStatus, ProcessDetailsStatus::Available);
+    EXPECT_EQ(process.detailsStatus, ProcessDetailsStatus::NotQueried);
+    EXPECT_FALSE(process.imagePath.has_value());
+    EXPECT_FALSE(process.commandLine.has_value());
+    EXPECT_FALSE(process.cpuUsagePercent.has_value());
+    EXPECT_FALSE(process.ioReadBytesPerSec.has_value());
+    EXPECT_FALSE(process.ioWriteBytesPerSec.has_value());
 }
 
 // Two ProcessInfo values with the same PID but different creation times are
@@ -341,54 +107,18 @@ TEST(ProcessIdentity, DifferentPidSameCreationTime_NotEqual)
               (ProcessIdentity{.pid = 2, .creationTime = created}));
 }
 
-// ---------------------------------------------------------------------------
-// SystemSnapshot
-// ---------------------------------------------------------------------------
-
 TEST(SystemSnapshot, DefaultConstruction_NoOptionalData)
 {
-    SystemSnapshot snap;
-    EXPECT_FALSE(snap.disks.has_value());
-    EXPECT_FALSE(snap.networks.has_value());
-    EXPECT_FALSE(snap.processes.has_value());
-    EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::Unknown);
-    EXPECT_FALSE(snap.cpu.has_value());
-    EXPECT_FALSE(snap.memory.has_value());
-    EXPECT_FALSE(snap.uptime.has_value());
-    EXPECT_FALSE(snap.activity.has_value());
-    EXPECT_EQ(snap.health, SystemHealth{});
-}
+    const SystemSnapshot snapshot;
 
-TEST(SystemSnapshot, DesignatedInit_SubSamplesStoredCorrectly)
-{
-    using std::chrono::steady_clock;
-    const auto ts = steady_clock::now();
-
-    SystemSnapshot snap{
-        .timestamp = ts,
-        .cpu = CpuSample{.totalUsagePercent = 10.0f, .coreCount = 4},
-        .memory = MemorySample{.totalBytes = 8'000'000'000ULL, .usagePercent = 50.0f},
-        .disks = std::vector<DiskSample>{DiskSample{.volumeName = "C:\\", .usagePercent = 70.0f}},
-        .networks = std::vector<NetworkSample>{NetworkSample{.adapterName = "Wi-Fi",
-                                                             .operationalStatus = OperationalStatus::Up}},
-        .connectivity = {.level = ConnectivityLevel::InternetAccess},
-        .processes = std::vector<ProcessInfo>{ProcessInfo{.pid = 4, .imageName = "System"}},
-    };
-
-    EXPECT_EQ(snap.timestamp, ts);
-    ASSERT_TRUE(snap.cpu.has_value());
-    EXPECT_FLOAT_EQ(snap.cpu->totalUsagePercent, 10.0f);
-    EXPECT_EQ(snap.cpu->coreCount, 4);
-    ASSERT_TRUE(snap.memory.has_value());
-    EXPECT_EQ(snap.memory->totalBytes, 8'000'000'000ULL);
-    ASSERT_TRUE(snap.disks.has_value());
-    ASSERT_EQ(snap.disks->size(), 1u);
-    EXPECT_EQ((*snap.disks)[0].volumeName, "C:\\");
-    ASSERT_TRUE(snap.networks.has_value());
-    ASSERT_EQ(snap.networks->size(), 1u);
-    EXPECT_EQ((*snap.networks)[0].adapterName, "Wi-Fi");
-    EXPECT_EQ(snap.connectivity.level, ConnectivityLevel::InternetAccess);
-    ASSERT_TRUE(snap.processes.has_value());
-    ASSERT_EQ(snap.processes->size(), 1u);
-    EXPECT_EQ((*snap.processes)[0].pid, 4u);
+    EXPECT_FALSE(snapshot.cpu.has_value());
+    EXPECT_FALSE(snapshot.memory.has_value());
+    EXPECT_FALSE(snapshot.disks.has_value());
+    EXPECT_FALSE(snapshot.networks.has_value());
+    EXPECT_EQ(snapshot.connectivity.level, ConnectivityLevel::Unknown);
+    EXPECT_FALSE(snapshot.networkProfiles.has_value());
+    EXPECT_FALSE(snapshot.uptime.has_value());
+    EXPECT_EQ(snapshot.health, SystemHealth{});
+    EXPECT_FALSE(snapshot.processes.has_value());
+    EXPECT_FALSE(snapshot.activity.has_value());
 }

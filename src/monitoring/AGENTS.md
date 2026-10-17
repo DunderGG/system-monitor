@@ -17,5 +17,5 @@ This module contains the metric collection infrastructure: collector interfaces,
 - Always protect shared state with `std::mutex` and `std::lock_guard` / `std::scoped_lock`. Keep critical sections minimal (copy under lock, process outside).
 - Aggregate collected data into immutable `SystemSnapshot` objects timestamped with `std::chrono::steady_clock`.
 - History kept here uses `domain::RingBuffer<T>` (fixed-capacity, caller-synchronized). Protect it with a mutex if it is shared across threads.
-- Provide fake/synthetic collectors here (or alongside tests) to enable testing the entire pipeline without OS telemetry dependencies.
+- Fake collectors for testing the pipeline without OS telemetry live with the tests (`tests/support/fake_collectors.h`, or the test file that alone uses one), not in this module.
 

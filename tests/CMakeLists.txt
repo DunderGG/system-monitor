@@ -6,6 +6,7 @@ include(GoogleTest)
 add_executable(system_monitor_tests
     test_main.cpp
     support/adapter_lists.h
+    support/fake_collectors.h
     support/fake_subscription.h
     support/log_capture.h
     support/network_samples.h
@@ -16,7 +17,6 @@ add_executable(system_monitor_tests
     support/text_contrast.h
     unit/domain_types_test.cpp
     unit/ring_buffer_test.cpp
-    unit/synthetic_collectors_test.cpp
     unit/sampling_scheduler_test.cpp
     unit/main_window_test.cpp
     unit/dashboard_view_test.cpp

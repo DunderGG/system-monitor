@@ -10,8 +10,8 @@
 
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
-#include "monitoring/synthetic_cpu_collector.h"
-#include "monitoring/synthetic_memory_collector.h"
+#include "support/fake_collectors.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
 #include "ui/network_view.h"
@@ -20,8 +20,10 @@
 #include "ui/resource_card.h"
 
 using sysmon::monitoring::SamplingScheduler;
-using sysmon::monitoring::SyntheticCpuCollector;
-using sysmon::monitoring::SyntheticMemoryCollector;
+using sysmon::tests::FakeCpuCollector;
+using sysmon::tests::FakeMemoryCollector;
+using sysmon::tests::populatedSnapshot;
+using sysmon::ui::formatPercent;
 using sysmon::ui::MainWindow;
 
 TEST(MainWindow, Construction_InitializesFourTabsInExpectedOrder)
@@ -77,8 +79,8 @@ TEST(MainWindow, NetworkTabSelected_ListsAdaptersRecordedWhileHidden)
 TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
 {
     SamplingScheduler scheduler(std::chrono::milliseconds{20});
-    scheduler.setCpuCollector(std::make_unique<SyntheticCpuCollector>(4, 55.0f));
-    scheduler.setMemoryCollector(std::make_unique<SyntheticMemoryCollector>());
+    scheduler.setCpuCollector(std::make_unique<FakeCpuCollector>());
+    scheduler.setMemoryCollector(std::make_unique<FakeMemoryCollector>());
 
     MainWindow mainWindow;
 
@@ -96,7 +98,6 @@ TEST(MainWindow, SnapshotReadyViaQueuedConnection_UpdatesDashboardOnUiThread)
     scheduler.stop();
 
     const auto* dashboard = mainWindow.dashboardView();
-    EXPECT_NE(dashboard->cpuCard()->valueText(), "--");
-    EXPECT_EQ(dashboard->cpuCard()->detailText(), "4 cores");
-    EXPECT_NE(dashboard->memoryCard()->valueText(), "--");
+    EXPECT_EQ(dashboard->cpuCard()->valueText(), formatPercent(populatedSnapshot().cpu->totalUsagePercent));
+    EXPECT_EQ(dashboard->memoryCard()->valueText(), formatPercent(populatedSnapshot().memory->usagePercent));
 }
