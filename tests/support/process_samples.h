@@ -26,6 +26,15 @@ namespace sysmon::tests
     };
 }
 
+/** A process started by parentPid; otherwise like process(). */
+[[nodiscard]] inline domain::ProcessInfo child(uint32_t pid, std::string name, uint32_t parentPid,
+                                               std::optional<std::chrono::seconds> createdAfterEpoch = std::nullopt)
+{
+    domain::ProcessInfo info = process(pid, std::move(name), createdAfterEpoch);
+    info.parentPid = parentPid;
+    return info;
+}
+
 /** Returns info with its CPU usage, a share of all logical processors, replaced. */
 [[nodiscard]] inline domain::ProcessInfo withCpuUsage(domain::ProcessInfo info, std::optional<float> cpuUsagePercent)
 {

@@ -10,14 +10,18 @@ add_executable(system_monitor_tests
     support/fake_subscription.h
     support/log_capture.h
     support/network_samples.h
+    support/process_model_harness.h
     support/process_samples.h
     support/readouts.h
     support/scheduler_harness.h
     support/snapshots.h
+    support/sparkline_samples.h
     support/text_contrast.h
     unit/domain_types_test.cpp
     unit/ring_buffer_test.cpp
     unit/sampling_scheduler_test.cpp
+    unit/sampling_scheduler_event_driven_test.cpp
+    unit/sampling_scheduler_slow_collectors_test.cpp
     unit/main_window_test.cpp
     unit/dashboard_view_test.cpp
     unit/dashboard_formatting_test.cpp
@@ -29,10 +33,14 @@ add_executable(system_monitor_tests
     unit/network_view_test.cpp
     unit/process_formatting_test.cpp
     unit/process_model_test.cpp
+    unit/process_model_highlights_test.cpp
+    unit/process_model_roles_test.cpp
+    unit/process_model_tree_test.cpp
     unit/process_sort_filter_proxy_model_test.cpp
     unit/processes_view_test.cpp
     unit/qt_configuration_test.cpp
     unit/readout_grid_test.cpp
+    unit/sparkline_geometry_test.cpp
     unit/sparkline_widget_test.cpp
     unit/text_tone_test.cpp
     unit/cpu_collector_test.cpp

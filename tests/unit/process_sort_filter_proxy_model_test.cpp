@@ -9,11 +9,13 @@
 #include <QString>
 
 #include "domain/process_info.h"
+#include "support/process_model_harness.h"
 #include "support/process_samples.h"
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 
 using namespace sysmon::domain;
+using sysmon::tests::kNow;
 using sysmon::tests::process;
 using sysmon::tests::withCpuUsage;
 using sysmon::ui::ProcessModel;
@@ -23,9 +25,6 @@ namespace
 {
 
 using Column = ProcessModel::Column;
-
-// The monotonic time of each refresh, unless a test moves it on.
-const auto kNow = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
 
 // A ProcessModel shown through a proxy.
 struct SortedModel

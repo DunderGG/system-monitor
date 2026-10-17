@@ -123,22 +123,10 @@ TEST(ProcessesView, UpdateSnapshot_EmptyList_RemovesRowsWhenHighlightsEnd)
     EXPECT_EQ(view.summaryText(), processListSummary(0, true));
 }
 
-namespace
-{
-
-ProcessInfo childOf(uint32_t parentPid, uint32_t pid, std::string name)
-{
-    ProcessInfo info = process(pid, std::move(name));
-    info.parentPid = parentPid;
-    return info;
-}
-
-} // namespace
-
 TEST(ProcessesView, SetTreeMode_ShowsBranchesExpanded)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), child(100, "smss.exe", 4)}));
 
     view.setTreeMode(true);
 
@@ -155,7 +143,7 @@ TEST(ProcessesView, SetTreeMode_ShowsBranchesExpanded)
 TEST(ProcessesView, TreeModeCheckBox_Unchecked_ShowsFlatListAgain)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), child(100, "smss.exe", 4)}));
     view.treeModeCheckBox()->setChecked(true);
 
     view.treeModeCheckBox()->setChecked(false);
@@ -168,8 +156,8 @@ TEST(ProcessesView, TreeModeCheckBox_Unchecked_ShowsFlatListAgain)
 TEST(ProcessesView, SetTreeMode_SelectedProcessStaysSelected)
 {
     ProcessesView view;
-    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
-    const auto smssIdentity = childOf(4, 100, "smss.exe").identity();
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), child(100, "smss.exe", 4)}));
+    const auto smssIdentity = child(100, "smss.exe", 4).identity();
     view.treeView()->setCurrentIndex(view.proxyModel()->mapFromSource(view.model()->indexOf(smssIdentity)));
 
     view.setTreeMode(true);
@@ -186,7 +174,7 @@ TEST(ProcessesView, TreeMode_ProcessGainsFirstChild_Expanded)
     view.setTreeMode(true);
     view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe")}));
 
-    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe"), child(500, "svchost.exe", 400)}));
 
     EXPECT_TRUE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
 }
@@ -195,11 +183,11 @@ TEST(ProcessesView, TreeMode_CollapsedBranch_StaysCollapsedWhenChildrenArrive)
 {
     ProcessesView view;
     view.setTreeMode(true);
-    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe"), childOf(400, 500, "svchost.exe")}));
+    view.updateSnapshot(snapshotWithProcesses({process(400, "services.exe"), child(500, "svchost.exe", 400)}));
     view.treeView()->collapse(view.proxyModel()->index(0, 0));
 
     view.updateSnapshot(snapshotWithProcesses(
-        {process(400, "services.exe"), childOf(400, 500, "svchost.exe"), childOf(400, 600, "spoolsv.exe")}));
+        {process(400, "services.exe"), child(500, "svchost.exe", 400), child(600, "spoolsv.exe", 400)}));
 
     EXPECT_FALSE(view.treeView()->isExpanded(view.proxyModel()->index(0, 0)));
 }
@@ -335,8 +323,8 @@ TEST(ProcessesView, EndProcessAction_SelectedProcessKeptAcrossTreeMode_StaysEnab
     ProcessesView view;
     std::vector<ProcessIdentity> ended;
     view.setProcessTerminator(recordingTerminator(ended));
-    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), childOf(4, 100, "smss.exe")}));
-    selectProcess(view, childOf(4, 100, "smss.exe").identity());
+    view.updateSnapshot(snapshotWithProcesses({process(4, "System"), child(100, "smss.exe", 4)}));
+    selectProcess(view, child(100, "smss.exe", 4).identity());
 
     view.setTreeMode(true);
 
