@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -9,7 +11,9 @@
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "support/adapter_lists.h"
 #include "support/network_samples.h"
+#include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
 
 using namespace sysmon::domain;
@@ -81,53 +85,16 @@ TEST(PerformanceFormatting, AdapterDisplayName_FallsBackToDescriptionThenAdapter
     EXPECT_EQ(adapterDisplayName(sample), "{GUID}");
 }
 
-TEST(PerformanceFormatting, ChartedAdapters_UpOnlyHardwareFirstThenByName)
+TEST(PerformanceFormatting, ChartedAdapters_OnlyAdaptersThatAreUp)
 {
     const std::vector<NetworkSample> networks{
         adapter(1, "vEthernet", OperationalStatus::Up, kVirtualAdapter),
         adapter(2, "Wi-Fi", OperationalStatus::Up),
         adapter(3, "Bluetooth", OperationalStatus::Down),
-        adapter(4, "Ethernet", OperationalStatus::Up),
+        adapter(4, "Ethernet", OperationalStatus::NotPresent),
     };
 
-    const auto charted = chartedAdapters(networks);
-
-    ASSERT_EQ(charted.size(), 3u);
-    EXPECT_EQ(charted[0]->friendlyName, "Ethernet");
-    EXPECT_EQ(charted[1]->friendlyName, "Wi-Fi");
-    EXPECT_EQ(charted[2]->friendlyName, "vEthernet");
-}
-
-TEST(PerformanceFormatting, ChartedAdapters_NamesSortedIgnoringCase)
-{
-    const std::vector<NetworkSample> networks{
-        adapter(1, "wi-fi", OperationalStatus::Up),
-        adapter(4, "Ethernet", OperationalStatus::Up),
-        adapter(3, "bridge", OperationalStatus::Up),
-    };
-
-    const auto charted = chartedAdapters(networks);
-
-    ASSERT_EQ(charted.size(), 3u);
-    EXPECT_EQ(charted[0]->friendlyName, "bridge");
-    EXPECT_EQ(charted[1]->friendlyName, "Ethernet");
-    EXPECT_EQ(charted[2]->friendlyName, "wi-fi");
-}
-
-TEST(PerformanceFormatting, ChartedAdapters_NumberedNamesInNaturalOrderThenById)
-{
-    const NetworkSample first = adapter(9, "Local Area Connection* 2", OperationalStatus::Up, kVirtualAdapter);
-    const NetworkSample second = adapter(3, "Local Area Connection* 2", OperationalStatus::Up, kVirtualAdapter);
-    const NetworkSample tenth = adapter(1, "Local Area Connection* 10", OperationalStatus::Up, kVirtualAdapter);
-
-    const std::vector<NetworkSample> networks{tenth, first, second};
-
-    const auto charted = chartedAdapters(networks);
-
-    ASSERT_EQ(charted.size(), 3u);
-    EXPECT_EQ(charted[0]->interfaceId, 3u);
-    EXPECT_EQ(charted[1]->interfaceId, 9u);
-    EXPECT_EQ(charted[2]->interfaceId, 1u);
+    EXPECT_EQ(sortedInterfaceIds(chartedAdapters(networks)), (std::vector<uint64_t>{1, 2}));
 }
 
 TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted)
@@ -142,24 +109,28 @@ TEST(PerformanceFormatting, ChartedAdapters_VirtualWithoutIpInterface_NotCharted
         vpn,
     };
 
-    const auto charted = chartedAdapters(networks);
-
-    ASSERT_EQ(charted.size(), 2u);
-    EXPECT_EQ(charted[0]->friendlyName, "Ethernet");
-    EXPECT_EQ(charted[1]->friendlyName, "Mullvad");
+    EXPECT_EQ(sortedInterfaceIds(chartedAdapters(networks)), (std::vector<uint64_t>{1, 4}));
 }
 
 TEST(PerformanceFormatting, ChartedAdapters_HardwareWithoutIpInterface_StillCharted)
 {
     // Adapter details are unavailable (GetAdaptersAddresses failed), or IP is
     // unbound from a physical adapter: its link can still carry traffic.
-    std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Up)};
-    networks[0].hasIpInterface = false;
+    const std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Up, kUnboundPhysicalAdapter)};
 
-    const auto charted = chartedAdapters(networks);
+    EXPECT_EQ(sortedInterfaceIds(chartedAdapters(networks)), (std::vector<uint64_t>{1}));
+}
 
-    ASSERT_EQ(charted.size(), 1u);
-    EXPECT_EQ(charted[0]->friendlyName, "Ethernet");
+TEST(PerformanceFormatting, ChartedAdapters_InIsListedBeforeOrder)
+{
+    const std::vector<NetworkSample> networks{
+        adapter(1, "vEthernet", OperationalStatus::Up, kVirtualAdapter),
+        adapter(2, "Wi-Fi", OperationalStatus::Up),
+        adapter(3, "Ethernet", OperationalStatus::Up),
+    };
+    ASSERT_FALSE(std::ranges::is_sorted(networks, isListedBefore));
+
+    EXPECT_TRUE(isInListedOrder(chartedAdapters(networks)));
 }
 
 TEST(PerformanceFormatting, Summaries_MissingData_NotAvailable)

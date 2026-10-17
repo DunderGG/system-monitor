@@ -5,6 +5,7 @@ include(GoogleTest)
 
 add_executable(system_monitor_tests
     test_main.cpp
+    support/adapter_lists.h
     support/fake_subscription.h
     support/log_capture.h
     support/network_samples.h

@@ -11,6 +11,7 @@
 #include "domain/connectivity_status.h"
 #include "domain/network_profile.h"
 #include "domain/network_sample.h"
+#include "support/adapter_lists.h"
 #include "support/network_samples.h"
 #include "support/readouts.h"
 #include "ui/network_formatting.h"
@@ -23,11 +24,12 @@ using namespace sysmon::tests;
 namespace
 {
 
-std::vector<uint64_t> ids(const std::vector<const NetworkSample*>& adapters)
+// Returns the interface IDs of adapters in their order.
+std::vector<uint64_t> idsOf(const std::vector<NetworkSample>& adapters)
 {
     std::vector<uint64_t> result;
-    for (const auto* sample : adapters) {
-        result.push_back(sample->interfaceId);
+    for (const auto& sample : adapters) {
+        result.push_back(sample.interfaceId);
     }
     return result;
 }
@@ -80,64 +82,78 @@ TEST(NetworkFormatting, CompareNaturally_IgnoresCaseThenComparesText)
     EXPECT_EQ(naturally("", ""), std::weak_ordering::equivalent);
 }
 
-TEST(NetworkFormatting, ListedAdapters_HidesUnboundVirtualAdaptersUnlessShowAll)
+TEST(NetworkFormatting, IsListedBefore_ListedByDefaultFirstThenHardwareThenNaturalNameThenId)
 {
+    NetworkSample wifiDirect = adapter(9, "Local Area Connection* 1", OperationalStatus::Down, kVirtualAdapter);
+    wifiDirect.isHidden = true;
+    NetworkSample kernelDebugger =
+        adapter(10, "Ethernet (Kernel Debugger)", OperationalStatus::NotPresent, kUnboundPhysicalAdapter);
+    kernelDebugger.isHidden = true;
+    std::vector<NetworkSample> adapters{
+        adapter(1, "mullvad", OperationalStatus::Up, kVirtualAdapter),
+        wifiDirect,
+        adapter(2, "Wi-Fi", OperationalStatus::Up),
+        adapter(7, "6to4 Adapter", OperationalStatus::NotPresent, kUnboundVirtualAdapter),
+        adapter(3, "Ethernet", OperationalStatus::Down),
+        adapter(5, "Local Area Connection* 10", OperationalStatus::Down, kVirtualAdapter),
+        adapter(8, "Local Area Connection* 2", OperationalStatus::Down, kVirtualAdapter),
+        kernelDebugger,
+        adapter(4, "Local Area Connection* 2", OperationalStatus::Down, kVirtualAdapter),
+        adapter(6, "Bluetooth", OperationalStatus::Up, kVirtualAdapter),
+    };
+
+    std::ranges::sort(adapters, isListedBefore);
+
+    // Listed by default: hardware 3 and 2, then virtual 6, 4 and 8 (one name,
+    // so by ID), 5 and 1. Then the others: hardware 10, then virtual 7 and 9.
+    EXPECT_EQ(idsOf(adapters), (std::vector<uint64_t>{3, 2, 6, 4, 8, 5, 1, 10, 7, 9}));
+}
+
+TEST(NetworkFormatting, IsListedBefore_StatusDoesNotChangeTheOrder)
+{
+    const NetworkSample wifi = adapter(1, "Wi-Fi", OperationalStatus::Up);
+    NetworkSample ethernet = adapter(2, "Ethernet");
+
+    for (const auto status : {OperationalStatus::Up, OperationalStatus::Down, OperationalStatus::NotPresent}) {
+        SCOPED_TRACE(operationalStatusText(status).toStdString());
+        ethernet.operationalStatus = status;
+
+        EXPECT_TRUE(isListedBefore(ethernet, wifi));
+        EXPECT_FALSE(isListedBefore(wifi, ethernet));
+    }
+}
+
+TEST(NetworkFormatting, ListedAdapters_HidesHiddenAndUnboundVirtualAdaptersUnlessShowAll)
+{
+    NetworkSample wifiDirect = adapter(4, "Local Area Connection* 1", OperationalStatus::Down, kVirtualAdapter);
+    wifiDirect.isHidden = true;
     const std::vector<NetworkSample> networks{
         adapter(1, "Ethernet", OperationalStatus::Up),
         adapter(2, "WAN Miniport (IP)", OperationalStatus::Up, kUnboundVirtualAdapter),
         adapter(3, "Teredo Tunneling Pseudo-Interface", OperationalStatus::NotPresent, kUnboundVirtualAdapter),
-    };
-
-    EXPECT_EQ(ids(listedAdapters(networks, false)), (std::vector<uint64_t>{1}));
-    EXPECT_EQ(ids(listedAdapters(networks, true)), (std::vector<uint64_t>{1, 3, 2}));
-}
-
-TEST(NetworkFormatting, ListedAdapters_StatusDoesNotChangeTheOrder)
-{
-    std::vector<NetworkSample> networks{
-        adapter(1, "Wi-Fi", OperationalStatus::Up),
-        adapter(2, "Ethernet", OperationalStatus::Down),
-        adapter(3, "Bluetooth Network Connection", OperationalStatus::LowerLayerDown, kVirtualAdapter),
-    };
-    const auto before = ids(listedAdapters(networks, false));
-
-    networks[0].operationalStatus = OperationalStatus::Down;
-    networks[1].operationalStatus = OperationalStatus::Up;
-    networks[2].operationalStatus = OperationalStatus::Up;
-
-    EXPECT_EQ(before, (std::vector<uint64_t>{2, 1, 3}));
-    EXPECT_EQ(ids(listedAdapters(networks, false)), before);
-}
-
-TEST(NetworkFormatting, ListedAdapters_HardwareThenNaturalNameThenId)
-{
-    const std::vector<NetworkSample> networks{
-        adapter(1, "mullvad", OperationalStatus::Up, kVirtualAdapter),
-        adapter(2, "Wi-Fi", OperationalStatus::Up),
-        adapter(3, "Ethernet", OperationalStatus::Down),
-        adapter(5, "Local Area Connection* 10", OperationalStatus::Down, kVirtualAdapter),
-        adapter(4, "Local Area Connection* 2", OperationalStatus::Down, kVirtualAdapter),
-        adapter(8, "Local Area Connection* 2", OperationalStatus::Down, kVirtualAdapter),
-        adapter(6, "Bluetooth", OperationalStatus::Up, kVirtualAdapter),
-    };
-
-    EXPECT_EQ(ids(listedAdapters(networks, false)), (std::vector<uint64_t>{3, 2, 6, 4, 8, 5, 1}));
-}
-
-TEST(NetworkFormatting, ListedAdapters_ShowAll_AddedAdaptersAfterTheOthers)
-{
-    NetworkSample wifiDirect = adapter(3, "Local Area Connection* 1", OperationalStatus::Down, kVirtualAdapter);
-    wifiDirect.isHidden = true;
-    const std::vector<NetworkSample> networks{
-        adapter(1, "6to4 Adapter", OperationalStatus::NotPresent, kUnboundVirtualAdapter),
-        adapter(2, "Wi-Fi", OperationalStatus::Down),
         wifiDirect,
-        adapter(4, "Bluetooth Network Connection", OperationalStatus::Down, kVirtualAdapter),
-        adapter(5, "Ethernet", OperationalStatus::Up),
+        adapter(5, "Bluetooth Network Connection", OperationalStatus::Down, kVirtualAdapter),
     };
 
-    EXPECT_EQ(ids(listedAdapters(networks, false)), (std::vector<uint64_t>{5, 2, 4}));
-    EXPECT_EQ(ids(listedAdapters(networks, true)), (std::vector<uint64_t>{5, 2, 4, 1, 3}));
+    EXPECT_EQ(sortedInterfaceIds(listedAdapters(networks, false)), (std::vector<uint64_t>{1, 5}));
+    EXPECT_EQ(sortedInterfaceIds(listedAdapters(networks, true)), (std::vector<uint64_t>{1, 2, 3, 4, 5}));
+}
+
+TEST(NetworkFormatting, ListedAdapters_InIsListedBeforeOrder)
+{
+    const std::vector<NetworkSample> networks{
+        adapter(1, "WAN Miniport (IP)", OperationalStatus::Up, kUnboundVirtualAdapter),
+        adapter(2, "Wi-Fi", OperationalStatus::Up),
+        adapter(3, "Bluetooth Network Connection", OperationalStatus::Down, kVirtualAdapter),
+        adapter(4, "Ethernet", OperationalStatus::Down),
+    };
+    ASSERT_FALSE(std::ranges::is_sorted(networks, isListedBefore));
+
+    for (const bool showAll : {false, true}) {
+        SCOPED_TRACE(showAll ? "show all" : "listed by default");
+
+        EXPECT_TRUE(isInListedOrder(listedAdapters(networks, showAll)));
+    }
 }
 
 TEST(NetworkFormatting, ListedAdapters_NoAdapters_Empty)
