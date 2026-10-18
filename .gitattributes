@@ -15,6 +15,10 @@
 *.qrc text eol=lf
 *.ui text eol=lf
 
+# Diff hunk headers name the Markdown heading, and git log -L ':DC-76\::docs/design_decisions.md'
+# lists every change to one design decision
+*.md diff=markdown
+
 # Windows-specific files that must keep CRLF
 *.bat text eol=crlf
 *.cmd text eol=crlf

@@ -3,7 +3,9 @@
 Rationale for non-obvious implementation choices made during development.
 Each entry links to the relevant roadmap phase and source files.
 
-Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number, even when it is filed under an earlier heading. Numbers are never reused or renumbered, and a superseded entry stays in place with a note pointing to the entry that replaced it.
+Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number, even when it is filed under an earlier heading. Numbers are never reused or renumbered.
+
+An entry states the decision as the code now has it ([DC-115](#dc-115)). A change to the decision rewrites the entry: its **Decision** and **Rationale** describe the choice as it now stands, and its last line, **History:**, which names the phase or code-review finding that made the decision, gains the one that changed it. The Rationale names an earlier choice only as a rejected alternative, when the reason it was dropped still matters. No note such as "Superseded in part by" or "Extended by" is added, and no new entry patches an old one. Earlier versions are in git: `git log -L ':DC-76\::docs/design_decisions.md'` lists every change to DC-76. An entry merged into another, or retired, keeps its anchor and its heading as a stub with one line that says where the decision is now, so that links to it still resolve.
 
 Each entry heading has an anchor of its ID alone on the line above it, `<a id="dc-NN"></a>`, and links name that anchor: `design_decisions.md#dc-NN` from another file, `#dc-NN` within this one. A link to the heading's own slug breaks when the entry is retitled. `.\scripts\build.ps1 -Format` and `-CheckFormat` fail on a missing anchor, a link that does not resolve, and a `DC-NN` cited anywhere that is not an entry ([DC-114](#dc-114)).
 
@@ -29,11 +31,11 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 - [Phase 1 — Monitoring infrastructure (`src/monitoring/`)](#phase-1--monitoring-infrastructure-srcmonitoring)
   - [DC-16](#dc-16): `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`
   - [DC-17](#dc-17): `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
-  - [DC-18](#dc-18): `ICollector<T>`: Dual-layer interface and C++20 concept
+  - [DC-18](#dc-18): `ICollector<T>`: one virtual interface for every collector, and no concept
   - [DC-19](#dc-19): `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
 - [Phase 1 — Basic UI shell (`src/ui/`)](#phase-1--basic-ui-shell-srcui)
   - [DC-20](#dc-20): UI module dependency isolation and composition root in `src/app/`
-  - [DC-21](#dc-21): `test_main.cpp`: Test discovery without `QApplication` instantiation
+  - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
 - [Phase 2 — Real Windows collectors and dashboard (`src/platform/windows/`)](#phase-2--real-windows-collectors-and-dashboard-srcplatformwindows)
   - [DC-22](#dc-22): UTF-8 active code page through an application manifest
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
@@ -91,7 +93,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-73](#dc-73): Process details cached by `(PID, creation time)` with a domain `ProcessIdentity` key
   - [DC-74](#dc-74): `lsass.exe` and `csrss.exe` recognised by image name and filtered before any details reader
   - [DC-75](#dc-75): Process details read with a limited handle, checked against the identity, and logged at debug
-  - [DC-76](#dc-76): Per-process CPU usage computed in the collector, as a share of all logical processors
+  - [DC-76](#dc-76): Per-process CPU usage and I/O rates computed in the collector, CPU as a share of all logical processors
   - [DC-77](#dc-77): A slow-collector thread in the scheduler, shared by processes and connectivity
   - [DC-78](#dc-78): Process integration tests: a suspended child process, exact read sets, and an elevation-aware access check
   - [DC-94](#dc-94): A process without an image name is never opened, except the Idle process (code review F-32)
@@ -135,6 +137,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-113](#dc-113): Tests run as GoogleTest shards, one CTest test each, not one process per test
 - [Maintenance — Design decisions (`docs/`)](#maintenance--design-decisions-docs)
   - [DC-114](#dc-114): Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
+  - [DC-115](#dc-115): Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
 
 ---
 
@@ -302,13 +305,13 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 ---
 
 <a id="dc-18"></a>
-### DC-18: `ICollector<T>`: Dual-layer interface and C++20 concept
+### DC-18: `ICollector<T>`: one virtual interface for every collector, and no concept
 
-**Decision:** Provide `template<typename T> class ICollector` with a pure virtual `collect()` method for dynamic polymorphism in `SamplingScheduler`, paired with a `Collector<C, T>` C++20 concept.
+**Decision:** `template<typename T> class ICollector` (`monitoring/collector.h`) has one pure virtual `collect()` that returns the sample type `T`. Each collector derives from the alias for its sample (`ICpuCollector`, `IProcessCollector`, …), and `SamplingScheduler` holds each as a `std::unique_ptr<ICollector<T>>`. No concept describes collectors.
 
-**Rationale:** `SamplingScheduler` must store heterogeneous collectors (CPU, memory, disk, etc.) whose concrete implementations can be swapped between synthetic implementations (for testing and early phases) and real Windows collectors (in later phases). Making `SamplingScheduler` an un-templated `QObject` holding `std::unique_ptr<ICollector<T>>` keeps Qt signal/slot metadata clean and avoids template bloat. Meanwhile, the `Collector<C, T>` concept enables compile-time verification in tests and non-virtual template contexts, ensuring consistency across static and dynamic collection code.
+**Rationale:** `SamplingScheduler` stores collectors of different types (CPU, memory, disk, etc.), and their implementations are swapped between the real Windows collectors and the fakes that tests use. An un-templated `QObject` holding `std::unique_ptr<ICollector<T>>` keeps Qt's signal and slot metadata simple and avoids template bloat. `override` checks each collector's `collect()` against the interface at compile time. A `Collector<C, T>` concept beside the interface was dropped: no template takes collectors without virtual calls, and its only users were `static_assert`s in tests. If such a template is ever needed, it gets a concept written for that use.
 
-**Note:** The `Collector<C, T>` concept is removed, and `ICollector<T>` alone remains. No template ever took collectors without virtual calls: the scheduler holds `std::unique_ptr<ICollector<T>>`, and `override` already checks each collector's `collect()` against the interface at compile time. The concept's only users were `static_assert`s in tests ([DC-111](#dc-111)). If such a template is ever needed, it gets a concept written for that use.
+**History:** Phase 1, monitoring infrastructure; maintenance (the `Collector<C, T>` concept removed).
 
 ---
 
@@ -333,13 +336,13 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 ---
 
 <a id="dc-21"></a>
-### DC-21: `test_main.cpp`: Test discovery without `QApplication` instantiation
+### DC-21: `test_main.cpp`: listing the tests creates no `QApplication`
 
-**Decision:** In the test runner (`tests/test_main.cpp`), `QApplication` instantiation is bypassed when `--gtest_list_tests` is passed during CMake's `gtest_discover_tests` step.
+**Decision:** The test runner (`tests/test_main.cpp`) creates no `QApplication` when `--gtest_list_tests` is passed. It runs the tests with a `QApplication` otherwise.
 
-**Rationale:** When CMake invokes the test binary with `--gtest_list_tests` at build time to discover tests, initializing `QApplication` would attempt to load platform plugins before they are fully deployed or in headless environments without an active display session, risking modal error dialogues or timeouts. Bypassing `QApplication` for list-only execution allows instantaneous and reliable test discovery, while full test execution creates `QApplication` and leverages the deployed platform plugin.
+**Rationale:** Creating `QApplication` loads the platform plugin, which fails when the plugins are not deployed yet and can fail without a display session, with a modal error dialog or a timeout. Listing the tests needs no plugin, so it is instant and works anywhere. The build itself no longer lists the tests: CTest runs GoogleTest shards, not tests that `gtest_discover_tests` found at build time ([DC-113](#dc-113)). The check stays, so that listing the tests by hand or from a tool starts no `QApplication` either.
 
-**Note:** Since [DC-113](#dc-113) the build no longer lists the tests, because CTest runs shards rather than discovered tests. The check stays, so that listing the tests by hand starts no `QApplication` either.
+**History:** Phase 1, basic UI shell; maintenance (the build no longer lists the tests).
 
 ---
 
@@ -574,15 +577,15 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 <a id="dc-46"></a>
 ### DC-46: Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
 
-**Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a colour-coded health status label (hidden for uptime, which has no health dimension), and a fixed-height slot reserved for a mini sparkline. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
+**Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a health status label (hidden for uptime, which has no health dimension), and at the bottom a fixed-height slot that holds the card's one-minute sparkline ([DC-48](#dc-48)); the uptime card's slot stays empty. The status label is a `TonedLabel` ([DC-105](#dc-105)): Healthy, Warning and Critical in bold in their tones' colours, and Unknown dimmed and in italics, because it is not a state. Each tone has a shade for light and one for dark backgrounds, so the status reaches 4.5:1 contrast in both colour schemes and follows a change of scheme. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
 - Byte quantities use binary (IEC) units (KiB, MiB, GiB).
 - Disk shows the fullest volume.
 - Network shows total throughput over hardware adapters that are Up. Virtual adapters (VPN tunnels, virtual switches) are left out because their traffic also crosses a hardware adapter. It shows "N/A" if any active hardware adapter has no rate yet, because a partial sum would understate traffic, and "No active adapter" when no hardware adapter is Up. Connectivity is the detail line.
 - String literals are ASCII only (no arrows or middle dots). Targets that link Qt compile with `/utf-8`, which Qt adds to its usage requirements, but `domain` and `platform/windows` do not link Qt, so a non-ASCII literal would be read in the system code page there. Non-ASCII text in code is written as escapes or code units.
 
-**Rationale:** A reusable card keeps the five resources visually consistent and reserves room for the upcoming mini sparkline so adding it does not re-lay out the dashboard. Keeping formatting and aggregation in pure functions keeps `DashboardView` thin and makes edge cases (unit boundaries, missing rates, no volumes) testable. Health comes precomputed in `SystemSnapshot::health`, so the UI only renders it, in line with `src/ui/AGENTS.md`. Binary units match how Windows reports memory and disk sizes. Other tabs are still placeholders, so snapshot forwarding to them remains deferred (code review F-4).
+**Rationale:** A reusable card keeps the five resources visually consistent. The chart slot has the same height in every card, so the uptime card, which has no chart, lines up with the others. Keeping formatting and aggregation in pure functions keeps `DashboardView` thin and makes edge cases (unit boundaries, missing rates, no volumes) testable. Health comes precomputed in `SystemSnapshot::health`, so the UI only renders it, in line with `src/ui/AGENTS.md`. The status colours are tones rather than fixed colours because no single colour reaches WCAG's 4.5:1 on both a light and a dark background. Binary units match how Windows reports memory and disk sizes.
 
-**Extended by [DC-105](#dc-105):** the health status colours, and the dimmed "Unknown", reach 4.5:1 in both colour schemes and follow a change of scheme.
+**History:** Phase 2, dashboard view; code review F-37 (status colours).
 
 ---
 
@@ -854,9 +857,11 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 
 **Decision:** `platform/windows/system_process_information.h` defines `FullSystemProcessInformation`, the complete entry layout with the field names Windows uses. `static_assert`s tie its size and field offsets to the partial `SYSTEM_PROCESS_INFORMATION` in `winternl.h`. `parseSystemProcessInformation()` follows `NextEntryOffset` from the start of the buffer. It copies each entry out with `memcpy` and turns it into a `ProcessInfo`, and returns `std::nullopt` if an entry does not fit in the buffer. Image names are read with their `Length` (they need not be null-terminated), and only when they lie inside the buffer; otherwise the name is empty. The field mapping:
 
+- `privateWorkingSetBytes` is `WorkingSetPrivateSize`, the working set without shared pages (Task Manager's "Memory").
 - `privateBytes` is `PrivatePageCount`, the commit charge (Process Explorer's "Private Bytes", Task Manager's "Commit size").
 - `ioReadBytes` and `ioWriteBytes` are `ReadTransferCount` and `WriteTransferCount`. They count all of the process's read and write I/O, including pipes and devices, not only disk. The domain field comments say so.
 - CPU times are truncated from 100 ns units to whole milliseconds, the domain unit ([DC-14](#dc-14)).
+- A negative value in a signed counter (`LARGE_INTEGER`: the CPU times, `WorkingSetPrivateSize` and the transfer counts) reads as zero.
 - The creation time converts from the FILETIME epoch to `system_clock` with fixed arithmetic ([DC-08](#dc-08)).
 - The Idle process (PID 0) has no image name in the list, and its `imageName` stays empty. Naming it is left to the UI.
 
@@ -864,7 +869,7 @@ UTF-16 to UTF-8 conversion moved to `platform/windows/utf8_conversion.h` as `wid
 
 **Rationale:** `winternl.h` hides the creation time, user and kernel times, parent PID, and I/O counters in `Reserved` fields, and the collector needs all of them. A complete definition names them, and the `static_assert`s catch a layout mistake at compile time instead of as wrong numbers at run time. Copying each entry avoids reading through a cast pointer and any dependence on the buffer's alignment. The bounds checks stop a corrupt list from reading past the buffer. The parser's tests build lists from SDK types (`UNICODE_STRING`, `SYSTEM_THREAD_INFORMATION`), so they live in `tests/platform/`, which may not call Windows APIs, and the parser calls the conversion. A conversion in plain C++ keeps those tests free of OS calls and can be unit tested directly. `PrivatePageCount` is the field `VM_COUNTERS_EX` calls `PrivateUsage`, the documented commit charge. The transfer counts are the only I/O byte counters the list has, so the comments describe what they include rather than calling them disk I/O.
 
-**Extended by [DC-91](#dc-91):** the new field `privateWorkingSetBytes` is `WorkingSetPrivateSize`, a `LARGE_INTEGER` that a negative value reads as zero, like the other signed counters.
+**History:** Phase 4, process collector; code review F-29 (the private working set, for [DC-91](#dc-91)).
 
 ---
 
@@ -924,13 +929,13 @@ On the development machine (Release, unelevated, 413 processes) the first `colle
 ---
 
 <a id="dc-76"></a>
-### DC-76: Per-process CPU usage computed in the collector, as a share of all logical processors
+### DC-76: Per-process CPU usage and I/O rates computed in the collector, CPU as a share of all logical processors
 
-**Decision:** `ProcessInfo::cpuUsagePercent` is a `std::optional<float>`, set by `ProcessCollector` with the pure function `calculateProcessCpuUsage()`. The usage is the change in user + kernel time since the process's baseline, divided by the elapsed `steady_clock` time times the number of active logical processors in all processor groups, clamped to 0–100. Baselines are keyed by `ProcessIdentity` and replaced on every successful read, so exited processes drop out and a reused PID starts with no value. The value is `std::nullopt` the first time a process is seen, when no time has elapsed, when a process's CPU time went backwards, and when the processor count is unknown. The timestamp is taken right after the list is read, before the details are read for new processes. A failed read keeps the baselines, so the next success measures over the longer interval.
+**Decision:** `ProcessInfo::cpuUsagePercent` (`std::optional<float>`), `ioReadBytesPerSec` and `ioWriteBytesPerSec` (`std::optional<uint64_t>`) are set by `ProcessCollector` with the pure function `calculateProcessRates()`. The CPU usage is the change in user + kernel time since the process's baseline, divided by the elapsed `steady_clock` time times the number of active logical processors in all processor groups, clamped to 0–100. The I/O rates are the changes in the read and write transfer counts over the same time, from `calculateByteRate()` (`platform/windows/byte_rate.h`), which the network collector also uses. A baseline (`ProcessRateBaseline`) holds the CPU time, both I/O byte counters and the time they were read. Baselines are keyed by `ProcessIdentity` and replaced on every successful read, so exited processes drop out and a reused PID starts with no value. Every rate is `std::nullopt` the first time a process is seen and when no time has elapsed; each is also `std::nullopt` when its own counter went backwards, and the CPU usage when the processor count is unknown. The timestamp is taken right after the list is read, before the details are read for new processes. A failed read keeps the baselines, so the next success measures over the longer interval.
 
-**Rationale:** The roadmap puts the calculation in the collector, which owns the previous sample. A rate kept beside the cumulative times ([DC-14](#dc-14)) spares the UI the bookkeeping and keeps it identical for every consumer. Dividing by every logical processor puts each process on the scale of the total CPU usage, as Task Manager's Processes tab and this monitor's CPU card do. A single-threaded process on 16 processors therefore peaks at 6.25%. The column adds up to slightly less than the total, not to the total. Time spent on interrupts and deferred procedure calls is charged to no process (Task Manager lists it as "System interrupts"), and a process that exited during the interval is no longer listed, so its last share is lost. In the Phase 4 code review, the column added up to 98.7% over a 2-second interval, including the Idle process's 73.8%. Keying by identity keeps a new process from inheriting a previous process's baseline, which with PID alone could produce a huge or negative delta. `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` is used because process CPU times cover every group, unlike `GetSystemTimes` ([DC-29](#dc-29)). Taking the timestamp before the details are read keeps the up to 18 ms that the first details pass takes out of the interval. Windows credits CPU time at clock-tick granularity (about 15.6 ms), so a busy process can briefly exceed its share of the interval, hence the clamp. Millisecond CPU times lose nothing at that granularity.
+**Rationale:** The roadmap puts the calculation in the collector, which owns the previous sample. A rate kept beside the cumulative times ([DC-14](#dc-14)) spares the UI the bookkeeping and keeps it identical for every consumer. The UI could not compute the rates correctly anyway: the list is read every 2 seconds but reaches it with every 1 Hz snapshot, so a rate between snapshots would alternate between zero and double ([DC-80](#dc-80)). Dividing by every logical processor puts each process on the scale of the total CPU usage, as Task Manager's Processes tab and this monitor's CPU card do. A single-threaded process on 16 processors therefore peaks at 6.25%. The column adds up to slightly less than the total, not to the total. Time spent on interrupts and deferred procedure calls is charged to no process (Task Manager lists it as "System interrupts"), and a process that exited during the interval is no longer listed, so its last share is lost. In the Phase 4 code review, the column added up to 98.7% over a 2-second interval, including the Idle process's 73.8%. Keying by identity keeps a new process from inheriting a previous process's baseline, which with PID alone could produce a huge or negative delta. `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` is used because process CPU times cover every group, unlike `GetSystemTimes` ([DC-29](#dc-29)). Taking the timestamp before the details are read keeps the up to 18 ms that the first details pass takes out of the interval. Windows credits CPU time at clock-tick granularity (about 15.6 ms), so a busy process can briefly exceed its share of the interval, hence the clamp. Millisecond CPU times lose nothing at that granularity.
 
-**Extended by [DC-80](#dc-80):** the same pass now also computes each process's I/O read and write rates. `calculateProcessCpuUsage()` became `calculateProcessRates()`, and its baselines hold the I/O byte counters too.
+**History:** Phase 4, process collector; Phase 4, process explorer view (I/O rates, for [DC-80](#dc-80)).
 
 ---
 
@@ -1566,9 +1571,9 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 
 **Decision:** `SyntheticCpuCollector` and `SyntheticMemoryCollector`, which generated varying values for Phase 1, are removed from `src/monitoring/` with their tests. Tests that need a CPU or memory collector use `FakeCpuCollector` and `FakeMemoryCollector` from `tests/support/fake_collectors.h`, which return the same sample from every `collect()`, by default `populatedSnapshot()`'s.
 
-**Rationale:** Since Phase 2 only tests used the synthetic collectors, so they were test code in a production library, with tests of their own that checked the generated values. The three tests that used them needed a collector that returns a sample, and none depended on the variation. A fixed sample lets those tests check exact values instead of "not the placeholder", like the other fakes (`FakeUptimeCollector`, `FakeProcessCollector`, …), which return what the test sets. Moving the generators to `tests/support/` unchanged would have kept code, and tests of it, that no test needs. The deleted test's `static_assert`s on the `Collector` concept, its only users, now check the fakes.
+**Rationale:** Since Phase 2 only tests used the synthetic collectors, so they were test code in a production library, with tests of their own that checked the generated values. The three tests that used them needed a collector that returns a sample, and none depended on the variation. A fixed sample lets those tests check exact values instead of "not the placeholder", like the other fakes (`FakeUptimeCollector`, `FakeProcessCollector`, …), which return what the test sets. Moving the generators to `tests/support/` unchanged would have kept code, and tests of it, that no test needs.
 
-**Note:** The concept and these `static_assert`s are removed since; see the note on [DC-18](#dc-18).
+**History:** Maintenance, tests; maintenance (the `Collector` concept removed, and with it the `static_assert`s on the fakes, [DC-18](#dc-18)).
 
 <a id="dc-112"></a>
 ### DC-112: A mapping's values tested in one test, as a table of named cases
@@ -1594,3 +1599,22 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 **Decision:** Each entry heading has `<a id="dc-NN"></a>` on the line above it, and every link to an entry names that anchor. `Test-DesignDecisionLinks` in `scripts/build.ps1` runs after clang-format in both `-Format` and `-CheckFormat`. It reads this file and every tracked or new text file (Markdown, C++, CMake, PowerShell, …), and fails when an entry heading lacks its anchor, when a Markdown link into this file does not lead to it or names neither an anchor nor a `##` section heading, when a link whose text is `DC-NN` names another entry, or when a file cites a `DC-NN` that is not an entry.
 
 **Rationale:** Links named GitHub's slug of the heading, which is the whole title, so retitling or merging an entry broke every link to it, and nothing noticed. The ID does not change, and merged entries keep theirs as stubs. The anchor sits on a line of its own, not inside the heading, so headings read as before and `^### DC-` still finds them. In CommonMark a line holding only an inline tag is a paragraph, which the heading ends. An entry heading's slug is not accepted, so a link written the old way fails at once rather than at the next retitle. Section slugs are, because the contents list uses them. Code comments cite entries as plain `DC-NN`, which the citation check covers. The check needs nothing installed: it is PowerShell in the script that CI's Format Check job already runs, and it reads only the repository. `-Format`, which AGENTS.md says to run before committing, runs it too, so a broken link shows up before CI does.
+
+<a id="dc-115"></a>
+### DC-115: Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
+
+**Decision:**
+
+- **Current state:** an entry describes the decision as the code now has it. A change that answers its question differently, or adds to the answer, rewrites its Decision and Rationale under the same ID. It adds no note ("Superseded in part by", "Extended by", "Amended", "Note"), and no new entry that patches the old one. A new entry is for a new question. The Rationale keeps an earlier choice only as a rejected alternative, when the reason it was dropped still argues for the current one.
+- **History line:** an entry ends with `**History:**` followed, separated by semicolons, by where the decision was made and each change since: a phase and its roadmap section (`Phase 4, process collector`), a code-review finding (`code review F-29`), or `maintenance`. Each change says in parentheses what it changed and, if it was made for another entry, which one. DC-76's reads "Phase 4, process collector; Phase 4, process explorer view (I/O rates, for DC-80)".
+- **Git for the rest:** `.gitattributes` gives Markdown files Git's `markdown` diff driver, so `git log -L ':DC-76\::docs/design_decisions.md'` lists every commit that changed an entry, with each version, and diff hunk headers name the entry a change is in.
+- **Stubs:** an ID is never reused, renumbered or deleted. An entry merged into another, or retired, keeps its anchor, its heading, retitled to say so (`DC-89: Merged into DC-88`), and its line in the contents. Its body is one line that says where the decision is now. Links and citations elsewhere in the repository move to that entry, except in `docs/code_reviews/`, which record what each review led to at the time.
+- **Applied:** the notes in DC-18, DC-21, DC-46, DC-71, DC-76 and DC-111 are folded into those entries, which now end with their history. The other notes are in entries that the roadmap's next items rewrite: the chains it merges, DC-62's and DC-66's content that moves to other documents, and DC-68, which it retires. Grouping the entries by topic gives every other entry its history line.
+
+**Rationale:** The log was append-only: a change left the earlier entry as written and added a note to it. 40 notes patched 31 entries, so learning how End process works meant reading DC-88 and its two notes, then DC-89, DC-90 and DC-93, and working out which sentences still held; DC-88 still said the result was not shown. A reader, or an agent, who stopped at the first entry followed a decision the code no longer makes. A living entry is right when read alone. What it drops, the wording of earlier versions, git keeps beside the commit message that explains each change.
+
+- **Immutable records**, as in Michael Nygard's architecture decision records, where a new record supersedes an old one, suit decisions made once that an audit has to trace. Here most changes refine a decision, often after a code-review finding, and a new record would repeat most of the old one.
+- **A change log in each entry** would grow as the notes did, and the Decision would still need rewriting to be right. The history line keeps only where each change came from, which is enough to find the finding in `docs/code_reviews/` and the commit in git.
+- **The `markdown` driver:** without it Git finds no heading in a Markdown file, so `-L ':DC-76\::…'` fails, and hunk headers show the nearest line above that starts with a letter. The escaped colon matches only the entry's heading, not one whose ID starts with the same digits or a stub that names DC-76. Moving an entry, as grouping by topic will, looks to `git log -L` like adding it; the same command run from that commit's parent continues further back.
+
+**History:** Maintenance, design decisions.
