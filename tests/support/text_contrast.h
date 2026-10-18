@@ -13,7 +13,7 @@
 #include <QWidget>
 
 // Measures text contrast as WCAG defines it, for tests that check that text is
-// readable in both colour schemes (DC-105).
+// readable in both colour schemes (docs/coding_guidelines.md, "Text colours").
 
 namespace sysmon::tests
 {

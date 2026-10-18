@@ -11,7 +11,8 @@ namespace sysmon::ui
 /**
  * What the colour of a piece of text says. Every tone's colour reaches WCAG's
  * 4.5:1 contrast for normal text on the window and base colours of Qt's light
- * and dark Windows palettes, which the views are drawn on (DC-105).
+ * and dark Windows palettes, which the views are drawn on
+ * (docs/coding_guidelines.md, "Text colours").
  */
 enum class TextTone
 {

@@ -13,7 +13,7 @@ namespace
 // A darker shade for a light background and a lighter one for a dark
 // background. Each reaches 4.5:1 on the light palette's window (#f3f3f3) and
 // base (#ffffff) colours, or on the dark palette's window (#1e1e1e) and base
-// (#2d2d2d) colours (DC-105).
+// (#2d2d2d) colours (docs/coding_guidelines.md, "Text colours").
 constexpr QColor kGoodOnLight{0x1e, 0x7b, 0x45};
 constexpr QColor kGoodOnDark{0x3c, 0xb3, 0x71};
 constexpr QColor kWarningOnLight{0xa0, 0x5a, 0x00};

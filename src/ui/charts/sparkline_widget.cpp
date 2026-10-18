@@ -50,11 +50,13 @@ constexpr qreal kLegendKeyWidth = 10.0;
 // Categorical series colours, light and dark steps of the same hues. The order
 // was checked for adjacent-pair separation under colour-vision deficiency on
 // both surfaces. Red, amber, and green are left out: they are the health
-// status colours (see resource_card.cpp).
+// status colours (see text_tone.cpp).
 constexpr std::array<QRgb, 5> kLightSeriesColors{0xff2a78d6, 0xffeb6834, 0xff1baf7a, 0xff4a3aa7, 0xffe87ba4};
 constexpr std::array<QRgb, 5> kDarkSeriesColors{0xff3987e5, 0xffd95926, 0xff199e70, 0xff9085e9, 0xffd55181};
 constexpr QRgb kOverflowSeriesColor = 0xff898781;
 
+// The text of a missing current value. ui/charts does not depend on ui, so
+// this repeats ui::kNotAvailable.
 const QString kNotAvailable = "N/A";
 
 YRange rangeAbove(float largest)

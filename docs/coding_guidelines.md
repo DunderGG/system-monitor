@@ -287,14 +287,28 @@ connect(m_scheduler, SIGNAL(snapshotReady(SystemSnapshot)),
 ### Text from outside the program
 
 - `QLabel`, `QMessageBox` and tooltips render text as HTML when it looks like markup (`Qt::AutoText`, decided by `Qt::mightBeRichText()`). Text that the program does not control, such as adapter aliases and descriptions, network names (a Wi-Fi network is named by its access point), addresses, volume paths and process names, must never be interpreted that way.
-- Give a label or message box that shows such text `setTextFormat(Qt::PlainText)`. Where the text has to be rich text, such as a wrapping tooltip, pass each untrusted part through `toHtmlEscaped()`.
-- `ReadoutGrid`'s names and values are always plain text, so readouts need nothing extra.
+- Give a label or message box that shows such text `setTextFormat(Qt::PlainText)`, before its text, so that the text is never parsed as HTML, not even once. Where the text has to be rich text, such as a wrapping tooltip, pass each untrusted part through `toHtmlEscaped()`. A label whose text is a constant in the code keeps Qt's default.
+- `ReadoutGrid`'s names and values are always plain text, and it converts each readout's tooltip with `Qt::convertFromPlainText()`, so readouts need nothing extra.
+
+Reasons:
+
+- **Outside text can look like markup.** An access point names its Wi-Fi network with up to 32 bytes of its choosing, and drivers and VPN clients name adapters. In code review F-35 a network named `<img height=3000>` made the main window's minimum size 3142×3301 for as long as it was connected, because the connectivity section is outside the scroll area.
+- **Plain text, not escaping, for labels:** a label has no reason to be rich text, and one caller that forgot to escape would bring the problem back. Escaping is for rich text that has a reason to be rich, such as the process tooltips.
+- **In `ReadoutGrid`, not in each formatter:** setting the format where the grid creates its labels covers every readout, now and later, and the functions that build readouts need not know which values come from outside the program.
+- **Even where the text cannot hold a tag:** a Windows path cannot contain `<` or `>`, but `ResourceCard`'s detail, which names a volume, is plain text too, so that no label depends on what outside text can contain.
 
 ### Text colours
 
 - Text must reach WCAG's 4.5:1 contrast in both the light and the dark colour scheme, on the background it is actually drawn on. With the windows11 style, tab pages and cards are drawn in the palette's base colour, not its window colour.
 - Draw dimmed or status text with a `TextTone` (`ui/text_tone.h`): a `TonedLabel`, or `textToneColor()` and `dimmedTextColor()` where there is no label, such as an item model's foreground. Do not use `palette(mid)` or another frame colour for text, nor a fixed colour that suits only one scheme, nor a style sheet colour, which does not follow a change of scheme.
 - A new tone needs a shade for each scheme, and `text_tone_test.cpp` checks every tone against both schemes' window and base colours.
+
+Reasons:
+
+- **A frame colour is not a text colour.** `palette(mid)` is the bevel colour of 3D frames. In code review F-37 an adapter's status and description drawn in it measured 1.13:1 in the dark scheme, and the dashboard's "Unknown", in a style sheet's #a0a0a0, 2.61:1 on white.
+- **Dimmed is the text colour at 60%** (`kDimmedTextAlpha`), the opacity the charts use for their muted text, so readout names, descriptions and chart labels are dimmed alike. The palette's `PlaceholderText`, the text colour at 50% in the windows11 style, reaches only 3.95:1 on white.
+- **Two shades per status colour:** no green, amber or red reaches 4.5:1 on both white and #2d2d2d. Each of the earlier status colours failed in one scheme: the Healthy green #2e8b57 reached 4.25:1 on white but 3.24:1 on #2d2d2d. A tone picks its shade by the lightness of the background.
+- **Worked out in code, not in a style sheet:** a style sheet fixes a colour when it is applied. A `TonedLabel` works its colour out from the colours it inherits, and again on every palette change, so it follows a change of scheme while the app runs. An item model asks `dimmedTextColor()` each time the view paints, which follows the scheme without an event.
 
 ### Resource management
 
@@ -310,7 +324,7 @@ All Windows API calls must be isolated in the `src/platform/windows/` module. No
 ### Rules
 
 1. **Define `WIN32_LEAN_AND_MEAN` and `NOMINMAX`** before including `<Windows.h>` (or define them project-wide in CMake). `NOMINMAX` prevents the Windows `min`/`max` macros from conflicting with `<algorithm>`.
-2. **Convert Windows types to domain types at the boundary.** A Windows wrapper returns `sysmon::domain::CpuSample`, never a `FILETIME` or `SYSTEM_PROCESS_INFORMATION`.
+2. **Convert Windows types to domain types at the boundary.** A Windows wrapper returns `sysmon::domain::CpuSample`, never a `FILETIME` or `SYSTEM_PROCESS_INFORMATION`. A header that another module or `tests/unit/` includes, such as a collector's, includes no Windows headers either, so that the SDK's macros and declarations do not reach that module: `cpu_collector.h` declares its tick counts as `uint64_t`, and `cpu_collector.cpp` converts the `FILETIME`s. A header that needs Windows types, such as a mapping function's or `process_handle.h`, is internal: only `platform/windows` sources, `tests/platform/` and `tests/integration/` include it.
 3. **Handle errors at the call site.** Check return values from every Windows API call. Convert error codes to domain error types.
 4. **Use RAII for all handles and resources** (see memory management section).
 5. **Use `W` (wide) variants of Windows APIs**, not `A` (ANSI). We target Unicode throughout.

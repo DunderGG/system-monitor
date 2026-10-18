@@ -2,7 +2,7 @@
 
 Rationale for non-obvious implementation choices made during development, grouped by topic ([DC-116](#dc-116)). The line under each topic's heading says what it covers, and an entry's **History:** line names the phase or code-review finding that made it.
 
-An entry holds a decision and its reasons ([DC-117](#dc-117)). Measured tick costs are in [performance.md](performance.md), what `build.ps1` does is in [build_system.md](build_system.md), and the tests and the program's text are in the code.
+An entry holds a decision and its reasons ([DC-117](#dc-117)). Measured tick costs are in [performance.md](performance.md), what `build.ps1` does is in [build_system.md](build_system.md), the rules that every change follows are in [AGENTS.md](../AGENTS.md) and the [coding guidelines](coding_guidelines.md), with their reasons, and the tests, the program's text and where code lives are in the code.
 
 Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number and goes at the end of its topic, so the entries within a topic are in ID order. Numbers are never reused or renumbered.
 
@@ -20,7 +20,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-05](#dc-05): ETW deferred to post-MVP
   - [DC-06](#dc-06): Network names: `INetworkListManager`, read only after a change or once a minute, never on the tick
   - [DC-22](#dc-22): UTF-8 active code page through an application manifest
-  - [DC-26](#dc-26): Encapsulation of Windows SDK headers strictly inside translation units
+  - [DC-26](#dc-26): Retired, the rule is in AGENTS.md and the coding guidelines
 - [Modules and dependencies](#modules-and-dependencies)
   - [DC-07](#dc-07): CMake library type: `INTERFACE` (header-only)
   - [DC-20](#dc-20): UI module dependency isolation and composition root in `src/app/`
@@ -89,9 +89,9 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-67](#dc-67): Merged into DC-48 and DC-57
 - [Main window and shared UI](#main-window-and-shared-ui)
   - [DC-54](#dc-54): Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
-  - [DC-68](#dc-68): Shared UI constants and helpers: where each one lives (code review F-28)
-  - [DC-102](#dc-102): Labels that show text from the system or the network are plain text (code review F-35)
-  - [DC-105](#dc-105): Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
+  - [DC-68](#dc-68): Retired, the headers say what they hold
+  - [DC-102](#dc-102): Retired, the rule is in the coding guidelines
+  - [DC-105](#dc-105): Retired, the rule is in the coding guidelines
 - [Dashboard tab](#dashboard-tab)
   - [DC-45](#dc-45): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
   - [DC-46](#dc-46): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
@@ -146,13 +146,13 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-114](#dc-114): Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
   - [DC-115](#dc-115): Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
   - [DC-116](#dc-116): Entries grouped by topic, in ID order within each topic
-  - [DC-117](#dc-117): Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, and no test lists or copied UI text
+  - [DC-117](#dc-117): Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, rules in the coding guidelines, and no test lists, copied UI text or code locations
 
 ---
 
 ## Windows APIs
 
-Which Windows API supplies each kind of data, and how Windows types and text cross into the program.
+Which Windows API supplies each kind of data, and the code page of the text that the program passes to Windows.
 
 <a id="dc-01"></a>
 ### DC-01: Process enumeration: `NtQuerySystemInformation` over Tool Help
@@ -232,13 +232,9 @@ Which Windows API supplies each kind of data, and how Windows types and text cro
 ---
 
 <a id="dc-26"></a>
-### DC-26: Encapsulation of Windows SDK headers strictly inside translation units
+### DC-26: Retired, the rule is in AGENTS.md and the coding guidelines
 
-**Decision:** `cpu_collector.h` contains no `<Windows.h>` or Windows SDK types. All Windows types (`FILETIME`, `DWORD`, etc.) are converted to standard fixed-width integer types (`uint64_t`) in `cpu_collector.cpp`.
-
-**Rationale:** Including `<Windows.h>` in a header exposes macros like `min`, `max`, `near`, `far`, and thousands of global symbols transitively to any module that includes it, violating the project rule that only `platform/windows` interacts with the Windows SDK. By confining `<Windows.h>` strictly to `.cpp` files, headers remain clean, lightweight standard C++20.
-
-**History:** Phase 2, CPU collector.
+That a header other modules include, such as `cpu_collector.h`, has no Windows types or headers is in [coding_guidelines.md — Windows API wrapping](coding_guidelines.md#windows-api-wrapping), and in short in [AGENTS.md](../AGENTS.md) and `src/platform/windows/AGENTS.md`.
 
 ---
 
@@ -859,7 +855,7 @@ Roaming and the Network tab's connectivity section are described in [DC-39](#dc-
 - **Results:** the worker stores each result and, if it differs from the previous one, calls the change listener with its mutex held, which wakes the scheduler ([DC-77](#dc-77)). `collect()`, which the scheduler calls on the slow-collector thread, only copies the latest result, and returns `std::nullopt` before the first read has finished. `readCount()` tells tests when a read has finished.
 - **The COM apartment:** the production reader is made by a `NetworkProfileReaderFactory` that the worker calls, so the reader's `ScopedComApartment`, a multithreaded apartment, is created on the worker, kept for the worker's lifetime, and destroyed on the worker when the reader is. Within a read, `ScopedComApartment` is declared before the COM objects, so they are released first.
 - **Shutdown:** members are declared so that the subscription is cancelled first, the worker is stopped and joined next, and the state they share goes last.
-- **On the Network tab:** each card's "Network" readout names the adapter's networks, e.g. "Normandy (Private)", and the connectivity section's "Networks" readout lists every connected network ([DC-39](#dc-39)). "None" means there are none; "N/A" means the names could not be read. The names are shown as plain text, because an access point chooses the name of its Wi-Fi network ([DC-102](#dc-102)).
+- **On the Network tab:** each card's "Network" readout names the adapter's networks, e.g. "Normandy (Private)", and the connectivity section's "Networks" readout lists every connected network ([DC-39](#dc-39)). "None" means there are none; "N/A" means the names could not be read. The names are shown as plain text, because an access point chooses the name of its Wi-Fi network ([coding guidelines](coding_guidelines.md#text-from-outside-the-program)).
 
 **Rationale:**
 
@@ -875,7 +871,7 @@ Roaming and the Network tab's connectivity section are described in [DC-39](#dc-
 - **Category:** `GetCategory` comes with the same object and decides which firewall profile applies, which explains why one network behaves differently from another. A network whose category cannot be read keeps its name.
 - **The cost of a read:** in a Release build on the development machine, the first read in the process took about 11 ms, and later reads 4.4–6.1 ms. That is close to what the review measured with an apartment for each read, so the cost is the query, not COM's start-up. [architecture.md](architecture.md#threading-model) records the figure with the worker.
 
-**History:** Phase 5, network view; code review F-35 (names shown as plain text, for [DC-102](#dc-102)); code review F-38 (read on the collector's own thread, at most once a second); maintenance (DC-107 merged in).
+**History:** Phase 5, network view; code review F-35 (names shown as plain text); code review F-38 (read on the collector's own thread, at most once a second); maintenance (DC-107 merged in).
 
 ---
 
@@ -973,7 +969,7 @@ The annotation formatter, the named extremes and the colour slots are described 
 
 ## Main window and shared UI
 
-How snapshots reach the tabs, and the constants, text formats and text colours that the tabs share.
+How snapshots reach the tabs. The rules for the text that the tabs show, its format and its colours, are in the [coding guidelines](coding_guidelines.md#text-from-outside-the-program).
 
 <a id="dc-54"></a>
 ### DC-54: Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
@@ -987,71 +983,23 @@ How snapshots reach the tabs, and the constants, text formats and text colours t
 ---
 
 <a id="dc-68"></a>
-### DC-68: Shared UI constants and helpers: where each one lives (code review F-28)
+### DC-68: Retired, the headers say what they hold
 
-**Decision:**
-- `charts::kPercentRange` sits next to `YRange` in `sparkline_widget.h`.
-- `kNotAvailable` ("N/A") and `usedMemoryBytes()` are in `dashboard_formatting.h`, which the dashboard and the Performance tab's helpers already include.
-- `view_metrics.h` names the margins, spacing and title size the views share (`kViewMargin`, `kSectionSpacing`, `kItemSpacing`, `kTitlePointSize`). Values used by one file stay local named constants there, such as `kHistoryChartMinimumHeight` in `performance_page.cpp`.
-- `chartedAdapters()` orders names with `QString::compare(…, Qt::CaseInsensitive)`. Superseded by [DC-96](#dc-96): both tabs now order adapters with `isListedBefore()`, which compares names in natural order.
-
-**Rationale:** Each value had several copies that could drift apart. Moving them into an existing header that every user already includes avoids a new header for one or two declarations. `dashboard_formatting.h` already holds the formatting both tabs share (`formatPercent()`, `formatBytes()`). The charts library keeps its own "N/A", because `ui/charts` must not depend on `ui` ([DC-48](#dc-48)). One `usedMemoryBytes()` gives the dashboard card, the sidebar summary and the "Used" readout the same definition, which [DC-63](#dc-63) documents. The layout metrics get their own header because no existing one is about layout, and sharing them keeps the tabs aligned when one changes. `localeAwareCompare()` made a pure function's result depend on the machine's locale, which the readouts already avoid for counts ([DC-57](#dc-57)). Case-insensitive comparison gives the same order for adapter names, which are almost always ASCII.
-
-**Extended in code review F-37 and F-44:** `kCardMargins` in `view_metrics.h` gives the dashboard's and the Network tab's cards their margins ([DC-105](#dc-105)), and `kOneMinuteOfSamples` in `sample_history.h` is the one-minute history that both of them chart.
-
-**History:** Code review F-28; code review F-37 (`kCardMargins`, for [DC-105](#dc-105)); code review F-39 (the adapter order, for [DC-96](#dc-96)); code review F-44 (`kOneMinuteOfSamples`).
+A UI constant or helper that several files use is declared once, in a header they already include, with a comment that says what it is for; the adapter order is in [DC-96](#dc-96).
 
 ---
 
 <a id="dc-102"></a>
-### DC-102: Labels that show text from the system or the network are plain text (code review F-35)
+### DC-102: Retired, the rule is in the coding guidelines
 
-**Decision:** Every label that can show text the program does not control has the text format `Qt::PlainText`:
-- `ReadoutGrid`'s name and value labels, which show the network names, addresses and DNS servers on both tabs, and every other readout;
-- `AdapterCard`'s title, status and description;
-- the adapter chart titles on the Performance tab's network page;
-- `ResourceCard`'s value and detail, whose disk detail names a volume.
-
-Labels whose text is a constant in the code keep Qt's default. The format is set before the text. [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-from-outside-the-program) state the rule: plain text for a label, and `toHtmlEscaped()` for each untrusted part of rich text, such as a tooltip.
-
-**Rationale:** A `QLabel` defaults to `Qt::AutoText`, which renders its text as HTML when `Qt::mightBeRichText()` finds something that looks like a tag before the first line break. The Network List Manager names a Wi-Fi network after its SSID, up to 32 bytes that the access point chooses ([DC-100](#dc-100)). The review gave a network the name `<img height=3000>`, and the main window's minimum size became 3142×3301 for as long as that network was connected, because the connectivity section is outside the scroll area. `<h1>` rendered a heading, and rich text ignores the `\n` that puts each network on its own line. The adapter's alias and description are local, but drivers and VPN clients choose them.
-- **In `ReadoutGrid`, not in each formatter:** setting the format where the labels are created covers every readout, now and later. The functions that build readouts need not know which values come from outside the program.
-- **Plain text, not escaping:** `toHtmlEscaped()` would also work, but a readout has no reason to be rich text, and one caller that forgot to escape would bring the problem back. Escaping stays for rich text that has a reason to be rich, as in the process tooltips ([DC-85](#dc-85)). Plain text for a process's name in a dialog is what [DC-88](#dc-88) already chose.
-- **The format before the text:** untrusted text is then never parsed as HTML, not even once.
-- **`ResourceCard`:** Windows paths cannot contain `<` or `>`, so a volume's name could not be read as a tag. The card follows the rule anyway, so that no label that shows outside text depends on what that text can contain.
-
-**History:** Code review F-35.
+The rule and its reasons are in [coding_guidelines.md — Text from outside the program](coding_guidelines.md#text-from-outside-the-program).
 
 ---
 
 <a id="dc-105"></a>
-### DC-105: Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
+### DC-105: Retired, the rule is in the coding guidelines
 
-**Decision:** `ui/text_tone.h` names what the colour of a text says, as a `TextTone`: Normal, Dimmed, Good, Warning or Critical. `textToneColor()` gives each tone's colour. Dimmed text is the text colour at 60% opacity (`kDimmedTextAlpha`). Good, Warning and Critical each have a darker shade for a light background and a lighter one for a dark background, picked by the lightness of the window colour:
-
-| Tone | Light background | Contrast on #f3f3f3 / #ffffff | Dark background | Contrast on #1e1e1e / #2d2d2d |
-| --- | --- | --- | --- | --- |
-| Dimmed | black at 60% | 5.58 / 5.74 | white at 60% | 6.77 / 6.00 |
-| Good | #1e7b45 | 4.76 / 5.28 | #3cb371 | 6.25 / 5.17 |
-| Warning | #a05a00 | 4.78 / 5.31 | #d98200 | 5.67 / 4.68 |
-| Critical | #c62828 | 5.07 / 5.62 | #ff6b6b | 6.01 / 4.96 |
-
-`TonedLabel` is a `QLabel` drawn in its tone's colour, in bold for Good, Warning and Critical. It works the colour out from the text and window colours it inherits, and again on every `PaletteChange`, so it follows a change of colour scheme while the app runs. It keeps the colour in its `PlaceholderText` role, which a label does not otherwise use, and draws its text with that role. The tones are used by:
-- `AdapterCard`'s status (Good while Up, otherwise Dimmed) and description (Dimmed), which used `palette(mid)` in a style sheet;
-- `ResourceCard`'s health status (Good, Warning and Critical, and Dimmed in italics for Unknown), whose colours were in a style sheet;
-- `ReadoutGrid`'s names (Dimmed), which used the `PlaceholderText` role;
-- the process table's "N/A" cells, which now use `dimmedTextColor()` of the text colour instead of `PlaceholderText`.
-
-Both cards take their margins from `kCardMargins` in `view_metrics.h`, and neither uses a style sheet any more. The rule is in [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-colours).
-
-**Rationale:** `palette(mid)` is the bevel colour of 3D frames, not a text colour. The review measured the adapter's status and description at 1.13:1 in the dark scheme. With the windows11 style ([DC-104](#dc-104)) they became #282828 on #2d2d2d, 1.07:1, and the dashboard's "Unknown" #a0a0a0 on white, 2.61:1. WCAG's minimum for normal text is 4.5:1.
-- **Measured on what is drawn:** the windows11 style draws tab pages and cards in the base colour, #ffffff or #2d2d2d, not in the window colour, #f3f3f3 or #1e1e1e. Every tone reaches 4.5:1 on all four.
-- **Not `PlaceholderText`:** the review suggested the role that `ReadoutGrid` used. In the windows11 style it is the text colour at 50% opacity, which reaches 4.66:1 on #2d2d2d but only 3.95:1 on white, so the readout names fell short too. At 60%, the opacity the charts already use for their muted text, it reaches 5.74:1 and 6.00:1, and readout names, descriptions and chart labels are dimmed alike.
-- **Two shades per status colour:** no colour reaches 4.5:1 on both white and #2d2d2d. The old colours each failed in one scheme: the Healthy green #2e8b57 reached 4.25:1 on white but 3.24:1 on #2d2d2d, the Warning amber #d98200 4.68:1 on #2d2d2d but 2.94:1 on white, and the Critical red #d32f2f 4.98:1 on white but 2.77:1 on #2d2d2d.
-- **Worked out in code, not in a style sheet:** a style sheet fixes a colour when it is applied. The label picks the shade from the window colour it inherits, as the charts do, and picks again on every palette change. If it set its own `WindowText`, that role would no longer follow the palette, and the label could not tell the new scheme's text colour from the one it had set. A spare role leaves `WindowText` and `Window` inherited. Setting the palette sends another `PaletteChange`, which finds the colour already set and stops.
-- **Item models:** a table cell cannot hold a label, so the process model asks `dimmedTextColor()` for the colour each time the view paints, which follows the scheme without an event.
-
-**History:** Code review F-37.
+The rule and its reasons are in [coding_guidelines.md — Text colours](coding_guidelines.md#text-colours), and each tone's shades in `text_tone.cpp`.
 
 ---
 
@@ -1073,7 +1021,7 @@ The resource cards and the health evaluation they show.
 <a id="dc-46"></a>
 ### DC-46: Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
 
-**Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a health status label (hidden for uptime, which has no health dimension), and at the bottom a fixed-height slot that holds the card's one-minute sparkline ([DC-48](#dc-48)); the uptime card's slot stays empty. The status label is a `TonedLabel` ([DC-105](#dc-105)): Healthy, Warning and Critical in bold in their tones' colours, and Unknown dimmed and in italics, because it is not a state. Each tone has a shade for light and one for dark backgrounds, so the status reaches 4.5:1 contrast in both colour schemes and follows a change of scheme. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
+**Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a health status label (hidden for uptime, which has no health dimension), and at the bottom a fixed-height slot that holds the card's one-minute sparkline ([DC-48](#dc-48)); the uptime card's slot stays empty. The status label is a `TonedLabel` ([coding guidelines](coding_guidelines.md#text-colours)): Healthy, Warning and Critical in bold in their tones' colours, and Unknown dimmed and in italics, because it is not a state. Each tone has a shade for light and one for dark backgrounds, so the status reaches 4.5:1 contrast in both colour schemes and follows a change of scheme. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
 - Byte quantities use binary (IEC) units (KiB, MiB, GiB).
 - Disk shows the fullest volume.
 - Network shows total throughput over hardware adapters that are Up. Virtual adapters (VPN tunnels, virtual switches) are left out because their traffic also crosses a hardware adapter. It shows "N/A" if any active hardware adapter has no rate yet, because a partial sum would understate traffic, and "No active adapter" when no hardware adapter is Up. Connectivity is the detail line.
@@ -1081,7 +1029,7 @@ The resource cards and the health evaluation they show.
 
 **Rationale:** A reusable card keeps the five resources visually consistent. The chart slot has the same height in every card, so the uptime card, which has no chart, lines up with the others. Keeping formatting and aggregation in pure functions keeps `DashboardView` thin and makes edge cases (unit boundaries, missing rates, no volumes) testable. Health comes precomputed in `SystemSnapshot::health`, so the UI only renders it, in line with `src/ui/AGENTS.md`. The status colours are tones rather than fixed colours because no single colour reaches WCAG's 4.5:1 on both a light and a dark background. Binary units match how Windows reports memory and disk sizes.
 
-**History:** Phase 2, dashboard view; code review F-9 (only hardware adapters in the network total); code review F-19 (why literals are ASCII); code review F-37 (status colours, for [DC-105](#dc-105)).
+**History:** Phase 2, dashboard view; code review F-9 (only hardware adapters in the network total); code review F-19 (why literals are ASCII); code review F-37 (status colours that reach 4.5:1 in both colour schemes).
 
 ---
 
@@ -1184,8 +1132,8 @@ The process table: its model, columns, sorting, tree, highlights and access indi
   - **Memory** is `privateWorkingSetBytes`, the part of the working set that no other process shares, and the column sorts by it. The parser reads it from `WorkingSetPrivateSize` ([DC-71](#dc-71)), and the comments on the three memory fields say what each one counts. The header is "Memory", and its tooltip (`headerToolTip()` in `process_model.cpp`) says that the column shows the private working set, as Task Manager's Memory column does. `processMemoryToolTip()` gives each cell's tooltip: the private working set, the working set and the commit size (`privateBytes`), each with what it counts.
   - **I/O** is read plus write bytes per second, from `ioReadBytesPerSec` and `ioWriteBytesPerSec`, which `ProcessCollector` computes with the CPU usage ([DC-76](#dc-76)). The cell shows the sum, or "N/A" when either rate is missing, and its tooltip shows each rate. The column is headed "I/O" rather than the roadmap's "Disk I/O", and its header tooltip says it counts files, pipes, and devices, not only disk.
   - **Network** shows "N/A" until per-process network usage is collected with ETW, and its header tooltip says so.
-  - **Threads** and **Handles** are counts with thousands separators, from `formatCount()`, which the tabs share in `dashboard_formatting.h` ([DC-68](#dc-68)).
-  - A missing value shows "N/A" in the dimmed text colour ([DC-105](#dc-105)). A measured zero shows "0.0%" or "0 B/s" in the normal colour.
+  - **Threads** and **Handles** are counts with thousands separators, from `formatCount()`, as in the readouts ([DC-57](#dc-57)).
+  - A missing value shows "N/A" in the dimmed text colour ([coding guidelines](coding_guidelines.md#text-colours)). A measured zero shows "0.0%" or "0 B/s" in the normal colour.
   - Numbers and their headers are right-aligned. Every header has a tooltip. Each value column is sized once to fit a template of its widest expected text, such as "1023.9 MiB/s", and the Name column takes the remaining width.
 - **Changed cells only:** `updateProcesses()` compares each kept process's raw values with its previous ones, column by column, and signals only what changed: one `dataChanged()` per parent, covering the smallest block of rows and columns that changed under it. A list that repeats the previous one signals nothing. A change in any of the three memory figures marks the Memory cell as changed, because its tooltip shows all of them. Name and PID never change for an identity.
 - **Named roles:** the value signals name the display, tooltip, foreground, and decoration roles. The proxy's filter role is `Qt::UserRole`, which no signal names, because the filter matches only names and PIDs ([DC-81](#dc-81)), and those never change for a row.
@@ -1201,7 +1149,7 @@ The process table: its model, columns, sorting, tree, highlights and access indi
 - **N/A, dimmed, and fixed widths:** the Network column stays so the layout does not change when ETW arrives. Its cells say "N/A" rather than zero because no value is known, and they are dimmed so a column of placeholders does not draw the eye. Fixed widths from templates keep the columns still as values change, and avoid `QHeaderView::ResizeToContents`, which measures every row whenever the data changes.
 - **Changed cells and named roles:** when every refresh signalled every kept row, one block per parent, naming no roles, a repeat of the same list still cost up to 6.8 ms. In a tree with recursive filtering, Qt re-filters every ancestor of a block whose signal names no roles or names the filter role, and treats each ancestor as a changed range of its own. Naming the roles and moving the filter role away from them removes that walk, and comparing values makes a repeat signal nothing at all. Raw values are compared rather than display text because a change too small to show can still reorder a sorted view. A block per parent, rather than a signal per changed row, keeps the number of signals to one per parent, and every signal that covers the sorted column can cost a re-sort. Re-checking the unchanged rows inside a block is cheaper.
 
-**History:** Phase 4, process explorer view; Phase 4, process explorer view (exited rows kept for three seconds, for [DC-82](#dc-82)); code review F-29 (Memory shows the private working set); code review F-33 (re-measured, for [DC-95](#dc-95)); code review F-37 (N/A in the dimmed text colour, for [DC-105](#dc-105)); maintenance (DC-80, DC-83 and DC-91 merged in, DC-83's single sort per refresh into [DC-81](#dc-81)); maintenance (the benchmark moved to [DC-66](#dc-66), and its figures to performance.md).
+**History:** Phase 4, process explorer view; Phase 4, process explorer view (exited rows kept for three seconds, for [DC-82](#dc-82)); code review F-29 (Memory shows the private working set); code review F-33 (re-measured, for [DC-95](#dc-95)); code review F-37 (N/A in the dimmed text colour); maintenance (DC-80, DC-83 and DC-91 merged in, DC-83's single sort per refresh into [DC-81](#dc-81)); maintenance (the benchmark moved to [DC-66](#dc-66), and its figures to performance.md).
 
 ---
 
@@ -1437,7 +1385,7 @@ The adapter cards: which adapters are listed, in what order, and what each card 
 - **Windows' own flag, not a heuristic:** listed by IP binding alone, four of the six cards on the development machine were Down, and two of the four were Wi-Fi Direct adapters that Windows hides. `MIB_IF_ROW2` has no hidden flag. The review suggested leaving out adapters that are virtual and not Up, but that would also hide the Bluetooth PAN adapter and a disconnected VPN, which Network Connections shows. `NCF_HIDDEN` is what Network Connections goes by, so the default list matches it: on the development machine Ethernet, Wi-Fi, Bluetooth and Mullvad. "Show all adapters" adds the other 15, of which 12 are marked hidden. The flag is set when a driver is installed, so the query runs at the first read and then only when an interface appears. It takes 0.5–0.8 ms on the tick thread. A failed query hides no adapter, which only lists more. The tunnel pseudo-interfaces have no adapter device, so the flag cannot hide them, but `hasIpInterface` still does. The class GUID is written out in the code, because `devguid.h` defines `GUID_DEVCLASS_NET` only after `initguid.h`, an order the include rules do not keep.
 - **Cards:** rather than a table, cards give every adapter its own sparkline, which the roadmap asks for, and leave the large charts to the Performance tab's network page. Reusing an adapter's card when the list changes keeps the scroll position and avoids rebuilding widgets.
 - **No status in the order:** when adapters that are Up came first, an adapter that came up moved its card to the top and shifted every other card under the scroll position. A card now stays where it is, and only the cards below it move when its chart collapses or expands. With its chart collapsed, a disconnected adapter's card is short, so leaving it in place costs little room. The interface-ID tie-break makes the order independent of `GetIfTable2`'s row order, so cards with the same name do not swap places between reads.
-- **Natural, locale-independent order:** "Local Area Connection* 10" sorted before "… 2". `QString::localeAwareCompare()` would make the order depend on the machine's locale, which [DC-68](#dc-68) avoids.
+- **Natural, locale-independent order:** "Local Area Connection* 10" sorted before "… 2". `QString::localeAwareCompare()` would make the order depend on the machine's locale, which the readouts avoid for counts too ([DC-57](#dc-57)).
 - **One order for both tabs:** the Performance tab sorted with a stable sort and no interface-ID tie-break, so adapters with the same name could swap places when `GetIfTable2`'s row order changed, and the two tabs ordered the same adapters differently.
 - **Added cards last:** mixed into the list, the cards that "Show all adapters" added could not be told from the others.
 - **Collapsed, not removed:** a disconnected adapter's 110-pixel chart could only draw a flat line at zero. The history keeps being recorded, so when the adapter comes up its chart shows the whole minute, with the time it was down at zero.
@@ -1445,7 +1393,7 @@ The adapter cards: which adapters are listed, in what order, and what each card 
 - **"Not connected":** Windows keeps reporting a link speed for adapters that are not Up. On the development machine the disconnected Wi-Fi adapter reported 144.4 Mbps and the Bluetooth adapter 3 Mbps, so showing those values would describe a link that does not exist. The addresses and DNS servers describe the same missing link. The DNS servers are configuration that Windows keeps while the adapter is down: the disconnected Wi-Fi adapter still lists 192.168.1.1 from its last lease. The collector reports them as they are, and the tab decides what to show.
 - **Marks on each line:** the Ethernet card showed three similar IPv6 addresses under one "IPv6 address" readout. ipconfig names them "IPv6 Address", "Temporary IPv6 Address" and "Link-local IPv6 Address". A readout has one name for several addresses, so each line carries its mark, and the stable address, like ipconfig's plain "IPv6 Address", carries none.
 - **A tooltip rather than leaving the speed out:** a VPN tunnel reports a nominal speed, Mullvad's 100 Gbps, but the Wi-Fi Direct and Bluetooth PAN adapters, which are virtual too, report the rate of their real link. Leaving every virtual adapter's speed out would hide those. The tooltip says what the figure is without hiding it.
-- **Plain text in a tooltip:** Qt shows a tooltip as rich text when it looks like markup. The grid converts each one, so a readout's tooltip, like its name and value ([DC-102](#dc-102)), never needs to be escaped by its caller.
+- **Plain text in a tooltip:** Qt shows a tooltip as rich text when it looks like markup. The grid converts each one, so a readout's tooltip, like its name and value ([coding guidelines](coding_guidelines.md#text-from-outside-the-program)), never needs to be escaped by its caller.
 
 **History:** Phase 5, network view; code review F-36 (addresses and DNS servers only while Up); code review F-39 (the adapters Windows hides, the fixed order, and collapsed charts); code review F-44 (address marks and the link speed's tooltip); maintenance (DC-97 and DC-106 merged in, and the tab's parts of DC-103 and DC-108).
 
@@ -1561,7 +1509,7 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 **Rationale:** The style plugin is loaded at run time, like the platform plugin. Only the platform plugin was copied, though, and the comment on that step said it was the only one needed. Without a `styles` directory, Qt falls back to its built-in classic `windows` style: bevelled check boxes, scroll bars, tabs and frames, and that style's dark palette. vcpkg's qtbase port ships no `windeployqt`, so the build copies the plugins itself, and one function deploys a plugin added later to every executable at once.
 - **Tests and benchmarks get the same plugins** as the app, so that the layouts, colours and tick costs they measure are the ones the app shows.
 - **Layout:** under `windows11` every tab still fits an 800×600 window, in both colour schemes.
-- **Colours:** the style draws tab pages and card frames in the palette's base colour (#ffffff in the light scheme, #2d2d2d in the dark one), not the window colour. Its placeholder-text colour is the text colour at half opacity, which reaches only 4.0:1 on white. [DC-105](#dc-105) chooses the text colours against what this style draws.
+- **Colours:** the style draws tab pages and card frames in the palette's base colour (#ffffff in the light scheme, #2d2d2d in the dark one), not the window colour. Its placeholder-text colour is the text colour at half opacity, which reaches only 4.0:1 on white. The [text colours](coding_guidelines.md#text-colours) are chosen against what this style draws.
 - **Cost:** the style costs the Network tab, and the Performance tab's network page, about 1 ms a tick; on the other pages the difference is lost in the noise ([performance.md](performance.md)).
 
 **History:** Code review F-42; maintenance (the figures moved to performance.md).
@@ -1728,9 +1676,9 @@ How this file is organized and kept current.
 - **Current state:** an entry describes the decision as the code now has it. A change that answers its question differently, or adds to the answer, rewrites its Decision and Rationale under the same ID. It adds no note ("Superseded in part by", "Extended by", "Amended", "Note"), and no new entry that patches the old one. A new entry is for a new question. The Rationale keeps an earlier choice only as a rejected alternative, when the reason it was dropped still argues for the current one.
 - **History line:** an entry ends with `**History:**` followed, separated by semicolons, by where the decision was made and each change since: a phase and its roadmap section (`Phase 4, process collector`) or the known deviation it resolved (`Phase 2, known deviation D-6`), a code-review finding (`code review F-29`), or `maintenance`. Each change says in parentheses what it changed and, if it was made for another entry, which one. DC-76's reads "Phase 4, process collector; Phase 4, process explorer view (I/O rates, for DC-79); code review F-33 (what the CPU column adds up to)".
 - **Git for the rest:** `.gitattributes` gives Markdown files Git's `markdown` diff driver, so `git log -L ':DC-76\::docs/design_decisions.md'` lists every commit that changed an entry, with each version, and diff hunk headers name the entry a change is in.
-- **Stubs:** an ID is never reused, renumbered or deleted. An entry merged into another, or retired, keeps its anchor, its heading, retitled to say so (`DC-89: Merged into DC-88`), and its line in the contents. Its body is one line that says where the decision is now. A stub whose decision went to two entries names both (`DC-103: Merged into DC-35 and DC-96`). Links and citations elsewhere in the repository move to that entry, except in `docs/code_reviews/`, which record what each review led to at the time, and `build.ps1` fails on one that still names a stub ([DC-114](#dc-114)).
+- **Stubs:** an ID is never reused, renumbered or deleted. An entry merged into another, or retired, keeps its anchor, its heading, retitled to say so (`DC-89: Merged into DC-88`, `DC-102: Retired, the rule is in the coding guidelines`), and its line in the contents. Its body is one line that says where the decision is now. A stub whose decision went to two entries names both (`DC-103: Merged into DC-35 and DC-96`). Links and citations elsewhere in the repository move to that entry, except in `docs/code_reviews/`, which record what each review led to at the time, and `build.ps1` fails on one that still names a stub ([DC-114](#dc-114)).
 - **Merges:** entries that patch one another, or answer one question between them, are merged into one entry per topic ([DC-116](#dc-116)). The lowest ID among them under that topic keeps the merged decision, and the others become stubs. A chain whose entries sit under different topics becomes one entry under each: the slow-collector thread is in DC-77, under the scheduler, and the connectivity collector that runs on it in DC-39. The merged entry's history line keeps the sources of every entry merged into it and ends with the merge: `maintenance (DC-72, DC-74 and DC-94 merged in)`.
-- **Applied:** every entry ends with its history line, and the notes in DC-06, DC-18, DC-21, DC-46, DC-70, DC-71, DC-76 and DC-111 are folded into their entries. 34 entries that patched one another are merged into DC-12, DC-13, DC-27, DC-30, DC-35, DC-39, DC-48, DC-77, DC-79, DC-81, DC-82, DC-87, DC-88, DC-96 and DC-100. The notes in DC-62 and DC-66 are folded in too, and DC-98's went to performance.md with the figures it recorded ([DC-117](#dc-117)). The last note is in DC-68, which the roadmap's next item retires.
+- **Applied:** every entry ends with its history line, and the notes in DC-06, DC-18, DC-21, DC-46, DC-70, DC-71, DC-76 and DC-111 are folded into their entries. 34 entries that patched one another are merged into DC-12, DC-13, DC-27, DC-30, DC-35, DC-39, DC-48, DC-77, DC-79, DC-81, DC-82, DC-87, DC-88, DC-96 and DC-100. The notes in DC-62 and DC-66 are folded in too, and DC-98's went to performance.md with the figures it recorded ([DC-117](#dc-117)). The last note, DC-68's, went when DC-68 was retired ([DC-117](#dc-117)).
 
 **Rationale:** The log was append-only: a change left the earlier entry as written and added a note to it. 40 notes patched 31 entries, so learning how End process works meant reading DC-88 and its two notes, then DC-89, DC-90 and DC-93, and working out which sentences still held; DC-88 still said the result was not shown. A reader, or an agent, who stopped at the first entry followed a decision the code no longer makes. A living entry is right when read alone. What it drops, the wording of earlier versions, git keeps beside the commit message that explains each change.
 
@@ -1739,7 +1687,7 @@ How this file is organized and kept current.
 - **The `markdown` driver:** without it Git finds no heading in a Markdown file, so `-L ':DC-76\::…'` fails, and hunk headers show the nearest line above that starts with a letter. The escaped colon matches only the entry's heading, not one whose ID starts with the same digits or a stub that names DC-76. Moving an entry, as grouping by topic did ([DC-116](#dc-116)), looks to `git log -L` like adding it; the same command run from that commit's parent continues further back.
 - **The lowest ID under the topic:** it is the decision's oldest ID, so the oldest links lead to all of it, and choosing it needs no judgement. One entry for a chain that spans topics would take a decision away from the code it decides: the slow-collector thread, which runs the process and network-name collectors too, would have become part of a connectivity entry.
 
-**History:** Maintenance, design decisions; maintenance (a known deviation as a source, and every entry given its history line, for [DC-116](#dc-116)); maintenance (how chains are merged, and stubs neither linked nor cited); maintenance (the notes in DC-62, DC-66 and DC-98, for [DC-117](#dc-117)).
+**History:** Maintenance, design decisions; maintenance (a known deviation as a source, and every entry given its history line, for [DC-116](#dc-116)); maintenance (how chains are merged, and stubs neither linked nor cited); maintenance (the notes in DC-62, DC-66 and DC-98, for [DC-117](#dc-117)); maintenance (a retired entry's title, for [DC-117](#dc-117)).
 
 ---
 
@@ -1759,7 +1707,7 @@ How this file is organized and kept current.
 ---
 
 <a id="dc-117"></a>
-### DC-117: Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, and no test lists or copied UI text
+### DC-117: Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, rules in the coding guidelines, and no test lists, copied UI text or code locations
 
 **Decision:**
 
@@ -1767,8 +1715,13 @@ How this file is organized and kept current.
 - **Build-script behaviour:** what `build.ps1` and `bootstrap.ps1` do, and when, is in [build_system.md](build_system.md) and the script's help. An entry about the script keeps what it chose and why.
 - **Tests:** an entry lists no tests. The test names list the cases, and an entry names at most the suite. How something is tested is in an entry only when it is a decision of its own, such as the unelevated children of the termination tests ([DC-87](#dc-87)).
 - **UI text:** an entry names the function or constant that gives a text, such as `processTerminationMessage()`, rather than copying it. Short labels, such as "N/A" or "Show all adapters", are still quoted.
-- **Applied:** the figures of DC-61, DC-66, DC-79, DC-95, DC-98 and DC-104 are in performance.md, with a baseline of all three tabs measured on 2026-10-18. DC-23's, DC-62's and DC-69's account of the script is in build_system.md. The test lists in DC-13, DC-35, DC-79, DC-82, DC-87, DC-88, DC-96, DC-100, DC-102 and DC-105 are dropped, and DC-13, DC-79 and DC-88 name formatters instead of their text.
+- **Rules:** a rule that every change follows is in the [coding guidelines](coding_guidelines.md), with its reasons, and in short in AGENTS.md or the module's AGENTS.md. An entry does not restate it, and links to the guideline where its decision applies it. An entry that only restated a rule is retired, and the reasons it gave move to the guideline.
+- **Code locations:** a header's comment says what it holds. An entry names the function, type or header that carries its decision, but a list of what lives where is not a decision, and an entry that was only such a list is retired.
+- **Applied:** the figures of DC-61, DC-66, DC-79, DC-95, DC-98 and DC-104 are in performance.md, with a baseline of all three tabs measured on 2026-10-18. DC-23's, DC-62's and DC-69's account of the script is in build_system.md. The test lists in DC-13, DC-35, DC-79, DC-82, DC-87, DC-88, DC-96, DC-100, DC-102 and DC-105 are dropped, and DC-13, DC-79 and DC-88 name formatters instead of their text. DC-26, DC-68, DC-102 and DC-105 are retired: the guidelines' "Windows API wrapping" now says that a header other modules include has no Windows headers, which was all of DC-26 that still held; the headers that DC-68 listed say what they hold; and the reasons that DC-102 and DC-105 gave are in the guidelines' "Text from outside the program" and "Text colours", which already stated their rules.
 
 **Rationale:** Test lists, benchmark tables and copied text made up much of the longest entries, and none of it is a decision. Each copy went stale without anything noticing: figures change with the code and the machine, a test list with every test, a text with every rewording. The tests, the formatters and the script's help are current by construction, so an entry points to them. Benchmark figures have no such place in the code, so they get one document, where a tab's figures sit beside its last baseline, rather than six entries' tables, each from a different day and none current. An appendix to this file was rejected: the figures would still grow the file that is searched for decisions.
 
-**History:** Maintenance, design decisions.
+- **Rules in the guidelines:** a rule kept in two places drifts too. DC-26 said that Windows headers stay inside translation units, but eight headers in `platform/windows` include them, as the module's rules allow for a header that no other module includes. A rule is read where code is written, so its reasons belong beside it, where someone who wants to bend it finds them; an entry is found only by someone already looking for the decision.
+- **No code locations:** a list of what lives where goes stale with every move, and DC-68's already named a sort that DC-96 had replaced. The headers' own comments move with the code.
+
+**History:** Maintenance, design decisions; maintenance (rules in the coding guidelines and no code locations; DC-26, DC-68, DC-102 and DC-105 retired).
