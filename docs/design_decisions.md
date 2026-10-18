@@ -1,9 +1,8 @@
 # Design Decisions
 
-Rationale for non-obvious implementation choices made during development.
-Each entry links to the relevant roadmap phase and source files.
+Rationale for non-obvious implementation choices made during development, grouped by topic ([DC-116](#dc-116)). The line under each topic's heading says what it covers, and an entry's **History:** line names the phase or code-review finding that made it.
 
-Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number, even when it is filed under an earlier heading. Numbers are never reused or renumbered.
+Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number and goes at the end of its topic, so the entries within a topic are in ID order. Numbers are never reused or renumbered.
 
 An entry states the decision as the code now has it ([DC-115](#dc-115)). A change to the decision rewrites the entry: its **Decision** and **Rationale** describe the choice as it now stands, and its last line, **History:**, which names the phase or code-review finding that made the decision, gains the one that changed it. The Rationale names an earlier choice only as a rejected alternative, when the reason it was dropped still matters. No note such as "Superseded in part by" or "Extended by" is added, and no new entry patches an old one. Earlier versions are in git: `git log -L ':DC-76\::docs/design_decisions.md'` lists every change to DC-76. An entry merged into another, or retired, keeps its anchor and its heading as a stub with one line that says where the decision is now, so that links to it still resolve.
 
@@ -11,82 +10,49 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 ## Contents
 
-- [Windows API choices](#windows-api-choices)
+- [Windows APIs](#windows-apis)
   - [DC-01](#dc-01): Process enumeration: `NtQuerySystemInformation` over Tool Help
   - [DC-02](#dc-02): Core metrics: direct Win32 APIs over PDH
   - [DC-03](#dc-03): Connectivity status: `GetNetworkConnectivityHint` over ad-hoc probes
   - [DC-04](#dc-04): WMI restricted to startup hardware inventory
   - [DC-05](#dc-05): ETW deferred to post-MVP
   - [DC-06](#dc-06): Network profile names: `INetworkListManager` lazy and cached
-- [Phase 1 — Domain types (`src/domain/`)](#phase-1--domain-types-srcdomain)
+  - [DC-22](#dc-22): UTF-8 active code page through an application manifest
+  - [DC-26](#dc-26): Encapsulation of Windows SDK headers strictly inside translation units
+- [Modules and dependencies](#modules-and-dependencies)
   - [DC-07](#dc-07): CMake library type: `INTERFACE` (header-only)
+  - [DC-20](#dc-20): UI module dependency isolation and composition root in `src/app/`
+  - [DC-24](#dc-24): Collector interfaces in their own Qt-free CMake target
+  - [DC-47](#dc-47): `RingBuffer<T>` lives in `domain` so the UI can use it
+- [Domain model](#domain-model)
   - [DC-08](#dc-08): `ProcessInfo::creationTime` type: `std::chrono::system_clock::time_point`
   - [DC-09](#dc-09): `SystemSnapshot::timestamp` type: `std::chrono::steady_clock::time_point`
   - [DC-10](#dc-10): `NetworkSample` stores cumulative byte counters, not rates
   - [DC-11](#dc-11): `OperationalStatus` enum: all 7 `IF_OPER_STATUS` values
   - [DC-12](#dc-12): `std::optional` for `ProcessInfo::imagePath` and `::commandLine`
-  - [DC-13](#dc-13): `ProcessInfo::accessDenied` flag kept in-band
   - [DC-14](#dc-14): CPU times stored as cumulative milliseconds, not percentages
   - [DC-15](#dc-15): Domain string encoding: UTF-8 (`std::string`) over wide strings (`std::wstring`)
-- [Phase 1 — Monitoring infrastructure (`src/monitoring/`)](#phase-1--monitoring-infrastructure-srcmonitoring)
   - [DC-16](#dc-16): `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`
+  - [DC-43](#dc-43): No zero placeholders for CPU and memory: optional samples end to end
+  - [DC-44](#dc-44): Optional collections: a failed query is not an empty result
+- [Scheduler and collectors](#scheduler-and-collectors)
   - [DC-17](#dc-17): `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
   - [DC-18](#dc-18): `ICollector<T>`: one virtual interface for every collector, and no concept
   - [DC-19](#dc-19): `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
-- [Phase 1 — Basic UI shell (`src/ui/`)](#phase-1--basic-ui-shell-srcui)
-  - [DC-20](#dc-20): UI module dependency isolation and composition root in `src/app/`
-  - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
-- [Phase 2 — Real Windows collectors and dashboard (`src/platform/windows/`)](#phase-2--real-windows-collectors-and-dashboard-srcplatformwindows)
-  - [DC-22](#dc-22): UTF-8 active code page through an application manifest
-  - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
-  - [DC-24](#dc-24): Collector interfaces in their own Qt-free CMake target
+  - [DC-37](#dc-37): Repeated collector failures logged once, with the recovery
+  - [DC-77](#dc-77): A slow-collector thread in the scheduler, shared by processes and connectivity
+  - [DC-101](#dc-101): Connectivity changes wake the slow-collector thread, which collects only the event-driven collectors
+- [CPU, memory, disk and uptime collectors](#cpu-memory-disk-and-uptime-collectors)
   - [DC-25](#dc-25): Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
-  - [DC-26](#dc-26): Encapsulation of Windows SDK headers strictly inside translation units
-  - [DC-27](#dc-27): Deterministic unit testing via injected time and clock readers
   - [DC-28](#dc-28): Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
   - [DC-29](#dc-29): Multi-processor-group support (>64 logical cores): `NtQuerySystemInformationEx` iteration and total CPU aggregation
-  - [DC-30](#dc-30): CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
   - [DC-31](#dc-31): Memory sampling: `GlobalMemoryStatusEx` and commit charge calculation
   - [DC-32](#dc-32): Disk space sampling: `GetDiskFreeSpaceExW` strictly filtered to `DRIVE_FIXED`
-  - [DC-33](#dc-33): Deterministic testing of memory and disk collectors via reader injection
-  - [DC-34](#dc-34): Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
-  - [DC-35](#dc-35): Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
-  - [DC-36](#dc-36): Adapter details cached and re-read only on change
-  - [DC-37](#dc-37): Repeated collector failures logged once, with the recovery
-  - [DC-38](#dc-38): Deterministic testing of network collection via reader injection
-  - [DC-39](#dc-39): Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
-  - [DC-40](#dc-40): Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
-  - [DC-41](#dc-41): Windows-to-domain connectivity mapping in a separate, testable header
   - [DC-42](#dc-42): System uptime: `GetTickCount64` as a fast collector with an optional snapshot field
-  - [DC-43](#dc-43): No zero placeholders for CPU and memory: optional samples end to end
-  - [DC-44](#dc-44): Optional collections: a failed query is not an empty result
-  - [DC-45](#dc-45): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
-  - [DC-46](#dc-46): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
-  - [DC-47](#dc-47): `RingBuffer<T>` lives in `domain` so the UI can use it
-  - [DC-48](#dc-48): Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
-- [Phase 3 — Sparkline charts and performance views (`src/ui/charts/`, `src/ui/`)](#phase-3--sparkline-charts-and-performance-views-srcuicharts-srcui)
-  - [DC-49](#dc-49): Sparkline grid scrolls with a caller-supplied sample index
-  - [DC-50](#dc-50): Multiple series share one time axis and Y range, with series 0 as the primary
-  - [DC-51](#dc-51): Axis labels and annotations reserve space outside the plot
-  - [DC-52](#dc-52): Sparkline series colours: a validated five-hue palette without status hues
-  - [DC-53](#dc-53): Performance view: a sidebar of resource pages that each own their history
-  - [DC-54](#dc-54): Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
   - [DC-55](#dc-55): CPU base speed from `CallNtPowerInformation`, read once; no current clock speed
   - [DC-56](#dc-56): Memory detail and system activity counts from `GetPerformanceInfo`, as fast collectors
-  - [DC-57](#dc-57): Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
-  - [DC-58](#dc-58): Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
-  - [DC-59](#dc-59): Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
-  - [DC-60](#dc-60): Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
-  - [DC-61](#dc-61): 30 minutes of performance history, a chart-window selector, and the measured tick cost
-  - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
-  - [DC-63](#dc-63): Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
-  - [DC-64](#dc-64): Network adapters identified by interface LUID, not by name (code review F-23)
-  - [DC-65](#dc-65): Y-axis gutter sized from caller-supplied label templates (code review F-24)
-  - [DC-66](#dc-66): A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
-  - [DC-67](#dc-67): Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
-  - [DC-68](#dc-68): Shared UI constants and helpers: where each one lives (code review F-28)
-  - [DC-69](#dc-69): `build.ps1` retries a failed configure once from a clean cache
-- [Phase 4 — Process collector (`src/platform/windows/`)](#phase-4--process-collector-srcplatformwindows)
+- [Process collector](#process-collector)
+  - [DC-13](#dc-13): `ProcessInfo::accessDenied` flag kept in-band
   - [DC-70](#dc-70): Process list read into a kept, growing buffer through an injected query
   - [DC-71](#dc-71): Process list parsed through a full `SYSTEM_PROCESS_INFORMATION` layout checked against `winternl.h`
   - [DC-72](#dc-72): `ProcessDetailsStatus` replaces `ProcessInfo::accessDenied`
@@ -94,10 +60,46 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-74](#dc-74): `lsass.exe` and `csrss.exe` recognised by image name and filtered before any details reader
   - [DC-75](#dc-75): Process details read with a limited handle, checked against the identity, and logged at debug
   - [DC-76](#dc-76): Per-process CPU usage and I/O rates computed in the collector, CPU as a share of all logical processors
-  - [DC-77](#dc-77): A slow-collector thread in the scheduler, shared by processes and connectivity
-  - [DC-78](#dc-78): Process integration tests: a suspended child process, exact read sets, and an elevation-aware access check
   - [DC-94](#dc-94): A process without an image name is never opened, except the Idle process (code review F-32)
-- [Phase 4 — Process explorer view (`src/ui/`)](#phase-4--process-explorer-view-srcui)
+- [Network adapter collector](#network-adapter-collector)
+  - [DC-34](#dc-34): Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
+  - [DC-35](#dc-35): Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
+  - [DC-36](#dc-36): Adapter details cached and re-read only on change
+  - [DC-59](#dc-59): Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
+  - [DC-64](#dc-64): Network adapters identified by interface LUID, not by name (code review F-23)
+  - [DC-103](#dc-103): Unusable addresses and placeholder DNS servers dropped; addresses and DNS servers shown only while Up (code review F-36)
+  - [DC-108](#dc-108): Addresses marked temporary or link-local, with the zone index; a virtual adapter's link speed explained in a tooltip (code review F-44)
+- [Connectivity and network names](#connectivity-and-network-names)
+  - [DC-39](#dc-39): Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
+  - [DC-40](#dc-40): Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
+  - [DC-41](#dc-41): Windows-to-domain connectivity mapping in a separate, testable header
+  - [DC-99](#dc-99): Connectivity section: level, cost and roaming, each "Unknown" when Windows cannot say
+  - [DC-100](#dc-100): Network names from `INetworkListManager`, re-read after a connectivity change or a minute, and matched to adapters by LUID
+  - [DC-107](#dc-107): Network names read on the collector's own thread, at most once a second (code review F-38)
+- [Charts](#charts)
+  - [DC-48](#dc-48): Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
+  - [DC-49](#dc-49): Sparkline grid scrolls with a caller-supplied sample index
+  - [DC-50](#dc-50): Multiple series share one time axis and Y range, with series 0 as the primary
+  - [DC-51](#dc-51): Axis labels and annotations reserve space outside the plot
+  - [DC-52](#dc-52): Sparkline series colours: a validated five-hue palette without status hues
+  - [DC-60](#dc-60): Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
+  - [DC-65](#dc-65): Y-axis gutter sized from caller-supplied label templates (code review F-24)
+  - [DC-67](#dc-67): Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
+- [Main window and shared UI](#main-window-and-shared-ui)
+  - [DC-54](#dc-54): Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
+  - [DC-68](#dc-68): Shared UI constants and helpers: where each one lives (code review F-28)
+  - [DC-102](#dc-102): Labels that show text from the system or the network are plain text (code review F-35)
+  - [DC-105](#dc-105): Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
+- [Dashboard tab](#dashboard-tab)
+  - [DC-45](#dc-45): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
+  - [DC-46](#dc-46): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
+- [Performance tab](#performance-tab)
+  - [DC-53](#dc-53): Performance view: a sidebar of resource pages that each own their history
+  - [DC-57](#dc-57): Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
+  - [DC-58](#dc-58): Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
+  - [DC-61](#dc-61): 30 minutes of performance history, a chart-window selector, and the measured tick cost
+  - [DC-63](#dc-63): Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
+- [Processes tab](#processes-tab)
   - [DC-79](#dc-79): Process table: a `QAbstractItemModel` with one row per `ProcessIdentity`, changed in place
   - [DC-80](#dc-80): Process table columns: I/O rates from the collector, and N/A for missing values
   - [DC-81](#dc-81): Sorting and filtering: a proxy that compares domain values, with missing values lowest
@@ -105,43 +107,49 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-83](#dc-83): Process table updates: only changed cells, named roles, one sort per refresh, and a benchmark
   - [DC-84](#dc-84): New and exited processes highlighted for three seconds of snapshot time
   - [DC-85](#dc-85): Access indicator: a painted icon per details status, and a tooltip with the details or the reason
-  - [DC-86](#dc-86): qtbase built with PNG support for Qt's own Windows cursors
   - [DC-91](#dc-91): Memory column shows the private working set, with the working set and commit size in its tooltip (code review F-29)
   - [DC-92](#dc-92): An exited row parents only processes listed no later than its exit (code review F-30)
-  - [DC-95](#dc-95): Benchmarks print the build and the machine they ran on, and the figures re-measured (code review F-33)
-- [Phase 4 — Process termination (`src/platform/windows/`, `src/ui/`)](#phase-4--process-termination-srcplatformwindows-srcui)
+- [Process termination](#process-termination)
   - [DC-87](#dc-87): Process termination: ownership and identity checked before `PROCESS_TERMINATE` is requested
   - [DC-88](#dc-88): End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
   - [DC-89](#dc-89): Termination results: a message box for each outcome but success, opened once the confirmation has closed
   - [DC-90](#dc-90): Elevated processes refused by token elevation or integrity level, even when the monitor is elevated
   - [DC-93](#dc-93): End process: disabled on exited rows, and an offer to close the monitor on its own row (code review F-31)
-- [Phase 5 — Network view (`src/ui/`, `src/platform/windows/`, `src/monitoring/`)](#phase-5--network-view-srcui-srcplatformwindows-srcmonitoring)
+- [Network tab](#network-tab)
   - [DC-96](#dc-96): Network tab: a card per adapter, keyed by interface ID, with unbound virtual adapters behind "Show all adapters"
   - [DC-97](#dc-97): Adapter type from the physical medium, then the interface type; link speed shown only while Up
   - [DC-98](#dc-98): Adapter throughput charts: one minute per card, with the history shared with the Performance tab
-  - [DC-99](#dc-99): Connectivity section: level, cost and roaming, each "Unknown" when Windows cannot say
-  - [DC-100](#dc-100): Network names from `INetworkListManager`, re-read after a connectivity change or a minute, and matched to adapters by LUID
-  - [DC-101](#dc-101): Connectivity changes wake the slow-collector thread, which collects only the event-driven collectors
-  - [DC-102](#dc-102): Labels that show text from the system or the network are plain text (code review F-35)
-  - [DC-103](#dc-103): Unusable addresses and placeholder DNS servers dropped; addresses and DNS servers shown only while Up (code review F-36)
-  - [DC-104](#dc-104): Qt's Windows style plugin deployed next to every executable (code review F-42)
-  - [DC-105](#dc-105): Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
   - [DC-106](#dc-106): Adapters listed in a fixed order, with the ones Windows hides last; disconnected adapters' charts collapsed (code review F-39)
-  - [DC-107](#dc-107): Network names read on the collector's own thread, at most once a second (code review F-38)
-  - [DC-108](#dc-108): Addresses marked temporary or link-local, with the zone index; a virtual adapter's link speed explained in a tooltip (code review F-44)
-- [Maintenance — Tests (`tests/`)](#maintenance--tests-tests)
+- [Build and tooling](#build-and-tooling)
+  - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
+  - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
+  - [DC-66](#dc-66): A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
+  - [DC-69](#dc-69): `build.ps1` retries a failed configure once from a clean cache
+  - [DC-86](#dc-86): qtbase built with PNG support for Qt's own Windows cursors
+  - [DC-95](#dc-95): Benchmarks print the build and the machine they ran on, and the figures re-measured (code review F-33)
+  - [DC-104](#dc-104): Qt's Windows style plugin deployed next to every executable (code review F-42)
+- [Testing](#testing)
+  - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
+  - [DC-27](#dc-27): Deterministic unit testing via injected time and clock readers
+  - [DC-30](#dc-30): CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
+  - [DC-33](#dc-33): Deterministic testing of memory and disk collectors via reader injection
+  - [DC-38](#dc-38): Deterministic testing of network collection via reader injection
+  - [DC-78](#dc-78): Process integration tests: a suspended child process, exact read sets, and an elevation-aware access check
   - [DC-109](#dc-109): Shared test builders and harnesses in `tests/support/`, header-only
   - [DC-110](#dc-110): One scheduler pipeline test, with the collectors `registerSystemCollectors()` registers
   - [DC-111](#dc-111): Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
   - [DC-112](#dc-112): A mapping's values tested in one test, as a table of named cases
   - [DC-113](#dc-113): Tests run as GoogleTest shards, one CTest test each, not one process per test
-- [Maintenance — Design decisions (`docs/`)](#maintenance--design-decisions-docs)
+- [Design decision log](#design-decision-log)
   - [DC-114](#dc-114): Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
   - [DC-115](#dc-115): Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
+  - [DC-116](#dc-116): Entries grouped by topic, in ID order within each topic
 
 ---
 
-## Windows API choices
+## Windows APIs
+
+Which Windows API supplies each kind of data, and how Windows types and text cross into the program.
 
 <a id="dc-01"></a>
 ### DC-01: Process enumeration: `NtQuerySystemInformation` over Tool Help
@@ -149,6 +157,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 **Decision:** Use `NtQuerySystemInformation(SystemProcessInformation)` for process enumeration, not `CreateToolhelp32Snapshot`.
 
 **Rationale:** `CreateToolhelp32Snapshot` internally calls `NtQuerySystemInformation`, strips out CPU, memory, and I/O metrics, and forces the caller to make hundreds of supplementary `OpenProcess` calls to reconstruct data the kernel already returned in that single call. On a system with ~300 processes this produces 300+ extra kernel transitions and takes 15–45 ms compared to 0.5–1.5 ms for the direct call. Beyond performance, `CreateToolhelp32Snapshot` denies access to metrics for 30–50% of processes on an unelevated caller because each `OpenProcess` can fail individually; `NtQuerySystemInformation` returns complete CPU, memory, and I/O data for all processes including protected and elevated ones. `NtQuerySystemInformation` is declared in `<winternl.h>`, has been ABI-stable since Windows 2000, and is the API used internally by Task Manager, Process Explorer, and System Informer.
+
+**History:** Architecture, before Phase 1.
 
 ---
 
@@ -159,6 +169,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** PDH has two structural problems that make it unsuitable for core metrics. First, PDH counter names are locale-dependent; `PdhAddCounterW` with a hard-coded English path fails on non-English Windows installations unless `PdhAddEnglishCounterW` is used, but even then PDH reads counter definitions from the registry — which is frequently corrupted on long-lived installations, causing `PDH_CSTATUS_NO_OBJECT` or `PDH_CSTATUS_NO_COUNTER` errors at runtime. The direct Win32 APIs (`GetSystemTimes` etc.) have zero registry dependency. Second, for per-process metrics PDH assigns index suffixes to processes that share a name (`chrome#0`, `chrome#1`) and silently re-indexes when one terminates; any open PDH query handle will silently read data from a different process after re-indexing, producing corrupt data with no error signal. `NtQuerySystemInformation` has no such concept — processes are identified by PID and creation time.
 
+**History:** Architecture, before Phase 1.
+
 ---
 
 <a id="dc-03"></a>
@@ -167,6 +179,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 **Decision:** Use `GetNetworkConnectivityHint` (and `NotifyNetworkConnectivityHintChange` for async updates) to determine network connectivity state.
 
 **Rationale:** Ad-hoc ICMP/TCP probes require choosing a target, have non-trivial latency (100–2000 ms), consume bandwidth, and produce a binary online/offline result that misses important states like captive portals and metered connections. `GetNetworkConnectivityHint` returns a structured `NL_NETWORK_CONNECTIVITY_LEVEL_HINT` — None, LocalAccess, ConstrainedInternetAccess (captive portal), or InternetAccess — along with cost information (metered vs. unmetered) and roaming state. This is a direct C-style kernel API with no COM overhead. The companion notification API delivers change events without polling. Requires Windows 10 version 2004 or later, which is within the project's target baseline.
+
+**History:** Architecture, before Phase 1.
 
 ---
 
@@ -177,6 +191,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** WMI is an out-of-process COM call to `WmiPrvSE.exe`. Each query incurs 50–500 ms of latency and measurable CPU cost on the host. Polling it for metrics that change frequently (CPU usage, memory) would make the monitor a significant load source, contradicting the low-impact goal. WMI repository corruption is also common on long-lived Windows installations and manifests as silent data errors or hung calls. For the one legitimate use case — reading static hardware labels at startup — the latency is acceptable because it occurs once before the UI is shown. All real-time metrics use direct Win32 APIs.
 
+**History:** Architecture, before Phase 1.
+
 ---
 
 <a id="dc-05"></a>
@@ -185,6 +201,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 **Decision:** ETW (Event Tracing for Windows) is excluded from the MVP. It will be reconsidered only when per-process network bandwidth tracking or event-level diagnostics are a product requirement.
 
 **Rationale:** ETW kernel trace sessions require administrator privileges, making them incompatible with the unelevated-by-default security posture. Windows enforces a hard system-wide limit of 64 concurrent ETW sessions, shared with EDR products, antivirus, and system loggers; exceeding this limit returns `ERROR_NO_SYSTEM_RESOURCES` and the session fails to start. Buffer sizing and flush tuning are non-trivial and highly workload-dependent. None of the MVP metrics require ETW — per-process CPU, memory, and I/O are fully available through `NtQuerySystemInformation`. The complexity and privilege cost are not justified until a specific feature (per-process network bandwidth) cannot be built without it.
+
+**History:** Architecture, before Phase 1.
 
 ---
 
@@ -197,9 +215,35 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Note:** [DC-100](#dc-100) implements this. The change event is a connectivity change notification, and the names are also re-read once they are a minute old, because renaming a network or changing its category raises no such event. [DC-107](#dc-107) moves the query to a thread of the collector's own and reads at most once a second.
 
+**History:** Architecture, before Phase 1; Phase 5, network view (names also re-read once they are a minute old, for [DC-100](#dc-100)); code review F-38 (read on the collector's own thread, for [DC-107](#dc-107)).
+
 ---
 
-## Phase 1 — Domain types (`src/domain/`)
+<a id="dc-22"></a>
+### DC-22: UTF-8 active code page through an application manifest
+
+**Decision:** `src/app/system_monitor.manifest` sets `activeCodePage` to `UTF-8`, and CMake embeds it in `system_monitor.exe` and in `system_monitor_tests.exe`, so tests run under the same code page as the app. Narrow strings passed to Windows and the CRT are therefore UTF-8. The logging setup moved into the `sysmon_app_logging` library so an integration test can configure logging with a path that contains CJK and Cyrillic characters.
+
+**Rationale:** `configureLogging()` passes `path::string()` to spdlog. Under a legacy ANSI code page, MSVC's `path::string()` throws `std::system_error` for characters that page cannot represent. A user profile path with a Chinese or Cyrillic name on a Western-locale system therefore made the app terminate at startup, and against the no-exceptions rule ([code review F-19](code_reviews/phase_2.md#f-19-log-file-path-is-converted-to-the-ansi-code-page)). The UTF-8 code page fixes every narrow-string path in the process, not only the log file, and it matches the decision that domain strings are UTF-8. It needs Windows 10 1903, below the project's existing 2004 requirement (`GetNetworkConnectivityHint`). The rejected alternative, building spdlog with wide file names, would fix only the log path and depends on what the vcpkg port offers. The manifest is also where the Phase 6 DPI-awareness setting belongs. A test checks `GetACP() == CP_UTF8`, so losing the manifest fails the build's tests.
+
+**History:** Code review F-19.
+
+---
+
+<a id="dc-26"></a>
+### DC-26: Encapsulation of Windows SDK headers strictly inside translation units
+
+**Decision:** `cpu_collector.h` contains no `<Windows.h>` or Windows SDK types. All Windows types (`FILETIME`, `DWORD`, etc.) are converted to standard fixed-width integer types (`uint64_t`) in `cpu_collector.cpp`.
+
+**Rationale:** Including `<Windows.h>` in a header exposes macros like `min`, `max`, `near`, `far`, and thousands of global symbols transitively to any module that includes it, violating the project rule that only `platform/windows` interacts with the Windows SDK. By confining `<Windows.h>` strictly to `.cpp` files, headers remain clean, lightweight standard C++20.
+
+**History:** Phase 2, CPU collector.
+
+---
+
+## Modules and dependencies
+
+Which CMake target holds what, and which modules may depend on which.
 
 <a id="dc-07"></a>
 ### DC-07: CMake library type: `INTERFACE` (header-only)
@@ -208,7 +252,49 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** Every domain type is a plain aggregate struct or `enum class`. There are no method bodies, no `.cpp` translation units, and nothing to link. An `INTERFACE` target is the idiomatic CMake choice in this situation: it propagates the `src/` include path transitively to any downstream target via `target_link_libraries`, so consumers never need to repeat `target_include_directories`. A `STATIC` library would produce an empty archive and add a link step with zero benefit.
 
+**History:** Phase 1, domain types.
+
 ---
+
+<a id="dc-20"></a>
+### DC-20: UI module dependency isolation and composition root in `src/app/`
+
+**Decision:** The `ui` module depends exclusively on `Qt6::Widgets` and `sysmon_domain`, with zero dependencies on `sysmon_monitoring` or Windows headers. Wiring between `SamplingScheduler` signals and `MainWindow` slots is handled strictly in `src/app/main.cpp` (the application composition root).
+
+**Rationale:** Maintaining a one-way dependency flow prevents cyclic references and tight coupling. The UI layer only knows about domain values (`SystemSnapshot`). It does not know how or when data is collected, nor what thread model is used. By placing the signal/slot `Qt::QueuedConnection` wiring in `main.cpp`, `MainWindow` can be tested in isolation with mock snapshots, and collectors can be altered or replaced without recompiling any UI translation units.
+
+**History:** Phase 1, basic UI shell.
+
+---
+
+<a id="dc-24"></a>
+### DC-24: Collector interfaces in their own Qt-free CMake target
+
+**Decision:** `monitoring/collector.h` is the header-only `INTERFACE` target `sysmon_collector_interfaces`, which depends only on `sysmon_domain`. `sysmon_monitoring` and `sysmon_platform_windows` both link it publicly. `platform/windows` may include `collector.h` and no other `monitoring` header.
+
+**Rationale:** Every Windows collector implements an interface from `collector.h`, but `sysmon_platform_windows` linked only `sysmon_domain`. The include worked only because all modules share the `src/` include root, so CMake did not know about the dependency ([code review F-13](code_reviews/phase_2.md#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it)). Linking `sysmon_monitoring` instead would have pulled `Qt6::Core` into a module whose rules forbid Qt. A separate target states the real dependency, keeps Qt out, and is exercised by `system_monitor_platform_tests`, which links `sysmon_platform_windows` without Qt. Because the include root is shared, CMake cannot stop a `platform/windows` file from including another `monitoring` header. That rule is enforced by review and stated in `src/platform/windows/AGENTS.md`.
+
+**History:** Code review F-13.
+
+---
+
+<a id="dc-47"></a>
+### DC-47: `RingBuffer<T>` lives in `domain` so the UI can use it
+
+**Decision:** Move `RingBuffer<T>` from `monitoring` to `domain` (`domain/ring_buffer.h`, namespace `sysmon::domain`) with no change to its behaviour. The dashboard's mini sparklines keep their own short presentation history in `RingBuffer`s owned by the UI. Longer histories (e.g. for the Performance view or alert rules) may still live in `monitoring`, using the same type.
+
+**Rationale:** The UI must not depend on `monitoring` (`src/ui/AGENTS.md`), but sparklines need a bounded history with the contiguous-span access `RingBuffer` was designed for. `RingBuffer` is header-only and uses only the standard library, so it already meets the domain's dependency rules, and it had no production users, so the move is cheap. Alternatives considered:
+- A UI-only `std::deque` history would duplicate `RingBuffer` with a less efficient design.
+- Carrying history inside every `SystemSnapshot` is cheap for the dashboard but grows with Phase 3's longer, per-core histories.
+- A new header-only `src/common/` module is semantically cleaner, since `domain` otherwise holds data types. It is deferred until a second shared utility justifies a new module; see the "Code organization" item in the roadmap.
+
+**History:** Phase 2, dashboard view.
+
+---
+
+## Domain model
+
+How the domain types represent time, counters, text and missing data, and the `RingBuffer` that holds sample histories.
 
 <a id="dc-08"></a>
 ### DC-08: `ProcessInfo::creationTime` type: `std::chrono::system_clock::time_point`
@@ -216,6 +302,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 **Decision:** The process creation timestamp is stored as `std::chrono::system_clock::time_point`, not `uint64_t` raw FILETIME or `steady_clock::time_point`.
 
 **Rationale:** The source value is a Windows `FILETIME` — a 100-nanosecond tick count since 1601-01-01, which is a calendar epoch. `system_clock` is the C++ clock that maps to calendar time, making the conversion at the platform boundary lossless and semantically correct. `steady_clock` is reserved for `SystemSnapshot::timestamp` where monotonic elapsed-time arithmetic is needed (CPU %, network throughput rates). Storing a raw `uint64_t` would leak a Windows type into the domain layer, which must remain platform-free.
+
+**History:** Phase 1, domain types.
 
 ---
 
@@ -226,6 +314,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** The timestamp exists solely for rate calculations (CPU usage %, network bytes/sec) between consecutive snapshots. `steady_clock` is monotonic and unaffected by system clock adjustments or DST transitions, making delta calculations reliable. It carries no calendar meaning; the UI must use `system_clock::now()` separately if it needs a human-readable time to display.
 
+**History:** Phase 1, domain types.
+
 ---
 
 <a id="dc-10"></a>
@@ -234,6 +324,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 **Decision:** `inBytesTotal` and `outBytesTotal` are cumulative totals as returned by `GetIfTable2`, not pre-computed bytes/sec rates.
 
 **Rationale:** Rate computation requires dividing a byte delta by a precisely measured time delta. That measurement belongs in the collector, which owns the `steady_clock` baseline from the previous tick. Storing a rate in the domain type would mean the type carries a value that depends on when it was last queried — breaking the immutable-snapshot guarantee. Cumulative counters are also correct across tick-interval jitter, whereas a rate pre-computed with an assumed interval would drift if the scheduler tick is late.
+
+**History:** Phase 1, domain types.
 
 ---
 
@@ -244,6 +336,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** A 1:1 mapping between the domain enum and the Windows API enum makes the platform-boundary conversion trivial and keeps the domain type self-documenting. Collapsing values (e.g. merging `Dormant` and `NotPresent` into a generic `Inactive`) would lose information that the UI or future alert logic might need. The domain module has no Windows dependency — having the same *shape* as a Windows enum does not violate the no-Windows-headers rule.
 
+**History:** Phase 1, domain types.
+
 ---
 
 <a id="dc-12"></a>
@@ -253,16 +347,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** These fields are acquired lazily — only on the first detection of a new `(pid, creationTime)` pair — and may be permanently unavailable for protected or system processes even with `PROCESS_QUERY_LIMITED_INFORMATION`. An empty string is ambiguous: it could mean "not yet queried", "query failed", or "the process genuinely has no path". `std::nullopt` is unambiguous: this data is not available. The UI can branch on `has_value()` to render a clear indicator rather than displaying a blank field.
 
----
-
-<a id="dc-13"></a>
-### DC-13: `ProcessInfo::accessDenied` flag kept in-band
-
-**Decision:** `ProcessInfo` includes an `accessDenied` bool rather than being omitted from the snapshot or replaced with an error variant at the `vector<ProcessInfo>` level.
-
-**Rationale:** Even when a process cannot be fully introspected, `NtQuerySystemInformation` returns its name and PID. Omitting the process from the snapshot entirely would silently hide it from the user (wrong: Task Manager shows all processes). A separate error list alongside `vector<ProcessInfo>` would force all UI code to merge two collections. The in-band flag keeps the snapshot a single coherent list and lets the UI render a partial row — image name visible, metrics showing `—` — which is the same pattern used by Task Manager and Process Explorer.
-
-**Superseded in part by [DC-72](#dc-72):** the status stays in-band, but the bool became the `ProcessDetailsStatus` enum `detailsStatus`, because `NtQuerySystemInformation` never fails to return a process's metrics; only the image path and command line can be missing.
+**History:** Phase 1, domain types.
 
 ---
 
@@ -273,6 +358,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** CPU percentage for a process requires comparing the CPU time delta between two snapshots against the wall-clock delta between those same snapshots. This calculation belongs in the collector or view model, which tracks both baselines. Storing a percentage in the domain struct would mean the value is meaningless without knowing the interval over which it was measured — and that interval is not part of the struct. Cumulative milliseconds are the raw truth; any derived value can be computed correctly from them.
 
+**History:** Phase 1, domain types.
+
 ---
 
 <a id="dc-15"></a>
@@ -282,9 +369,9 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** The domain layer must be platform-independent. `std::wstring` is a Windows-specific convention (16-bit code units); using it would leak a platform assumption into `src/domain/`. UTF-8 is the de facto standard encoding for cross-platform C++ and is natively supported by Qt (`QString::fromUtf8`), spdlog, and nlohmann/json. The Windows API wrapper functions in `platform/windows/` convert from `WCHAR*` / `std::wstring` to UTF-8 `std::string` using `WideCharToMultiByte(CP_UTF8, ...)` or equivalent. Supplementary-plane characters (e.g., emoji in filenames) round-trip correctly through UTF-8.
 
----
+**History:** Code review F-6.
 
-## Phase 1 — Monitoring infrastructure (`src/monitoring/`)
+---
 
 <a id="dc-16"></a>
 ### DC-16: `RingBuffer<T>`: Mirrored contiguous storage for zero-copy `std::span`
@@ -293,7 +380,35 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** A traditional circular buffer wraps around the end of its storage array, requiring either linearizing elements into a temporary buffer (incurring heap allocation or copying) or forcing callers to consume two disjoint slices (`span1` and `span2`). Chart widgets (e.g. sparklines) and consumer models require a single contiguous `std::span<const T>` representing samples in chronological order. By pre-allocating twice the capacity and writing each sample to `pos` and `pos + capacity`, any window of length $\le \text{capacity}$ starting at the oldest element's index is guaranteed to be contiguous in memory. This achieves $O(1)$ zero-copy contiguous span access while strictly ensuring zero heap allocations on `push()` after construction.
 
+**History:** Phase 1, monitoring infrastructure.
+
 ---
+
+<a id="dc-43"></a>
+### DC-43: No zero placeholders for CPU and memory: optional samples end to end
+
+**Decision:** `ICpuCollector` and `IMemoryCollector` return `std::optional<CpuSample>` / `std::optional<MemorySample>`, and `SystemSnapshot::cpu` / `::memory` are optional. `CpuCollector` returns `std::nullopt` when both queries fail and on the sample that only establishes its baseline. `calculateCpuUsage` returns `std::nullopt` for non-positive elapsed time, any counter that went backwards, or zero elapsed CPU time. Per-core usages are all-or-nothing: an empty `coreUsagePercents` means "unavailable" (after a core-count change or an uncomputable core), never zero-filled. `calculateMemorySample` returns `std::nullopt` for a zero physical-memory total, and `MemoryCollector` returns it when `GlobalMemoryStatusEx` fails. Likewise, `calculateDiskSample` returns `std::nullopt` for a zero-capacity volume and `DiskCollector` skips it, as it already skipped volumes whose query fails ([D-8](known_deviations.md#d-8-zero-capacity-disk-volumes-report-0-usage)). The dashboard shows "N/A" for missing values. Resolves [known deviation D-7](known_deviations.md#d-7-memory-and-cpu-data-report-zeros-when-missing).
+
+**Rationale:** The domain rules forbid representing missing data as zero. A 0% CPU or 0 GiB memory reading is indistinguishable from a real idle system or a broken query, and it would also mislead the upcoming threshold-based health status (a missing sample must not read as "healthy"). A genuine 0% (a fully idle interval) is still reported as 0%. Rejecting deltas across a counter reset also fixes a latent bug: if only one counter went backwards, the old saturating subtraction could report a meaningless rate such as 100%. Per-core values are all-or-nothing because a partially filled list would misalign core indices.
+
+**History:** Phase 2, known deviation D-7; Phase 2, dashboard view (zero-capacity volumes, known deviation D-8).
+
+---
+
+<a id="dc-44"></a>
+### DC-44: Optional collections: a failed query is not an empty result
+
+**Decision:** `IDiskCollector`, `INetworkCollector`, and `IProcessCollector` return `std::optional<std::vector<...>>`, and `SystemSnapshot::disks`, `::networks`, and `::processes` are optional. `std::nullopt` means no collector is registered or the query failed. An empty vector means the query succeeded and found nothing. `DiskCollector` returns `std::nullopt` when `GetLogicalDrives` fails, and also when fixed drives exist but none of them could be read. `NetworkCollector` returns it when `GetIfTable2` fails. The dashboard shows "N/A" for missing network data and reserves "No active adapter" for a successful read with no hardware adapter Up.
+
+**Rationale:** With plain vectors a failed query looked the same as a machine with no volumes or no adapters, and the network card stated "No active adapter" when nothing had been observed. That is the same missing-data-as-default problem that D-6, D-7, and D-8 removed for single values ([code review F-12](code_reviews/phase_2.md#f-12-empty-disk-and-network-vectors-hide-collector-failures)). `IProcessCollector` has no implementation yet but takes the same shape now, so the Phase 4 process collector starts with it. A partial disk result, where some volumes are readable, is still reported as a vector, because the readable volumes are real data. The unreadable ones are skipped and logged, as before.
+
+**History:** Code review F-12.
+
+---
+
+## Scheduler and collectors
+
+`SamplingScheduler`'s threads, the collector interface, and what every collector does alike.
 
 <a id="dc-17"></a>
 ### DC-17: `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
@@ -301,6 +416,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 **Decision:** The scheduler thread tick loop uses `std::condition_variable_any::wait_until` with `std::stop_token` rather than `std::this_thread::sleep_for` or a polling sleep loop.
 
 **Rationale:** A standard `sleep_for(m_interval)` cannot be interrupted until the interval expires, delaying application shutdown by up to 1000 ms. A polling loop (e.g. sleeping 10 ms repeatedly) wastes CPU cycles and adds wake jitter. In C++20, `std::condition_variable_any` natively accepts a `std::stop_token` in `wait_until`. If a stop is requested (e.g. when `SamplingScheduler::stop()` or the destructor is called), the condition variable wakes immediately and exits the thread. Furthermore, calculating `nextTick = tickStart + m_interval` prevents interval drift across ticks when collection work takes measurable time.
+
+**History:** Phase 1, monitoring infrastructure.
 
 ---
 
@@ -322,172 +439,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** In Phase 2, real Windows API collectors may take 0.5–1.5 ms (e.g. process enumeration) or query network tables. Holding `m_collectorMutex` for the duration of all collections would unnecessarily serialize collector configuration and sampling, and block any caller wanting to inspect or modify scheduler registration. Releasing the lock before collection keeps critical sections minimal ($O(1)$ pointer copies) while maintaining strict safety under the documented stopped-state registration invariant.
 
----
-
-## Phase 1 — Basic UI shell (`src/ui/`)
-
-<a id="dc-20"></a>
-### DC-20: UI module dependency isolation and composition root in `src/app/`
-
-**Decision:** The `ui` module depends exclusively on `Qt6::Widgets` and `sysmon_domain`, with zero dependencies on `sysmon_monitoring` or Windows headers. Wiring between `SamplingScheduler` signals and `MainWindow` slots is handled strictly in `src/app/main.cpp` (the application composition root).
-
-**Rationale:** Maintaining a one-way dependency flow prevents cyclic references and tight coupling. The UI layer only knows about domain values (`SystemSnapshot`). It does not know how or when data is collected, nor what thread model is used. By placing the signal/slot `Qt::QueuedConnection` wiring in `main.cpp`, `MainWindow` can be tested in isolation with mock snapshots, and collectors can be altered or replaced without recompiling any UI translation units.
-
----
-
-<a id="dc-21"></a>
-### DC-21: `test_main.cpp`: listing the tests creates no `QApplication`
-
-**Decision:** The test runner (`tests/test_main.cpp`) creates no `QApplication` when `--gtest_list_tests` is passed. It runs the tests with a `QApplication` otherwise.
-
-**Rationale:** Creating `QApplication` loads the platform plugin, which fails when the plugins are not deployed yet and can fail without a display session, with a modal error dialog or a timeout. Listing the tests needs no plugin, so it is instant and works anywhere. The build itself no longer lists the tests: CTest runs GoogleTest shards, not tests that `gtest_discover_tests` found at build time ([DC-113](#dc-113)). The check stays, so that listing the tests by hand or from a tool starts no `QApplication` either.
-
-**History:** Phase 1, basic UI shell; maintenance (the build no longer lists the tests).
-
----
-
-## Phase 2 — Real Windows collectors and dashboard (`src/platform/windows/`)
-
-<a id="dc-22"></a>
-### DC-22: UTF-8 active code page through an application manifest
-
-**Decision:** `src/app/system_monitor.manifest` sets `activeCodePage` to `UTF-8`, and CMake embeds it in `system_monitor.exe` and in `system_monitor_tests.exe`, so tests run under the same code page as the app. Narrow strings passed to Windows and the CRT are therefore UTF-8. The logging setup moved into the `sysmon_app_logging` library so an integration test can configure logging with a path that contains CJK and Cyrillic characters.
-
-**Rationale:** `configureLogging()` passes `path::string()` to spdlog. Under a legacy ANSI code page, MSVC's `path::string()` throws `std::system_error` for characters that page cannot represent. A user profile path with a Chinese or Cyrillic name on a Western-locale system therefore made the app terminate at startup, and against the no-exceptions rule ([code review F-19](code_reviews/phase_2.md#f-19-log-file-path-is-converted-to-the-ansi-code-page)). The UTF-8 code page fixes every narrow-string path in the process, not only the log file, and it matches the decision that domain strings are UTF-8. It needs Windows 10 1903, below the project's existing 2004 requirement (`GetNetworkConnectivityHint`). The rejected alternative, building spdlog with wide file names, would fix only the log path and depends on what the vcpkg port offers. The manifest is also where the Phase 6 DPI-awareness setting belongs. A test checks `GetACP() == CP_UTF8`, so losing the manifest fails the build's tests.
-
----
-
-<a id="dc-23"></a>
-### DC-23: Formatting enforced with a pinned clang-format and the existing house style
-
-**Decision:** `.clang-format` describes the style the code already followed: indented `case` labels, and a Windows SDK include block whose `SortPriority` keeps the order the SDK requires. Pointers and references bind to the type (`Type* name`, `Type& name`), as in the C++ Core Guidelines (NL.18) and the guideline examples. All files were reformatted once in a formatting-only commit. `build.ps1 -Format` and `-CheckFormat` run clang-format on every C++ file under `src/`, `tests/`, and `benchmarks/` that is tracked, or new and not ignored, so files created since the last commit are formatted before they are first committed. A CI job pins clang-format 22.1.3 from PyPI, and `build.ps1` fails in CI (and warns locally) when the major version differs. `bootstrap.ps1` reports clang-format and can install LLVM with `-InstallMissing`, but a missing one is only a warning because building does not need it.
-
-**Rationale:** Code review F-7 added `.clang-format`, but nothing ran it, and drift had begun: lines over the hard limit, Qt headers inside the standard-library group, and SDK headers in different orders ([code review F-17](code_reviews/phase_2.md#f-17-clang-format-is-not-enforced)). Matching the configuration to the existing style kept the reformat to alignment and line wrapping, rather than re-indenting every `switch`. The SDK order cannot be left to alphabetical sorting: `iphlpapi.h` sorts before `ws2tcpip.h`, which leaves `CancelMibChangeNotify2` undeclared. clang-format's output changes between major versions, so CI and developers must use the same major version, and PyPI offers the exact release that Visual Studio ships. The standard-library category matches case-sensitively because clang-format's include regexes are otherwise case-insensitive and would put `<QString>` in the standard-library group. The left alignment was chosen over LLVM's default right alignment (`Type &name`, also Qt's style) because the project's guidelines follow the C++ Core Guidelines, which recommend emphasizing the type.
-
----
-
-<a id="dc-24"></a>
-### DC-24: Collector interfaces in their own Qt-free CMake target
-
-**Decision:** `monitoring/collector.h` is the header-only `INTERFACE` target `sysmon_collector_interfaces`, which depends only on `sysmon_domain`. `sysmon_monitoring` and `sysmon_platform_windows` both link it publicly. `platform/windows` may include `collector.h` and no other `monitoring` header.
-
-**Rationale:** Every Windows collector implements an interface from `collector.h`, but `sysmon_platform_windows` linked only `sysmon_domain`. The include worked only because all modules share the `src/` include root, so CMake did not know about the dependency ([code review F-13](code_reviews/phase_2.md#f-13-platformwindows-depends-on-monitoring-headers-without-declaring-it)). Linking `sysmon_monitoring` instead would have pulled `Qt6::Core` into a module whose rules forbid Qt. A separate target states the real dependency, keeps Qt out, and is exercised by `system_monitor_platform_tests`, which links `sysmon_platform_windows` without Qt. Because the include root is shared, CMake cannot stop a `platform/windows` file from including another `monitoring` header. That rule is enforced by review and stated in `src/platform/windows/AGENTS.md`.
-
----
-
-<a id="dc-25"></a>
-### DC-25: Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
-
-**Decision:** Calculate total CPU utilization by subtracting `deltaIdle` from `(deltaKernel + deltaUser)` and dividing by `(deltaKernel + deltaUser)` over monotonic elapsed time.
-
-**Rationale:** Windows `GetSystemTimes` returns cumulative idle, kernel, and user times in 100 ns `FILETIME` ticks across all logical processors. A key characteristic of Windows kernel accounting is that `lpKernelTime` already includes the execution time of the idle thread. Thus, total system capacity elapsed across all processors is `deltaKernel + deltaUser`, and active busy time is `(deltaKernel + deltaUser) - deltaIdle`. This ratio is mathematically invariant to CPU frequency scaling (Intel SpeedStep / AMD Cool'n'Quiet), processor group topologies, and core count. We guard against multi-core non-atomic counter jitter by clamping usage to $[0.0\%, 100.0\%]$. When no rate can be computed (non-positive elapsed time, a counter that went backwards, or no elapsed CPU time), `calculateCpuUsage` returns `std::nullopt` rather than 0% (see [DC-43](#dc-43)).
-
----
-
-<a id="dc-26"></a>
-### DC-26: Encapsulation of Windows SDK headers strictly inside translation units
-
-**Decision:** `cpu_collector.h` contains no `<Windows.h>` or Windows SDK types. All Windows types (`FILETIME`, `DWORD`, etc.) are converted to standard fixed-width integer types (`uint64_t`) in `cpu_collector.cpp`.
-
-**Rationale:** Including `<Windows.h>` in a header exposes macros like `min`, `max`, `near`, `far`, and thousands of global symbols transitively to any module that includes it, violating the project rule that only `platform/windows` interacts with the Windows SDK. By confining `<Windows.h>` strictly to `.cpp` files, headers remain clean, lightweight standard C++20.
-
----
-
-<a id="dc-27"></a>
-### DC-27: Deterministic unit testing via injected time and clock readers
-
-**Decision:** `CpuCollector` provides a dependency-injected constructor accepting custom `SystemTimesReader` and `SteadyClockReader` lambdas alongside its default Windows constructor, paired with a pure `calculateCpuUsage` function.
-
-**Rationale:** Unit tests must be fast, deterministic, and free of OS dependencies per project rules. The injected constructor allows simulating edge cases such as exact idle/user/kernel ratios, zero elapsed intervals, clock jitter where idle temporarily appears greater than kernel, and API query failures without invoking the Windows kernel or relying on sleep timers. Real host integration tests in `tests/integration/` verify live `GetSystemTimes` execution separately.
-
----
-
-<a id="dc-28"></a>
-### DC-28: Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
-
-**Decision:** Resolve `NtQuerySystemInformation` dynamically from `ntdll.dll` via `GetModuleHandleW` / `GetProcAddress` and query `SystemProcessorPerformanceInformation` (class 8) using a resizing-buffer loop. Per-core utilization is calculated by applying the same `calculateCpuUsage` logic to each core's `IdleTime`, `KernelTime`, and `UserTime`.
-
-**Rationale:** `NtQuerySystemInformation` is the native NT kernel interface used by Task Manager and Process Explorer to query per-processor counters. In Windows, `ntdll.dll` is mapped into every user-mode process at process creation, so resolving the function pointer dynamically via `GetProcAddress` avoids static import dependencies while ensuring universal compatibility. The returned `SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION` structure includes idle time within `KernelTime` for each individual core, mirroring the aggregate behavior of `GetSystemTimes`. The resizing-buffer loop pattern starts with an estimated allocation equal to the detected logical core count and automatically handles `STATUS_INFO_LENGTH_MISMATCH` (0xC0000004) if processor topology or active counts change.
-
----
-
-<a id="dc-29"></a>
-### DC-29: Multi-processor-group support (>64 logical cores): `NtQuerySystemInformationEx` iteration and total CPU aggregation
-
-**Decision:** Use `NtQuerySystemInformationEx` to iterate through all active processor groups (`0 .. GetActiveProcessorGroupCount() - 1`), with fallback to `NtQuerySystemInformation` for Group 0 if `Ex` resolution or runtime calls fail. When more than one processor group is active (`GetActiveProcessorGroupCount() > 1`), compute total CPU usage by aggregating `idleTime`, `kernelTime`, and `userTime` across all cores rather than relying on `GetSystemTimes`. The decision is keyed on the group count, not the core count, because Windows can form several groups on machines with 64 or fewer logical processors (for example one group per NUMA node, or `bcdedit /set groupsize`). If the per-core query fails on such a system, no total is reported for that tick rather than presenting `GetSystemTimes`' single group as the whole machine ([code review F-15](code_reviews/phase_2.md#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count)).
-
-**Rationale:** On 64-bit Windows, processor affinities are limited to 64 bits per group, so high-core machines (>64 logical processors) are partitioned into multiple processor groups. On such machines, `GetSystemTimes` and legacy `NtQuerySystemInformation` only report statistics for the primary group of the calling thread, rendering workloads in secondary groups invisible. Calling `NtQuerySystemInformationEx` with `USHORT group` in the input buffer retrieves each group's cores sequentially, guaranteeing that `CpuSample::coreUsagePercents` captures all logical cores in continuous processor index order. Furthermore, aggregating all cores' counter deltas to compute `totalUsagePercent` on multi-group systems ensures accurate system-wide utilization metrics regardless of how the OS scheduler distributes threads across groups.
-
----
-
-<a id="dc-30"></a>
-### DC-30: CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
-
-**Decision:** Design host integration tests around system and mathematical invariants ($0.0 \le \text{usage} \le 100.0$, topology matching `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)`, non-NaN/Inf) and synthetic workload sensitivity rather than asserting fixed utilization values.
-
-**Rationale:** Unlike deterministic unit tests with injected data, host integration tests execute against live Windows kernel APIs where background OS services, indexing, and power-saving C-states cause continuous utilization fluctuations. Asserting fixed numbers produces flaky tests. Verifying invariants across multiple consecutive real-time samples, observing load increases during controlled multi-threaded synthetic loops, and validating live signal delivery through `SamplingScheduler` proves the collector operates correctly on real hardware under variable load without false positives.
-
-**Note:** [DC-110](#dc-110) replaces each collector's scheduler pipeline test with one test of every collector the app registers.
-
----
-
-<a id="dc-31"></a>
-### DC-31: Memory sampling: `GlobalMemoryStatusEx` and commit charge calculation
-
-**Decision:** Sample physical and virtual memory using `GlobalMemoryStatusEx`. Compute `commitCurrent` as `ullTotalPageFile - ullAvailPageFile`. Clamp memory usage percent defensively to $[0.0\%, 100.0\%]$.
-
-**Rationale:** `GlobalMemoryStatusEx` is an ultra-fast kernel query (< 1 microsecond) with zero external or registry dependencies. In `MEMORYSTATUSEX`, `ullTotalPhys` and `ullAvailPhys` report physical RAM. `ullTotalPageFile` represents the current system commit limit (physical RAM plus current pagefile allocation), and `ullAvailPageFile` represents the remaining commit space available to processes before allocations fail. Subtracting available pagefile from total pagefile yields the active system commit charge (`commitCurrent`), matching Task Manager's commit metric ("Committed x / y GB"). Defensive boundary clamping protects against transient kernel counter jitter.
-
----
-
-<a id="dc-32"></a>
-### DC-32: Disk space sampling: `GetDiskFreeSpaceExW` strictly filtered to `DRIVE_FIXED`
-
-**Decision:** Enumerate drive letters via `GetLogicalDrives()`, inspect each drive root using `GetDriveTypeW()`, and call `GetDiskFreeSpaceExW` only for drives returning `DRIVE_FIXED`.
-
-**Rationale:** Calling disk space APIs on removable drives (`DRIVE_REMOVABLE`), optical media (`DRIVE_CDROM`), or remote shares (`DRIVE_REMOTE`) can cause blocking network timeouts or trigger Windows system modal dialogs ("Insert disk into drive..."), freezing the background scheduler tick. Restricting collection strictly to `DRIVE_FIXED` ensures fast, non-blocking queries of all local SSDs and HDDs. If `GetDiskFreeSpaceExW` fails for a specific drive (e.g. unformatted volume or BitLocker locked partition), that drive is skipped gracefully without interrupting collection for other healthy drives.
-
----
-
-<a id="dc-33"></a>
-### DC-33: Deterministic testing of memory and disk collectors via reader injection
-
-**Decision:** Provide dependency-injected constructors in `MemoryCollector` and `DiskCollector` accepting reader callbacks (`MemoryStatusReader`, `LogicalDrivesReader`, `DiskSpaceReader`) alongside pure calculation functions `calculateMemorySample` and `calculateDiskSample`.
-
-**Rationale:** In accordance with project rules, unit tests must be fast, deterministic, and free of OS dependencies. Injected readers allow testing boundary conditions — such as zero total memory/disk space, free space exceeding total due to quota configurations, 100% capacity, API query failures, and multi-drive volume sets — without altering host configuration or creating synthetic drive partitions. Integration tests in `tests/integration/` independently verify live Windows API queries on real host hardware.
-
----
-
-<a id="dc-34"></a>
-### DC-34: Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
-
-**Decision:** Use `GetIfTable2` to read 64-bit cumulative byte counters (`InOctets`, `OutOctets`), negotiated link speed, and operational status. Wrap allocated `MIB_IF_TABLE2` memory in a custom RAII deleter calling `FreeMibTable`. Compute instantaneous throughput rates (`inBytesPerSec`, `outBytesPerSec`) from counter deltas divided by elapsed monotonic time (`std::chrono::steady_clock`).
-
-**Rationale:** `GetIfTable2` is the modern Windows IP Helper interface that returns 64-bit octet counters without registry or PDH dependencies. Unlike legacy 32-bit `GetIfTable`, 64-bit counters will not roll over under modern gigabit and 10 GbE traffic within days. RAII wrapping via `std::unique_ptr<MIB_IF_TABLE2, MibTableDeleter>` guarantees memory is safely released on all return paths. Throughput rates are computed per adapter baseline over measured monotonic durations. A rate is `std::nullopt`, never 0, when it cannot be computed: the first sample for an adapter, zero elapsed time, or a counter that went backwards (e.g. an interface reset), where the delta across the reset is unknown. Each direction is evaluated independently, so a reset of one counter does not hide the other direction's rate. A genuinely idle link still reports 0. See [known deviation D-6](known_deviations.md#d-6-network-throughput-reports-zero-when-no-baseline-exists).
-
----
-
-<a id="dc-35"></a>
-### DC-35: Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
-
-**Decision:** Query `GetAdaptersAddresses` (with `AF_UNSPEC` and `GAA_FLAG_INCLUDE_PREFIX`) to retrieve friendly names, device descriptions, IPv4/IPv6 addresses, and DNS servers, correlating them with `GetIfTable2` rows using `NET_LUID::Value` (falling back to `IfIndex`). Filter out loopback interfaces (`IF_TYPE_SOFTWARE_LOOPBACK`) and NDIS filter interfaces (`InterfaceAndOperStatusFlags.FilterInterface`). Carry `InterfaceAndOperStatusFlags.HardwareInterface` into `NetworkSample::isHardwareInterface`.
-
-**Rationale:** While `GetIfTable2` provides high-precision counters and link state, it lacks network addresses and DNS configuration. `GetAdaptersAddresses` provides comprehensive address and DNS information. Correlating both APIs via the 64-bit `InterfaceLuid.Value` ensures exact, collision-free pairing between interface counters and IP addresses across all physical, virtual, and Wi-Fi adapters. Filtering `IF_TYPE_SOFTWARE_LOOPBACK` removes local pseudo-interfaces (`127.0.0.1` / `::1`) from user-facing monitor tables.
-
-`GetIfTable2` also returns one row per NDIS lightweight filter bound to an adapter (for example "Ethernet-WFP Native MAC Layer LightWeight Filter-0000" and "Ethernet-QoS Packet Scheduler-0000"). These rows are Up and carry the same counters as the adapter, so a sum over all Up rows counted the physical traffic several times ([code review F-9](code_reviews/phase_2.md#f-9-network-throughput-total-counts-the-same-traffic-several-times)). They mean nothing to a user and Task Manager does not show them, so they are dropped at the platform boundary. Virtual adapters such as VPN tunnels and Hyper-V vEthernet are kept, because the Phase 5 network view should list them, but they are marked non-hardware: their traffic also crosses a physical adapter, so totals must not include them.
-
-**Extended by [DC-103](#dc-103):** each unicast address's state is read too, and only the addresses that can be used reach `NetworkSample`. The placeholder DNS servers `fec0:0:0:ffff::1` to `::3` are dropped.
-
-**Extended by [DC-108](#dc-108):** a link-local IPv6 address, unicast or DNS server, is formatted with its zone index, and each unicast address carries whether it is temporary or link-local.
-
----
-
-<a id="dc-36"></a>
-### DC-36: Adapter details cached and re-read only on change
-
-**Decision:** `NetworkCollector` reads `GetIfTable2` on every tick but keeps the `GetAdaptersAddresses` results (names, descriptions, IP addresses, DNS servers) in an `AdapterDetailsCache`. The cache re-reads them when an address or interface change notification (`NotifyUnicastIpAddressChange`, `NotifyIpInterfaceChange`) has marked it stale, when `GetIfTable2` shows an interface that was not present at the last refresh, or when 30 seconds have passed. A failed re-read clears the details and is retried on the next tick. The production reader, `WindowsAdapterReader`, lives in `network_collector.cpp` and is owned by the collector. The refresh policy is a separate class with no Windows types so `tests/unit/` can test it.
-
-**Rationale:** On the review machine `GetAdaptersAddresses` took about 2 ms per call, compared with about 0.7 ms for `GetIfTable2`. That alone exceeded the fast-collector budget, and it was spent re-reading data that changes only when the network configuration does ([code review F-10](code_reviews/phase_2.md#f-10-getadaptersaddresses-runs-on-every-scheduler-tick)). The notifications are an event-driven source under the architecture's rules: the callbacks only set the stale mark, the registrations are RAII members declared after the cache so they are cancelled first, and the cache starts stale so the first sample is complete. The stale mark is cleared before re-reading, so a change reported during a re-read triggers another one. No IP Helper notification reports DNS server changes, so the 30-second maximum age catches those, and it keeps details current if registration fails. The rejected alternative was refreshing only when the set of interfaces changes, which misses address changes on an existing adapter (for example a DHCP renewal with a new lease).
+**History:** Code review F-1.
 
 ---
 
@@ -498,43 +450,97 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** Collectors run every second, so a persistent failure such as a BitLocker-locked fixed volume logged about 86,000 warnings a day. Because the logger flushes on `warn`, each of those also forced a disk write, and the 15 MB of rotating logs pushed out the useful history within a day or two ([code review F-11](code_reviews/phase_2.md#f-11-persistent-failures-are-logged-on-every-tick)). Logging only when the state changes follows the connectivity collector's change-only logging. It keeps the log readable and still leaves the full detail available at `debug`. Keeping the state beside each query, rather than in one shared object, lets a failing volume and a healthy one report independently. It also keeps the injected test readers unchanged.
 
----
-
-<a id="dc-38"></a>
-### DC-38: Deterministic testing of network collection via reader injection
-
-**Decision:** Inject `NetworkAdaptersReader` and `SteadyClockReader` lambdas into `NetworkCollector`, supported by a pure `calculateNetworkSamples` function managing historical baselines and purging disconnected adapters.
-
-**Rationale:** Simulating multiple network interfaces, varying link speeds, counter rollovers, IP/DNS configurations, loopback filters, and baseline eviction across elapsed intervals requires deterministic control over input data and monotonic timestamps. Injected readers allow comprehensive unit testing without network privileges or hardware manipulation, while host integration tests verify real Windows IP Helper API calls.
+**History:** Code review F-11.
 
 ---
 
-<a id="dc-39"></a>
-### DC-39: Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
+<a id="dc-77"></a>
+### DC-77: A slow-collector thread in the scheduler, shared by processes and connectivity
 
-**Decision:** `ConnectivityCollector` seeds a mutex-protected `ConnectivityStatus` cache with `GetNetworkConnectivityHint` in its constructor, then registers `NotifyNetworkConnectivityHintChange` (with `InitialNotification = TRUE`). `collect()` returns the cached value on the scheduler tick. Registration goes through an injected `ConnectivitySubscriber` that returns an RAII `ConnectivitySubscription`. The production `WindowsConnectivitySubscription`, defined in the `.cpp`, calls `CancelMibChangeNotify2` in its destructor. The subscription is the collector's last member, so it is destroyed before the mutex and cache. If registration fails at runtime, the collector falls back to polling `GetNetworkConnectivityHint` in `collect()` (see [known deviation D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread)). `collect()` logs each change of status once at `info`; the notification callback only stores the value.
+**Decision:** `SamplingScheduler` owns a second `std::jthread` beside the tick thread. Every `slowInterval()` (2 seconds by default, `kDefaultSlowInterval`, adjustable with `setSlowInterval()`), it runs the registered process and connectivity collectors outside every lock. It then moves the results into a mutex-protected `SlowResults`. `sampleOnce()` runs only the fast collectors and copies the latest `SlowResults` into the snapshot under that mutex. Both threads wait on the scheduler's condition variable with their own stop tokens, so `stop()` interrupts either wait at once. Until the first slow refresh, snapshots have `processes == std::nullopt` and `ConnectivityLevel::Unknown`. Public `refreshSlowCollectors()` runs the slow collectors synchronously for unit tests and asserts that the scheduler is stopped. The whole connectivity collector moves to the slow thread, not only its polling fallback. `main.cpp` registers `ProcessCollector`. Resolves [D-1](known_deviations.md#d-1-sampling-scheduler-has-no-slow-collector-thread) and [D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread).
 
-**Rationale:** Connectivity changes rarely, so event-driven updates avoid a kernel round-trip every tick while keeping `collect()` cheap. Seeding before registration makes the first `collect()` accurate without waiting for the asynchronous initial callback, and ordering it before registration means a newer callback value can never be overwritten by the seed; the initial notification still covers a change between the two. `CancelMibChangeNotify2` waits for in-flight callbacks, so destroying the handle first guarantees the callback never touches a destroyed cache. The Windows subscription class lives in the `.cpp` so no Windows types appear in `connectivity_collector.h`. Injecting the subscriber, like the reader, lets unit tests deliver notifications and verify seeding order, cancellation on destruction, and the polling fallback (resolving [known deviation D-5](known_deviations.md#d-5-notification-callback-wiring-has-no-unit-test)). Logging only on change follows the architecture's `info` level for connectivity state changes without repeating the same state every tick. It happens in `collect()` on the scheduler thread rather than in the callback, because event-driven collector rule 1 allows the callback only to store: a file-sink write is blocking I/O on an OS thread-pool thread ([code review F-14](code_reviews/phase_2.md#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread)). A change that reverts within one tick is therefore not logged, which is acceptable for a status log.
+**Rationale:** A process refresh takes 3.5–6 ms on a 400-process desktop and about 18 ms the first time ([DC-75](#dc-75)), several times the roughly 1 ms the fast collectors share. Running it on the tick would delay every snapshot by that much and make the 1 Hz cadence uneven. One thread for all slow collectors is enough at this cadence and keeps a single place for the merge. Building the results before taking the mutex means the tick never waits for an enumeration, only for a move. Moving the whole connectivity collector, rather than only its fallback, follows the roadmap. It needs no new interface for a collector to say whether it is polling, and the tick then makes no connectivity call at all. The cost is that a notified change appears up to one slow interval later, which is acceptable for a status that changes rarely. Not waiting for the first slow refresh keeps `start()` and the first tick immediate. On the first snapshot connectivity reads Unknown, like the CPU sample, which has no baseline yet; the second snapshot has both. Each tick copies the latest process list into its snapshot, so a list is reused for about two ticks. Sharing it between snapshots without copying would change the snapshot's value type, so that waits until profiling of the process table shows a need.
 
-**Superseded in part by [DC-77](#dc-77):** `collect()` now runs on the slow-collector thread rather than the scheduler tick, in notification and polling mode alike, so the polling fallback no longer runs on the tick (D-2 resolved).
+**Note:** [DC-101](#dc-101) removes the delay described here: a notified change now wakes the slow-collector thread, so it reaches the next tick's snapshot.
 
----
-
-<a id="dc-40"></a>
-### DC-40: Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
-
-**Decision:** Add `ConnectivityLevel::Unknown` as the default level and make `ConnectivityStatus::isMetered` a `std::optional<bool>`. The collector reports `Unknown` / `std::nullopt` before the first successful read, after a failed read, and when Windows reports `NetworkConnectivityLevelHintUnknown`, `NetworkConnectivityLevelHintHidden`, or `NetworkConnectivityCostHintUnknown`. A failed read does not keep the previous value.
-
-**Rationale:** The guidelines forbid substituting a default for missing data. With only `None`, "we could not determine connectivity" was indistinguishable from "offline", and a retained previous value would present stale data as current. `Unknown` is an enum value rather than wrapping the whole status in `std::optional` so the scheduler, snapshot, and UI keep a single value type and the UI can render the state directly (for example "Unknown" or a dimmed indicator).
+**History:** Phase 4, process collector; Phase 5, network view (a notified change wakes the thread, for [DC-101](#dc-101)).
 
 ---
 
-<a id="dc-41"></a>
-### DC-41: Windows-to-domain connectivity mapping in a separate, testable header
+<a id="dc-101"></a>
+### DC-101: Connectivity changes wake the slow-collector thread, which collects only the event-driven collectors
 
-**Decision:** The pure conversions `toConnectivityLevel`, `toIsMetered`, and `toConnectivityStatus` live in `platform/windows/connectivity_hint_mapping.h/.cpp`, which exposes Windows SDK types, and are unit tested directly.
+**Decision:** `monitoring::IEventDrivenCollector<T>` extends `ICollector<T>` with `setChangeListener()`, and `IConnectivityCollector` and `INetworkProfileCollector` are now this interface. When the scheduler registers one of them, it sets a listener that marks an event refresh as pending under the sleep mutex and notifies the condition variable. The scheduler's destructor clears the listeners. The slow-collector thread waits until its next full refresh or until an event refresh is pending. An event refresh that comes before the full refresh is due runs only the event-driven collectors (`collectEventDrivenResults()`): it replaces the connectivity and the network names in the slow results, and keeps the process list and the time of the next full refresh. A full refresh also clears a pending request. `ConnectivityCollector` calls its listener after a notification that changed the cached status, but not after a polled change. `NetworkProfileCollector` calls it when a notification makes its fresh cache stale. Both call it with their mutex held, so clearing a listener waits for a call in progress. `refreshEventDrivenCollectors()` runs the same step synchronously for tests.
 
-**Rationale:** The mapping is the part most likely to be wrong and is impossible to exercise from a host integration test, because the host's connectivity state cannot be forced. Keeping it separate keeps `connectivity_collector.h` free of Windows types. The tests live in the separate `tests/platform/` target (`system_monitor_platform_tests`), which may include Windows SDK headers but makes no API calls, so `tests/unit/` stays free of Windows headers (resolving [known deviation D-4](known_deviations.md#d-4-a-unit-test-includes-windows-sdk-headers)). A separate target was chosen over mirroring SDK constants as plain integers, which would lose the compile-time link to the real SDK values. Note that `netioapi.h` must be reached through `<iphlpapi.h>`, and `CancelMibChangeNotify2` is only declared when `<ws2tcpip.h>` is included first.
+**Rationale:** Since [DC-77](#dc-77), the connectivity collector had received notifications, but the slow thread copied its cache only every 2 seconds and the tick merged it up to a second later. A change therefore reached the UI up to about 3 seconds after Windows reported it, because the scheduler polled the cache. Waking the slow thread lets the notification drive the update. In a unit test with a 60-second slow interval, a change reaches the snapshots within a few ticks, and no extra process enumeration runs. The network names that a change makes stale are also re-read at once ([DC-100](#dc-100)). Three alternatives were rejected:
+- **An extra snapshot on a change:** it would put two samples into the histories within one second, and every chart and rate assumes one sample per tick.
+- **Connectivity on the tick:** its polling fallback and the names' COM query would run on the tick again ([D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread)).
+- **A full slow refresh on a change:** processes would be enumerated off their cadence, and changes come in bursts while an adapter reconnects.
+
+The scheduler sets the listener, rather than the collector's constructor taking one, because `main.cpp` creates the collectors before handing them over and the scheduler is what needs waking. Calling the listener with the collector's mutex held lets the scheduler's destructor clear it safely. The listener refers to the scheduler, and once `setChangeListener({})` returns, no call can still be running. Locks are always taken in the same order, the collector's mutex and then the scheduler's sleep mutex, and the scheduler never calls a collector while it holds the sleep mutex. A notification that repeats the cached status, such as the initial notification after the seed, does not wake the thread.
+
+**Superseded in part by [DC-107](#dc-107):** `NetworkProfileCollector` no longer calls its listener when a notification makes its names stale. The notification wakes the collector's own worker, which reads and calls the listener once it has stored names that differ from the previous ones, so the event refresh only copies them.
+
+**History:** Phase 5, network view; code review F-38 (network names wake the scheduler after the read, for [DC-107](#dc-107)).
+
+---
+
+## CPU, memory, disk and uptime collectors
+
+The fast collectors behind the dashboard and the Performance tab.
+
+<a id="dc-25"></a>
+### DC-25: Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
+
+**Decision:** Calculate total CPU utilization by subtracting `deltaIdle` from `(deltaKernel + deltaUser)` and dividing by `(deltaKernel + deltaUser)` over monotonic elapsed time.
+
+**Rationale:** Windows `GetSystemTimes` returns cumulative idle, kernel, and user times in 100 ns `FILETIME` ticks across all logical processors. A key characteristic of Windows kernel accounting is that `lpKernelTime` already includes the execution time of the idle thread. Thus, total system capacity elapsed across all processors is `deltaKernel + deltaUser`, and active busy time is `(deltaKernel + deltaUser) - deltaIdle`. This ratio is mathematically invariant to CPU frequency scaling (Intel SpeedStep / AMD Cool'n'Quiet), processor group topologies, and core count. We guard against multi-core non-atomic counter jitter by clamping usage to $[0.0\%, 100.0\%]$. When no rate can be computed (non-positive elapsed time, a counter that went backwards, or no elapsed CPU time), `calculateCpuUsage` returns `std::nullopt` rather than 0% (see [DC-43](#dc-43)).
+
+**History:** Phase 2, CPU collector; Phase 2, known deviation D-7 (no usage rather than 0%, for [DC-43](#dc-43)).
+
+---
+
+<a id="dc-28"></a>
+### DC-28: Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
+
+**Decision:** Resolve `NtQuerySystemInformation` dynamically from `ntdll.dll` via `GetModuleHandleW` / `GetProcAddress` and query `SystemProcessorPerformanceInformation` (class 8) using a resizing-buffer loop. Per-core utilization is calculated by applying the same `calculateCpuUsage` logic to each core's `IdleTime`, `KernelTime`, and `UserTime`.
+
+**Rationale:** `NtQuerySystemInformation` is the native NT kernel interface used by Task Manager and Process Explorer to query per-processor counters. In Windows, `ntdll.dll` is mapped into every user-mode process at process creation, so resolving the function pointer dynamically via `GetProcAddress` avoids static import dependencies while ensuring universal compatibility. The returned `SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION` structure includes idle time within `KernelTime` for each individual core, mirroring the aggregate behavior of `GetSystemTimes`. The resizing-buffer loop pattern starts with an estimated allocation equal to the detected logical core count and automatically handles `STATUS_INFO_LENGTH_MISMATCH` (0xC0000004) if processor topology or active counts change.
+
+**History:** Phase 2, CPU collector.
+
+---
+
+<a id="dc-29"></a>
+### DC-29: Multi-processor-group support (>64 logical cores): `NtQuerySystemInformationEx` iteration and total CPU aggregation
+
+**Decision:** Use `NtQuerySystemInformationEx` to iterate through all active processor groups (`0 .. GetActiveProcessorGroupCount() - 1`), with fallback to `NtQuerySystemInformation` for Group 0 if `Ex` resolution or runtime calls fail. When more than one processor group is active (`GetActiveProcessorGroupCount() > 1`), compute total CPU usage by aggregating `idleTime`, `kernelTime`, and `userTime` across all cores rather than relying on `GetSystemTimes`. The decision is keyed on the group count, not the core count, because Windows can form several groups on machines with 64 or fewer logical processors (for example one group per NUMA node, or `bcdedit /set groupsize`). If the per-core query fails on such a system, no total is reported for that tick rather than presenting `GetSystemTimes`' single group as the whole machine ([code review F-15](code_reviews/phase_2.md#f-15-cpu-multi-group-aggregation-keys-on-core-count-not-group-count)).
+
+**Rationale:** On 64-bit Windows, processor affinities are limited to 64 bits per group, so high-core machines (>64 logical processors) are partitioned into multiple processor groups. On such machines, `GetSystemTimes` and legacy `NtQuerySystemInformation` only report statistics for the primary group of the calling thread, rendering workloads in secondary groups invisible. Calling `NtQuerySystemInformationEx` with `USHORT group` in the input buffer retrieves each group's cores sequentially, guaranteeing that `CpuSample::coreUsagePercents` captures all logical cores in continuous processor index order. Furthermore, aggregating all cores' counter deltas to compute `totalUsagePercent` on multi-group systems ensures accurate system-wide utilization metrics regardless of how the OS scheduler distributes threads across groups.
+
+**History:** Phase 2, CPU collector; code review F-15 (keyed on the group count, not the core count).
+
+---
+
+<a id="dc-31"></a>
+### DC-31: Memory sampling: `GlobalMemoryStatusEx` and commit charge calculation
+
+**Decision:** Sample physical and virtual memory using `GlobalMemoryStatusEx`. Compute `commitCurrent` as `ullTotalPageFile - ullAvailPageFile`. Clamp memory usage percent defensively to $[0.0\%, 100.0\%]$.
+
+**Rationale:** `GlobalMemoryStatusEx` is an ultra-fast kernel query (< 1 microsecond) with zero external or registry dependencies. In `MEMORYSTATUSEX`, `ullTotalPhys` and `ullAvailPhys` report physical RAM. `ullTotalPageFile` represents the current system commit limit (physical RAM plus current pagefile allocation), and `ullAvailPageFile` represents the remaining commit space available to processes before allocations fail. Subtracting available pagefile from total pagefile yields the active system commit charge (`commitCurrent`), matching Task Manager's commit metric ("Committed x / y GB"). Defensive boundary clamping protects against transient kernel counter jitter.
+
+**History:** Phase 2, memory and disk collector.
+
+---
+
+<a id="dc-32"></a>
+### DC-32: Disk space sampling: `GetDiskFreeSpaceExW` strictly filtered to `DRIVE_FIXED`
+
+**Decision:** Enumerate drive letters via `GetLogicalDrives()`, inspect each drive root using `GetDriveTypeW()`, and call `GetDiskFreeSpaceExW` only for drives returning `DRIVE_FIXED`.
+
+**Rationale:** Calling disk space APIs on removable drives (`DRIVE_REMOVABLE`), optical media (`DRIVE_CDROM`), or remote shares (`DRIVE_REMOTE`) can cause blocking network timeouts or trigger Windows system modal dialogs ("Insert disk into drive..."), freezing the background scheduler tick. Restricting collection strictly to `DRIVE_FIXED` ensures fast, non-blocking queries of all local SSDs and HDDs. If `GetDiskFreeSpaceExW` fails for a specific drive (e.g. unformatted volume or BitLocker locked partition), that drive is skipped gracefully without interrupting collection for other healthy drives.
+
+**History:** Phase 2, memory and disk collector.
 
 ---
 
@@ -545,125 +551,9 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 
 **Rationale:** `GetTickCount64` is a trivial, non-failing call with a 64-bit counter, so unlike `GetTickCount` it does not wrap after 49.7 days. Its 10–16 ms resolution is irrelevant for displaying uptime. It counts time spent in sleep and hibernation, which is what users expect from "uptime". `QueryUnbiasedInterruptTime` was rejected because it excludes sleep time. The snapshot field is optional so a missing collector is explicit rather than a zero uptime (per the domain rules). Uptime is computed from a monotonic tick counter, not by subtracting a boot timestamp from wall-clock time, so it is unaffected by clock changes.
 
----
-
-<a id="dc-43"></a>
-### DC-43: No zero placeholders for CPU and memory: optional samples end to end
-
-**Decision:** `ICpuCollector` and `IMemoryCollector` return `std::optional<CpuSample>` / `std::optional<MemorySample>`, and `SystemSnapshot::cpu` / `::memory` are optional. `CpuCollector` returns `std::nullopt` when both queries fail and on the sample that only establishes its baseline. `calculateCpuUsage` returns `std::nullopt` for non-positive elapsed time, any counter that went backwards, or zero elapsed CPU time. Per-core usages are all-or-nothing: an empty `coreUsagePercents` means "unavailable" (after a core-count change or an uncomputable core), never zero-filled. `calculateMemorySample` returns `std::nullopt` for a zero physical-memory total, and `MemoryCollector` returns it when `GlobalMemoryStatusEx` fails. Likewise, `calculateDiskSample` returns `std::nullopt` for a zero-capacity volume and `DiskCollector` skips it, as it already skipped volumes whose query fails ([D-8](known_deviations.md#d-8-zero-capacity-disk-volumes-report-0-usage)). The dashboard shows "N/A" for missing values. Resolves [known deviation D-7](known_deviations.md#d-7-memory-and-cpu-data-report-zeros-when-missing).
-
-**Rationale:** The domain rules forbid representing missing data as zero. A 0% CPU or 0 GiB memory reading is indistinguishable from a real idle system or a broken query, and it would also mislead the upcoming threshold-based health status (a missing sample must not read as "healthy"). A genuine 0% (a fully idle interval) is still reported as 0%. Rejecting deltas across a counter reset also fixes a latent bug: if only one counter went backwards, the old saturating subtraction could report a meaningless rate such as 100%. Per-core values are all-or-nothing because a partially filled list would misalign core indices.
+**History:** Phase 2, dashboard view.
 
 ---
-
-<a id="dc-44"></a>
-### DC-44: Optional collections: a failed query is not an empty result
-
-**Decision:** `IDiskCollector`, `INetworkCollector`, and `IProcessCollector` return `std::optional<std::vector<...>>`, and `SystemSnapshot::disks`, `::networks`, and `::processes` are optional. `std::nullopt` means no collector is registered or the query failed. An empty vector means the query succeeded and found nothing. `DiskCollector` returns `std::nullopt` when `GetLogicalDrives` fails, and also when fixed drives exist but none of them could be read. `NetworkCollector` returns it when `GetIfTable2` fails. The dashboard shows "N/A" for missing network data and reserves "No active adapter" for a successful read with no hardware adapter Up.
-
-**Rationale:** With plain vectors a failed query looked the same as a machine with no volumes or no adapters, and the network card stated "No active adapter" when nothing had been observed. That is the same missing-data-as-default problem that D-6, D-7, and D-8 removed for single values ([code review F-12](code_reviews/phase_2.md#f-12-empty-disk-and-network-vectors-hide-collector-failures)). `IProcessCollector` has no implementation yet but takes the same shape now, so the Phase 4 process collector starts with it. A partial disk result, where some volumes are readable, is still reported as a vector, because the readable volumes are real data. The unreadable ones are skipped and logged, as before.
-
----
-
-<a id="dc-45"></a>
-### DC-45: Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
-
-**Decision:** `domain/health_status.h` defines `HealthLevel` (Unknown, Healthy, Warning, Critical) and `SystemHealth` (cpu, memory, disk, network, overall). `monitoring/health_evaluator.h` provides the pure function `evaluateHealth(snapshot, HealthThresholds)`, and `SamplingScheduler` calls it at the end of each `sampleOnce()` to fill `SystemSnapshot::health`. Thresholds are strictly "above": warning above 90% and critical above 95% for memory and disk. CPU is critical only above 98%, because short full-load bursts are normal. Disk health is the worst fixed volume. Network health comes from connectivity: InternetAccess is Healthy, any lesser level is Warning. Overall is Critical if any component is Critical, else Warning if any is Warning, else Unknown if any is Unknown, else Healthy. Thresholds are set on the scheduler (`setHealthThresholds`, stopped-only like collector registration) so the Phase 6 settings file can supply them later.
-
-**Rationale:** The architecture places the "health/connectivity evaluator" in `monitoring`, and `domain/AGENTS.md` lists health states as domain types. The domain target is header-only, so it holds only the types. The UI may not depend on `monitoring`, so it cannot call the evaluator. Carrying the result in the snapshot keeps the UI a pure renderer and makes health available to future consumers (tray icon, alerts) without duplicating logic. Unknown is a first-class level so missing data is never reported as Healthy, but a known problem still surfaces when other components lack data. Health is evaluated from each instantaneous sample with no smoothing or hysteresis, so CPU can flicker between levels under bursty load. Sustained-threshold rules belong with the planned alert rules (see the roadmap's alert-rules section).
-
----
-
-<a id="dc-46"></a>
-### DC-46: Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
-
-**Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a health status label (hidden for uptime, which has no health dimension), and at the bottom a fixed-height slot that holds the card's one-minute sparkline ([DC-48](#dc-48)); the uptime card's slot stays empty. The status label is a `TonedLabel` ([DC-105](#dc-105)): Healthy, Warning and Critical in bold in their tones' colours, and Unknown dimmed and in italics, because it is not a state. Each tone has a shade for light and one for dark backgrounds, so the status reaches 4.5:1 contrast in both colour schemes and follows a change of scheme. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
-- Byte quantities use binary (IEC) units (KiB, MiB, GiB).
-- Disk shows the fullest volume.
-- Network shows total throughput over hardware adapters that are Up. Virtual adapters (VPN tunnels, virtual switches) are left out because their traffic also crosses a hardware adapter. It shows "N/A" if any active hardware adapter has no rate yet, because a partial sum would understate traffic, and "No active adapter" when no hardware adapter is Up. Connectivity is the detail line.
-- String literals are ASCII only (no arrows or middle dots). Targets that link Qt compile with `/utf-8`, which Qt adds to its usage requirements, but `domain` and `platform/windows` do not link Qt, so a non-ASCII literal would be read in the system code page there. Non-ASCII text in code is written as escapes or code units.
-
-**Rationale:** A reusable card keeps the five resources visually consistent. The chart slot has the same height in every card, so the uptime card, which has no chart, lines up with the others. Keeping formatting and aggregation in pure functions keeps `DashboardView` thin and makes edge cases (unit boundaries, missing rates, no volumes) testable. Health comes precomputed in `SystemSnapshot::health`, so the UI only renders it, in line with `src/ui/AGENTS.md`. The status colours are tones rather than fixed colours because no single colour reaches WCAG's 4.5:1 on both a light and a dark background. Binary units match how Windows reports memory and disk sizes.
-
-**History:** Phase 2, dashboard view; code review F-37 (status colours).
-
----
-
-<a id="dc-47"></a>
-### DC-47: `RingBuffer<T>` lives in `domain` so the UI can use it
-
-**Decision:** Move `RingBuffer<T>` from `monitoring` to `domain` (`domain/ring_buffer.h`, namespace `sysmon::domain`) with no change to its behaviour. The dashboard's mini sparklines keep their own short presentation history in `RingBuffer`s owned by the UI. Longer histories (e.g. for the Performance view or alert rules) may still live in `monitoring`, using the same type.
-
-**Rationale:** The UI must not depend on `monitoring` (`src/ui/AGENTS.md`), but sparklines need a bounded history with the contiguous-span access `RingBuffer` was designed for. `RingBuffer` is header-only and uses only the standard library, so it already meets the domain's dependency rules, and it had no production users, so the move is cheap. Alternatives considered:
-- A UI-only `std::deque` history would duplicate `RingBuffer` with a less efficient design.
-- Carrying history inside every `SystemSnapshot` is cheap for the dashboard but grows with Phase 3's longer, per-core histories.
-- A new header-only `src/common/` module is semantically cleaner, since `domain` otherwise holds data types. It is deferred until a second shared utility justifies a new module; see the "Code organization" item in the roadmap.
-
----
-
-<a id="dc-48"></a>
-### DC-48: Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
-
-**Decision:** Build a minimal single-series `SparklineWidget` in `src/ui/charts/` (its own `sysmon_ui_charts` library, linked by `sysmon_ui`) for the Phase 2 dashboard, rather than deferring mini sparklines to Phase 3. It has these properties:
-- **Geometry:** a pure `sparklineSegments()` function maps samples to polyline segments and is unit tested without painting. The newest sample sits at the right edge, so a partial history grows in from the right.
-- **Missing data:** samples are `std::optional<float>`, and a missing sample breaks the line (a visible gap) instead of plotting zero.
-- **Y range:** fixed (0–100% for CPU, memory, and disk) or auto-scaled to the data with 10% headroom (network).
-- **Ownership:** the caller owns the history. `DashboardView` keeps a 60-sample `domain::RingBuffer<std::optional<float>>` per card (one minute at 1 Hz) and passes a view of it with `setSamples()` each tick. The network sparkline charts combined in + out throughput.
-- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour. (Phase 3 replaced this blue with the first slot of a theme-aware series palette; see [DC-52](#dc-52).)
-
-**Rationale:** Roadmap item "each card shows a mini sparkline" belongs to Phase 2. The minimal widget covers exactly what the dashboard needs, and Phase 3 extends it (grid, multiple series, axis labels, annotations) rather than replacing it. Rendering from a caller-supplied view keeps the widget reusable for the Performance view's longer histories. Gaps follow the project rule against representing missing data as zero. Copying 60 samples per chart per tick is negligible.
-
----
-
-## Phase 3 — Sparkline charts and performance views (`src/ui/charts/`, `src/ui/`)
-
-<a id="dc-49"></a>
-### DC-49: Sparkline grid scrolls with a caller-supplied sample index
-
-**Decision:** `SparklineWidget::setSampleIndex()` takes the running index of the newest sample (e.g. the number of samples recorded so far), and the pure function `verticalGridLines()` places vertical grid lines on every `capacity / 10`th sample of that sequence. Each new sample moves every line one slot to the left, so the grid scrolls with the data as in Task Manager. Horizontal lines are fixed at quarters of the Y range. The grid, like the other decorations, is off by default.
-
-**Rationale:** Once the history is full, the samples span passed to the widget keeps the same length, so the widget cannot tell from the samples alone that time has moved on. Counting `setSamples()` calls inside the widget would break as soon as a series is set twice per tick or the widget is refreshed for other reasons, so the caller passes the index explicitly. Deriving the spacing from the capacity keeps about ten columns whether the chart shows 60, 300, or 1800 samples. Lines are computed with modular arithmetic on the running index, so a short history (index smaller than the capacity) does not underflow. `RingBuffer` was left unchanged; a caller that needs the index keeps its own counter.
-
-<a id="dc-50"></a>
-### DC-50: Multiple series share one time axis and Y range, with series 0 as the primary
-
-**Decision:** A `SparklineWidget` holds one or more series (`setSeriesCount()`, `setSeriesSamples()`), each with its own colour, optional legend label, and fill flag. All series share the capacity, time axis (newest sample at the right edge), and Y range; the auto range covers every series. Series 0 is the *primary* series: `setSamples()` / `samples()` are shortcuts for it, only it is filled by default, it is painted on top, and the min/max annotations describe it. The existing single-series API is kept, so the dashboard did not change.
-
-**Rationale:** The roadmap asks for several series on one chart (per-core CPU, and network receive/send). One Y scale keeps the chart honest: series of different units or scales belong on separate charts, not a second axis. Filling only the primary series avoids stacked translucent fills turning into a muddy block. Min/max markers for every series would clutter a per-core chart, so they follow the one series the chart is about.
-
-<a id="dc-51"></a>
-### DC-51: Axis labels and annotations reserve space outside the plot
-
-**Decision:** Two optional decorations: *axis labels* (Y range min and max in a left gutter, the history window, e.g. "1 min", and "now" below the plot) and *annotations* (a line above the plot with the current value, the primary series' min and max, and dot markers at those points on its line). With two or more series and at least one label, the current-value area becomes a legend: a short line in the series colour, then the label and current value in the text colour. Values are formatted by a caller-supplied `ValueFormatter`, so the charts library stays independent of `ui`'s formatting helpers. A missing current value shows "N/A". `plotArea()` exposes the rectangle left for the series, and pure `summarizeSeries()` and `formatHistoryWindow()` functions carry the logic for unit tests. (The gutter's width can be fixed by label templates; see [DC-65](#dc-65). Annotations can have their own formatter; see [DC-67](#dc-67).)
-
-**Rationale:** Drawing text over the plot would collide with the lines, so labels get their own bands and the plot shrinks instead. Keeping everything off by default lets the same widget stay a bare 36-pixel dashboard sparkline. Text stays in the palette's text colour (dimmed for secondary labels), never the series colour, so it is readable on any theme, and a series is identified by its colour key plus its label, never by colour alone. On ties, the newest occurrence is marked, which keeps the marker close to the live edge on flat data.
-
-<a id="dc-52"></a>
-### DC-52: Sparkline series colours: a validated five-hue palette without status hues
-
-**Decision:** Unless the caller overrides a series colour, series 0–4 take fixed hues in this order: blue, orange, aqua, violet, magenta (`defaultSeriesColor()`), with separate light and dark steps. The widget picks the dark steps when its background colour is dark, at paint time, so it follows theme changes. Series 5 and later share a muted grey instead of generated or repeated hues. The grid, frame, and secondary text use the palette's text colour at reduced opacity.
-
-**Rationale:** The hues and steps come from a categorical palette whose order was checked with a colour-vision-deficiency validator: every adjacent pair stays separable under deuteranopia, protanopia, and tritanopia, and has enough contrast against the chart background, in both light and dark mode. Red, amber, and green were removed from that palette because they are the dashboard's Critical, Warning, and Healthy status colours, and a series in those hues would read as a status. The remaining five still pass after re-validation. In light mode, aqua and magenta fall below 3:1 contrast against the background, which is why labelled series always appear in the legend with their values. Repeating or generating hues past the fifth series would make series look alike, so more series (e.g. per-core CPU on a 16-core machine) get a shared de-emphasised grey. The caller can colour them explicitly, highlight a total in the primary colour, or split them across charts. Following the palette rather than the system accent colour keeps the reason for a fixed blue in [DC-48](#dc-48): a red accent would read as Critical.
-
-<a id="dc-53"></a>
-### DC-53: Performance view: a sidebar of resource pages that each own their history
-
-**Decision:** `PerformanceView` is a sidebar (`QListWidget`) beside a `QStackedWidget` of four pages: CPU, memory, disk, and network. Each sidebar entry shows the page title and a short summary of the latest values. Each page derives from `PerformancePage` and owns the `RingBuffer` histories for its charts:
-- **CPU:** a total utilization chart above a near-square grid of small per-core charts, one per logical processor, which scrolls vertically when the page is too small for it. When the number of cores in the samples changes, the grid is rebuilt and the per-core history restarts, because the core indices no longer line up.
-- **Memory:** physical memory usage and commit charge as percentage charts. Commit charge is a percentage of the commit limit, and the limit can grow with the page file.
-- **Disk:** one space-used chart with a labelled series per volume, in volume-name order.
-- **Network:** one chart per adapter that is Up and can carry traffic: a hardware adapter, or a virtual adapter bound to IP (see [DC-59](#dc-59)). Each chart has receive and send series on an auto-scaled byte-rate axis. Hardware adapters come first and are shown in a scroll area.
-
-Disk volumes are keyed by volume name, and network adapters by `NetworkSample::interfaceId` (see [DC-64](#dc-64)). A key that leaves the snapshots records gaps, and is dropped once its history holds no samples. An adapter still in the snapshot is kept even when it has no values, since a new adapter has no rate until its second sample. Network history is recorded for every adapter, including adapters that are down, so an adapter that comes up shows its history.
-
-**Rationale:** Task Manager's layout (a resource list with one detail page at a time) gives each chart room. It also lets per-core charts use their own small multiples instead of 16 or more overlapping series, which would run out of distinguishable colours after five (see [DC-52](#dc-52)). The histories stay in the UI, as the dashboard's do, because the UI may not depend on `monitoring`. Keeping each history next to the page that draws it keeps `SystemSnapshot` a per-tick value. Keying by name or ID rather than position keeps a volume's or adapter's line continuous when others appear or disappear.
-
-<a id="dc-54"></a>
-### DC-54: Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
-
-**Decision:** `MainWindow::onSnapshotReady` forwards every snapshot to the dashboard and the performance view, whichever tab is current. Recording and display are separate steps. `PerformanceView::updateSnapshot` always appends to each page's history. It refreshes widgets only while the view is visible, and then only for the selected page and the sidebar. `showEvent` and a page change refresh from the recorded history. The Processes and Network views will follow the same pattern when they are implemented.
-
-**Rationale:** Code review F-4 proposed updating only the visible tab. For views with history, that would leave gaps covering the time another tab was open, so the recording step must always run. Recording is only a few `RingBuffer` pushes per tick. The costs worth skipping are copying up to thousands of samples per chart into the widgets and painting them, and those are skipped while the view is hidden. Deciding visibility inside each view, rather than in `MainWindow`, keeps the rule next to the state it protects and also covers pages that are not selected within the view.
 
 <a id="dc-55"></a>
 ### DC-55: CPU base speed from `CallNtPowerInformation`, read once; no current clock speed
@@ -671,6 +561,10 @@ Disk volumes are keyed by volume name, and network adapters by `NetworkSample::i
 **Decision:** `CpuSample::baseSpeedMhz` carries the processor's rated clock speed. `CpuCollector`'s default constructor reads it once with `CallNtPowerInformation(ProcessorInformation)`, using a buffer sized for all active logical processors (`GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)`), and reports the highest `MaxMhz` (`baseSpeedFromMaxMhz`). The value is `std::nullopt` when the call fails or every processor reports 0, as some virtual machines do. It feeds the Performance tab's "Base speed" readout. There is no current-speed readout.
 
 **Rationale:** The rated speed does not change while the system runs, so one call at startup is enough. The highest value makes a hybrid processor report its performance cores. A current-speed readout was rejected: on the development machine the same structure's `CurrentMhz` equalled `MaxMhz` (4700 MHz) at idle, which is a known limitation of the field on current processors. Task Manager computes its "Speed" from the "% Processor Performance" counter, which would need PDH, and PDH is not used for core metrics ([DC-02](#dc-02)). Showing no current speed is better than showing a wrong one. `PROCESSOR_POWER_INFORMATION` is documented but missing from the SDK headers, so `cpu_collector.cpp` declares it, as it already does for `SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION`.
+
+**History:** Phase 3, Performance tab.
+
+---
 
 <a id="dc-56"></a>
 ### DC-56: Memory detail and system activity counts from `GetPerformanceInfo`, as fast collectors
@@ -683,163 +577,26 @@ Both run on the scheduler tick as fast collectors. The call is wrapped once in `
 
 **Rationale:** On the development machine (367 processes, about 200,000 handles) `GetPerformanceInfo` took about 19 µs per call, so it reads kernel counters rather than enumerating processes, and it fits the fast-collector budget. It is documented, has no registry or PDH dependency, and provides exactly the counts Task Manager shows, so it follows the direct-Win32 rule for core metrics. `GlobalMemoryStatusEx` stays the source of the core memory figures, as the rules require. Counting processes, threads, and handles from the Phase 4 `SystemProcessInformation` enumeration was rejected: it runs every 2–5 s on the slow-collector thread and does not exist yet, and these readouts should update at 1 Hz. The Phase 4 process list may still report its own totals. Calling `GetPerformanceInfo` from two collectors costs a second 19 µs call per tick. In return, memory detail stays in `MemorySample` and the counts get their own collector, and each collector remains independently testable. Merging them into one collector would either put process counts in a memory type or split one query's results across snapshot fields inside the scheduler.
 
-<a id="dc-57"></a>
-### DC-57: Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
-
-**Decision:** Each page shows numeric readouts next to its charts, in a `ReadoutGrid` with a dimmed name above each value:
-- **CPU:** utilization, base speed, logical processors, processes, threads, handles, and up time.
-- **Memory:** used, available, total, committed, system cache, paged pool, and non-paged pool (see [DC-63](#dc-63)).
-- **Disk:** used, total, and free space, one readout per volume.
-- **Network:** under each adapter's chart, receive, send, link speed, type (hardware or virtual), adapter description, IPv4 and IPv6 addresses, DNS servers, and bytes received and sent.
-
-The text comes from pure functions in `ui/performance_readouts.h` (`cpuReadouts()`, `memoryReadouts()`, `diskReadouts()`, `adapterReadouts()`). They return the same names in the same order whether or not the data is available, and "N/A" for missing values, including a link speed of 0. Readouts show "--" until the first snapshot, as the dashboard does. `ReadoutGrid::setReadouts()` updates the value labels in place while the names are unchanged, and rebuilds its cells only when they change (for example, a volume is added). Counts use comma thousands separators, clock speeds are in GHz, and link speeds are in decimal bits per second.
-
-**Rationale:** Keeping the names fixed means a missing value does not change the layout, and the missing value is visible rather than quietly removed. Pure builders keep formatting and edge cases testable without widgets, as `dashboard_formatting.h` does for the dashboard. Updating labels in place avoids rebuilding widgets every second. Counts are grouped with a fixed separator rather than with `QLocale`, so tests do not depend on the machine's locale. Localized number formatting can come with the Phase 6 display-unit settings. Link speeds use decimal units because network rates are conventionally quoted that way, while byte quantities keep the binary units used elsewhere.
-
-<a id="dc-58"></a>
-### DC-58: Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
-
-**Decision:**
-- **Readouts:** `ReadoutGrid` lays out its labels with its own `QLayout` (`ReadoutLayout`, in `readout_grid.cpp`). The constructor's column count is a maximum: the layout uses as many columns as fit the width, reports a height for width, and has the widest readout as its minimum width. Spare width is shared so that columns are equally wide where their content allows. Each cell remembers the widest it has been since the names last changed, so a value that shrinks again does not bring a column back.
-- **Scrolling:** the network page's scroll area, and a new scroll area around the CPU page's per-core grid, scroll vertically only. Per-core charts have a 12×12 minimum, so the 16 columns of a 256-core grid fit the page width.
-- **Window size:** `MainWindow` opens at 1024×720, limited to 90% of the screen's available area. 800×600 is still the size the content must fit, and widget tests check it with 256 cores and two adapters that have long addresses and descriptions.
-
-**Rationale:** A `QLabel` without word wrap cannot be narrower than its text. A fixed five-column grid of IPv6 addresses and adapter descriptions was 875 px wide on a 535 px page, so every adapter's readouts needed sideways scrolling. Doing the re-flow in a layout, rather than in `resizeEvent()` as the review suggested, means Qt's height-for-width handling sizes the scroll area's content and the pages' box layouts correctly. The labels are only moved, never recreated, so values are still updated in place. Wrapping or eliding values was rejected, because addresses must stay whole to be read and copied. Giving long values their own full-width rows was also rejected: it would be a special case inside a generic grid, while re-flow already gives long values fewer columns and short readouts more when there is room. Without the remembered widths, a transfer rate near a column boundary would change the column count every second.
-
-The per-core grid scrolls instead of shrinking its charts further, because a chart only a few pixels tall shows nothing. Its minimum width still matters: a scroll area with horizontal scrolling turned off squeezes content that is too wide rather than widening the window, and it shows no scroll range, so the tests compare the content's minimum width with the viewport. At the larger default size, the network readouts usually get two or more columns instead of one. Limiting it to the screen keeps the window on screen on a 1366×768 laptop.
-
-<a id="dc-59"></a>
-### DC-59: Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
-
-**Decision:** `NetworkSample` has a `hasIpInterface` flag. The collector sets it when `GetAdaptersAddresses` lists the adapter, which it does only for adapters bound to IP. `chartedAdapters()` charts an Up adapter only if it is hardware or has an IP interface. Virtual adapters without one stay in the snapshots, and their history is still recorded.
-
-**Rationale:** Windows keeps several hidden virtual adapters Up permanently, such as WAN Miniport (IP), (IPv6) and (Network Monitor). They have no IP interface and never carry traffic, yet on the review machine they took three of the network page's five charts. `MIB_IF_ROW2` has no "hidden" flag, and `ConnectorPresent` is false for the WAN Miniports and for VPN tunnels alike, so `GetIfTable2` cannot tell them apart. IP binding can, and the collector already correlates each row with `GetAdaptersAddresses`. The review also suggested testing `ipAddresses` for emptiness. That gives the same result in practice, because link-local addresses are kept, but an explicit flag states the reason, does not depend on an adapter having an address yet, and gives the Phase 5 network view the same distinction. Hardware adapters are charted without an IP interface, because their link can still carry traffic. While `GetAdaptersAddresses` fails, every adapter has the flag cleared, so virtual adapters leave the page until the next successful read and hardware adapters stay. That is acceptable for a chart list.
-
-<a id="dc-60"></a>
-### DC-60: Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
-
-**Decision:** A chart is *dense* when it has more slots (its capacity) than its plot has pixel columns, for example a 30-minute history on an 800-pixel chart or on a small per-core chart. For a dense chart, `SparklineWidget` changes three things:
-- **Decimation:** `sparklineSegments()` keeps only each pixel column's lowest and highest point, in time order. A segment then has at most two points per column. Gaps still split segments.
-- **Line:** it is drawn with `drawPolyline()` and a 1-pixel cosmetic pen instead of the 1.5-pixel pen with round joins.
-- **Fill:** it follows `upperEnvelope()`, one point per column at the column's highest value, instead of the zigzag line.
-
-Charts that are not dense look exactly as before.
-
-**Rationale:** With 30 minutes of history, a Release build took about 210 ms per tick on the CPU page (16 cores) and 145 ms on the network page. That was measured with synthetic worst-case data that swings across most of the range every 20 samples, and it is far too long for a 1 Hz UI thread. Decimation alone barely helped, because the cost was not the number of points. It was Qt's general stroker, which builds a round-joined outline for every vertex of a pen wider than one pixel, and the scanline cost of filling a polygon whose top edge zigzags. Qt's raster engine has a fast path for cosmetic pens up to one pixel wide, which cut the worst page to about 60 ms. The envelope fill, which covers the same pixels as filling under the zigzag because the line is drawn over each column's span, brought it to about 27 ms (see the measurements in [DC-61](#dc-61)). Min/max decimation is kept because it bounds the work by the chart's width, and unlike averaging it keeps one-sample spikes visible. A one-pixel line also suits a dense chart better, because a thicker one would merge neighbouring columns.
-
-<a id="dc-61"></a>
-### DC-61: 30 minutes of performance history, a chart-window selector, and the measured tick cost
-
-**Decision:** Each Performance page keeps 30 minutes of history (`PerformancePage::kHistoryCapacity` = 1800 samples at 1 Hz). A "Chart history" selector below the sidebar sets how much of it the charts show: 1 minute (the default, as in Task Manager), 5 minutes, or 30 minutes. `showHistory()` passes the chart only the newest window of samples and sets the chart's capacity to match. The selection is not saved yet, because persisting it belongs with the Phase 6 settings file. Windows are counted in samples, which equals seconds at the fixed 1 Hz sampling rate. A configurable refresh interval will need to convert them.
-
-The tick cost was measured with a throwaway benchmark (not committed; [DC-66](#dc-66) replaces it with a committed one and newer figures) in a Release build (`build.ps1 -Release`) on the development machine, a 16-thread 4.7 GHz desktop. The benchmark shows a 1280x800 window on the Performance tab and records 1800 synthetic snapshots. It then times 20 more snapshots, each forwarded by `MainWindow` and followed by a synchronous repaint of the window. The data is a worst case: every series swings across most of its range every 20 to 30 samples.
-
-| Page | 1 min | 5 min | 30 min |
-| --- | --- | --- | --- |
-| CPU, 16 cores | 6.2 ms | 9.8 ms | 26.9 ms |
-| CPU, 64 cores | 12.1 ms | 15.7 ms | 20.4 ms |
-| Memory | 2.4 ms | 4.9 ms | 8.2 ms |
-| Disk | 1.3 ms | 1.3 ms | 1.6 ms |
-| Network, 2 adapters | 3.8 ms | 12.5 ms | 36.6 ms |
-
-The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its per-core charts are smaller. A Release build of the app run on the same machine used about 41 MiB of working set.
-
-**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. At the default window, every page costs under 13 ms per second, about 1% of the UI thread. Even the synthetic worst case at 30 minutes stays under 40 ms, one short frame per second, and real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in [DC-60](#dc-60). Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.
-
-<a id="dc-62"></a>
-### DC-62: `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
-
-**Decision:** `build.ps1` builds (and tests, with `-Test`) without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory has no `build.ninja`, has not been configured by the script yet (a `build_ps1_configure.stamp` file in the build directory records the last successful configure), or a presets file is newer than that stamp. `-Configure` forces it. CTest runs with `--parallel` set to the number of logical processors.
-
-**Rationale:** Builds and test runs far outnumber launches, especially for agents, so launching is the opt-in. Measured on the 16-thread development machine, an edit to one UI file followed by `-Test` took about 26 s: about 3 s re-configuring although nothing had changed, about 4 s compiling and linking, and about 18 s of tests. `gtest_discover_tests` runs each of the 362 tests in its own process at about 50 ms each, so process startup dominates and the tests parallelize well. Together the two changes cut that cycle to about 8 s (tests about 4 s), and a build with nothing to do from about 5 s to under 2 s. Skipping configure is safe because Ninja re-runs CMake itself when a `CMakeLists.txt` changes, and the vcpkg toolchain adds `vcpkg.json` and `vcpkg-configuration.json` to `CMAKE_CONFIGURE_DEPENDS`. Ninja does not track the presets files, hence the stamp. `CMakeCache.txt` cannot serve as the stamp, because CMake rewrites it only when its contents change. Ten consecutive parallel runs passed. The integration tests' timing checks allow up to a second, and the one test that writes a file uses its own directory, so the tests do not interfere with each other.
-
-**Note:** [DC-113](#dc-113) replaces the process per test with GoogleTest shards; CTest still runs them with `--parallel`.
-
-<a id="dc-63"></a>
-### DC-63: Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
-
-**Decision:** The memory page's "Cached" readout is renamed "System cache", and `MemorySample::cachedBytes` is renamed `systemCacheBytes`. It still shows `PERFORMANCE_INFORMATION::SystemCache`, and the domain comment now says what that is without claiming it matches Task Manager. "In use" is renamed "Used". It is still total minus available, so it includes the modified page list. The dashboard ("… of … used") and the sidebar summary already used that wording or no label, and are unchanged.
-
-**Rationale:** Task Manager's "Cached" is the standby list plus the modified list, and its "In use" leaves the modified list out. `SystemCache` is neither. Microsoft documents it as the standby list plus the system working set, but it does not measure as that either. Two readings on the development machine, taken from the memory-list performance counters for comparison only:
-
-| Reading | `SystemCache` | Standby | Standby + modified (Task Manager's "Cached") | Standby + system working set |
-| --- | --- | --- | --- | --- |
-| Code review F-22 | 30.59 GiB | 33.83 GiB | 34.37 GiB | 35.09 GiB |
-| This fix | 34.84 GiB | 34.25 GiB | 34.42 GiB | 35.31 GiB |
-
-The difference from Task Manager was 3.8 GiB in the first reading and 0.4 GiB in the second, and in different directions, so no correction can be applied to it. Reproducing Task Manager's figures needs the exact list sizes. `NtQuerySystemInformation(SystemMemoryListInformation)` provides them but requires `SeProfileSingleProcessPrivilege`, which unelevated users do not have. The `\Memory\Standby Cache*` and `\Memory\Modified Page List Bytes` counters would need PDH, which is not used for core metrics ([DC-02](#dc-02)). The readout is kept rather than dropped because the size of the system cache is still useful, and the new name no longer promises a figure the tool cannot provide. "Used" is the plain description of total minus available. If elevated access is added (see "Elevated process termination" in the post-MVP roadmap), an elevated component could read `SystemMemoryListInformation` and provide Task Manager's breakdown.
-
-<a id="dc-64"></a>
-### DC-64: Network adapters identified by interface LUID, not by name (code review F-23)
-
-**Decision:** `NetworkSample::interfaceId` carries the key the collector already uses for rate baselines: the interface LUID, or the interface index when Windows reports no LUID, or a hash of the name when it reports neither. `NetworkPerformancePage` keys its histories and charts by it, and uses the names only for display. A renamed adapter keeps its chart and history, and its title changes.
-
-**Rationale:** The page used to key by `adapterName`, which is the friendly name, the alias, or the description. Descriptions repeat ("WAN Miniport (IP)", "Microsoft Wi-Fi Direct Virtual Adapter"), and two adapters with the same name pushed into one history, which then held two samples per tick and drew both adapters as one line. Renaming a connection also restarted its history. The LUID is unique per interface and does not change on rename, and it was already computed at the platform boundary, so passing it on costs one field. It is an opaque `uint64_t` in the domain, so no Windows type crosses the boundary. The Phase 5 network view needs a stable adapter identity as well.
-
-<a id="dc-65"></a>
-### DC-65: Y-axis gutter sized from caller-supplied label templates (code review F-24)
-
-**Decision:** `SparklineWidget::setAxisLabelTemplates()` takes texts as wide as the widest Y-axis labels expected. The gutter is the widest of these templates and the current range's labels, so a label is never clipped. The network page gives its charts `chartByteRateAxisTemplates()`: the widest output of `formatChartByteRate()` in each unit up to GiB/s, produced by the formatter itself at one byte below each unit boundary (for example "1024.0 MiB/s"). Percentage charts need no templates, because their fixed range already gives constant labels.
-
-**Rationale:** The gutter used to be as wide as the current range's labels ([DC-51](#dc-51)). On an auto-ranged chart the maximum label changes with traffic, and the review measured the plot's left edge moving by up to 19 pixels as a burst came and went. That reads as jitter on a chart that otherwise scrolls smoothly, and stacked network charts did not line up. Several templates are needed rather than one, because unit letters differ in width ("KiB/s", "MiB/s", "GiB/s"). Producing them from the formatter keeps them correct if the formatting changes. Measuring a few strings costs little next to painting the series. A formatter that reports its own widest output was rejected because `ValueFormatter` is a plain function, and the charts library would need a richer interface for a single caller. Units above GiB/s are left out: they would widen every network chart for rates above 1024 GiB/s, which no current adapter reaches, and such a label would still widen its gutter instead of being clipped.
-
-<a id="dc-66"></a>
-### DC-66: A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
-
-**Decision:** `benchmarks/performance_tick_benchmark.cpp` builds `system_monitor_benchmark`, an executable that is built with every preset but not registered with CTest. `build.ps1 -Benchmark` implies `-Release` and runs it after the build (and after the tests, with `-Test`). For each page it shows a 1280x800 `MainWindow` off screen (`WA_DontShowOnScreen`), records 1800 snapshots while the Performance tab is hidden, then selects the page and, for each chart window, times 20 ticks: `MainWindow::onSnapshotReady()` followed by `grab()` of the whole window. It prints the mean and maximum per tick as a Markdown table. The data is a fixed worst case: every series (total and per-core CPU, memory usage and commit, three volumes, receive and send for two adapters) is a sine wave between 5% and 95% of its range, with a period of 20 to 30 samples that differs per series. Throughput peaks at 100 MiB/s.
-
-One run on the development machine (16 threads, 4.7 GHz), mean with maximum in parentheses. Over three runs, every mean stayed within 3 ms of these:
-
-| Page | 1 min | 5 min | 30 min |
-| --- | --- | --- | --- |
-| CPU, 16 cores | 7.6 ms (9.6) | 12.5 ms (13.5) | 39.1 ms (40.1) |
-| CPU, 64 cores | 14.3 ms (15.3) | 18.9 ms (20.3) | 34.1 ms (35.0) |
-| Memory | 4.0 ms (4.7) | 9.5 ms (10.2) | 22.9 ms (24.9) |
-| Disk, 3 volumes | 4.5 ms (5.0) | 23.8 ms (24.6) | 38.7 ms (48.6) |
-| Network, 2 adapters | 4.9 ms (5.4) | 11.3 ms (12.3) | 13.3 ms (18.0) |
-
-**Rationale:** The table in [DC-61](#dc-61) came from a benchmark that was not committed, so it could not be reproduced, and the review's rebuilt benchmark differed from it by up to 2x. That benchmark had already caught a 210 ms tick, so later changes to charts and pages need the same tool, and the Phase 4 process table will be the next large cost on the UI thread. An executable outside CTest suits timings, which depend on the machine and would make a flaky pass/fail test. Building it with every preset keeps it compiling in CI without running it. Recording while the tab is hidden uses the recording-only path ([DC-54](#dc-54)), so the 1800-sample warm-up takes seconds. Printing through spdlog follows the logging rule.
-
-The new numbers support DC-61's conclusions with slightly higher figures. A tick at the default 1-minute window costs at most about 15 ms (14 ms for 64 cores, against "under 13 ms"). The worst case at 30 minutes averages about 40 ms, with single ticks up to about 49 ms. That is still one short frame per second. Individual pages differ from DC-61 because the data differs: every series here swings, including all three disk volumes, which real disk usage never does, so the disk page is far slower than DC-61's 1.6 ms. The network page is faster than DC-61's 36.6 ms. The throwaway benchmark's data is not recorded in enough detail to say why, which is the reason to commit this one.
-
-**Extended by [DC-83](#dc-83):** `build.ps1 -Benchmark` also runs `system_monitor_process_benchmark`, which measures the Processes tab.
-
-**Extended by [DC-95](#dc-95):** the benchmarks print the compiler, Qt and Windows versions, and `build.ps1` the processor and the power settings. Three runs on 2026-10-15 reproduced this table to within 2 ms.
-
-<a id="dc-67"></a>
-### DC-67: Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
-
-**Decision:**
-- **Annotation precision:** `SparklineWidget::setAnnotationFormatter()` formats the annotations (current value, min, and max) separately from the axis labels, and defaults to the value formatter. `PerformancePage::createHistoryChart()` takes both formatters. Percentage charts label the axis in whole percent ("8%", `formatChartPercent()`) and annotate with one decimal ("7.5%", `formatPercent()`), as the readouts do.
-- **Named extremes:** when a chart has a legend and its primary series has a label, the min/max text names it: "Receive min 1.0 KiB/s  max 4.0 KiB/s". Otherwise it stays "Min …  Max …". `extremesText()` exposes the text for tests.
-- **Volume colours:** `setSeriesColorSlot()` gives a series the default colour of another palette slot, still following the light or dark surface. `DiskPerformancePage` gives each volume the lowest free slot when it first appears and keeps it while the volume has history. Series stay in volume-name order.
-- **Link speeds:** `formatLinkSpeed()` rounds to three significant digits before choosing the unit, and has a Tbps unit, so "1e+03 Mbps" becomes "1 Gbps".
-
-**Rationale:** The annotation and the readout below it showed the same value at different precision ("8%" and "7.5%"), which looks like a disagreement. Whole percentages still suit the axis, where they are scale marks rather than readings, so the two get separate formatters instead of one shared precision. Byte rates already have one decimal and use the same formatter for both. The extremes describe series 0 only ([DC-50](#dc-50)), and with a legend nothing said so. Naming the series fixes that and keeps the extremes, which the network charts' Receive series needs, instead of dropping them from multi-series charts. Colours used to follow sort position, so a new volume changed the colour of every volume after it. A fixed `setSeriesColor()` override would lose the light and dark steps of [DC-52](#dc-52), so the widget takes a palette slot instead. Reusing the lowest free slot keeps colours within the five hues while there are at most five volumes. `QString::number(…, 'g', 3)` switches to an exponent once rounding reaches 1000, and choosing the unit after rounding avoids that at every boundary.
-
-<a id="dc-68"></a>
-### DC-68: Shared UI constants and helpers: where each one lives (code review F-28)
-
-**Decision:**
-- `charts::kPercentRange` sits next to `YRange` in `sparkline_widget.h`.
-- `kNotAvailable` ("N/A") and `usedMemoryBytes()` are in `dashboard_formatting.h`, which the dashboard and the Performance tab's helpers already include.
-- `view_metrics.h` names the margins, spacing and title size the views share (`kViewMargin`, `kSectionSpacing`, `kItemSpacing`, `kTitlePointSize`). Values used by one file stay local named constants there, such as `kHistoryChartMinimumHeight` in `performance_page.cpp`.
-- `chartedAdapters()` orders names with `QString::compare(…, Qt::CaseInsensitive)`. Superseded by [DC-106](#dc-106): both tabs now order adapters with `isListedBefore()`, which compares names in natural order.
-
-**Rationale:** Each value had several copies that could drift apart. Moving them into an existing header that every user already includes avoids a new header for one or two declarations. `dashboard_formatting.h` already holds the formatting both tabs share (`formatPercent()`, `formatBytes()`). The charts library keeps its own "N/A", because `ui/charts` must not depend on `ui` ([DC-51](#dc-51)). One `usedMemoryBytes()` gives the dashboard card, the sidebar summary and the "Used" readout the same definition, which [DC-63](#dc-63) documents. The layout metrics get their own header because no existing one is about layout, and sharing them keeps the tabs aligned when one changes. `localeAwareCompare()` made a pure function's result depend on the machine's locale, which the readouts already avoid for counts ([DC-57](#dc-57)). Case-insensitive comparison gives the same order for adapter names, which are almost always ASCII.
-
-**Extended in code review F-37 and F-44:** `kCardMargins` in `view_metrics.h` gives the dashboard's and the Network tab's cards their margins ([DC-105](#dc-105)), and `kOneMinuteOfSamples` in `sample_history.h` is the one-minute history that both of them chart.
-
-<a id="dc-69"></a>
-### DC-69: `build.ps1` retries a failed configure once from a clean cache
-
-**Decision:** When `cmake --preset` fails and the build directory already had a `CMakeCache.txt`, `build.ps1` warns, removes `CMakeCache.txt` and `CMakeFiles`, and configures once more. `vcpkg_installed` and the Ninja build outputs are kept. A failure without an existing cache, or a second failure, stops the script as before. The configure stamp ([DC-62](#dc-62)) is removed before configuring and written only after success, so a failed configure is always repeated on the next run.
-
-**Rationale:** After a Visual Studio update, the Release build directory's cache recorded a compiler that no longer matched the preset's `cl`. CMake deleted the cache and re-ran itself, the re-run could not find vcpkg's packages, and the cache it left behind failed every later configure in the same way, including with `-Configure`. Deleting the two cache entries by hand fixed it. A cache created for another source directory (a moved or copied checkout) fails in a similar way, and the retry was tested with that case. The presets define every cache variable and the script passes none of its own, so a clean cache loses nothing. Keeping `vcpkg_installed` avoids restoring dependencies again, and in the test Ninja found nothing to rebuild afterwards. Retrying only once, and only when a cache existed, means a genuine error in a `CMakeLists.txt` still fails, after one extra configure of a few seconds. Deleting the whole build directory was rejected, because it would force a full rebuild and a dependency restore for a problem confined to the cache.
+**History:** Phase 3, Performance tab; code review F-22 (`systemCacheBytes`, for [DC-63](#dc-63)).
 
 ---
 
-## Phase 4 — Process collector (`src/platform/windows/`)
+## Process collector
+
+The process list, each process's details and rates, and the processes the monitor never opens.
+
+<a id="dc-13"></a>
+### DC-13: `ProcessInfo::accessDenied` flag kept in-band
+
+**Decision:** `ProcessInfo` includes an `accessDenied` bool rather than being omitted from the snapshot or replaced with an error variant at the `vector<ProcessInfo>` level.
+
+**Rationale:** Even when a process cannot be fully introspected, `NtQuerySystemInformation` returns its name and PID. Omitting the process from the snapshot entirely would silently hide it from the user (wrong: Task Manager shows all processes). A separate error list alongside `vector<ProcessInfo>` would force all UI code to merge two collections. The in-band flag keeps the snapshot a single coherent list and lets the UI render a partial row — image name visible, metrics showing `—` — which is the same pattern used by Task Manager and Process Explorer.
+
+**Superseded in part by [DC-72](#dc-72):** the status stays in-band, but the bool became the `ProcessDetailsStatus` enum `detailsStatus`, because `NtQuerySystemInformation` never fails to return a process's metrics; only the image path and command line can be missing.
+
+**History:** Phase 1, domain types; Phase 4, process collector (the flag became `ProcessDetailsStatus`, for [DC-72](#dc-72)).
+
+---
 
 <a id="dc-70"></a>
 ### DC-70: Process list read into a kept, growing buffer through an injected query
@@ -848,7 +605,7 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 
 **Rationale:** The list's size is not known in advance and changes between calls, so the API reports the size it needs and the caller retries. The headroom covers processes and threads created between the failed call and the retry, so one retry is normally enough. A desktop's list is a few hundred KiB: 256 bytes per process, 80 per thread, plus the image names. Keeping the buffer therefore costs little and saves an allocation and a failed call on every refresh. The 64 MiB cap is far above any real list, but it stops a corrupt reported size from exhausting memory, which would end the process because exceptions are not used. With the fake query, unit tests cover retry paths that a real machine rarely takes, as [architecture.md — Testing strategy](architecture.md#testing-strategy) asks for buffer resizing. An integration test starts the real query from a 1 KiB buffer to force the loop.
 
-**Corrected (code review F-33):** the code also added the eighth after doubling, so a buffer without a reported size grew to 2.25 times its size. It now doubles exactly, as described above, and the unit test checks the sizes.
+**History:** Phase 4, process collector; code review F-33 (growth without a reported size corrected to doubling).
 
 ---
 
@@ -887,6 +644,8 @@ A detail that could be read is set whatever the status, so the status describes 
 
 **Rationale:** The flag was defined as "the process metrics could not be retrieved at all", which never happens: `NtQuerySystemInformation` returns the metrics of every process, protected ones included, without opening any ([DC-01](#dc-01)). Only the details read by opening the process can be missing, and for several reasons the UI should tell apart. A process the monitor deliberately never opens is not one that refused access, and neither is a kernel process that has no command line. An enum is the error variant the domain rules ask for, and `NotQueried` as the default means a `ProcessInfo` never claims a query that did not happen.
 
+**History:** Phase 4, process collector.
+
 ---
 
 <a id="dc-73"></a>
@@ -895,6 +654,8 @@ A detail that could be read is set whatever the status, so the status describes 
 **Decision:** `domain/process_identity.h` defines `ProcessIdentity` (`pid`, `creationTime`) with `ProcessIdentityHash`, and `ProcessInfo::identity()` returns it. `ProcessIdentityCache` (`platform/windows`, no Windows types) maps identities to `ProcessDetails`. `ProcessCollector` passes it every new list. For each process, the cache uses its entry if it has one and otherwise calls the injected `ProcessDetailsReader` once, caching the result whatever its status. It then erases every entry the list did not mention, using a generation counter instead of rebuilding the map. Without a details reader, every process's details stay `NotQueried`.
 
 **Rationale:** Opening a process and reading its path and command line costs a few system calls per process, and the details cannot change while the process lives, so [architecture.md](architecture.md#windows-api-choices) asks for them to be read lazily and cached by `(PID, creation time)`. Keying by PID alone would show a previous process's path and command line for a new process that reused its PID. Erasing on every refresh bounds the cache by the process list and removes an exited process's entry before its PID can come back. Caching failures too means a process that denies access is not opened again every refresh; the cost is that a rare transient failure lasts until the process exits. The identity type is in `domain` because the CPU usage baselines and the Phase 4 process table need the same key. The cache takes the reader as a function, as the other collectors take their readers, so its tests cover PID reuse and eviction without Windows.
+
+**History:** Phase 4, process collector.
 
 ---
 
@@ -906,6 +667,8 @@ A detail that could be read is set whatever the status, so the status describes 
 **Rationale:** Opening either process, even with `PROCESS_QUERY_LIMITED_INFORMATION`, trips credential-theft heuristics in most EDR products ([architecture.md — Antivirus and EDR considerations](architecture.md#antivirus-and-edr-considerations)). `NtQuerySystemInformation` already returns their metrics without a handle, so only the details are lost, and an unelevated query would usually be refused anyway. Filtering in the collector, rather than inside the Windows reader only, makes the rule hold for any reader and lets unit tests show with a fake that the reader never sees these processes. The Windows reader ([DC-75](#dc-75)) checks the name again just before `OpenProcess`, so code that calls it directly cannot open them either. Matching by name alone also skips any other process with one of these names. That costs only that process's path and command line, and never risks opening the real one, whose path does not need to be known.
 
 **Superseded in part by [DC-94](#dc-94):** the reader's second check stops a direct caller only if it passes the name the process list reported. A process without a name, other than the Idle process, is now refused too, so a caller that passes only an identity cannot open either process.
+
+**History:** Phase 4, process collector; code review F-32 (a process without an image name refused too, for [DC-94](#dc-94)).
 
 ---
 
@@ -926,6 +689,8 @@ On the development machine (Release, unelevated, 413 processes) the first `colle
 
 **Rationale:** `PROCESS_QUERY_LIMITED_INFORMATION` is the only access the security rules allow, and both queries need nothing more. `ProcessCommandLineInformation` reads the command line without `PROCESS_VM_READ`, which the rules forbid and which reading the PEB directly would need. Between reading the list and calling `OpenProcess`, a process can exit and its PID be reused. Without the creation-time check, the new process's path and command line would be cached under the old identity, the PID-alone mistake the identity rule exists to prevent. `GetProcessTimes` needs no access beyond what the handle already has. An unelevated monitor is refused by about a third of the processes on a desktop, every time it starts, so a warning per process would add about 150 warnings, and a log flush for each, to every start. The UI shows the status per process, and `debug` keeps the detail for diagnosis. The measured enumeration cost is higher than the 0.5–1.5 ms the architecture estimated, which confirms that it belongs on the slow-collector thread rather than the 1 Hz tick.
 
+**History:** Phase 4, process collector.
+
 ---
 
 <a id="dc-76"></a>
@@ -935,34 +700,7 @@ On the development machine (Release, unelevated, 413 processes) the first `colle
 
 **Rationale:** The roadmap puts the calculation in the collector, which owns the previous sample. A rate kept beside the cumulative times ([DC-14](#dc-14)) spares the UI the bookkeeping and keeps it identical for every consumer. The UI could not compute the rates correctly anyway: the list is read every 2 seconds but reaches it with every 1 Hz snapshot, so a rate between snapshots would alternate between zero and double ([DC-80](#dc-80)). Dividing by every logical processor puts each process on the scale of the total CPU usage, as Task Manager's Processes tab and this monitor's CPU card do. A single-threaded process on 16 processors therefore peaks at 6.25%. The column adds up to slightly less than the total, not to the total. Time spent on interrupts and deferred procedure calls is charged to no process (Task Manager lists it as "System interrupts"), and a process that exited during the interval is no longer listed, so its last share is lost. In the Phase 4 code review, the column added up to 98.7% over a 2-second interval, including the Idle process's 73.8%. Keying by identity keeps a new process from inheriting a previous process's baseline, which with PID alone could produce a huge or negative delta. `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` is used because process CPU times cover every group, unlike `GetSystemTimes` ([DC-29](#dc-29)). Taking the timestamp before the details are read keeps the up to 18 ms that the first details pass takes out of the interval. Windows credits CPU time at clock-tick granularity (about 15.6 ms), so a busy process can briefly exceed its share of the interval, hence the clamp. Millisecond CPU times lose nothing at that granularity.
 
-**History:** Phase 4, process collector; Phase 4, process explorer view (I/O rates, for [DC-80](#dc-80)).
-
----
-
-<a id="dc-77"></a>
-### DC-77: A slow-collector thread in the scheduler, shared by processes and connectivity
-
-**Decision:** `SamplingScheduler` owns a second `std::jthread` beside the tick thread. Every `slowInterval()` (2 seconds by default, `kDefaultSlowInterval`, adjustable with `setSlowInterval()`), it runs the registered process and connectivity collectors outside every lock. It then moves the results into a mutex-protected `SlowResults`. `sampleOnce()` runs only the fast collectors and copies the latest `SlowResults` into the snapshot under that mutex. Both threads wait on the scheduler's condition variable with their own stop tokens, so `stop()` interrupts either wait at once. Until the first slow refresh, snapshots have `processes == std::nullopt` and `ConnectivityLevel::Unknown`. Public `refreshSlowCollectors()` runs the slow collectors synchronously for unit tests and asserts that the scheduler is stopped. The whole connectivity collector moves to the slow thread, not only its polling fallback. `main.cpp` registers `ProcessCollector`. Resolves [D-1](known_deviations.md#d-1-sampling-scheduler-has-no-slow-collector-thread) and [D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread).
-
-**Rationale:** A process refresh takes 3.5–6 ms on a 400-process desktop and about 18 ms the first time ([DC-75](#dc-75)), several times the roughly 1 ms the fast collectors share. Running it on the tick would delay every snapshot by that much and make the 1 Hz cadence uneven. One thread for all slow collectors is enough at this cadence and keeps a single place for the merge. Building the results before taking the mutex means the tick never waits for an enumeration, only for a move. Moving the whole connectivity collector, rather than only its fallback, follows the roadmap. It needs no new interface for a collector to say whether it is polling, and the tick then makes no connectivity call at all. The cost is that a notified change appears up to one slow interval later, which is acceptable for a status that changes rarely. Not waiting for the first slow refresh keeps `start()` and the first tick immediate. On the first snapshot connectivity reads Unknown, like the CPU sample, which has no baseline yet; the second snapshot has both. Each tick copies the latest process list into its snapshot, so a list is reused for about two ticks. Sharing it between snapshots without copying would change the snapshot's value type, so that waits until profiling of the process table shows a need.
-
-**Note:** [DC-101](#dc-101) removes the delay described here: a notified change now wakes the slow-collector thread, so it reaches the next tick's snapshot.
-
----
-
-<a id="dc-78"></a>
-### DC-78: Process integration tests: a suspended child process, exact read sets, and an elevation-aware access check
-
-**Decision:** `tests/integration/process_tracking_test.cpp` tests the process collector end to end on the real machine:
-
-- **Enumeration:** a `cmd.exe` child, created suspended with a command line unique to the run, appears with its exact identity, this process as its parent, and its real path and command line. After it is terminated and its handles closed, it leaves the list. The test polls for up to 5 seconds, because the list can take a moment to drop an exited process. (This said at first that another process's handle, such as an antivirus scanner's, could keep it listed. The Phase 4 code review held a handle to a terminated child open, and the child had left the list 0.5 seconds later.)
-- **Cache behaviour:** a collector built from the real list reader and a counting wrapper around the real details reader reads exactly the identities of the first list, minus `lsass.exe` and `csrss.exe`. On the second collect it reads exactly the identities that are new, the child among them. The sets are compared exactly.
-- **Access-denied handling:** every process's `detailsStatus` must match the details present (`Available` with both, `NotQueried` only for the never-opened names and with neither, `AccessDenied` or `Unavailable` with at most one). When the test runs unelevated, at least one process must deny access and still carry its name, creation time, and memory counters. When elevated (as on CI runners), that test is skipped.
-- **Scheduler:** with the real collector registered, a snapshot from the running scheduler carries the process list, with this process's details read.
-
-Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\WINDOWS\system32` while `QueryFullProcessImageNameW` returns the on-disk case.
-
-**Rationale:** A child created by the test is the one process whose identity, parent, path, and command line are known in advance. Creating it suspended means it never runs, needs no window, and cannot exit on its own during the test, and it shows that the command line is readable before the process has started. PID reuse cannot be forced on a real machine, so the unit tests cover it ([DC-73](#dc-73)). Instead, the exact read sets show that the real cache reads each identity once. Which processes deny access depends on the account and elevation, so the access test asserts invariants that hold everywhere, and counts denials only where they are certain to occur. That follows the integration-test rule to tolerate varying environments.
+**History:** Phase 4, process collector; Phase 4, process explorer view (I/O rates, for [DC-80](#dc-80)); code review F-33 (what the CPU column adds up to).
 
 ---
 
@@ -981,9 +719,531 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 
 **Rationale:** The architecture's rule that the monitor never opens `lsass.exe` or `csrss.exe` has no exceptions, but the check compared a name that its caller supplied, and an empty name passed it. Two paths produce one. The parser leaves a name empty when its characters do not lie inside the returned buffer. And a caller of `terminateOwnedProcess()` can pass only an identity, as the integration tests do for PID 0. Either way, the process could be one of the two. Refusing a process without a name makes the check fail closed. It costs only the path, the command line and End process for such a process, and none had one on the development machine. The Idle process is exempt because the list never names it and `OpenProcess` rejects PID 0, so it cannot be either process, and its current status and refusal explain it better. A caller that passes a wrong name that is not empty still gets past the check. The function cannot know the real name without opening the process or reading the list again, so the comments state the requirement instead.
 
+**History:** Code review F-32.
+
 ---
 
-## Phase 4 — Process explorer view (`src/ui/`)
+## Network adapter collector
+
+Each adapter's counters, identity, addresses and DNS servers.
+
+<a id="dc-34"></a>
+### DC-34: Network adapter traffic & throughput: `GetIfTable2` with RAII `FreeMibTable` and delta rates
+
+**Decision:** Use `GetIfTable2` to read 64-bit cumulative byte counters (`InOctets`, `OutOctets`), negotiated link speed, and operational status. Wrap allocated `MIB_IF_TABLE2` memory in a custom RAII deleter calling `FreeMibTable`. Compute instantaneous throughput rates (`inBytesPerSec`, `outBytesPerSec`) from counter deltas divided by elapsed monotonic time (`std::chrono::steady_clock`).
+
+**Rationale:** `GetIfTable2` is the modern Windows IP Helper interface that returns 64-bit octet counters without registry or PDH dependencies. Unlike legacy 32-bit `GetIfTable`, 64-bit counters will not roll over under modern gigabit and 10 GbE traffic within days. RAII wrapping via `std::unique_ptr<MIB_IF_TABLE2, MibTableDeleter>` guarantees memory is safely released on all return paths. Throughput rates are computed per adapter baseline over measured monotonic durations. A rate is `std::nullopt`, never 0, when it cannot be computed: the first sample for an adapter, zero elapsed time, or a counter that went backwards (e.g. an interface reset), where the delta across the reset is unknown. Each direction is evaluated independently, so a reset of one counter does not hide the other direction's rate. A genuinely idle link still reports 0. See [known deviation D-6](known_deviations.md#d-6-network-throughput-reports-zero-when-no-baseline-exists).
+
+**History:** Phase 2, network collector; Phase 2, known deviation D-6 (no rate rather than 0).
+
+---
+
+<a id="dc-35"></a>
+### DC-35: Adapter identity & addresses: Correlating `GetIfTable2` with `GetAdaptersAddresses`
+
+**Decision:** Query `GetAdaptersAddresses` (with `AF_UNSPEC` and `GAA_FLAG_INCLUDE_PREFIX`) to retrieve friendly names, device descriptions, IPv4/IPv6 addresses, and DNS servers, correlating them with `GetIfTable2` rows using `NET_LUID::Value` (falling back to `IfIndex`). Filter out loopback interfaces (`IF_TYPE_SOFTWARE_LOOPBACK`) and NDIS filter interfaces (`InterfaceAndOperStatusFlags.FilterInterface`). Carry `InterfaceAndOperStatusFlags.HardwareInterface` into `NetworkSample::isHardwareInterface`.
+
+**Rationale:** While `GetIfTable2` provides high-precision counters and link state, it lacks network addresses and DNS configuration. `GetAdaptersAddresses` provides comprehensive address and DNS information. Correlating both APIs via the 64-bit `InterfaceLuid.Value` ensures exact, collision-free pairing between interface counters and IP addresses across all physical, virtual, and Wi-Fi adapters. Filtering `IF_TYPE_SOFTWARE_LOOPBACK` removes local pseudo-interfaces (`127.0.0.1` / `::1`) from user-facing monitor tables.
+
+`GetIfTable2` also returns one row per NDIS lightweight filter bound to an adapter (for example "Ethernet-WFP Native MAC Layer LightWeight Filter-0000" and "Ethernet-QoS Packet Scheduler-0000"). These rows are Up and carry the same counters as the adapter, so a sum over all Up rows counted the physical traffic several times ([code review F-9](code_reviews/phase_2.md#f-9-network-throughput-total-counts-the-same-traffic-several-times)). They mean nothing to a user and Task Manager does not show them, so they are dropped at the platform boundary. Virtual adapters such as VPN tunnels and Hyper-V vEthernet are kept, because the Phase 5 network view should list them, but they are marked non-hardware: their traffic also crosses a physical adapter, so totals must not include them.
+
+**Extended by [DC-103](#dc-103):** each unicast address's state is read too, and only the addresses that can be used reach `NetworkSample`. The placeholder DNS servers `fec0:0:0:ffff::1` to `::3` are dropped.
+
+**Extended by [DC-108](#dc-108):** a link-local IPv6 address, unicast or DNS server, is formatted with its zone index, and each unicast address carries whether it is temporary or link-local.
+
+**History:** Phase 2, network collector; code review F-9 (filter interfaces dropped, virtual adapters marked); code review F-36 (unusable addresses and placeholder DNS servers dropped, for [DC-103](#dc-103)); code review F-44 (temporary and link-local addresses, and zone indexes, for [DC-108](#dc-108)).
+
+---
+
+<a id="dc-36"></a>
+### DC-36: Adapter details cached and re-read only on change
+
+**Decision:** `NetworkCollector` reads `GetIfTable2` on every tick but keeps the `GetAdaptersAddresses` results (names, descriptions, IP addresses, DNS servers) in an `AdapterDetailsCache`. The cache re-reads them when an address or interface change notification (`NotifyUnicastIpAddressChange`, `NotifyIpInterfaceChange`) has marked it stale, when `GetIfTable2` shows an interface that was not present at the last refresh, or when 30 seconds have passed. A failed re-read clears the details and is retried on the next tick. The production reader, `WindowsAdapterReader`, lives in `network_collector.cpp` and is owned by the collector. The refresh policy is a separate class with no Windows types so `tests/unit/` can test it.
+
+**Rationale:** On the review machine `GetAdaptersAddresses` took about 2 ms per call, compared with about 0.7 ms for `GetIfTable2`. That alone exceeded the fast-collector budget, and it was spent re-reading data that changes only when the network configuration does ([code review F-10](code_reviews/phase_2.md#f-10-getadaptersaddresses-runs-on-every-scheduler-tick)). The notifications are an event-driven source under the architecture's rules: the callbacks only set the stale mark, the registrations are RAII members declared after the cache so they are cancelled first, and the cache starts stale so the first sample is complete. The stale mark is cleared before re-reading, so a change reported during a re-read triggers another one. No IP Helper notification reports DNS server changes, so the 30-second maximum age catches those, and it keeps details current if registration fails. The rejected alternative was refreshing only when the set of interfaces changes, which misses address changes on an existing adapter (for example a DHCP renewal with a new lease).
+
+**History:** Code review F-10.
+
+---
+
+<a id="dc-59"></a>
+### DC-59: Network page charts only adapters that can carry traffic: `NetworkSample::hasIpInterface` (code review F-21)
+
+**Decision:** `NetworkSample` has a `hasIpInterface` flag. The collector sets it when `GetAdaptersAddresses` lists the adapter, which it does only for adapters bound to IP. `chartedAdapters()` charts an Up adapter only if it is hardware or has an IP interface. Virtual adapters without one stay in the snapshots, and their history is still recorded.
+
+**Rationale:** Windows keeps several hidden virtual adapters Up permanently, such as WAN Miniport (IP), (IPv6) and (Network Monitor). They have no IP interface and never carry traffic, yet on the review machine they took three of the network page's five charts. `MIB_IF_ROW2` has no "hidden" flag, and `ConnectorPresent` is false for the WAN Miniports and for VPN tunnels alike, so `GetIfTable2` cannot tell them apart. IP binding can, and the collector already correlates each row with `GetAdaptersAddresses`. The review also suggested testing `ipAddresses` for emptiness. That gives the same result in practice, because link-local addresses are kept, but an explicit flag states the reason, does not depend on an adapter having an address yet, and gives the Phase 5 network view the same distinction. Hardware adapters are charted without an IP interface, because their link can still carry traffic. While `GetAdaptersAddresses` fails, every adapter has the flag cleared, so virtual adapters leave the page until the next successful read and hardware adapters stay. That is acceptable for a chart list.
+
+**History:** Code review F-21.
+
+---
+
+<a id="dc-64"></a>
+### DC-64: Network adapters identified by interface LUID, not by name (code review F-23)
+
+**Decision:** `NetworkSample::interfaceId` carries the key the collector already uses for rate baselines: the interface LUID, or the interface index when Windows reports no LUID, or a hash of the name when it reports neither. `NetworkPerformancePage` keys its histories and charts by it, and uses the names only for display. A renamed adapter keeps its chart and history, and its title changes.
+
+**Rationale:** The page used to key by `adapterName`, which is the friendly name, the alias, or the description. Descriptions repeat ("WAN Miniport (IP)", "Microsoft Wi-Fi Direct Virtual Adapter"), and two adapters with the same name pushed into one history, which then held two samples per tick and drew both adapters as one line. Renaming a connection also restarted its history. The LUID is unique per interface and does not change on rename, and it was already computed at the platform boundary, so passing it on costs one field. It is an opaque `uint64_t` in the domain, so no Windows type crosses the boundary. The Phase 5 network view needs a stable adapter identity as well.
+
+**History:** Code review F-23.
+
+---
+
+<a id="dc-103"></a>
+### DC-103: Unusable addresses and placeholder DNS servers dropped; addresses and DNS servers shown only while Up (code review F-36)
+
+**Decision:**
+- **At the platform boundary:** `queryAdapterDetails()` keeps each unicast address's duplicate address detection state (`DadState`), which `toAddressState()` maps to the platform type `AddressState`. The address cache and `RawNetworkAdapter` carry each address as a `UnicastAddress`, its text with its state. `calculateNetworkSamples()` keeps Preferred addresses, keeps Deprecated ones only while the adapter is Up, and drops Tentative, Duplicate and Invalid ones. A state the mapping does not know counts as Invalid. `queryAdapterDetails()` also drops the DNS servers `fec0:0:0:ffff::1`, `::2` and `::3` (`isPlaceholderDnsServer()`), whatever the adapter's status. Both functions are in the internal header `ip_address_mapping.h`, which `tests/platform/` tests. `NetworkSample` is unchanged: its addresses and DNS servers are still lists of strings.
+- **On the Network tab:** `adapterDetailReadouts()` shows "Not connected" for the IPv4 and IPv6 addresses and the DNS servers of an adapter that is not Up, as it already did for the link speed ([DC-97](#dc-97)). The Performance tab's readouts are unchanged, because its network page charts only adapters that are Up ([DC-59](#dc-59)).
+
+**Rationale:** Windows keeps addresses on an adapter whose media is disconnected, in states that cannot be used, and `GetAdaptersAddresses` lists them all. On the development machine, each of the four disconnected adapters that the tab lists by default showed two addresses that `ipconfig /all` hides, because it reports these adapters as "Media disconnected". The Wi-Fi adapter showed the 192.168.1.16 lease from its last connection, in the Ethernet adapter's subnet, so the machine appeared to be on the LAN twice. The Bluetooth PAN and Wi-Fi Direct adapters showed Tentative 169.254 addresses that no other host can reach. Every one also showed a Deprecated link-local address.
+- **The state at the boundary, the status on each tick:** a Deprecated address can still be used on a link that is Up: an expired temporary IPv6 address keeps the connections that already use it. Whether to keep one therefore depends on the operational status, which `GetIfTable2` reports on every tick, while the addresses are cached and re-read after a change notification or 30 seconds ([DC-36](#dc-36)). Applying the rule in `calculateNetworkSamples()` uses the current status, and keeps the rule in a pure function that `tests/unit/` covers. Filtering in the collector, not only on the tab, also corrects the data for any later consumer, such as export.
+- **The state stays in the platform module:** the review also suggested carrying it into the domain, so that the tab could mark deprecated addresses as `ipconfig` does. Only an Up adapter could then show one, which is rare. Marking temporary and link-local addresses, which the review suggests separately (F-44), needs each address's origin too, and the domain can gain both together if that is done.
+- **Placeholder DNS servers:** Windows lists `fec0:0:0:ffff::1` to `::3`, site-local addresses from an expired draft for finding DNS servers over IPv6, as the DNS servers of an adapter that has none configured. On the development machine every adapter without a configured server listed them, loopback included, which is Up. An Up adapter with no DNS server, such as a direct link with an automatic private address, would show them too, so hiding them only while the adapter is not Up would not be enough. RFC 3879 deprecated site-local addresses in 2004, so no network configures them. The check compares the address bytes and ignores the scope ID, so it does not depend on how the address is formatted. Such an adapter now reads "None", which is true.
+- **"Not connected" for addresses and DNS servers:** the link speed's reason applies: they describe a link that does not exist. The DNS servers are configuration that Windows keeps while the adapter is down: the disconnected Wi-Fi adapter still lists 192.168.1.1 from its last lease. The collector reports them as they are, and the tab decides what to show, as it does for the link speed.
+
+Unit tests cover every state on an Up, a Down and a Dormant adapter, the development machine's disconnected Wi-Fi and Bluetooth adapters, a Deprecated address that is kept once its adapter comes Up, and the card and readouts of every status other than Up. Platform tests cover the state mapping and the placeholder check, and an integration test checks that no real adapter reports a placeholder DNS server. On the development machine the collector now reports no addresses for the four disconnected adapters, no DNS servers for the Bluetooth and Wi-Fi Direct adapters, and every address of the Ethernet and Mullvad adapters, which are all Preferred.
+
+**Extended by [DC-108](#dc-108):** each usable address also carries into the domain whether it is temporary or link-local, which this entry's note on the address state anticipated, and a link-local IPv6 address carries its zone index.
+
+**History:** Code review F-36; code review F-44 (address marks, for [DC-108](#dc-108)).
+
+---
+
+<a id="dc-108"></a>
+### DC-108: Addresses marked temporary or link-local, with the zone index; a virtual adapter's link speed explained in a tooltip (code review F-44)
+
+**Decision:**
+- **Addresses:** `NetworkSample::ipAddresses` is a list of `domain::IpAddress`: the address's text, `isTemporary` and `isLinkLocal`. The platform module sets them at the boundary. `isTemporaryAddress()` maps a unicast address's suffix origin: random means temporary. `isLinkLocalAddress()` is true for IPv6 fe80::/10 and IPv4 169.254.0.0/16. `formatIpAddress()` appends a link-local IPv6 address's scope ID as its zone index, e.g. "fe80::d347:c091:2487:3b32%16", for unicast addresses and DNS servers alike. On both tabs, `ipAddressText()` marks each line "(temporary)" or "(link-local)".
+- **Link speed:** `Readout` has an optional `toolTip`, which `ReadoutGrid` shows on the readout's name and value after converting it from plain text with `Qt::convertFromPlainText()`. On both tabs, a virtual adapter's reported link speed has `linkSpeedToolTip()`: its driver chooses the speed it reports, so the speed need not limit the adapter's throughput. A hardware adapter's has none.
+
+**Rationale:**
+- **The zone index:** a link-local address cannot be used without it: two adapters can have the same fe80:: address. ipconfig shows it, and so does the tab now.
+- **Marks on each line:** the Ethernet card showed three similar IPv6 addresses under one "IPv6 address" readout. ipconfig names them "IPv6 Address", "Temporary IPv6 Address" and "Link-local IPv6 Address". A readout has one name for several addresses, so each line carries its mark, and the stable address, like ipconfig's plain "IPv6 Address", carries none.
+- **Temporary by the suffix origin:** with identifier randomization on, as it is by default, Windows still reports a stable address's suffix origin as the link-layer address, and only a temporary address's as random. `netsh interface ipv6 show addresses` shows the two as Public and Temporary. On the development machine both fd44:: addresses on Ethernet matched ipconfig's names.
+- **In the domain:** [DC-103](#dc-103) kept each address's state in the platform module and noted that marks would need the origin in the domain. Two flags carry what the marks need without a Windows type, and the link-local test runs on the address bytes rather than on text in the UI. A later consumer, such as export, gets the same facts.
+- **A tooltip rather than leaving the speed out:** a VPN tunnel reports a nominal speed, Mullvad's 100 Gbps, but the Wi-Fi Direct and Bluetooth PAN adapters, which are virtual too, report the rate of their real link. Leaving every virtual adapter's speed out would hide those. The tooltip says what the figure is without hiding it.
+- **Plain text in a tooltip:** Qt shows a tooltip as rich text when it looks like markup. The grid converts each one, so a readout's tooltip, like its name and value ([DC-102](#dc-102)), never needs to be escaped by its caller.
+
+Platform tests cover the link-local test, including 169.254, and the suffix origins. Integration tests format addresses with and without a scope ID, because `formatIpAddress()` calls `inet_ntop`, and check that every link-local IPv6 address the real collector reports has a zone index. Unit tests cover the marks, the flags through `calculateNetworkSamples()`, the tooltip on a virtual adapter's speed, and the grid's tooltips as plain text, updated in place. The 800×600 tests of both tabs now include a temporary and a link-local address.
+
+**History:** Code review F-44.
+
+---
+
+## Connectivity and network names
+
+Connectivity level, cost and roaming, and the Network List Manager's network names, from the collector to the Network tab.
+
+<a id="dc-39"></a>
+### DC-39: Connectivity status: `NotifyNetworkConnectivityHintChange` with a synchronously seeded cache
+
+**Decision:** `ConnectivityCollector` seeds a mutex-protected `ConnectivityStatus` cache with `GetNetworkConnectivityHint` in its constructor, then registers `NotifyNetworkConnectivityHintChange` (with `InitialNotification = TRUE`). `collect()` returns the cached value on the scheduler tick. Registration goes through an injected `ConnectivitySubscriber` that returns an RAII `ConnectivitySubscription`. The production `WindowsConnectivitySubscription`, defined in the `.cpp`, calls `CancelMibChangeNotify2` in its destructor. The subscription is the collector's last member, so it is destroyed before the mutex and cache. If registration fails at runtime, the collector falls back to polling `GetNetworkConnectivityHint` in `collect()` (see [known deviation D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread)). `collect()` logs each change of status once at `info`; the notification callback only stores the value.
+
+**Rationale:** Connectivity changes rarely, so event-driven updates avoid a kernel round-trip every tick while keeping `collect()` cheap. Seeding before registration makes the first `collect()` accurate without waiting for the asynchronous initial callback, and ordering it before registration means a newer callback value can never be overwritten by the seed; the initial notification still covers a change between the two. `CancelMibChangeNotify2` waits for in-flight callbacks, so destroying the handle first guarantees the callback never touches a destroyed cache. The Windows subscription class lives in the `.cpp` so no Windows types appear in `connectivity_collector.h`. Injecting the subscriber, like the reader, lets unit tests deliver notifications and verify seeding order, cancellation on destruction, and the polling fallback (resolving [known deviation D-5](known_deviations.md#d-5-notification-callback-wiring-has-no-unit-test)). Logging only on change follows the architecture's `info` level for connectivity state changes without repeating the same state every tick. It happens in `collect()` on the scheduler thread rather than in the callback, because event-driven collector rule 1 allows the callback only to store: a file-sink write is blocking I/O on an OS thread-pool thread ([code review F-14](code_reviews/phase_2.md#f-14-connectivity-callback-writes-to-the-log-on-the-os-thread)). A change that reverts within one tick is therefore not logged, which is acceptable for a status log.
+
+**Superseded in part by [DC-77](#dc-77):** `collect()` now runs on the slow-collector thread rather than the scheduler tick, in notification and polling mode alike, so the polling fallback no longer runs on the tick (D-2 resolved).
+
+**History:** Phase 2, network collector; Phase 2, known deviation D-5 (an injected subscription); code review F-14 (the callback only stores, and `collect()` logs); Phase 4, process collector (collected on the slow-collector thread, for [DC-77](#dc-77)).
+
+---
+
+<a id="dc-40"></a>
+### DC-40: Explicit `ConnectivityLevel::Unknown` and optional `isMetered`
+
+**Decision:** Add `ConnectivityLevel::Unknown` as the default level and make `ConnectivityStatus::isMetered` a `std::optional<bool>`. The collector reports `Unknown` / `std::nullopt` before the first successful read, after a failed read, and when Windows reports `NetworkConnectivityLevelHintUnknown`, `NetworkConnectivityLevelHintHidden`, or `NetworkConnectivityCostHintUnknown`. A failed read does not keep the previous value.
+
+**Rationale:** The guidelines forbid substituting a default for missing data. With only `None`, "we could not determine connectivity" was indistinguishable from "offline", and a retained previous value would present stale data as current. `Unknown` is an enum value rather than wrapping the whole status in `std::optional` so the scheduler, snapshot, and UI keep a single value type and the UI can render the state directly (for example "Unknown" or a dimmed indicator).
+
+**History:** Phase 2, network collector.
+
+---
+
+<a id="dc-41"></a>
+### DC-41: Windows-to-domain connectivity mapping in a separate, testable header
+
+**Decision:** The pure conversions `toConnectivityLevel`, `toIsMetered`, and `toConnectivityStatus` live in `platform/windows/connectivity_hint_mapping.h/.cpp`, which exposes Windows SDK types, and are unit tested directly.
+
+**Rationale:** The mapping is the part most likely to be wrong and is impossible to exercise from a host integration test, because the host's connectivity state cannot be forced. Keeping it separate keeps `connectivity_collector.h` free of Windows types. The tests live in the separate `tests/platform/` target (`system_monitor_platform_tests`), which may include Windows SDK headers but makes no API calls, so `tests/unit/` stays free of Windows headers (resolving [known deviation D-4](known_deviations.md#d-4-a-unit-test-includes-windows-sdk-headers)). A separate target was chosen over mirroring SDK constants as plain integers, which would lose the compile-time link to the real SDK values. Note that `netioapi.h` must be reached through `<iphlpapi.h>`, and `CancelMibChangeNotify2` is only declared when `<ws2tcpip.h>` is included first.
+
+**History:** Phase 2, network collector; Phase 2, known deviation D-4 (the tests moved to `tests/platform/`).
+
+---
+
+<a id="dc-99"></a>
+### DC-99: Connectivity section: level, cost and roaming, each "Unknown" when Windows cannot say
+
+**Decision:** `ConnectivityStatus` has `isRoaming`, a `std::optional<bool>` that `toIsRoaming()` maps from `NL_NETWORK_CONNECTIVITY_HINT::Roaming`. Like `isMetered` ([DC-40](#dc-40)), it is `std::nullopt` before the first successful read and after a failed one. It is also `std::nullopt` whenever the cost is `NetworkConnectivityCostHintUnknown`. The collector's change log line includes it. Above the adapters, the Network tab has a "Connectivity" section with three readouts from `connectivityReadouts()`: the level ("Internet access" … "No connectivity", or "Unknown"), the cost ("Metered", "Unmetered" or "Unknown") and roaming ("Yes", "No" or "Unknown"). The level words come from `connectivityLevelText()`, which the dashboard's `connectivityText()` now shares. That one-line summary also appends ", roaming" when the connection is known to be roaming.
+
+**Rationale:** The roadmap asks for unknown states to be shown as unknown, not as offline or unmetered. Giving each field its own readout, each with its own "Unknown", does that without a sentence that combines three states. The dashboard's one line still mentions only what is known to be true. In the hint, roaming is a plain flag, so it reads false whenever Windows does not know the cost, for example at startup while the level is still unknown. Windows treats roaming as one of the connection's cost flags (`NLM_CONNECTION_COST_ROAMING` in the Network List Manager), so with an unknown cost, "not roaming" would be a guess. Until the first slow-collector refresh, every snapshot carries `ConnectivityLevel::Unknown` ([DC-77](#dc-77)), and the section shows "Unknown" in all three readouts.
+
+**Amended by code review F-44:** `toIsRoaming()` now returns `std::nullopt` whenever `toIsMetered()` does, which also covers a cost value that a later SDK might add, not only `NetworkConnectivityCostHintUnknown`. A platform test passes such a value.
+
+**History:** Phase 5, network view; code review F-44 (roaming unknown whenever the cost is).
+
+---
+
+<a id="dc-100"></a>
+### DC-100: Network names from `INetworkListManager`, re-read after a connectivity change or a minute, and matched to adapters by LUID
+
+**Decision:** `NetworkProfileCollector`, a slow collector, reports the connected networks in the new `SystemSnapshot::networkProfiles` as `domain::NetworkProfile`s: each network's name, its category (`std::nullopt` if it cannot be read), and the interface IDs of its adapters. Its production reader creates an `INetworkListManager`, lists `GetNetworks(NLM_ENUM_NETWORK_CONNECTED)`, and reads each network's name, category and connections. `ConvertInterfaceGuidToLuid` turns each connection's adapter GUID into the interface LUID, which is the `NetworkSample::interfaceId` the network collector reports. The result is cached. The collector reads again only on its first `collect()`, after a connectivity change notification, or once `kMaxAge` (60 s) has passed. The notification is a second `NotifyNetworkConnectivityHintChange` registration, made through `subscribeToConnectivityChanges()`, which is now public, and its callback only marks the cache stale. A failed read is cached as `std::nullopt`, so it is retried at the next of these points. Each read initializes COM on the slow-collector thread, in the multithreaded apartment, and uninitializes it afterwards. `ScopedComApartment` is declared before the COM objects, so they are released first. COM pointers and the name's `BSTR` are held in `std::unique_ptr`s whose deleters release them. On the Network tab, each card's "Network" readout names the adapter's networks, e.g. "Normandy (Private)", and the connectivity section's "Networks" readout lists every connected network. "None" means there are none; "N/A" means the names could not be read.
+
+**Rationale:**
+- **Matching by LUID:** a network's name is most useful next to the adapter connected to it, and the LUID is the adapter's identity everywhere else ([DC-64](#dc-64)). `INetworkConnection::GetAdapterId` returns the interface GUID. Converting it at the platform boundary keeps GUIDs out of the domain. On the development machine, the two connected networks matched the Ethernet and Mullvad adapters.
+- **When to read:** the query is a COM call into the Network List Service, and [DC-06](#dc-06) limits it to change events. Windows sends a connectivity change when the system joins or leaves a network, and the platform module already had a subscriber for it. Renaming a network or changing its category in Settings changes no connectivity, though, and no C-style notification reports it. The Network List Manager's own events would need a COM event sink and an apartment held for the collector's lifetime. A one-minute maximum age picks those changes up at the cost of one query a minute, and DC-06 now notes it. Failures are retried at the same points, not on every 2-second slow refresh, so a host with the service disabled does not get a COM call every refresh.
+- **No seed:** the event-driven rules seed the cache in the constructor, but here that would run COM on the UI thread at startup, where Qt has made the apartment single-threaded. The first slow refresh reads instead, as it does for processes, and the names are missing until then. [architecture.md](architecture.md#event-driven-collectors-os-callback-threads) now describes this stale-mark form, which the adapter details already used.
+- **COM for each read:** keeping an apartment for the thread's lifetime would need a thread-local object that outlives every COM object the collector holds. Initializing COM for each read, about once a minute, keeps every COM object inside one function. If the thread already has a single-threaded apartment (`RPC_E_CHANGED_MODE`), the query uses it and leaves it initialized, and an integration test runs the collector on such a thread.
+- **Deleters, not WRL:** WRL's `ComPtr` is the usual choice, but `<wrl/client.h>` would be the module's only SDK header with a path, which `.clang-format`'s include categories do not cover. A deleter matches the RAII wrappers the module already uses for MIB tables.
+- **Category:** `GetCategory` comes with the same object and decides which firewall profile applies, which explains why one network behaves differently from another. A network whose category cannot be read keeps its name.
+
+**Extended by [DC-102](#dc-102):** the names are shown as plain text, because an access point chooses the name of its Wi-Fi network.
+
+**Superseded in part by [DC-107](#dc-107):** the collector reads on a worker thread of its own, not on the slow-collector thread, at most once a second, and the worker holds its COM apartment for its lifetime instead of initializing COM for each read.
+
+**History:** Phase 5, network view; code review F-35 (names shown as plain text, for [DC-102](#dc-102)); code review F-38 (the collector's own thread, for [DC-107](#dc-107)).
+
+---
+
+<a id="dc-107"></a>
+### DC-107: Network names read on the collector's own thread, at most once a second (code review F-38)
+
+**Decision:** `NetworkProfileCollector` owns a `std::jthread`, its worker, which makes every Network List Manager query. The worker reads at once when it starts, again when a connectivity notification has made the names stale, and again once they are `kMaximumAge` (a minute) old, but never sooner than `kMinimumReadInterval` (a second) after its last read began. Both are `ReadIntervals`, which tests shorten. The notification callback only marks the names stale and wakes the worker. The worker stores each result and, if it differs from the previous one, calls the change listener with its mutex held. `collect()`, which the scheduler still calls on the slow-collector thread, only copies the latest result, and returns `std::nullopt` before the first read has finished. The production reader is made by a `NetworkProfileReaderFactory` that the worker calls, so the reader's `ScopedComApartment` is created on the worker, kept for the worker's lifetime, and destroyed on the worker when the reader is. Members are declared so that the subscription is cancelled first, the worker is stopped and joined next, and the state they share goes last. `readCount()` tells tests when a read has finished.
+
+**Rationale:** Before Phase 5 the slow-collector thread made only in-process calls. The Network List Manager query is a COM call into the Network List Service, and nothing bounded how often it ran or how long it could take.
+- **Its own thread:** if the service is slow to answer or stops responding, the query waits. On the shared slow-collector thread, the process list would stop refreshing and connectivity changes would not be collected. On the collector's own thread, only the names wait. A third scheduler thread for external queries was the alternative, but the scheduler would then have to know which collectors make such calls. The collector knows, and the worker also lets it keep its apartment.
+- **Shutdown still waits for a read in progress, and that risk is accepted:** `NetworkListManager` is an in-process COM object (`netprofm.dll`, threading model Both) that calls the service over its own RPC, so `CoCancelCall` cannot interrupt the query, and a thread cannot be stopped safely from outside. A detached thread could still be reading when the collector's state is destroyed. If the service hangs, closing the window therefore leaves the process waiting for the read before it exits, as it would have before.
+- **At most once a second:** the review's probe, with a subscription that kept notifying and a 5 ms reader, made 130 reads in 2 seconds. Notifications come in bursts while an adapter reconnects, and each tick copies only the latest result. A second between reads bounds a burst to one read a second, and a change still reaches the UI within about a second, the next tick. With a 200 ms minimum, a unit test's hundreds of notifications in half a second cause at most four reads.
+- **The listener after the read:** before, a notification called the listener and the scheduler's event refresh then read the names on the slow-collector thread. Now the worker reads, stores, and only then wakes the scheduler, which copies what it stored. This is the "store, then wake" rule that connectivity follows, and a read that finds the same names wakes nobody.
+- **The apartment for the worker's lifetime:** [DC-100](#dc-100) initialized COM for each read because the slow-collector thread was shared, and an apartment kept on it would have outlived the collector. The worker belongs to the collector, and every COM object is still released within one read. Creating the reader on the worker keeps `CoInitializeEx` and `CoUninitialize` on the same thread, as COM requires. The apartment of the thread that creates the collector no longer matters: an integration test creates one on a thread with a single-threaded apartment.
+- **The cost of a read:** in a Release build on the development machine, the first read in the process took about 11 ms, and later reads 4.4–6.1 ms. That is close to what the review measured with an apartment for each read, so the cost is the query, not COM's start-up. [architecture.md](architecture.md#threading-model) records the figure with the worker.
+
+The unit tests drive the worker with a fake reader that can hold reads back: the first read on the worker's own thread, the listener only for a changed result, a change reported during a read causing another read (the test fails if the stale mark is cleared after the read instead), a burst of notifications, the maximum age, failures, the reader destroyed on the worker, and a destruction that does not wait for the next read. A failing assertion releases held-back reads before the collector is destroyed.
+
+**History:** Code review F-38.
+
+---
+
+## Charts
+
+`SparklineWidget` (`src/ui/charts/`): geometry, series, decorations, colours and painting cost.
+
+<a id="dc-48"></a>
+### DC-48: Minimal `SparklineWidget` built early for the dashboard, extended in Phase 3
+
+**Decision:** Build a minimal single-series `SparklineWidget` in `src/ui/charts/` (its own `sysmon_ui_charts` library, linked by `sysmon_ui`) for the Phase 2 dashboard, rather than deferring mini sparklines to Phase 3. It has these properties:
+- **Geometry:** a pure `sparklineSegments()` function maps samples to polyline segments and is unit tested without painting. The newest sample sits at the right edge, so a partial history grows in from the right.
+- **Missing data:** samples are `std::optional<float>`, and a missing sample breaks the line (a visible gap) instead of plotting zero.
+- **Y range:** fixed (0–100% for CPU, memory, and disk) or auto-scaled to the data with 10% headroom (network).
+- **Ownership:** the caller owns the history. `DashboardView` keeps a 60-sample `domain::RingBuffer<std::optional<float>>` per card (one minute at 1 Hz) and passes a view of it with `setSamples()` each tick. The network sparkline charts combined in + out throughput.
+- **Colour:** the line is a fixed neutral blue, not the system accent colour. On systems with a red accent, the accent would read as the "Critical" status colour. (Phase 3 replaced this blue with the first slot of a theme-aware series palette; see [DC-52](#dc-52).)
+
+**Rationale:** Roadmap item "each card shows a mini sparkline" belongs to Phase 2. The minimal widget covers exactly what the dashboard needs, and Phase 3 extends it (grid, multiple series, axis labels, annotations) rather than replacing it. Rendering from a caller-supplied view keeps the widget reusable for the Performance view's longer histories. Gaps follow the project rule against representing missing data as zero. Copying 60 samples per chart per tick is negligible.
+
+**History:** Phase 2, dashboard view; Phase 3, custom sparkline widget (the line colour from the series palette, for [DC-52](#dc-52)).
+
+---
+
+<a id="dc-49"></a>
+### DC-49: Sparkline grid scrolls with a caller-supplied sample index
+
+**Decision:** `SparklineWidget::setSampleIndex()` takes the running index of the newest sample (e.g. the number of samples recorded so far), and the pure function `verticalGridLines()` places vertical grid lines on every `capacity / 10`th sample of that sequence. Each new sample moves every line one slot to the left, so the grid scrolls with the data as in Task Manager. Horizontal lines are fixed at quarters of the Y range. The grid, like the other decorations, is off by default.
+
+**Rationale:** Once the history is full, the samples span passed to the widget keeps the same length, so the widget cannot tell from the samples alone that time has moved on. Counting `setSamples()` calls inside the widget would break as soon as a series is set twice per tick or the widget is refreshed for other reasons, so the caller passes the index explicitly. Deriving the spacing from the capacity keeps about ten columns whether the chart shows 60, 300, or 1800 samples. Lines are computed with modular arithmetic on the running index, so a short history (index smaller than the capacity) does not underflow. `RingBuffer` was left unchanged; a caller that needs the index keeps its own counter.
+
+**History:** Phase 3, custom sparkline widget.
+
+---
+
+<a id="dc-50"></a>
+### DC-50: Multiple series share one time axis and Y range, with series 0 as the primary
+
+**Decision:** A `SparklineWidget` holds one or more series (`setSeriesCount()`, `setSeriesSamples()`), each with its own colour, optional legend label, and fill flag. All series share the capacity, time axis (newest sample at the right edge), and Y range; the auto range covers every series. Series 0 is the *primary* series: `setSamples()` / `samples()` are shortcuts for it, only it is filled by default, it is painted on top, and the min/max annotations describe it. The existing single-series API is kept, so the dashboard did not change.
+
+**Rationale:** The roadmap asks for several series on one chart (per-core CPU, and network receive/send). One Y scale keeps the chart honest: series of different units or scales belong on separate charts, not a second axis. Filling only the primary series avoids stacked translucent fills turning into a muddy block. Min/max markers for every series would clutter a per-core chart, so they follow the one series the chart is about.
+
+**History:** Phase 3, custom sparkline widget.
+
+---
+
+<a id="dc-51"></a>
+### DC-51: Axis labels and annotations reserve space outside the plot
+
+**Decision:** Two optional decorations: *axis labels* (Y range min and max in a left gutter, the history window, e.g. "1 min", and "now" below the plot) and *annotations* (a line above the plot with the current value, the primary series' min and max, and dot markers at those points on its line). With two or more series and at least one label, the current-value area becomes a legend: a short line in the series colour, then the label and current value in the text colour. Values are formatted by a caller-supplied `ValueFormatter`, so the charts library stays independent of `ui`'s formatting helpers. A missing current value shows "N/A". `plotArea()` exposes the rectangle left for the series, and pure `summarizeSeries()` and `formatHistoryWindow()` functions carry the logic for unit tests. (The gutter's width can be fixed by label templates; see [DC-65](#dc-65). Annotations can have their own formatter; see [DC-67](#dc-67).)
+
+**Rationale:** Drawing text over the plot would collide with the lines, so labels get their own bands and the plot shrinks instead. Keeping everything off by default lets the same widget stay a bare 36-pixel dashboard sparkline. Text stays in the palette's text colour (dimmed for secondary labels), never the series colour, so it is readable on any theme, and a series is identified by its colour key plus its label, never by colour alone. On ties, the newest occurrence is marked, which keeps the marker close to the live edge on flat data.
+
+**History:** Phase 3, custom sparkline widget; code review F-24 (the gutter sized from templates, for [DC-65](#dc-65)); code review F-26 (a separate annotation formatter, for [DC-67](#dc-67)).
+
+---
+
+<a id="dc-52"></a>
+### DC-52: Sparkline series colours: a validated five-hue palette without status hues
+
+**Decision:** Unless the caller overrides a series colour, series 0–4 take fixed hues in this order: blue, orange, aqua, violet, magenta (`defaultSeriesColor()`), with separate light and dark steps. The widget picks the dark steps when its background colour is dark, at paint time, so it follows theme changes. Series 5 and later share a muted grey instead of generated or repeated hues. The grid, frame, and secondary text use the palette's text colour at reduced opacity.
+
+**Rationale:** The hues and steps come from a categorical palette whose order was checked with a colour-vision-deficiency validator: every adjacent pair stays separable under deuteranopia, protanopia, and tritanopia, and has enough contrast against the chart background, in both light and dark mode. Red, amber, and green were removed from that palette because they are the dashboard's Critical, Warning, and Healthy status colours, and a series in those hues would read as a status. The remaining five still pass after re-validation. In light mode, aqua and magenta fall below 3:1 contrast against the background, which is why labelled series always appear in the legend with their values. Repeating or generating hues past the fifth series would make series look alike, so more series (e.g. per-core CPU on a 16-core machine) get a shared de-emphasised grey. The caller can colour them explicitly, highlight a total in the primary colour, or split them across charts. Following the palette rather than the system accent colour keeps the reason for a fixed blue in [DC-48](#dc-48): a red accent would read as Critical.
+
+**History:** Phase 3, custom sparkline widget.
+
+---
+
+<a id="dc-60"></a>
+### DC-60: Dense sparklines: min/max decimation, a one-pixel cosmetic line, and an envelope fill
+
+**Decision:** A chart is *dense* when it has more slots (its capacity) than its plot has pixel columns, for example a 30-minute history on an 800-pixel chart or on a small per-core chart. For a dense chart, `SparklineWidget` changes three things:
+- **Decimation:** `sparklineSegments()` keeps only each pixel column's lowest and highest point, in time order. A segment then has at most two points per column. Gaps still split segments.
+- **Line:** it is drawn with `drawPolyline()` and a 1-pixel cosmetic pen instead of the 1.5-pixel pen with round joins.
+- **Fill:** it follows `upperEnvelope()`, one point per column at the column's highest value, instead of the zigzag line.
+
+Charts that are not dense look exactly as before.
+
+**Rationale:** With 30 minutes of history, a Release build took about 210 ms per tick on the CPU page (16 cores) and 145 ms on the network page. That was measured with synthetic worst-case data that swings across most of the range every 20 samples, and it is far too long for a 1 Hz UI thread. Decimation alone barely helped, because the cost was not the number of points. It was Qt's general stroker, which builds a round-joined outline for every vertex of a pen wider than one pixel, and the scanline cost of filling a polygon whose top edge zigzags. Qt's raster engine has a fast path for cosmetic pens up to one pixel wide, which cut the worst page to about 60 ms. The envelope fill, which covers the same pixels as filling under the zigzag because the line is drawn over each column's span, brought it to about 27 ms (see the measurements in [DC-61](#dc-61)). Min/max decimation is kept because it bounds the work by the chart's width, and unlike averaging it keeps one-sample spikes visible. A one-pixel line also suits a dense chart better, because a thicker one would merge neighbouring columns.
+
+**History:** Phase 3, Performance tab.
+
+---
+
+<a id="dc-65"></a>
+### DC-65: Y-axis gutter sized from caller-supplied label templates (code review F-24)
+
+**Decision:** `SparklineWidget::setAxisLabelTemplates()` takes texts as wide as the widest Y-axis labels expected. The gutter is the widest of these templates and the current range's labels, so a label is never clipped. The network page gives its charts `chartByteRateAxisTemplates()`: the widest output of `formatChartByteRate()` in each unit up to GiB/s, produced by the formatter itself at one byte below each unit boundary (for example "1024.0 MiB/s"). Percentage charts need no templates, because their fixed range already gives constant labels.
+
+**Rationale:** The gutter used to be as wide as the current range's labels ([DC-51](#dc-51)). On an auto-ranged chart the maximum label changes with traffic, and the review measured the plot's left edge moving by up to 19 pixels as a burst came and went. That reads as jitter on a chart that otherwise scrolls smoothly, and stacked network charts did not line up. Several templates are needed rather than one, because unit letters differ in width ("KiB/s", "MiB/s", "GiB/s"). Producing them from the formatter keeps them correct if the formatting changes. Measuring a few strings costs little next to painting the series. A formatter that reports its own widest output was rejected because `ValueFormatter` is a plain function, and the charts library would need a richer interface for a single caller. Units above GiB/s are left out: they would widen every network chart for rates above 1024 GiB/s, which no current adapter reaches, and such a label would still widen its gutter instead of being clipped.
+
+**History:** Code review F-24.
+
+---
+
+<a id="dc-67"></a>
+### DC-67: Chart annotations at readout precision, named extremes, and stable volume colours (code review F-26)
+
+**Decision:**
+- **Annotation precision:** `SparklineWidget::setAnnotationFormatter()` formats the annotations (current value, min, and max) separately from the axis labels, and defaults to the value formatter. `PerformancePage::createHistoryChart()` takes both formatters. Percentage charts label the axis in whole percent ("8%", `formatChartPercent()`) and annotate with one decimal ("7.5%", `formatPercent()`), as the readouts do.
+- **Named extremes:** when a chart has a legend and its primary series has a label, the min/max text names it: "Receive min 1.0 KiB/s  max 4.0 KiB/s". Otherwise it stays "Min …  Max …". `extremesText()` exposes the text for tests.
+- **Volume colours:** `setSeriesColorSlot()` gives a series the default colour of another palette slot, still following the light or dark surface. `DiskPerformancePage` gives each volume the lowest free slot when it first appears and keeps it while the volume has history. Series stay in volume-name order.
+- **Link speeds:** `formatLinkSpeed()` rounds to three significant digits before choosing the unit, and has a Tbps unit, so "1e+03 Mbps" becomes "1 Gbps".
+
+**Rationale:** The annotation and the readout below it showed the same value at different precision ("8%" and "7.5%"), which looks like a disagreement. Whole percentages still suit the axis, where they are scale marks rather than readings, so the two get separate formatters instead of one shared precision. Byte rates already have one decimal and use the same formatter for both. The extremes describe series 0 only ([DC-50](#dc-50)), and with a legend nothing said so. Naming the series fixes that and keeps the extremes, which the network charts' Receive series needs, instead of dropping them from multi-series charts. Colours used to follow sort position, so a new volume changed the colour of every volume after it. A fixed `setSeriesColor()` override would lose the light and dark steps of [DC-52](#dc-52), so the widget takes a palette slot instead. Reusing the lowest free slot keeps colours within the five hues while there are at most five volumes. `QString::number(…, 'g', 3)` switches to an exponent once rounding reaches 1000, and choosing the unit after rounding avoids that at every boundary.
+
+**History:** Code review F-26.
+
+---
+
+## Main window and shared UI
+
+How snapshots reach the tabs, and the constants, text formats and text colours that the tabs share.
+
+<a id="dc-54"></a>
+### DC-54: Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
+
+**Decision:** `MainWindow::onSnapshotReady` forwards every snapshot to the dashboard and the performance view, whichever tab is current. Recording and display are separate steps. `PerformanceView::updateSnapshot` always appends to each page's history. It refreshes widgets only while the view is visible, and then only for the selected page and the sidebar. `showEvent` and a page change refresh from the recorded history. The Processes and Network views will follow the same pattern when they are implemented.
+
+**Rationale:** Code review F-4 proposed updating only the visible tab. For views with history, that would leave gaps covering the time another tab was open, so the recording step must always run. Recording is only a few `RingBuffer` pushes per tick. The costs worth skipping are copying up to thousands of samples per chart into the widgets and painting them, and those are skipped while the view is hidden. Deciding visibility inside each view, rather than in `MainWindow`, keeps the rule next to the state it protects and also covers pages that are not selected within the view.
+
+**History:** Code review F-4, deferred to Phase 3, Performance tab.
+
+---
+
+<a id="dc-68"></a>
+### DC-68: Shared UI constants and helpers: where each one lives (code review F-28)
+
+**Decision:**
+- `charts::kPercentRange` sits next to `YRange` in `sparkline_widget.h`.
+- `kNotAvailable` ("N/A") and `usedMemoryBytes()` are in `dashboard_formatting.h`, which the dashboard and the Performance tab's helpers already include.
+- `view_metrics.h` names the margins, spacing and title size the views share (`kViewMargin`, `kSectionSpacing`, `kItemSpacing`, `kTitlePointSize`). Values used by one file stay local named constants there, such as `kHistoryChartMinimumHeight` in `performance_page.cpp`.
+- `chartedAdapters()` orders names with `QString::compare(…, Qt::CaseInsensitive)`. Superseded by [DC-106](#dc-106): both tabs now order adapters with `isListedBefore()`, which compares names in natural order.
+
+**Rationale:** Each value had several copies that could drift apart. Moving them into an existing header that every user already includes avoids a new header for one or two declarations. `dashboard_formatting.h` already holds the formatting both tabs share (`formatPercent()`, `formatBytes()`). The charts library keeps its own "N/A", because `ui/charts` must not depend on `ui` ([DC-51](#dc-51)). One `usedMemoryBytes()` gives the dashboard card, the sidebar summary and the "Used" readout the same definition, which [DC-63](#dc-63) documents. The layout metrics get their own header because no existing one is about layout, and sharing them keeps the tabs aligned when one changes. `localeAwareCompare()` made a pure function's result depend on the machine's locale, which the readouts already avoid for counts ([DC-57](#dc-57)). Case-insensitive comparison gives the same order for adapter names, which are almost always ASCII.
+
+**Extended in code review F-37 and F-44:** `kCardMargins` in `view_metrics.h` gives the dashboard's and the Network tab's cards their margins ([DC-105](#dc-105)), and `kOneMinuteOfSamples` in `sample_history.h` is the one-minute history that both of them chart.
+
+**History:** Code review F-28; code review F-37 (`kCardMargins`, for [DC-105](#dc-105)); code review F-39 (the adapter order, for [DC-106](#dc-106)); code review F-44 (`kOneMinuteOfSamples`).
+
+---
+
+<a id="dc-102"></a>
+### DC-102: Labels that show text from the system or the network are plain text (code review F-35)
+
+**Decision:** Every label that can show text the program does not control has the text format `Qt::PlainText`:
+- `ReadoutGrid`'s name and value labels, which show the network names, addresses and DNS servers on both tabs, and every other readout;
+- `AdapterCard`'s title, status and description;
+- the adapter chart titles on the Performance tab's network page;
+- `ResourceCard`'s value and detail, whose disk detail names a volume.
+
+Labels whose text is a constant in the code keep Qt's default. The format is set before the text. [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-from-outside-the-program) state the rule: plain text for a label, and `toHtmlEscaped()` for each untrusted part of rich text, such as a tooltip.
+
+**Rationale:** A `QLabel` defaults to `Qt::AutoText`, which renders its text as HTML when `Qt::mightBeRichText()` finds something that looks like a tag before the first line break. The Network List Manager names a Wi-Fi network after its SSID, up to 32 bytes that the access point chooses ([DC-100](#dc-100)). The review gave a network the name `<img height=3000>`, and the main window's minimum size became 3142×3301 for as long as that network was connected, because the connectivity section is outside the scroll area. `<h1>` rendered a heading, and rich text ignores the `\n` that puts each network on its own line. The adapter's alias and description are local, but drivers and VPN clients choose them.
+- **In `ReadoutGrid`, not in each formatter:** setting the format where the labels are created covers every readout, now and later. The functions that build readouts need not know which values come from outside the program.
+- **Plain text, not escaping:** `toHtmlEscaped()` would also work, but a readout has no reason to be rich text, and one caller that forgot to escape would bring the problem back. Escaping stays for rich text that has a reason to be rich, as in the process tooltips ([DC-85](#dc-85)). Plain text for a process's name in a dialog is what [DC-88](#dc-88) already chose.
+- **The format before the text:** untrusted text is then never parsed as HTML, not even once.
+- **`ResourceCard`:** Windows paths cannot contain `<` or `>`, so a volume's name could not be read as a tag. The card follows the rule anyway, so that no label that shows outside text depends on what that text can contain.
+
+The tests give an alias, a description and two network names markup. They check that every label on the card and in the connectivity section is plain text and shows the literal string, and that `MainWindow`'s minimum size at 800×600 stays within 800×600. Before the fix that test reproduced the review's 3142×3301.
+
+**History:** Code review F-35.
+
+---
+
+<a id="dc-105"></a>
+### DC-105: Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
+
+**Decision:** `ui/text_tone.h` names what the colour of a text says, as a `TextTone`: Normal, Dimmed, Good, Warning or Critical. `textToneColor()` gives each tone's colour. Dimmed text is the text colour at 60% opacity (`kDimmedTextAlpha`). Good, Warning and Critical each have a darker shade for a light background and a lighter one for a dark background, picked by the lightness of the window colour:
+
+| Tone | Light background | Contrast on #f3f3f3 / #ffffff | Dark background | Contrast on #1e1e1e / #2d2d2d |
+| --- | --- | --- | --- | --- |
+| Dimmed | black at 60% | 5.58 / 5.74 | white at 60% | 6.77 / 6.00 |
+| Good | #1e7b45 | 4.76 / 5.28 | #3cb371 | 6.25 / 5.17 |
+| Warning | #a05a00 | 4.78 / 5.31 | #d98200 | 5.67 / 4.68 |
+| Critical | #c62828 | 5.07 / 5.62 | #ff6b6b | 6.01 / 4.96 |
+
+`TonedLabel` is a `QLabel` drawn in its tone's colour, in bold for Good, Warning and Critical. It works the colour out from the text and window colours it inherits, and again on every `PaletteChange`, so it follows a change of colour scheme while the app runs. It keeps the colour in its `PlaceholderText` role, which a label does not otherwise use, and draws its text with that role. The tones are used by:
+- `AdapterCard`'s status (Good while Up, otherwise Dimmed) and description (Dimmed), which used `palette(mid)` in a style sheet;
+- `ResourceCard`'s health status (Good, Warning and Critical, and Dimmed in italics for Unknown), whose colours were in a style sheet;
+- `ReadoutGrid`'s names (Dimmed), which used the `PlaceholderText` role;
+- the process table's "N/A" cells, which now use `dimmedTextColor()` of the text colour instead of `PlaceholderText`.
+
+Both cards take their margins from `kCardMargins` in `view_metrics.h`, and neither uses a style sheet any more. The rule is in [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-colours).
+
+**Rationale:** `palette(mid)` is the bevel colour of 3D frames, not a text colour. The review measured the adapter's status and description at 1.13:1 in the dark scheme. With the windows11 style ([DC-104](#dc-104)) they became #282828 on #2d2d2d, 1.07:1, and the dashboard's "Unknown" #a0a0a0 on white, 2.61:1. WCAG's minimum for normal text is 4.5:1.
+- **Measured on what is drawn:** the windows11 style draws tab pages and cards in the base colour, #ffffff or #2d2d2d, not in the window colour, #f3f3f3 or #1e1e1e. Every tone reaches 4.5:1 on all four.
+- **Not `PlaceholderText`:** the review suggested the role that `ReadoutGrid` used. In the windows11 style it is the text colour at 50% opacity, which reaches 4.66:1 on #2d2d2d but only 3.95:1 on white, so the readout names fell short too. At 60%, the opacity the charts already use for their muted text, it reaches 5.74:1 and 6.00:1, and readout names, descriptions and chart labels are dimmed alike.
+- **Two shades per status colour:** no colour reaches 4.5:1 on both white and #2d2d2d. The old colours each failed in one scheme: the Healthy green #2e8b57 reached 4.25:1 on white but 3.24:1 on #2d2d2d, the Warning amber #d98200 4.68:1 on #2d2d2d but 2.94:1 on white, and the Critical red #d32f2f 4.98:1 on white but 2.77:1 on #2d2d2d.
+- **Worked out in code, not in a style sheet:** a style sheet fixes a colour when it is applied. The label picks the shade from the window colour it inherits, as the charts do, and picks again on every palette change. If it set its own `WindowText`, that role would no longer follow the palette, and the label could not tell the new scheme's text colour from the one it had set. A spare role leaves `WindowText` and `Window` inherited. Setting the palette sends another `PaletteChange`, which finds the colour already set and stops.
+- **Item models:** a table cell cannot hold a label, so the process model asks `dimmedTextColor()` for the colour each time the view paints, which follows the scheme without an event.
+
+Unit tests check every tone's colour on both schemes' window and base colours, that the status tones are bold, and that a label's colour follows its parent's palette. View tests render the main window in both schemes, with `QStyleHints::setColorScheme()`, and measure the contrast of the rendered pixels: the adapter cards' status, description and a readout name, in one window switched between the schemes, and the dashboard's four statuses. Rendered into an image with an alpha channel, text is drawn with greyscale antialiasing, so the strongest pixel is the text's own colour. The old Healthy green measured 3.244:1 on #2d2d2d, against 3.24:1 computed, and the tests fail with it or with dimmed text at 30% opacity.
+
+**History:** Code review F-37.
+
+---
+
+## Dashboard tab
+
+The resource cards and the health evaluation they show.
+
+<a id="dc-45"></a>
+### DC-45: Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
+
+**Decision:** `domain/health_status.h` defines `HealthLevel` (Unknown, Healthy, Warning, Critical) and `SystemHealth` (cpu, memory, disk, network, overall). `monitoring/health_evaluator.h` provides the pure function `evaluateHealth(snapshot, HealthThresholds)`, and `SamplingScheduler` calls it at the end of each `sampleOnce()` to fill `SystemSnapshot::health`. Thresholds are strictly "above": warning above 90% and critical above 95% for memory and disk. CPU is critical only above 98%, because short full-load bursts are normal. Disk health is the worst fixed volume. Network health comes from connectivity: InternetAccess is Healthy, any lesser level is Warning. Overall is Critical if any component is Critical, else Warning if any is Warning, else Unknown if any is Unknown, else Healthy. Thresholds are set on the scheduler (`setHealthThresholds`, stopped-only like collector registration) so the Phase 6 settings file can supply them later.
+
+**Rationale:** The architecture places the "health/connectivity evaluator" in `monitoring`, and `domain/AGENTS.md` lists health states as domain types. The domain target is header-only, so it holds only the types. The UI may not depend on `monitoring`, so it cannot call the evaluator. Carrying the result in the snapshot keeps the UI a pure renderer and makes health available to future consumers (tray icon, alerts) without duplicating logic. Unknown is a first-class level so missing data is never reported as Healthy, but a known problem still surfaces when other components lack data. Health is evaluated from each instantaneous sample with no smoothing or hysteresis, so CPU can flicker between levels under bursty load. Sustained-threshold rules belong with the planned alert rules (see the roadmap's alert-rules section).
+
+**History:** Phase 2, dashboard view.
+
+---
+
+<a id="dc-46"></a>
+### DC-46: Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
+
+**Decision:** The dashboard is an overall "System status" line plus five `ResourceCard` widgets (CPU, memory, disk, network, uptime) in a three-column grid with equal column stretch. Each card has a title, a large value, a detail line, a health status label (hidden for uptime, which has no health dimension), and at the bottom a fixed-height slot that holds the card's one-minute sparkline ([DC-48](#dc-48)); the uptime card's slot stays empty. The status label is a `TonedLabel` ([DC-105](#dc-105)): Healthy, Warning and Critical in bold in their tones' colours, and Unknown dimmed and in italics, because it is not a state. Each tone has a shade for light and one for dark backgrounds, so the status reaches 4.5:1 contrast in both colour schemes and follows a change of scheme. All text comes from pure functions in `ui/dashboard_formatting.h`, which are unit tested without widgets. Before the first snapshot a card shows "--". When a snapshot lacks the data it shows "N/A", never a zero. Specific rules:
+- Byte quantities use binary (IEC) units (KiB, MiB, GiB).
+- Disk shows the fullest volume.
+- Network shows total throughput over hardware adapters that are Up. Virtual adapters (VPN tunnels, virtual switches) are left out because their traffic also crosses a hardware adapter. It shows "N/A" if any active hardware adapter has no rate yet, because a partial sum would understate traffic, and "No active adapter" when no hardware adapter is Up. Connectivity is the detail line.
+- String literals are ASCII only (no arrows or middle dots). Targets that link Qt compile with `/utf-8`, which Qt adds to its usage requirements, but `domain` and `platform/windows` do not link Qt, so a non-ASCII literal would be read in the system code page there. Non-ASCII text in code is written as escapes or code units.
+
+**Rationale:** A reusable card keeps the five resources visually consistent. The chart slot has the same height in every card, so the uptime card, which has no chart, lines up with the others. Keeping formatting and aggregation in pure functions keeps `DashboardView` thin and makes edge cases (unit boundaries, missing rates, no volumes) testable. Health comes precomputed in `SystemSnapshot::health`, so the UI only renders it, in line with `src/ui/AGENTS.md`. The status colours are tones rather than fixed colours because no single colour reaches WCAG's 4.5:1 on both a light and a dark background. Binary units match how Windows reports memory and disk sizes.
+
+**History:** Phase 2, dashboard view; code review F-9 (only hardware adapters in the network total); code review F-19 (why literals are ASCII); code review F-37 (status colours, for [DC-105](#dc-105)).
+
+---
+
+## Performance tab
+
+The resource pages, their histories and their readouts.
+
+<a id="dc-53"></a>
+### DC-53: Performance view: a sidebar of resource pages that each own their history
+
+**Decision:** `PerformanceView` is a sidebar (`QListWidget`) beside a `QStackedWidget` of four pages: CPU, memory, disk, and network. Each sidebar entry shows the page title and a short summary of the latest values. Each page derives from `PerformancePage` and owns the `RingBuffer` histories for its charts:
+- **CPU:** a total utilization chart above a near-square grid of small per-core charts, one per logical processor, which scrolls vertically when the page is too small for it. When the number of cores in the samples changes, the grid is rebuilt and the per-core history restarts, because the core indices no longer line up.
+- **Memory:** physical memory usage and commit charge as percentage charts. Commit charge is a percentage of the commit limit, and the limit can grow with the page file.
+- **Disk:** one space-used chart with a labelled series per volume, in volume-name order.
+- **Network:** one chart per adapter that is Up and can carry traffic: a hardware adapter, or a virtual adapter bound to IP (see [DC-59](#dc-59)). Each chart has receive and send series on an auto-scaled byte-rate axis. Hardware adapters come first and are shown in a scroll area.
+
+Disk volumes are keyed by volume name, and network adapters by `NetworkSample::interfaceId` (see [DC-64](#dc-64)). A key that leaves the snapshots records gaps, and is dropped once its history holds no samples. An adapter still in the snapshot is kept even when it has no values, since a new adapter has no rate until its second sample. Network history is recorded for every adapter, including adapters that are down, so an adapter that comes up shows its history.
+
+**Rationale:** Task Manager's layout (a resource list with one detail page at a time) gives each chart room. It also lets per-core charts use their own small multiples instead of 16 or more overlapping series, which would run out of distinguishable colours after five (see [DC-52](#dc-52)). The histories stay in the UI, as the dashboard's do, because the UI may not depend on `monitoring`. Keeping each history next to the page that draws it keeps `SystemSnapshot` a per-tick value. Keying by name or ID rather than position keeps a volume's or adapter's line continuous when others appear or disappear.
+
+**History:** Phase 3, Performance tab; code review F-20 (the per-core grid scrolls, for [DC-58](#dc-58)); code review F-21 (only adapters that can carry traffic, for [DC-59](#dc-59)); code review F-23 (adapters keyed by interface ID, for [DC-64](#dc-64)).
+
+---
+
+<a id="dc-57"></a>
+### DC-57: Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
+
+**Decision:** Each page shows numeric readouts next to its charts, in a `ReadoutGrid` with a dimmed name above each value:
+- **CPU:** utilization, base speed, logical processors, processes, threads, handles, and up time.
+- **Memory:** used, available, total, committed, system cache, paged pool, and non-paged pool (see [DC-63](#dc-63)).
+- **Disk:** used, total, and free space, one readout per volume.
+- **Network:** under each adapter's chart, receive, send, link speed, type (hardware or virtual), adapter description, IPv4 and IPv6 addresses, DNS servers, and bytes received and sent.
+
+The text comes from pure functions in `ui/performance_readouts.h` (`cpuReadouts()`, `memoryReadouts()`, `diskReadouts()`, `adapterReadouts()`). They return the same names in the same order whether or not the data is available, and "N/A" for missing values, including a link speed of 0. Readouts show "--" until the first snapshot, as the dashboard does. `ReadoutGrid::setReadouts()` updates the value labels in place while the names are unchanged, and rebuilds its cells only when they change (for example, a volume is added). Counts use comma thousands separators, clock speeds are in GHz, and link speeds are in decimal bits per second.
+
+**Rationale:** Keeping the names fixed means a missing value does not change the layout, and the missing value is visible rather than quietly removed. Pure builders keep formatting and edge cases testable without widgets, as `dashboard_formatting.h` does for the dashboard. Updating labels in place avoids rebuilding widgets every second. Counts are grouped with a fixed separator rather than with `QLocale`, so tests do not depend on the machine's locale. Localized number formatting can come with the Phase 6 display-unit settings. Link speeds use decimal units because network rates are conventionally quoted that way, while byte quantities keep the binary units used elsewhere.
+
+**History:** Phase 3, Performance tab; code review F-22 ("Used" and "System cache", for [DC-63](#dc-63)).
+
+---
+
+<a id="dc-58"></a>
+### DC-58: Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
+
+**Decision:**
+- **Readouts:** `ReadoutGrid` lays out its labels with its own `QLayout` (`ReadoutLayout`, in `readout_grid.cpp`). The constructor's column count is a maximum: the layout uses as many columns as fit the width, reports a height for width, and has the widest readout as its minimum width. Spare width is shared so that columns are equally wide where their content allows. Each cell remembers the widest it has been since the names last changed, so a value that shrinks again does not bring a column back.
+- **Scrolling:** the network page's scroll area, and a new scroll area around the CPU page's per-core grid, scroll vertically only. Per-core charts have a 12×12 minimum, so the 16 columns of a 256-core grid fit the page width.
+- **Window size:** `MainWindow` opens at 1024×720, limited to 90% of the screen's available area. 800×600 is still the size the content must fit, and widget tests check it with 256 cores and two adapters that have long addresses and descriptions.
+
+**Rationale:** A `QLabel` without word wrap cannot be narrower than its text. A fixed five-column grid of IPv6 addresses and adapter descriptions was 875 px wide on a 535 px page, so every adapter's readouts needed sideways scrolling. Doing the re-flow in a layout, rather than in `resizeEvent()` as the review suggested, means Qt's height-for-width handling sizes the scroll area's content and the pages' box layouts correctly. The labels are only moved, never recreated, so values are still updated in place. Wrapping or eliding values was rejected, because addresses must stay whole to be read and copied. Giving long values their own full-width rows was also rejected: it would be a special case inside a generic grid, while re-flow already gives long values fewer columns and short readouts more when there is room. Without the remembered widths, a transfer rate near a column boundary would change the column count every second.
+
+The per-core grid scrolls instead of shrinking its charts further, because a chart only a few pixels tall shows nothing. Its minimum width still matters: a scroll area with horizontal scrolling turned off squeezes content that is too wide rather than widening the window, and it shows no scroll range, so the tests compare the content's minimum width with the viewport. At the larger default size, the network readouts usually get two or more columns instead of one. Limiting it to the screen keeps the window on screen on a 1366×768 laptop.
+
+**History:** Code review F-20.
+
+---
+
+<a id="dc-61"></a>
+### DC-61: 30 minutes of performance history, a chart-window selector, and the measured tick cost
+
+**Decision:** Each Performance page keeps 30 minutes of history (`PerformancePage::kHistoryCapacity` = 1800 samples at 1 Hz). A "Chart history" selector below the sidebar sets how much of it the charts show: 1 minute (the default, as in Task Manager), 5 minutes, or 30 minutes. `showHistory()` passes the chart only the newest window of samples and sets the chart's capacity to match. The selection is not saved yet, because persisting it belongs with the Phase 6 settings file. Windows are counted in samples, which equals seconds at the fixed 1 Hz sampling rate. A configurable refresh interval will need to convert them.
+
+The tick cost was measured with a throwaway benchmark (not committed; [DC-66](#dc-66) replaces it with a committed one and newer figures) in a Release build (`build.ps1 -Release`) on the development machine, a 16-thread 4.7 GHz desktop. The benchmark shows a 1280x800 window on the Performance tab and records 1800 synthetic snapshots. It then times 20 more snapshots, each forwarded by `MainWindow` and followed by a synchronous repaint of the window. The data is a worst case: every series swings across most of its range every 20 to 30 samples.
+
+| Page | 1 min | 5 min | 30 min |
+| --- | --- | --- | --- |
+| CPU, 16 cores | 6.2 ms | 9.8 ms | 26.9 ms |
+| CPU, 64 cores | 12.1 ms | 15.7 ms | 20.4 ms |
+| Memory | 2.4 ms | 4.9 ms | 8.2 ms |
+| Disk | 1.3 ms | 1.3 ms | 1.6 ms |
+| Network, 2 adapters | 3.8 ms | 12.5 ms | 36.6 ms |
+
+The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its per-core charts are smaller. A Release build of the app run on the same machine used about 41 MiB of working set.
+
+**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. At the default window, every page costs under 13 ms per second, about 1% of the UI thread. Even the synthetic worst case at 30 minutes stays under 40 ms, one short frame per second, and real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in [DC-60](#dc-60). Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.
+
+**History:** Phase 3, Performance tab; code review F-25 (the figures replaced by the committed benchmark's, for [DC-66](#dc-66)).
+
+---
+
+<a id="dc-63"></a>
+### DC-63: Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
+
+**Decision:** The memory page's "Cached" readout is renamed "System cache", and `MemorySample::cachedBytes` is renamed `systemCacheBytes`. It still shows `PERFORMANCE_INFORMATION::SystemCache`, and the domain comment now says what that is without claiming it matches Task Manager. "In use" is renamed "Used". It is still total minus available, so it includes the modified page list. The dashboard ("… of … used") and the sidebar summary already used that wording or no label, and are unchanged.
+
+**Rationale:** Task Manager's "Cached" is the standby list plus the modified list, and its "In use" leaves the modified list out. `SystemCache` is neither. Microsoft documents it as the standby list plus the system working set, but it does not measure as that either. Two readings on the development machine, taken from the memory-list performance counters for comparison only:
+
+| Reading | `SystemCache` | Standby | Standby + modified (Task Manager's "Cached") | Standby + system working set |
+| --- | --- | --- | --- | --- |
+| Code review F-22 | 30.59 GiB | 33.83 GiB | 34.37 GiB | 35.09 GiB |
+| This fix | 34.84 GiB | 34.25 GiB | 34.42 GiB | 35.31 GiB |
+
+The difference from Task Manager was 3.8 GiB in the first reading and 0.4 GiB in the second, and in different directions, so no correction can be applied to it. Reproducing Task Manager's figures needs the exact list sizes. `NtQuerySystemInformation(SystemMemoryListInformation)` provides them but requires `SeProfileSingleProcessPrivilege`, which unelevated users do not have. The `\Memory\Standby Cache*` and `\Memory\Modified Page List Bytes` counters would need PDH, which is not used for core metrics ([DC-02](#dc-02)). The readout is kept rather than dropped because the size of the system cache is still useful, and the new name no longer promises a figure the tool cannot provide. "Used" is the plain description of total minus available. If elevated access is added (see "Elevated process termination" in the post-MVP roadmap), an elevated component could read `SystemMemoryListInformation` and provide Task Manager's breakdown.
+
+**History:** Code review F-22.
+
+---
+
+## Processes tab
+
+The process table: its model, columns, sorting, tree, highlights and access indicator.
 
 <a id="dc-79"></a>
 ### DC-79: Process table: a `QAbstractItemModel` with one row per `ProcessIdentity`, changed in place
@@ -991,7 +1251,10 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 **Decision:** The Processes tab shows a `QTreeView` over `ProcessModel`, a `QAbstractItemModel` subclass. Each row is a node owned by a map keyed by `ProcessIdentity`. An index's internal pointer is its node, and each node keeps its row number, so `indexOf()` needs no search. `updateProcesses()` removes the rows of processes that are no longer listed, gives the remaining rows their latest values, and appends the new processes with one `beginInsertRows()`. It never resets the model. A duplicate identity in a list adds one row. `MainWindow` forwards every snapshot to `ProcessesView`, which applies the list whether or not the tab is shown. A snapshot without a list keeps the last rows. The summary line above the table then reads "Processes: N/A (showing the last list read)", and "Processes: --" before the first list. The Idle process (PID 0) has no image name in the list ([DC-71](#dc-71)), and the table names it "System Idle Process". `formatCount()` moved from `performance_readouts.h` to `dashboard_formatting.h`, where the formatting that several tabs share lives ([DC-68](#dc-68)).
 
 **Rationale:** The model derives from `QAbstractItemModel` rather than `QAbstractTableModel` because the process tree needs parent and child rows in the same model, and a `QTreeView` shows a flat model as a table. Keying rows by identity rather than PID means a process that reuses a PID gets a new row, rather than the old process's row with new values. Changing rows in place keeps the selection, the scroll position, and every `QPersistentModelIndex` a view or proxy holds. A reset on every refresh would lose them, which [ui/AGENTS.md](../src/ui/AGENTS.md) forbids. The tab applies every list even while hidden, as every view records every snapshot ([DC-54](#dc-54)): the model is the tab's record of the process list, and a hidden `QTreeView` does not repaint. A failed read keeps the last rows rather than emptying the table, because treating it as an empty list would remove every row and add them all back on the next successful read. The summary line says that the rows are stale.
+
 **Superseded in part by [DC-84](#dc-84):** a process that is no longer listed keeps its row, marked as exited, for three seconds of snapshot time before the row is removed.
+
+**History:** Phase 4, process explorer view; Phase 4, process explorer view (exited rows kept for three seconds, for [DC-84](#dc-84)).
 
 ---
 
@@ -1012,6 +1275,8 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 
 **Superseded in part by [DC-91](#dc-91):** **Memory** is now the private working set, which it also sorts by, and its cells have a tooltip with the private working set, the working set and the commit size.
 
+**History:** Phase 4, process explorer view; code review F-29 (Memory shows the private working set, for [DC-91](#dc-91)).
+
 ---
 
 <a id="dc-81"></a>
@@ -1029,6 +1294,8 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 
 **Superseded in part (code review F-34):** the first click on Network sorts ascending too. Network has no values yet, so every row compares equal and the names decide. A descending sort reverses the whole comparison, names included, so a largest-first click listed them Z to A.
 
+**History:** Phase 4, process explorer view; code review F-34 (the first click on Network sorts ascending).
+
 ---
 
 <a id="dc-82"></a>
@@ -1044,11 +1311,14 @@ Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\W
 - **Filtering and sorting:** the proxy filters recursively, so a match keeps its ancestors shown, and sorts each process's children among themselves.
 
 **Rationale:** Windows records only the parent's PID, and that PID can belong to a younger process by the time the child is listed. A parent can never be younger than its child, so the creation-time check rejects a reused PID, as process viewers such as Process Explorer do. "No later than" rather than "earlier than" because creation times are recorded at clock-tick granularity, and a process that starts a child at once can share its creation time. Same-tick creation is also why the cycle check is needed. A link never changes because a running process's parent PID never changes, and the process it names either keeps running or exits; it cannot appear later. Moving orphans to the top level is what Process Explorer does, and moving them rather than removing and reinserting them keeps their selection and expanded state. Removing deepest first keeps each move to the processes that outlive their parent. Inserting by parent keeps the signals per refresh to one per parent that gained children, and inserting parents first is required, because a row must exist before rows can be inserted under it. A reset on toggle is simpler than moving every row, and it happens only when the user asks. QTreeView cannot tell a branch the user collapsed from one never expanded, so the view expands a branch automatically only when it gains its first child, which no user can have collapsed yet. A seeded random-churn unit test (300 refreshes of processes starting, exiting, reusing PIDs, and sharing creation ticks) checks the structure, the parent rule, every persistent index, and a sorted proxy on top after each refresh.
+
 **Superseded in part by [DC-84](#dc-84):** an exited parent's row stays for three seconds, its children still under it, and they move to the top level when that row is removed.
 
 **Extended by [DC-92](#dc-92):** a candidate whose row was marked exited before the process was first listed is not its parent.
 
 **Extended (code review F-34):** the random-churn test, now `RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredProxyStayConsistent`, also changes the proxy's filter every 40 refreshes and switches the mode every 25. After each update it compares every level of the proxy with an independently filtered and sorted copy of the model's tree. A proxy that left a deferred sort undone failed it within five refreshes.
+
+**History:** Phase 4, process explorer view; Phase 4, process explorer view (exited parents kept for three seconds, for [DC-84](#dc-84)); code review F-30 (exited rows parent only processes listed by their exit, for [DC-92](#dc-92)); code review F-34 (the random-churn test also changes the filter and the mode).
 
 ---
 
@@ -1080,6 +1350,8 @@ Re-sorting once per parent was quadratic. Each re-sort that moves a row is a lay
 
 **Extended by [DC-95](#dc-95):** re-measured with the environment recorded. Since [DC-84](#dc-84), removals fall on the repeat ticks, so the refresh and repeat columns above can no longer be compared one by one; their sum can.
 
+**History:** Phase 4, process explorer view; code review F-33 (re-measured, for [DC-95](#dc-95)).
+
 ---
 
 <a id="dc-84"></a>
@@ -1100,6 +1372,8 @@ With the process table benchmark's churn ([DC-83](#dc-83)), the work per refresh
 
 **Superseded in part by [DC-92](#dc-92):** an exited row is a candidate parent only for a process first listed no later than the refresh that marked it exited.
 
+**History:** Phase 4, process explorer view; code review F-30 (exited rows parent only processes listed by their exit, for [DC-92](#dc-92)).
+
 ---
 
 <a id="dc-85"></a>
@@ -1117,14 +1391,7 @@ On the development machine, unelevated, System, Registry, smss.exe and most serv
 
 **Rationale:** The three reasons details can be missing mean different things ([DC-72](#dc-72)). A denial depends on the monitor's rights and is routine when it runs unelevated: about a third of the processes on a desktop refuse it ([DC-75](#dc-75)). Never opening a process is the monitor's own rule, and Unavailable means there is nothing to read. Different shapes and colours tell them apart at a glance without relying on colour alone, and the tooltip says the reason in words. The icons are painted because the project has no resource files yet and `QStyle`'s standard icons vary by style and include no padlock. Painting each scale keeps the shapes sharp on high-DPI screens. The model keeps the icons as members rather than function-local statics, because a pixmap must not outlive the `QGuiApplication`, which statics would. The default delegate leaves room for a decoration only in rows that have one, so the transparent icon keeps every name in the same place. The colours are mid-tones that show on both light and dark rows. Amber suggests a warning, blue a deliberate policy, and grey an absence. The tooltip is rich text because Qt wraps rich-text tooltips, while plain text wraps only when it is wider than the screen, and command lines can run to thousands of characters. Escaping keeps "<" and "&" in a command line literal, and the cut-off bounds the tooltip's size.
 
----
-
-<a id="dc-86"></a>
-### DC-86: qtbase built with PNG support for Qt's own Windows cursors
-
-**Decision:** `vcpkg.json` adds qtbase's `png` feature. `tests/unit/qt_configuration_test.cpp` checks that Qt can read PNG images and that the Windows platform plugin's cursor resources load.
-
-**Rationale:** With its default features turned off, qtbase was built without its PNG handler (`QT_FEATURE_png` is -1) but still reported `QT_FEATURE_imageformat_png` as 1. Qt's Windows platform plugin checks the second flag and loads the split, open-hand, closed-hand, and drag cursors from PNG resources, which then come back as null pixmaps. Making a cursor from a null pixmap fails `Q_ASSERT(bm.format() == QImage::Format_Mono)` in `qpixmap_win.cpp` in a Debug build, and in a Release build the cursor is not created. The process table's header is the first widget in the app with resizable columns, so pointing at a column border in the Debug app aborted it with that assertion. PNG support is part of Qt's default feature set and adds only libpng. The alternatives were fixed column widths or avoiding every Qt feature that uses these cursors: splitters, resizable headers, and drag and drop. They give up features, and the next widget that uses one of the cursors would crash again. The test fails if the feature is ever dropped, before a cursor reaches the screen. The first build after the change rebuilds qtbase, locally and in CI, until the binary cache holds the new package.
+**History:** Phase 4, process explorer view.
 
 ---
 
@@ -1147,6 +1414,8 @@ On the development machine, unelevated, System, Registry, smss.exe and most serv
 
 The commit size was the other candidate. It also counts private memory that has been paged out or never touched, so it does not measure physical memory, and Task Manager shows it only as an optional column on its Details tab. The working set stays in the tooltip because shared memory still occupies physical memory, and a process that maps large files or many DLLs shows it only there. A tooltip, rather than two more columns, keeps the roadmap's columns and leaves the width to the Name column. Marking the cell for a change that only the tooltip shows costs little, because the three figures usually change together.
 
+**History:** Code review F-29.
+
 ---
 
 <a id="dc-92"></a>
@@ -1160,6 +1429,317 @@ The commit size was the other candidate. It also counts private memory that has 
 - **Tests:** a unit test reproduces the code review's probe: a process exits, its PID goes to a launcher that is never listed, and the launcher's child appears a refresh later at the top level, not under the exited row. A second test makes the same check through `setTreeMode()`. The random-churn test now also checks that no parent was marked exited before its child was first listed. That check failed at three of its 300 refreshes before the change.
 
 **Rationale:** A process that first appears in a refresh was not in the previous list, which is a complete list of the running processes, so it was created after that list was read. A parent must be running to create a child. A candidate that was already missing from an earlier list had therefore exited before the child was created, and the child's parent PID belongs to a process that was never listed, such as a launcher that started it and exited between two refreshes. The creation-time check of DC-82 cannot catch this, because the exited process is older than the child, and its row stays on show for three seconds. Windows gave a freed PID to a new process after as few as six launches, about 0.4 seconds, in the code review, so the wrong link was not rare. Comparing refresh times needs no extra data from the collector and no clock other than the snapshot timestamps the model already uses. A candidate found missing in the same refresh as the child is new may have started it just before exiting, which is the launcher case DC-84 keeps.
+
+**History:** Code review F-30.
+
+---
+
+## Process termination
+
+Ending a process: the checks in `platform/windows`, and the End process action and its messages.
+
+<a id="dc-87"></a>
+### DC-87: Process termination: ownership and identity checked before `PROCESS_TERMINATE` is requested
+
+**Decision:**
+
+- **Result:** `domain::ProcessTerminationResult` (`domain/process_termination.h`) names the outcomes: `Terminated`, `AlreadyExited`, `NotOwnedByCurrentUser`, `NeverOpened`, `AccessDenied`, and `Failed`.
+- **Function:** `platform::terminateOwnedProcess(const domain::ProcessInfo&)` (`process_terminator.h`) takes the process's `(PID, creation time)` identity and its image name. In order, it:
+  1. refuses `lsass.exe` and `csrss.exe` by name before any `OpenProcess` call ([DC-74](#dc-74)), and the System Idle Process (PID 0);
+  2. opens the process with `PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE`, compares its creation time with the identity, and checks that it has not exited;
+  3. compares the user SID of the process's token (`OpenProcessToken`, `GetTokenInformation(TokenUser)`) with that of the monitor's own token (`GetCurrentProcessToken()`), using `EqualSid`;
+  4. with the first handle still open, opens the process again with `PROCESS_TERMINATE` added, checks the creation time again, and calls `TerminateProcess` with exit code 1.
+- **Exited processes:** the result is `AlreadyExited` when `OpenProcess` fails with `ERROR_INVALID_PARAMETER` (no process has the PID), when the creation time differs (another process has the PID), or when the handle is signalled. When a later call fails, a signalled handle also means `AlreadyExited`.
+- **No waiting:** it returns once Windows accepts the request and keeps no state.
+- **Logging:** `info` for `Terminated` and `AlreadyExited`, `warn` for a refusal or a denial, and `error` for any other failure, each with the image name, PID, and the failing call's error code.
+- **Rules:** the access-rights rule in AGENTS.md (and its copies), `platform/windows/AGENTS.md`, and [architecture.md](architecture.md#unelevated-process-termination) now names this function as its one exception.
+- **Shared code:** `platform/windows/process_handle.h` holds `ScopedHandle` and `processCreationTime()`, which the details reader ([DC-75](#dc-75)) and the terminator share. The suspended `cmd.exe` child of [DC-78](#dc-78) moved to `tests/integration/suspended_child_process.h`, so both test files can use it.
+- **Tests:** `tests/integration/process_terminator_test.cpp`. A child is terminated with exit code 1. The same PID with an earlier creation time leaves the child running. A child that has already been terminated, with the test's handle open and with every handle closed, is `AlreadyExited`. A child named `csrss.exe` is refused and left running. PID 0 is not the user's. The System process is never terminated: it is either denied at `OpenProcess` (unelevated) or not the user's (elevated).
+
+The roadmap's next items build on this: the UI action with its confirmation dialog, the messages for each result, and refusing elevated processes up front. System processes are already refused, because SYSTEM is not the current user.
+
+**Rationale:** Ending the wrong process is the worst mistake a process explorer can make, so the identity check comes first, as it does for reading details. An open process handle keeps Windows from reusing its PID, so holding the first handle while opening the second means the second reaches the process whose owner was checked, and its creation-time check guards against the same mistake again. Checking the owner before asking for `PROCESS_TERMINATE` means the monitor never asks for termination rights on another user's process, which keeps to the reason for the access-rights rule: request only the access that is needed. The owner is the token's user, the account the process runs as and the user name Task Manager shows. Ownership alone does not mean Windows allows the termination. An unelevated monitor is denied the user's own elevated processes (`AccessDenied`), and an elevated monitor can open processes the user does not own, which the owner check refuses. `TerminateProcess` fails with `ERROR_ACCESS_DENIED` for a process that has already exited, so without another check an exited process would be reported as denied. A zero-timeout wait tells them apart. It needs `SYNCHRONIZE`, which grants nothing beyond waiting. `GetExitCodeProcess` would need no extra right, but it cannot tell a process that is still running from one that exited with code 259 (`STILL_ACTIVE`). PID 0 is handled by itself because `OpenProcess` rejects it with the same error as an unused PID, which would report the Idle process as already exited. A non-zero exit code tells the parent, and anything waiting on the process, that it did not finish normally; 0 would look like success. All the calls return quickly and the next process refresh shows the process leaving, with the exited-row highlight ([DC-84](#dc-84)), so there is nothing to wait for. The result type is in `domain` because the UI, which may depend only on domain types ([ui/AGENTS.md](../src/ui/AGENTS.md)), will show a message for each one. The UI cannot include platform headers, so `main.cpp` will have to pass the function to it, as it passes the collectors to the scheduler. A test cannot create another user's process, so the owner-mismatch branch is reached only for the System process when the tests run elevated. System is a protected process that Windows does not let an unprotected caller open for termination, so it is the one process outside the test's own children that the tests ask to terminate.
+
+**Superseded in part by [DC-90](#dc-90):** after the owner check, the terminator also refuses a process that runs elevated, with the new result `Elevated`, before it asks for `PROCESS_TERMINATE`. The tests' children that it should end are now created unelevated.
+
+**Extended by [DC-94](#dc-94):** a process without an image name, other than the Idle process, is refused as `NeverOpened` too.
+
+**History:** Phase 4, process termination; Phase 4, process termination (elevated processes refused, for [DC-90](#dc-90)); code review F-32 (a process without an image name refused, for [DC-94](#dc-94)).
+
+---
+
+<a id="dc-88"></a>
+### DC-88: End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
+
+**Decision:**
+
+- **Action:** `ProcessesView` has one End process `QAction`, offered three ways: an End process button at the right end of the toolbar, the table's context menu (`Qt::ActionsContextMenu`), and the Delete key while the table has focus (`Qt::WidgetShortcut`). It is enabled while the table has a current process and a terminator is set. It is checked again when the current row changes and after the reset that switching tree mode causes.
+- **Dialog:** a `QMessageBox` with the warning icon, titled "End process". Its text names the process and its PID (`processTerminationQuestion()`: "Do you want to end explorer.exe (PID 1234)?") as plain text. Its informative text warns: "Ending a process stops it immediately. Any unsaved data in it is lost, and programs that depend on it may stop working." Its buttons are End process (`DestructiveRole`) and Cancel, which is both the default and the escape button. It is opened with `open()`, so it is window-modal, and it deletes itself when it closes.
+- **Identity:** the dialog acts on a copy of the `ProcessInfo` taken when it opened. Confirming passes that copy to the terminator, whatever the table shows by then.
+- **Terminator:** `ui::ProcessTerminator` is a `std::function<domain::ProcessTerminationResult(const domain::ProcessInfo&)>`, set with `ProcessesView::setProcessTerminator()`. `main.cpp` sets `platform::terminateOwnedProcess`. It runs on the UI thread.
+- **Result:** not shown yet. The terminator logs it ([DC-87](#dc-87)), and the roadmap's next item shows a message for each failure.
+- **Rules:** [ui/AGENTS.md](../src/ui/AGENTS.md) now says that an action that changes the system calls a function `main.cpp` sets, and is disabled while none is set.
+- **Tests:** `tests/unit/processes_view_test.cpp` checks when the action and the button are enabled, that the context menu and the Delete key offer the action, and the dialog's text, icon, and buttons. End process passes the selected process's identity to a recording terminator, and Cancel passes nothing. A process that left the list while the dialog was open, with another process current by then, is still the one ended. `tests/unit/process_formatting_test.cpp` checks the question, including a name that contains `%1` and `%2`.
+
+**Rationale:** One action keeps the button, the menu item, and the key in step: one enabled state, one text, one dialog. The button makes the action easy to find, as Task Manager's End task button does, and the context menu and the Delete key are where Task Manager users also look for it. The key works only on the table, so Delete in the filter box still deletes text.
+
+Cancel is the default, so Enter, or a key pressed just as the dialog appears, never ends a process; ending one takes a click or a deliberate Tab. The question names the process for the user to recognise, and gives its PID to tell apart processes with the same name, such as the many svchost.exe processes. The name is plain text because the process chose it, and a name that looked like HTML would otherwise be rendered as rich text. A single `arg()` call keeps a `%2` in a name from being replaced by the PID.
+
+`open()` avoids the nested event loop of `exec()`, which Qt advises against, and lets the tests inspect and answer the dialog without blocking. Window modality keeps the user from starting a second request from the same window while the first is open.
+
+The table refreshes every two seconds while the dialog is open. The row it was opened from is removed a few seconds after the process exits ([DC-84](#dc-84)), and the current row then moves to a neighbour, as the test shows. Reading the selection when the user confirms could end a process the dialog never named. The copy keeps the identity the user saw, and `terminateOwnedProcess()` checks its creation time, so a process that exited in the meantime is reported as `AlreadyExited`, and a process that reused its PID is not touched.
+
+The UI may depend only on Qt and domain types ([DC-20](#dc-20)), so it cannot name the platform function, and DC-87 expected `main.cpp` to pass it in. A `std::function` suits a single operation better than an interface class, and lets the tests pass a lambda that records identities: a fake, not a mock. Calling an empty `std::function` throws `std::bad_function_call`, and the project uses no exceptions, so the action stays disabled until a function is set, and `confirmEndProcess()` checks again. The terminator runs on the UI thread because `terminateOwnedProcess()` only opens the process, reads its token, and calls `TerminateProcess`, and never waits for the process to exit. A worker thread would add a path back to the UI thread for the result, for calls that do not wait.
+
+**Superseded in part by [DC-89](#dc-89):** the result is now shown in a message box, and the dialog's answer is read once it has closed (`finished`) rather than from `buttonClicked`.
+
+**Superseded in part by [DC-93](#dc-93):** the action is disabled while the current row is marked as exited, and is checked again after every snapshot. On the monitor's own row it offers to close the monitor instead.
+
+**History:** Phase 4, process termination; Phase 4, process termination (the result shown, for [DC-89](#dc-89)); code review F-31 (exited rows and the monitor's own row, for [DC-93](#dc-93)).
+
+---
+
+<a id="dc-89"></a>
+### DC-89: Termination results: a message box for each outcome but success, opened once the confirmation has closed
+
+**Decision:**
+
+- **Message:** once the user confirms End process and the terminator returns, `ProcessesView` shows a `QMessageBox` titled "End process", with one OK button, opened with `open()` (window-modal) and deleted when it closes. `processTerminationMessage()` (`process_formatting.h`) gives its text, which names the process and its PID, and its informative text, which says why:
+
+  | Result | Icon | Text | Informative text |
+  | --- | --- | --- | --- |
+  | `Terminated` | — | No message. | — |
+  | `AlreadyExited` | Information | "explorer.exe (PID 1234) has already exited." | "It exited before it could be ended. If another process now has its PID, that process was left running." |
+  | `NotOwnedByCurrentUser` | Warning | "Could not end explorer.exe (PID 1234)." | "It runs as another user, such as SYSTEM or a service account. The monitor ends only processes that run as you." |
+  | `NeverOpened` | Warning | As above. | "It is a critical Windows process, which the monitor never opens." |
+  | `AccessDenied` | Warning | As above. | "Windows denied access to it. That happens for a process that runs as administrator when the monitor does not, and for a process that Windows protects." |
+  | `Failed` | Critical | As above. | "Windows reported an unexpected error. The monitor's log has the error code." |
+
+- **Plain text:** the message's text format is `Qt::PlainText`, which `QMessageBox` also gives the informative text. Only the text contains the process's name.
+- **Order:** the confirmation dialog's answer is read when it emits `finished`, from `clickedButton()`, instead of from `buttonClicked`. The terminator runs, and the message opens, after the dialog has closed.
+- **Shared wording:** `processTerminationQuestion()` and the messages name the process the same way, "explorer.exe (PID 1234)", through one helper.
+- **Tests:** `tests/unit/process_formatting_test.cpp` checks that `Terminated` has no message, the text and reason for every other result, the System Idle Process's name, and a name containing `%1` and `%2`. `tests/unit/processes_view_test.cpp` checks that an ended process gets no message; that `AccessDenied` gets a window-modal message with the title, warning icon, plain text, and OK button; the icon for every result; that no dialog is shown while the terminator runs (it fails if the answer is read from `buttonClicked`); that closing the dialog from its title bar ends nothing; and that OK closes the message.
+
+**Rationale:** A process that was ended gets no message. Windows ends it asynchronously, and within one process refresh (two seconds) its row is marked as exited ([DC-84](#dc-84)), which shows the user that it worked without a box to dismiss after every success. Task Manager also stays silent when End task succeeds. A failure is rare and needs reading, so it gets a dialog rather than a line the user could miss. The main window has no status bar, and the user is looking at the spot where the confirmation dialog just was. The message is window-modal, as the confirmation is, so the user reads it before starting another request from the same window.
+
+`AlreadyExited` is not an error, since the user wanted the process gone and it is, so its icon is Information. It still gets a message, because otherwise nothing would happen when the user confirmed, and the list may already show another process with the same PID. The message says that process was left running. The icons follow the levels at which the terminator logs each result ([DC-87](#dc-87)): information, warning for a refusal or a denial, and error for anything else. The message and the log then agree on how serious the outcome was. The reasons describe the user's situation rather than Win32 error codes, and `Failed` points to the log, which has the code. The `AccessDenied` reason names both cases that cause it: an elevated process when the monitor is not elevated, and a protected process, which can deny even an elevated monitor. It therefore does not claim that the monitor runs without administrator rights. The process chose its own name, so the name appears only in the text, as plain text, as in the confirmation ([DC-88](#dc-88)).
+
+`QMessageBox` emits `buttonClicked` while it is still shown, and closes afterwards (`QMessageBoxPrivate::setClickedButton()` emits the signal, then calls `done()`). A message opened from `buttonClicked` would be stacked over the confirmation, and Windows would choose which window to activate when the confirmation hid. `finished` is emitted after the dialog has hidden. The title bar's close button also emits `finished`, but before `clickedButton()` is set, so it ends nothing, like Cancel. `~QDialog` only hides the dialog without emitting `finished`, so a view destroyed while its dialog is open ends nothing.
+
+**Superseded in part by [DC-90](#dc-90):** the new result `Elevated` gets a warning with its own reason, and the `AccessDenied` reason now names system processes and services instead of processes that run as administrator.
+
+**History:** Phase 4, process termination; Phase 4, process termination (the `Elevated` result, for [DC-90](#dc-90)).
+
+---
+
+<a id="dc-90"></a>
+### DC-90: Elevated processes refused by token elevation or integrity level, even when the monitor is elevated
+
+**Decision:**
+
+- **Rule:** the monitor ends only unelevated processes. A process runs elevated if its token is elevated (`GetTokenInformation(TokenElevation)`), or if its integrity level (`TokenIntegrityLevel`) is `SECURITY_MANDATORY_HIGH_RID` or above: high, system, or protected. `platform::runsElevated()` (`platform/windows/process_elevation.h`) states the rule.
+- **Where:** `terminateOwnedProcess()` opens the process's token once, checks its owner as before ([DC-87](#dc-87)), and then checks its elevation, before it asks for `PROCESS_TERMINATE`. An elevated process gets the new result `ProcessTerminationResult::Elevated`, logged at `warn` with both values, e.g. "it runs elevated (elevated token: false, integrity level 0x3000)". If the elevation or the integrity level cannot be read, the result follows the other token failures: `AlreadyExited` if the process has exited, otherwise `AccessDenied` or `Failed`.
+- **Always:** the rule holds when the monitor itself runs elevated. On a machine with UAC turned off, every process an administrator starts is elevated, so the monitor ends none of them there. The [roadmap](../roadmap.md#elevated-process-termination) has an item to investigate letting an elevated monitor end elevated processes.
+- **System processes:** the checks that already existed refuse them. `lsass.exe` and `csrss.exe` are refused by name. SYSTEM, LOCAL SERVICE, NETWORK SERVICE, and virtual accounts such as `DWM-1` are never the current user, so the owner check refuses them. An unelevated monitor is not even allowed to open them. If the monitor runs as SYSTEM, the integrity check refuses them, since they run at system integrity.
+- **After confirming:** the check runs when the user confirms End process, as the other refusals do. The snapshot does not say which processes are elevated, so the action cannot be disabled for them in advance.
+- **Messages:** `Elevated` gets the warning icon, like the other refusals ([DC-89](#dc-89)), with "Could not end app.exe (PID 1234)." and "It runs elevated, with administrator or system rights. The monitor ends only processes that run with standard user rights." The `AccessDenied` reason now names the case that remains most common: "Windows denied access to it. That happens for a system process or a service when the monitor runs without administrator rights, and for a process that Windows protects."
+- **Tests:** `tests/platform/process_elevation_test.cpp` checks the rule for each integrity level, with and without an elevated token. `tests/integration/process_terminator_test.cpp` now creates the children it expects to end with `SuspendedChildProcess(UnelevatedToken{})`. That copies the test's own token with `CreateRestrictedToken(LUA_TOKEN | DISABLE_MAX_PRIVILEGE)`, sets it to medium integrity, and starts the child with `CreateProcessAsUserW`, so the child is unelevated even when the tests run elevated. When the tests run elevated, two new tests check that a child with the test's own token, and an unelevated child at high integrity, are both refused as `Elevated` and left running. They are skipped when the tests run unelevated. `isCurrentProcessElevated()` moved to `tests/integration/current_process_elevation.h`, which the tracking tests share. The unit tests cover the new message and its icon. The integration tests also passed when run elevated on a machine with UAC on.
+
+**Rationale:** The MVP ends only unelevated processes ([architecture.md](architecture.md#unelevated-process-termination)). Ending elevated ones is a later feature, through a UAC-prompted helper. Before this check, an unelevated monitor asked for `PROCESS_TERMINATE` on the user's own elevated processes and Windows refused it (`AccessDenied`), while an elevated monitor would have ended them. Refusing them up front means the monitor never asks for termination rights it is not meant to use, and the message can give the reason instead of reporting a denial.
+
+`TokenElevation` is what Task Manager's Elevated column shows, so it matches what the user knows about a program run as administrator. On its own it misses processes that run with more than standard rights without an elevated token. A UIAccess program such as `ctfmon.exe` runs at high integrity for an administrator, and a vendor's service can start a helper in the user's session at high integrity. Windows does not let a medium-integrity caller write to a higher-integrity process, so an unelevated monitor's request to end them would also fail. The threshold is high integrity rather than anything above medium, because medium-plus is not an administrator level; Windows denies a medium monitor's request to end such a process (`AccessDenied`), which is rare. An elevated process that lowered its integrity level still counts as elevated.
+
+The owner is checked first, so another user's process, including SYSTEM's, keeps its more specific message. Both checks read the same token handle.
+
+On the development machine, an unelevated process could read the token of every process it could open, including the user's elevated ones. Of about 400 processes, 151 refused `OpenProcess` (processes that do not run as the user, such as System and the services, which get `AccessDenied`), 4 refused `OpenProcessToken`, and the rest could be read: 2 elevated processes, 2 that were not elevated but ran at high integrity, and the rest unelevated at medium integrity or below.
+
+`LUA_TOKEN` filters a token as UAC filters an administrator's: the Administrators group becomes deny-only. `DISABLE_MAX_PRIVILEGE` removes every privilege except `SeChangeNotifyPrivilege`. The result is not elevated. Setting its integrity level to medium (or high, for the UIAccess-like case) keeps or lowers it, which needs no privilege. `CreateProcessAsUserW` can start a process with a filtered copy of the caller's own token without `SeAssignPrimaryTokenPrivilege`. The same code therefore runs unelevated, where it changes nothing that matters, and elevated, as on CI runners. Without it, CI would no longer test the termination path, because every process the tests start there is elevated.
+
+**History:** Phase 4, process termination.
+
+---
+
+<a id="dc-93"></a>
+### DC-93: End process: disabled on exited rows, and an offer to close the monitor on its own row (code review F-31)
+
+**Decision:**
+
+- **Exited rows:** `ProcessModel::hasExited()` says whether a row is marked as exited. End process is disabled while such a row is current, and `confirmEndProcess()` checks again. `ProcessesView::updateSnapshot()` checks the action again after every snapshot, because a row can be marked as exited, or listed again, without the current index changing.
+- **The monitor's own row:** `platform::currentProcessIdentity()` (`platform/windows/current_process.h`) returns the monitor's PID and its creation time from `GetProcessTimes`, and `main.cpp` passes it to `ProcessesView::setMonitorIdentity()`. End process on that row opens a dialog with the question icon instead of the warning: "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?" (`monitorCloseQuestion()`), with the informative text "It closes the same way as when you close its window." Its buttons are Close System Monitor (`AcceptRole`) and Cancel, which is the default and the escape button. Confirming closes the window that holds the view, and the terminator is never called. If the identity cannot be read, a warning is logged and the row is treated like any other.
+- **One dialog helper:** `askToConfirm()` in `processes_view.cpp` opens both dialogs, so the plain-text question, the Cancel default and the handling of `finished` ([DC-89](#dc-89)) are written once.
+- **Tests:**
+  - `tests/unit/processes_view_test.cpp` checks that the action is disabled when the current process exits, opens no dialog then, and is enabled again when the process is listed again. It is also disabled when an exited row becomes current.
+  - For the monitor's own row, the view tests check the dialog's text, icon and buttons. Confirming closes the window that holds the view without calling the terminator, and Cancel leaves it open.
+  - `process_model_test.cpp` covers `hasExited()`, and `process_formatting_test.cpp` the question. `tests/integration/process_collector_test.cpp` checks that `currentProcessIdentity()` matches this process's entry in the process list.
+
+**Rationale:** An exited row has nothing left to end. Confirming only produced "notepad.exe (PID 900) has already exited.", which the red, italic row already showed. Checking the action after every snapshot costs one lookup.
+
+The monitor's own row is listed like any other process. When the monitor runs unelevated, every check of [DC-87](#dc-87) and [DC-90](#dc-90) passes, so End process called `TerminateProcess` on the monitor itself. It stopped at once: `main()` never stopped the scheduler or called `spdlog::shutdown()`, and info-level lines written since the last flush were lost, because the log flushes on its own only at `warn`. When the monitor ran elevated, the request was refused as `Elevated`, which reads oddly when the monitor is asked to end itself. Closing the main window ends the event loop, and `main()` then stops the scheduler and flushes the log. Task Manager also lets users end it from its own list, so offering to close the monitor matches what they expect. Asking first keeps the Cancel default that every End process dialog has. Closing the monitor loses no data, so the question icon fits better than the warning.
+
+The code review suggested comparing the row's PID with `QCoreApplication::applicationPid()`, which needs no platform call. But a process is identified by its PID and creation time, never by its PID alone. Also, the unit tests run in a process whose PID could be one of the PIDs they list, such as 800 or 900, which would make those tests fail now and then. An injected identity keeps to the rule, lets the tests choose the monitor's identity, and follows the pattern of the terminator that `main.cpp` already sets ([DC-88](#dc-88)).
+
+**History:** Code review F-31.
+
+---
+
+## Network tab
+
+The adapter cards: which adapters are listed, in what order, and what each card shows.
+
+<a id="dc-96"></a>
+### DC-96: Network tab: a card per adapter, keyed by interface ID, with unbound virtual adapters behind "Show all adapters"
+
+**Decision:** `NetworkView` lists the adapters as `AdapterCard`s in a scrolling column. By default it lists every hardware adapter and every adapter bound to IP, whatever its operational status (`isListedByDefault()`). A "Show all adapters" check box adds the rest: hidden virtual adapters with no IP interface. `listedAdapters()` puts adapters that are Up first, then hardware adapters, and orders each group by display name and then by interface ID. Cards are keyed by `NetworkSample::interfaceId`. When the list changes, the view moves the card of each adapter that is still listed, creates cards for new adapters, and deletes the others. When a read fails, the cards of the last successful read stay. `MainWindow` forwards every snapshot to the view, as it does to the other tabs. `updateSnapshot()` stores it, and the cards are updated only while the view is visible, with `showEvent()` catching up ([DC-54](#dc-54)).
+
+**Rationale:** The roadmap asks for all non-loopback adapters. The collector already drops loopback and NDIS filter rows ([DC-35](#dc-35)). What remains still includes adapters that Windows hides from Network Connections: the WAN Miniports, the 6to4, Teredo and IP-HTTPS tunnel pseudo-interfaces, and the kernel debugger adapter. They are not bound to IP, so they cannot carry IP traffic. On the development machine the collector reports 19 adapters, and 13 of them are not bound to IP: eight WAN Miniports, the RAS Async Adapter, 6to4, Teredo, IP-HTTPS and the kernel debugger adapter. (`Get-NetAdapter -IncludeHidden`, which leaves out the WAN Miniports, lists ten adapters, four of them not bound to IP.) The Performance tab's rule ([DC-59](#dc-59)) also requires the adapter to be Up. This tab is an inventory, though, so a disconnected Wi-Fi adapter or an unplugged Ethernet port is listed too, after the active adapters. The check box keeps the hidden adapters reachable without a second rule. Cards rather than a table give every adapter its own sparkline, which the roadmap asks for, and leave the large charts to the Performance tab's network page. An adapter changing state reorders the list, and reusing its card then keeps the scroll position and avoids rebuilding widgets. The interface-ID tie-break makes the order independent of `GetIfTable2`'s row order, so cards with the same name do not swap places between reads.
+
+**Superseded in part by [DC-106](#dc-106):** adapters that Windows hides are listed only with "Show all adapters" too, the order no longer depends on the operational status, names compare in natural order, and the cards that "Show all adapters" adds come last, under a heading. A disconnected adapter's chart is collapsed.
+
+**History:** Phase 5, network view; code review F-39 (hidden adapters, the order and collapsed charts, for [DC-106](#dc-106)).
+
+---
+
+<a id="dc-97"></a>
+### DC-97: Adapter type from the physical medium, then the interface type; link speed shown only while Up
+
+**Decision:** `NetworkSample::type` is a `domain::AdapterType`: Ethernet, Wi-Fi, Bluetooth, mobile broadband, tunnel, PPP, or other. `toAdapterType()` maps it at the platform boundary from `MIB_IF_ROW2`'s `PhysicalMediumType` when that names a medium (802.11, wireless LAN, Bluetooth, wireless WAN, or 802.3), and otherwise from its interface `Type`. Whether the adapter is physical stays in `isHardwareInterface`. `adapterTypeText()` combines the two, e.g. "Ethernet", "Wi-Fi (virtual)" and "Tunnel", or "Virtual" for a virtual adapter of type other. The Performance tab's "Type" readout, which said only "Hardware" or "Virtual", uses it too. Each Network tab card has the adapter's alias as its title and its operational status beside it, the device description below when it differs from the title, and readouts for the type, link speed, IPv4 and IPv6 addresses, and DNS servers. The link speed reads "Not connected" unless the adapter is Up. The address helpers that the Performance tab's readouts kept in an anonymous namespace are now `formatAddressList()`, `ipv4AddressText()` and `ipv6AddressText()` in `network_formatting.h`, which both tabs use.
+
+**Rationale:** The interface type alone mislabels adapters. A Bluetooth PAN adapter has the Ethernet interface type (6), and on the development machine only its physical medium told the two apart. Many virtual adapters report an unspecified medium, so the interface type is the fallback: it names tunnels (131) and PPP links. VPN clients such as Mullvad's use the proprietary virtual type (53), which has no better name than "Virtual". Keeping the type separate from the hardware flag lets a Hyper-V or kernel debugger adapter read as virtual Ethernet, which is what it is, and leaves the throughput totals, which count hardware adapters only ([DC-35](#dc-35)), unchanged. The domain type has no unknown value, because every interface row has a type and a medium. Windows keeps reporting a link speed for adapters that are not Up. On the development machine the disconnected Wi-Fi adapter reported 144.4 Mbps and the Bluetooth adapter 3 Mbps, so showing those values would describe a link that does not exist.
+
+**Extended by [DC-103](#dc-103):** the IPv4 and IPv6 addresses and the DNS servers also read "Not connected" unless the adapter is Up, for the same reason. The collector also drops the addresses that cannot be used and Windows' placeholder DNS servers.
+
+**Extended by [DC-108](#dc-108):** a virtual adapter's link speed has a tooltip saying that its driver chooses the figure, and each address is marked temporary or link-local.
+
+**History:** Phase 5, network view; code review F-36 (addresses and DNS servers only while Up, for [DC-103](#dc-103)); code review F-44 (address marks and the link speed's tooltip, for [DC-108](#dc-108)).
+
+---
+
+<a id="dc-98"></a>
+### DC-98: Adapter throughput charts: one minute per card, with the history shared with the Performance tab
+
+**Decision:** Each `AdapterCard` has a receive and send chart, 110 pixels high, set up like the Performance tab's network charts: an auto-scaled byte-rate axis with the shared axis-label templates, a grid, axis labels, and a legend with the current values. `NetworkView` records every adapter's throughput from every snapshot in an `AdapterThroughputHistory` of `kHistoryCapacity` (60) samples, one minute at 1 Hz as on the dashboard, and copies each listed adapter's history into its card when it refreshes. `AdapterThroughputHistory` is the recording logic that `NetworkPerformancePage` had, now shared: for every known adapter, one sample per series per snapshot. A rate that cannot be computed, or an adapter missing from the snapshot (every adapter, when the read failed), records a gap, and an adapter is dropped once it is missing and its history holds no values. The page now uses it with its 1800-sample capacity. `SampleHistory` and `hasAnyValue()` moved from `performance_page.h` to `sample_history.h`, so the class needs no widget header. The tick-cost benchmark ([DC-66](#dc-66)) now has a Network tab table. With the tab shown and 2, 8, or 16 adapters, a tick costs a mean of 4.2 ms (max 5.5), 5.7 ms (6.2), and 5.7 ms (6.9) in a Release build. These figures are from 2026-10-16, on an AMD Ryzen 7 9800X3D with the High performance plan, MSVC 19.51 and Qt 6.11.1.
+
+**Rationale:** The tab is an inventory, and its charts show what each adapter is doing now. The Performance tab's network page already offers 5- and 30-minute windows for the active adapters. One minute keeps each card's history at 120 values and its chart sparse, and matches the dashboard. Every adapter's history is recorded, listed or not, so an adapter that comes up, or that "Show all adapters" adds, already has its last minute, and a hidden tab loses nothing ([DC-54](#dc-54)). Sharing the class keeps the two tabs in agreement on gaps and on when an adapter's history ends; a copy would have had to follow every change. The benchmark varies the adapter count. Copying histories into the charts grows with it, but only the cards in view are painted, so 16 adapters cost what 8 do. While the tab is hidden, its only cost is recording, two ring-buffer pushes per adapter.
+
+**Re-measured on 2026-10-16 (code review F-40 and F-41):** the figures above came before the benchmark printed its environment, so their power mode and Windows version are not known. The benchmark now also times a list with "Show all adapters" and an adapter that changes state on every other tick. Three runs printed:
+
+```text
+Processor: AMD Ryzen 7 9800X3D 8-Core Processor
+Power plan: High performance; power mode: Best performance, on mains power
+Built with MSVC 19.51.36260 (Release), running Qt 6.11.1 on Windows 11 Version 25H2 (10.0.26200), 16 logical processors.
+```
+
+| Network tab scenario | Mean ms per tick, three runs | Longest tick |
+| --- | --- | --- |
+| 2 adapters | 5.8–5.9 | 7.2 |
+| 8 adapters | 6.4–6.8 | 7.9 |
+| 16 adapters | 6.4–6.6 | 8.8 |
+| 20 adapters with "Show all adapters", 10 of them Down and hidden | 6.3–6.5 | 7.4 |
+| 16 adapters, one going down and up on alternate ticks | 6.6–7.0 | 7.8 |
+
+These runs use the windows11 style, which costs this tab about 1 ms a tick ([DC-104](#dc-104)), and the machine ran every benchmark slower that day than for [DC-95](#dc-95), so they are compared with each other, not with the figures above. Twenty adapters with "Show all adapters" cost no more than 16: only the cards in view are painted, and a collapsed chart ([DC-106](#dc-106)) is not updated. An adapter that changes state collapses or expands its chart, which moves the cards below it, and costs about 0.3 ms more per tick. Cards no longer move to the top when their adapter comes up, so a change of state no longer re-inserts every card.
+
+**History:** Phase 5, network view; code review F-40 and F-41 (re-measured).
+
+---
+
+<a id="dc-106"></a>
+### DC-106: Adapters listed in a fixed order, with the ones Windows hides last; disconnected adapters' charts collapsed (code review F-39)
+
+**Decision:**
+- **Hidden adapters:** `NetworkSample::isHidden` is true for an adapter whose driver has the `NCF_HIDDEN` characteristic. Network Connections and `Get-NetAdapter` leave these adapters out. `queryHiddenAdapterGuids()` (`hidden_adapters.h`) lists the network adapter setup class with SetupAPI, including adapters that are not present, and reads `Characteristics` and `NetCfgInstanceId` from each one's driver key. The network collector matches the GUIDs with `MIB_IF_ROW2::InterfaceGuid`, and reads them again only when an interface appears that was not there at the last read. `isListedByDefault()` now also requires that Windows does not hide the adapter.
+- **Order:** `isListedBefore()` puts the adapters listed by default first, then hardware adapters, then compares display names in natural order, then interface IDs. `compareNaturally()` folds case with Unicode's locale-independent folding and compares each run of ASCII digits as a number. The operational status no longer takes part. The Network tab's `listedAdapters()` and the Performance tab's `chartedAdapters()` both use this order.
+- **"Show all adapters":** the cards it adds therefore come after the others, under a "Hidden adapters" heading.
+- **Collapsed charts:** an adapter that is not Up shows "Throughput is charted while the adapter is Up." in place of its chart. The view still records its history, and the card copies the history into the chart only while the chart is shown.
+
+**Rationale:** Rendered from the development machine's adapters, four of the six cards the tab listed by default were Down. Each had a 110-pixel chart that could only draw a flat line at zero, and two of the four were Wi-Fi Direct adapters that Windows hides.
+- **Windows' own flag, not a heuristic:** `MIB_IF_ROW2` has no hidden flag. The review suggested leaving out adapters that are virtual and not Up, but that would also hide the Bluetooth PAN adapter and a disconnected VPN, which Network Connections shows. `NCF_HIDDEN` is what Network Connections goes by, so the default list now matches it: on the development machine Ethernet, Wi-Fi, Bluetooth and Mullvad. "Show all adapters" adds the other 15, of which 12 are marked hidden. The flag is set when a driver is installed, so the query runs at the first read and then only when an interface appears. It takes 0.5–0.8 ms on the tick thread. A failed query hides no adapter, which only lists more. The tunnel pseudo-interfaces have no adapter device, so the flag cannot hide them, but `hasIpInterface` still does. The class GUID is written out in the code, because `devguid.h` defines `GUID_DEVCLASS_NET` only after `initguid.h`, an order the include rules do not keep.
+- **No status in the order:** an adapter that came up moved its card to the top and shifted every other card under the scroll position that DC-96 keeps by reusing cards. A card now stays where it is, and only the cards below it move when its chart collapses or expands. With its chart collapsed, a disconnected adapter's card is short, so leaving it in place costs little room.
+- **Natural, locale-independent order:** "Local Area Connection* 10" sorted before "… 2". `QString::localeAwareCompare()` would make the order depend on the machine's locale, which [DC-68](#dc-68) avoids.
+- **One order for both tabs:** the Performance tab sorted with a stable sort and no interface-ID tie-break, so adapters with the same name could swap places when `GetIfTable2`'s row order changed, and the two tabs ordered the same adapters differently.
+- **Added cards last:** mixed into the list, the cards that "Show all adapters" added could not be told from the others.
+- **Collapsed, not removed:** the history keeps being recorded, so when the adapter comes up its chart shows the whole minute, with the time it was down at zero.
+
+Unit tests cover the natural comparison, the order with and without "Show all adapters", that a change of status does not move an adapter, the same order on the Performance tab, the heading's place, the collapsed chart and its history once the adapter is Up, and that the hidden flag reaches the sample. An integration test checks that the WAN Miniports are hidden on the real host.
+
+**History:** Code review F-39.
+
+---
+
+## Build and tooling
+
+`build.ps1`, formatting, the Qt build and its plugins, and the benchmarks.
+
+<a id="dc-23"></a>
+### DC-23: Formatting enforced with a pinned clang-format and the existing house style
+
+**Decision:** `.clang-format` describes the style the code already followed: indented `case` labels, and a Windows SDK include block whose `SortPriority` keeps the order the SDK requires. Pointers and references bind to the type (`Type* name`, `Type& name`), as in the C++ Core Guidelines (NL.18) and the guideline examples. All files were reformatted once in a formatting-only commit. `build.ps1 -Format` and `-CheckFormat` run clang-format on every C++ file under `src/`, `tests/`, and `benchmarks/` that is tracked, or new and not ignored, so files created since the last commit are formatted before they are first committed. A CI job pins clang-format 22.1.3 from PyPI, and `build.ps1` fails in CI (and warns locally) when the major version differs. `bootstrap.ps1` reports clang-format and can install LLVM with `-InstallMissing`, but a missing one is only a warning because building does not need it.
+
+**Rationale:** Code review F-7 added `.clang-format`, but nothing ran it, and drift had begun: lines over the hard limit, Qt headers inside the standard-library group, and SDK headers in different orders ([code review F-17](code_reviews/phase_2.md#f-17-clang-format-is-not-enforced)). Matching the configuration to the existing style kept the reformat to alignment and line wrapping, rather than re-indenting every `switch`. The SDK order cannot be left to alphabetical sorting: `iphlpapi.h` sorts before `ws2tcpip.h`, which leaves `CancelMibChangeNotify2` undeclared. clang-format's output changes between major versions, so CI and developers must use the same major version, and PyPI offers the exact release that Visual Studio ships. The standard-library category matches case-sensitively because clang-format's include regexes are otherwise case-insensitive and would put `<QString>` in the standard-library group. The left alignment was chosen over LLVM's default right alignment (`Type &name`, also Qt's style) because the project's guidelines follow the C++ Core Guidelines, which recommend emphasizing the type.
+
+**History:** Code review F-17; Phase 3 (new files formatted before their first commit); code review F-25 (`benchmarks/` formatted too).
+
+---
+
+<a id="dc-62"></a>
+### DC-62: `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
+
+**Decision:** `build.ps1` builds (and tests, with `-Test`) without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory has no `build.ninja`, has not been configured by the script yet (a `build_ps1_configure.stamp` file in the build directory records the last successful configure), or a presets file is newer than that stamp. `-Configure` forces it. CTest runs with `--parallel` set to the number of logical processors.
+
+**Rationale:** Builds and test runs far outnumber launches, especially for agents, so launching is the opt-in. Measured on the 16-thread development machine, an edit to one UI file followed by `-Test` took about 26 s: about 3 s re-configuring although nothing had changed, about 4 s compiling and linking, and about 18 s of tests. `gtest_discover_tests` runs each of the 362 tests in its own process at about 50 ms each, so process startup dominates and the tests parallelize well. Together the two changes cut that cycle to about 8 s (tests about 4 s), and a build with nothing to do from about 5 s to under 2 s. Skipping configure is safe because Ninja re-runs CMake itself when a `CMakeLists.txt` changes, and the vcpkg toolchain adds `vcpkg.json` and `vcpkg-configuration.json` to `CMAKE_CONFIGURE_DEPENDS`. Ninja does not track the presets files, hence the stamp. `CMakeCache.txt` cannot serve as the stamp, because CMake rewrites it only when its contents change. Ten consecutive parallel runs passed. The integration tests' timing checks allow up to a second, and the one test that writes a file uses its own directory, so the tests do not interfere with each other.
+
+**Note:** [DC-113](#dc-113) replaces the process per test with GoogleTest shards; CTest still runs them with `--parallel`.
+
+**History:** Phase 3 (build script); maintenance (GoogleTest shards, for [DC-113](#dc-113)).
+
+---
+
+<a id="dc-66"></a>
+### DC-66: A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
+
+**Decision:** `benchmarks/performance_tick_benchmark.cpp` builds `system_monitor_benchmark`, an executable that is built with every preset but not registered with CTest. `build.ps1 -Benchmark` implies `-Release` and runs it after the build (and after the tests, with `-Test`). For each page it shows a 1280x800 `MainWindow` off screen (`WA_DontShowOnScreen`), records 1800 snapshots while the Performance tab is hidden, then selects the page and, for each chart window, times 20 ticks: `MainWindow::onSnapshotReady()` followed by `grab()` of the whole window. It prints the mean and maximum per tick as a Markdown table. The data is a fixed worst case: every series (total and per-core CPU, memory usage and commit, three volumes, receive and send for two adapters) is a sine wave between 5% and 95% of its range, with a period of 20 to 30 samples that differs per series. Throughput peaks at 100 MiB/s.
+
+One run on the development machine (16 threads, 4.7 GHz), mean with maximum in parentheses. Over three runs, every mean stayed within 3 ms of these:
+
+| Page | 1 min | 5 min | 30 min |
+| --- | --- | --- | --- |
+| CPU, 16 cores | 7.6 ms (9.6) | 12.5 ms (13.5) | 39.1 ms (40.1) |
+| CPU, 64 cores | 14.3 ms (15.3) | 18.9 ms (20.3) | 34.1 ms (35.0) |
+| Memory | 4.0 ms (4.7) | 9.5 ms (10.2) | 22.9 ms (24.9) |
+| Disk, 3 volumes | 4.5 ms (5.0) | 23.8 ms (24.6) | 38.7 ms (48.6) |
+| Network, 2 adapters | 4.9 ms (5.4) | 11.3 ms (12.3) | 13.3 ms (18.0) |
+
+**Rationale:** The table in [DC-61](#dc-61) came from a benchmark that was not committed, so it could not be reproduced, and the review's rebuilt benchmark differed from it by up to 2x. That benchmark had already caught a 210 ms tick, so later changes to charts and pages need the same tool, and the Phase 4 process table will be the next large cost on the UI thread. An executable outside CTest suits timings, which depend on the machine and would make a flaky pass/fail test. Building it with every preset keeps it compiling in CI without running it. Recording while the tab is hidden uses the recording-only path ([DC-54](#dc-54)), so the 1800-sample warm-up takes seconds. Printing through spdlog follows the logging rule.
+
+The new numbers support DC-61's conclusions with slightly higher figures. A tick at the default 1-minute window costs at most about 15 ms (14 ms for 64 cores, against "under 13 ms"). The worst case at 30 minutes averages about 40 ms, with single ticks up to about 49 ms. That is still one short frame per second. Individual pages differ from DC-61 because the data differs: every series here swings, including all three disk volumes, which real disk usage never does, so the disk page is far slower than DC-61's 1.6 ms. The network page is faster than DC-61's 36.6 ms. The throwaway benchmark's data is not recorded in enough detail to say why, which is the reason to commit this one.
+
+**Extended by [DC-83](#dc-83):** `build.ps1 -Benchmark` also runs `system_monitor_process_benchmark`, which measures the Processes tab.
+
+**Extended by [DC-95](#dc-95):** the benchmarks print the compiler, Qt and Windows versions, and `build.ps1` the processor and the power settings. Three runs on 2026-10-15 reproduced this table to within 2 ms.
+
+**History:** Code review F-25; Phase 4, process explorer view (the process table benchmark, for [DC-83](#dc-83)); code review F-33 (the environment printed and the figures reproduced, for [DC-95](#dc-95)).
+
+---
+
+<a id="dc-69"></a>
+### DC-69: `build.ps1` retries a failed configure once from a clean cache
+
+**Decision:** When `cmake --preset` fails and the build directory already had a `CMakeCache.txt`, `build.ps1` warns, removes `CMakeCache.txt` and `CMakeFiles`, and configures once more. `vcpkg_installed` and the Ninja build outputs are kept. A failure without an existing cache, or a second failure, stops the script as before. The configure stamp ([DC-62](#dc-62)) is removed before configuring and written only after success, so a failed configure is always repeated on the next run.
+
+**Rationale:** After a Visual Studio update, the Release build directory's cache recorded a compiler that no longer matched the preset's `cl`. CMake deleted the cache and re-ran itself, the re-run could not find vcpkg's packages, and the cache it left behind failed every later configure in the same way, including with `-Configure`. Deleting the two cache entries by hand fixed it. A cache created for another source directory (a moved or copied checkout) fails in a similar way, and the retry was tested with that case. The presets define every cache variable and the script passes none of its own, so a clean cache loses nothing. Keeping `vcpkg_installed` avoids restoring dependencies again, and in the test Ninja found nothing to rebuild afterwards. Retrying only once, and only when a cache existed, means a genuine error in a `CMakeLists.txt` still fails, after one extra configure of a few seconds. Deleting the whole build directory was rejected, because it would force a full rebuild and a dependency restore for a problem confined to the cache.
+
+**History:** Phase 3 (build script).
+
+---
+
+<a id="dc-86"></a>
+### DC-86: qtbase built with PNG support for Qt's own Windows cursors
+
+**Decision:** `vcpkg.json` adds qtbase's `png` feature. `tests/unit/qt_configuration_test.cpp` checks that Qt can read PNG images and that the Windows platform plugin's cursor resources load.
+
+**Rationale:** With its default features turned off, qtbase was built without its PNG handler (`QT_FEATURE_png` is -1) but still reported `QT_FEATURE_imageformat_png` as 1. Qt's Windows platform plugin checks the second flag and loads the split, open-hand, closed-hand, and drag cursors from PNG resources, which then come back as null pixmaps. Making a cursor from a null pixmap fails `Q_ASSERT(bm.format() == QImage::Format_Mono)` in `qpixmap_win.cpp` in a Debug build, and in a Release build the cursor is not created. The process table's header is the first widget in the app with resizable columns, so pointing at a column border in the Debug app aborted it with that assertion. PNG support is part of Qt's default feature set and adds only libpng. The alternatives were fixed column widths or avoiding every Qt feature that uses these cursors: splitters, resizable headers, and drag and drop. They give up features, and the next widget that uses one of the cursors would crash again. The test fails if the feature is ever dropped, before a cursor reaches the screen. The first build after the change rebuilds qtbase, locally and in CI, until the binary cache holds the new package.
+
+**History:** Phase 4, process explorer view (a crash in the process table's header).
 
 ---
 
@@ -1204,258 +1784,9 @@ The commit size was the other candidate. It also counts private memory that has 
 
 **Rationale:** The code review measured the Performance tab 25–45% above DC-66, and the Processes tab 15–20% above DC-83 and DC-84. The end-of-Phase-3 code measured the same, so the code was not the cause, but nothing recorded what had changed in the meantime. These runs, on the same machine, are 15–34% below the review's and back at DC-66's figures. The review's runs therefore reflected the machine's state, not a lasting change in the code. Which state is not known: the power plan and power mode, which change how fast the processor runs and are easy to change and forget, are the likeliest candidates, so they are now printed with every run. With the environment printed, the next drift can be told apart from a regression without rebuilding older code. The benchmark knows its own compiler and Qt version exactly, and Qt reports the Windows version, so the benchmark prints those. The processor's name and the power settings need registry reads or Windows calls. Only `platform/windows` calls Windows APIs, and the benchmarks depend on the UI and domain modules only, so the script reads them with PowerShell instead.
 
----
-
-## Phase 4 — Process termination (`src/platform/windows/`, `src/ui/`)
-
-<a id="dc-87"></a>
-### DC-87: Process termination: ownership and identity checked before `PROCESS_TERMINATE` is requested
-
-**Decision:**
-
-- **Result:** `domain::ProcessTerminationResult` (`domain/process_termination.h`) names the outcomes: `Terminated`, `AlreadyExited`, `NotOwnedByCurrentUser`, `NeverOpened`, `AccessDenied`, and `Failed`.
-- **Function:** `platform::terminateOwnedProcess(const domain::ProcessInfo&)` (`process_terminator.h`) takes the process's `(PID, creation time)` identity and its image name. In order, it:
-  1. refuses `lsass.exe` and `csrss.exe` by name before any `OpenProcess` call ([DC-74](#dc-74)), and the System Idle Process (PID 0);
-  2. opens the process with `PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE`, compares its creation time with the identity, and checks that it has not exited;
-  3. compares the user SID of the process's token (`OpenProcessToken`, `GetTokenInformation(TokenUser)`) with that of the monitor's own token (`GetCurrentProcessToken()`), using `EqualSid`;
-  4. with the first handle still open, opens the process again with `PROCESS_TERMINATE` added, checks the creation time again, and calls `TerminateProcess` with exit code 1.
-- **Exited processes:** the result is `AlreadyExited` when `OpenProcess` fails with `ERROR_INVALID_PARAMETER` (no process has the PID), when the creation time differs (another process has the PID), or when the handle is signalled. When a later call fails, a signalled handle also means `AlreadyExited`.
-- **No waiting:** it returns once Windows accepts the request and keeps no state.
-- **Logging:** `info` for `Terminated` and `AlreadyExited`, `warn` for a refusal or a denial, and `error` for any other failure, each with the image name, PID, and the failing call's error code.
-- **Rules:** the access-rights rule in AGENTS.md (and its copies), `platform/windows/AGENTS.md`, and [architecture.md](architecture.md#unelevated-process-termination) now names this function as its one exception.
-- **Shared code:** `platform/windows/process_handle.h` holds `ScopedHandle` and `processCreationTime()`, which the details reader ([DC-75](#dc-75)) and the terminator share. The suspended `cmd.exe` child of [DC-78](#dc-78) moved to `tests/integration/suspended_child_process.h`, so both test files can use it.
-- **Tests:** `tests/integration/process_terminator_test.cpp`. A child is terminated with exit code 1. The same PID with an earlier creation time leaves the child running. A child that has already been terminated, with the test's handle open and with every handle closed, is `AlreadyExited`. A child named `csrss.exe` is refused and left running. PID 0 is not the user's. The System process is never terminated: it is either denied at `OpenProcess` (unelevated) or not the user's (elevated).
-
-The roadmap's next items build on this: the UI action with its confirmation dialog, the messages for each result, and refusing elevated processes up front. System processes are already refused, because SYSTEM is not the current user.
-
-**Rationale:** Ending the wrong process is the worst mistake a process explorer can make, so the identity check comes first, as it does for reading details. An open process handle keeps Windows from reusing its PID, so holding the first handle while opening the second means the second reaches the process whose owner was checked, and its creation-time check guards against the same mistake again. Checking the owner before asking for `PROCESS_TERMINATE` means the monitor never asks for termination rights on another user's process, which keeps to the reason for the access-rights rule: request only the access that is needed. The owner is the token's user, the account the process runs as and the user name Task Manager shows. Ownership alone does not mean Windows allows the termination. An unelevated monitor is denied the user's own elevated processes (`AccessDenied`), and an elevated monitor can open processes the user does not own, which the owner check refuses. `TerminateProcess` fails with `ERROR_ACCESS_DENIED` for a process that has already exited, so without another check an exited process would be reported as denied. A zero-timeout wait tells them apart. It needs `SYNCHRONIZE`, which grants nothing beyond waiting. `GetExitCodeProcess` would need no extra right, but it cannot tell a process that is still running from one that exited with code 259 (`STILL_ACTIVE`). PID 0 is handled by itself because `OpenProcess` rejects it with the same error as an unused PID, which would report the Idle process as already exited. A non-zero exit code tells the parent, and anything waiting on the process, that it did not finish normally; 0 would look like success. All the calls return quickly and the next process refresh shows the process leaving, with the exited-row highlight ([DC-84](#dc-84)), so there is nothing to wait for. The result type is in `domain` because the UI, which may depend only on domain types ([ui/AGENTS.md](../src/ui/AGENTS.md)), will show a message for each one. The UI cannot include platform headers, so `main.cpp` will have to pass the function to it, as it passes the collectors to the scheduler. A test cannot create another user's process, so the owner-mismatch branch is reached only for the System process when the tests run elevated. System is a protected process that Windows does not let an unprotected caller open for termination, so it is the one process outside the test's own children that the tests ask to terminate.
-
-**Superseded in part by [DC-90](#dc-90):** after the owner check, the terminator also refuses a process that runs elevated, with the new result `Elevated`, before it asks for `PROCESS_TERMINATE`. The tests' children that it should end are now created unelevated.
-
-**Extended by [DC-94](#dc-94):** a process without an image name, other than the Idle process, is refused as `NeverOpened` too.
-
-<a id="dc-88"></a>
-### DC-88: End process: one action, a confirmation dialog with Cancel as default, and an injected terminator
-
-**Decision:**
-
-- **Action:** `ProcessesView` has one End process `QAction`, offered three ways: an End process button at the right end of the toolbar, the table's context menu (`Qt::ActionsContextMenu`), and the Delete key while the table has focus (`Qt::WidgetShortcut`). It is enabled while the table has a current process and a terminator is set. It is checked again when the current row changes and after the reset that switching tree mode causes.
-- **Dialog:** a `QMessageBox` with the warning icon, titled "End process". Its text names the process and its PID (`processTerminationQuestion()`: "Do you want to end explorer.exe (PID 1234)?") as plain text. Its informative text warns: "Ending a process stops it immediately. Any unsaved data in it is lost, and programs that depend on it may stop working." Its buttons are End process (`DestructiveRole`) and Cancel, which is both the default and the escape button. It is opened with `open()`, so it is window-modal, and it deletes itself when it closes.
-- **Identity:** the dialog acts on a copy of the `ProcessInfo` taken when it opened. Confirming passes that copy to the terminator, whatever the table shows by then.
-- **Terminator:** `ui::ProcessTerminator` is a `std::function<domain::ProcessTerminationResult(const domain::ProcessInfo&)>`, set with `ProcessesView::setProcessTerminator()`. `main.cpp` sets `platform::terminateOwnedProcess`. It runs on the UI thread.
-- **Result:** not shown yet. The terminator logs it ([DC-87](#dc-87)), and the roadmap's next item shows a message for each failure.
-- **Rules:** [ui/AGENTS.md](../src/ui/AGENTS.md) now says that an action that changes the system calls a function `main.cpp` sets, and is disabled while none is set.
-- **Tests:** `tests/unit/processes_view_test.cpp` checks when the action and the button are enabled, that the context menu and the Delete key offer the action, and the dialog's text, icon, and buttons. End process passes the selected process's identity to a recording terminator, and Cancel passes nothing. A process that left the list while the dialog was open, with another process current by then, is still the one ended. `tests/unit/process_formatting_test.cpp` checks the question, including a name that contains `%1` and `%2`.
-
-**Rationale:** One action keeps the button, the menu item, and the key in step: one enabled state, one text, one dialog. The button makes the action easy to find, as Task Manager's End task button does, and the context menu and the Delete key are where Task Manager users also look for it. The key works only on the table, so Delete in the filter box still deletes text.
-
-Cancel is the default, so Enter, or a key pressed just as the dialog appears, never ends a process; ending one takes a click or a deliberate Tab. The question names the process for the user to recognise, and gives its PID to tell apart processes with the same name, such as the many svchost.exe processes. The name is plain text because the process chose it, and a name that looked like HTML would otherwise be rendered as rich text. A single `arg()` call keeps a `%2` in a name from being replaced by the PID.
-
-`open()` avoids the nested event loop of `exec()`, which Qt advises against, and lets the tests inspect and answer the dialog without blocking. Window modality keeps the user from starting a second request from the same window while the first is open.
-
-The table refreshes every two seconds while the dialog is open. The row it was opened from is removed a few seconds after the process exits ([DC-84](#dc-84)), and the current row then moves to a neighbour, as the test shows. Reading the selection when the user confirms could end a process the dialog never named. The copy keeps the identity the user saw, and `terminateOwnedProcess()` checks its creation time, so a process that exited in the meantime is reported as `AlreadyExited`, and a process that reused its PID is not touched.
-
-The UI may depend only on Qt and domain types ([DC-20](#dc-20)), so it cannot name the platform function, and DC-87 expected `main.cpp` to pass it in. A `std::function` suits a single operation better than an interface class, and lets the tests pass a lambda that records identities: a fake, not a mock. Calling an empty `std::function` throws `std::bad_function_call`, and the project uses no exceptions, so the action stays disabled until a function is set, and `confirmEndProcess()` checks again. The terminator runs on the UI thread because `terminateOwnedProcess()` only opens the process, reads its token, and calls `TerminateProcess`, and never waits for the process to exit. A worker thread would add a path back to the UI thread for the result, for calls that do not wait.
-
-**Superseded in part by [DC-89](#dc-89):** the result is now shown in a message box, and the dialog's answer is read once it has closed (`finished`) rather than from `buttonClicked`.
-
-**Superseded in part by [DC-93](#dc-93):** the action is disabled while the current row is marked as exited, and is checked again after every snapshot. On the monitor's own row it offers to close the monitor instead.
-
-<a id="dc-89"></a>
-### DC-89: Termination results: a message box for each outcome but success, opened once the confirmation has closed
-
-**Decision:**
-
-- **Message:** once the user confirms End process and the terminator returns, `ProcessesView` shows a `QMessageBox` titled "End process", with one OK button, opened with `open()` (window-modal) and deleted when it closes. `processTerminationMessage()` (`process_formatting.h`) gives its text, which names the process and its PID, and its informative text, which says why:
-
-  | Result | Icon | Text | Informative text |
-  | --- | --- | --- | --- |
-  | `Terminated` | — | No message. | — |
-  | `AlreadyExited` | Information | "explorer.exe (PID 1234) has already exited." | "It exited before it could be ended. If another process now has its PID, that process was left running." |
-  | `NotOwnedByCurrentUser` | Warning | "Could not end explorer.exe (PID 1234)." | "It runs as another user, such as SYSTEM or a service account. The monitor ends only processes that run as you." |
-  | `NeverOpened` | Warning | As above. | "It is a critical Windows process, which the monitor never opens." |
-  | `AccessDenied` | Warning | As above. | "Windows denied access to it. That happens for a process that runs as administrator when the monitor does not, and for a process that Windows protects." |
-  | `Failed` | Critical | As above. | "Windows reported an unexpected error. The monitor's log has the error code." |
-
-- **Plain text:** the message's text format is `Qt::PlainText`, which `QMessageBox` also gives the informative text. Only the text contains the process's name.
-- **Order:** the confirmation dialog's answer is read when it emits `finished`, from `clickedButton()`, instead of from `buttonClicked`. The terminator runs, and the message opens, after the dialog has closed.
-- **Shared wording:** `processTerminationQuestion()` and the messages name the process the same way, "explorer.exe (PID 1234)", through one helper.
-- **Tests:** `tests/unit/process_formatting_test.cpp` checks that `Terminated` has no message, the text and reason for every other result, the System Idle Process's name, and a name containing `%1` and `%2`. `tests/unit/processes_view_test.cpp` checks that an ended process gets no message; that `AccessDenied` gets a window-modal message with the title, warning icon, plain text, and OK button; the icon for every result; that no dialog is shown while the terminator runs (it fails if the answer is read from `buttonClicked`); that closing the dialog from its title bar ends nothing; and that OK closes the message.
-
-**Rationale:** A process that was ended gets no message. Windows ends it asynchronously, and within one process refresh (two seconds) its row is marked as exited ([DC-84](#dc-84)), which shows the user that it worked without a box to dismiss after every success. Task Manager also stays silent when End task succeeds. A failure is rare and needs reading, so it gets a dialog rather than a line the user could miss. The main window has no status bar, and the user is looking at the spot where the confirmation dialog just was. The message is window-modal, as the confirmation is, so the user reads it before starting another request from the same window.
-
-`AlreadyExited` is not an error, since the user wanted the process gone and it is, so its icon is Information. It still gets a message, because otherwise nothing would happen when the user confirmed, and the list may already show another process with the same PID. The message says that process was left running. The icons follow the levels at which the terminator logs each result ([DC-87](#dc-87)): information, warning for a refusal or a denial, and error for anything else. The message and the log then agree on how serious the outcome was. The reasons describe the user's situation rather than Win32 error codes, and `Failed` points to the log, which has the code. The `AccessDenied` reason names both cases that cause it: an elevated process when the monitor is not elevated, and a protected process, which can deny even an elevated monitor. It therefore does not claim that the monitor runs without administrator rights. The process chose its own name, so the name appears only in the text, as plain text, as in the confirmation ([DC-88](#dc-88)).
-
-`QMessageBox` emits `buttonClicked` while it is still shown, and closes afterwards (`QMessageBoxPrivate::setClickedButton()` emits the signal, then calls `done()`). A message opened from `buttonClicked` would be stacked over the confirmation, and Windows would choose which window to activate when the confirmation hid. `finished` is emitted after the dialog has hidden. The title bar's close button also emits `finished`, but before `clickedButton()` is set, so it ends nothing, like Cancel. `~QDialog` only hides the dialog without emitting `finished`, so a view destroyed while its dialog is open ends nothing.
-
-**Superseded in part by [DC-90](#dc-90):** the new result `Elevated` gets a warning with its own reason, and the `AccessDenied` reason now names system processes and services instead of processes that run as administrator.
-
-<a id="dc-90"></a>
-### DC-90: Elevated processes refused by token elevation or integrity level, even when the monitor is elevated
-
-**Decision:**
-
-- **Rule:** the monitor ends only unelevated processes. A process runs elevated if its token is elevated (`GetTokenInformation(TokenElevation)`), or if its integrity level (`TokenIntegrityLevel`) is `SECURITY_MANDATORY_HIGH_RID` or above: high, system, or protected. `platform::runsElevated()` (`platform/windows/process_elevation.h`) states the rule.
-- **Where:** `terminateOwnedProcess()` opens the process's token once, checks its owner as before ([DC-87](#dc-87)), and then checks its elevation, before it asks for `PROCESS_TERMINATE`. An elevated process gets the new result `ProcessTerminationResult::Elevated`, logged at `warn` with both values, e.g. "it runs elevated (elevated token: false, integrity level 0x3000)". If the elevation or the integrity level cannot be read, the result follows the other token failures: `AlreadyExited` if the process has exited, otherwise `AccessDenied` or `Failed`.
-- **Always:** the rule holds when the monitor itself runs elevated. On a machine with UAC turned off, every process an administrator starts is elevated, so the monitor ends none of them there. The [roadmap](../roadmap.md#elevated-process-termination) has an item to investigate letting an elevated monitor end elevated processes.
-- **System processes:** the checks that already existed refuse them. `lsass.exe` and `csrss.exe` are refused by name. SYSTEM, LOCAL SERVICE, NETWORK SERVICE, and virtual accounts such as `DWM-1` are never the current user, so the owner check refuses them. An unelevated monitor is not even allowed to open them. If the monitor runs as SYSTEM, the integrity check refuses them, since they run at system integrity.
-- **After confirming:** the check runs when the user confirms End process, as the other refusals do. The snapshot does not say which processes are elevated, so the action cannot be disabled for them in advance.
-- **Messages:** `Elevated` gets the warning icon, like the other refusals ([DC-89](#dc-89)), with "Could not end app.exe (PID 1234)." and "It runs elevated, with administrator or system rights. The monitor ends only processes that run with standard user rights." The `AccessDenied` reason now names the case that remains most common: "Windows denied access to it. That happens for a system process or a service when the monitor runs without administrator rights, and for a process that Windows protects."
-- **Tests:** `tests/platform/process_elevation_test.cpp` checks the rule for each integrity level, with and without an elevated token. `tests/integration/process_terminator_test.cpp` now creates the children it expects to end with `SuspendedChildProcess(UnelevatedToken{})`. That copies the test's own token with `CreateRestrictedToken(LUA_TOKEN | DISABLE_MAX_PRIVILEGE)`, sets it to medium integrity, and starts the child with `CreateProcessAsUserW`, so the child is unelevated even when the tests run elevated. When the tests run elevated, two new tests check that a child with the test's own token, and an unelevated child at high integrity, are both refused as `Elevated` and left running. They are skipped when the tests run unelevated. `isCurrentProcessElevated()` moved to `tests/integration/current_process_elevation.h`, which the tracking tests share. The unit tests cover the new message and its icon. The integration tests also passed when run elevated on a machine with UAC on.
-
-**Rationale:** The MVP ends only unelevated processes ([architecture.md](architecture.md#unelevated-process-termination)). Ending elevated ones is a later feature, through a UAC-prompted helper. Before this check, an unelevated monitor asked for `PROCESS_TERMINATE` on the user's own elevated processes and Windows refused it (`AccessDenied`), while an elevated monitor would have ended them. Refusing them up front means the monitor never asks for termination rights it is not meant to use, and the message can give the reason instead of reporting a denial.
-
-`TokenElevation` is what Task Manager's Elevated column shows, so it matches what the user knows about a program run as administrator. On its own it misses processes that run with more than standard rights without an elevated token. A UIAccess program such as `ctfmon.exe` runs at high integrity for an administrator, and a vendor's service can start a helper in the user's session at high integrity. Windows does not let a medium-integrity caller write to a higher-integrity process, so an unelevated monitor's request to end them would also fail. The threshold is high integrity rather than anything above medium, because medium-plus is not an administrator level; Windows denies a medium monitor's request to end such a process (`AccessDenied`), which is rare. An elevated process that lowered its integrity level still counts as elevated.
-
-The owner is checked first, so another user's process, including SYSTEM's, keeps its more specific message. Both checks read the same token handle.
-
-On the development machine, an unelevated process could read the token of every process it could open, including the user's elevated ones. Of about 400 processes, 151 refused `OpenProcess` (processes that do not run as the user, such as System and the services, which get `AccessDenied`), 4 refused `OpenProcessToken`, and the rest could be read: 2 elevated processes, 2 that were not elevated but ran at high integrity, and the rest unelevated at medium integrity or below.
-
-`LUA_TOKEN` filters a token as UAC filters an administrator's: the Administrators group becomes deny-only. `DISABLE_MAX_PRIVILEGE` removes every privilege except `SeChangeNotifyPrivilege`. The result is not elevated. Setting its integrity level to medium (or high, for the UIAccess-like case) keeps or lowers it, which needs no privilege. `CreateProcessAsUserW` can start a process with a filtered copy of the caller's own token without `SeAssignPrimaryTokenPrivilege`. The same code therefore runs unelevated, where it changes nothing that matters, and elevated, as on CI runners. Without it, CI would no longer test the termination path, because every process the tests start there is elevated.
-
-<a id="dc-93"></a>
-### DC-93: End process: disabled on exited rows, and an offer to close the monitor on its own row (code review F-31)
-
-**Decision:**
-
-- **Exited rows:** `ProcessModel::hasExited()` says whether a row is marked as exited. End process is disabled while such a row is current, and `confirmEndProcess()` checks again. `ProcessesView::updateSnapshot()` checks the action again after every snapshot, because a row can be marked as exited, or listed again, without the current index changing.
-- **The monitor's own row:** `platform::currentProcessIdentity()` (`platform/windows/current_process.h`) returns the monitor's PID and its creation time from `GetProcessTimes`, and `main.cpp` passes it to `ProcessesView::setMonitorIdentity()`. End process on that row opens a dialog with the question icon instead of the warning: "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?" (`monitorCloseQuestion()`), with the informative text "It closes the same way as when you close its window." Its buttons are Close System Monitor (`AcceptRole`) and Cancel, which is the default and the escape button. Confirming closes the window that holds the view, and the terminator is never called. If the identity cannot be read, a warning is logged and the row is treated like any other.
-- **One dialog helper:** `askToConfirm()` in `processes_view.cpp` opens both dialogs, so the plain-text question, the Cancel default and the handling of `finished` ([DC-89](#dc-89)) are written once.
-- **Tests:**
-  - `tests/unit/processes_view_test.cpp` checks that the action is disabled when the current process exits, opens no dialog then, and is enabled again when the process is listed again. It is also disabled when an exited row becomes current.
-  - For the monitor's own row, the view tests check the dialog's text, icon and buttons. Confirming closes the window that holds the view without calling the terminator, and Cancel leaves it open.
-  - `process_model_test.cpp` covers `hasExited()`, and `process_formatting_test.cpp` the question. `tests/integration/process_collector_test.cpp` checks that `currentProcessIdentity()` matches this process's entry in the process list.
-
-**Rationale:** An exited row has nothing left to end. Confirming only produced "notepad.exe (PID 900) has already exited.", which the red, italic row already showed. Checking the action after every snapshot costs one lookup.
-
-The monitor's own row is listed like any other process. When the monitor runs unelevated, every check of [DC-87](#dc-87) and [DC-90](#dc-90) passes, so End process called `TerminateProcess` on the monitor itself. It stopped at once: `main()` never stopped the scheduler or called `spdlog::shutdown()`, and info-level lines written since the last flush were lost, because the log flushes on its own only at `warn`. When the monitor ran elevated, the request was refused as `Elevated`, which reads oddly when the monitor is asked to end itself. Closing the main window ends the event loop, and `main()` then stops the scheduler and flushes the log. Task Manager also lets users end it from its own list, so offering to close the monitor matches what they expect. Asking first keeps the Cancel default that every End process dialog has. Closing the monitor loses no data, so the question icon fits better than the warning.
-
-The code review suggested comparing the row's PID with `QCoreApplication::applicationPid()`, which needs no platform call. But a process is identified by its PID and creation time, never by its PID alone. Also, the unit tests run in a process whose PID could be one of the PIDs they list, such as 800 or 900, which would make those tests fail now and then. An injected identity keeps to the rule, lets the tests choose the monitor's identity, and follows the pattern of the terminator that `main.cpp` already sets ([DC-88](#dc-88)).
+**History:** Code review F-33.
 
 ---
-
-## Phase 5 — Network view (`src/ui/`, `src/platform/windows/`, `src/monitoring/`)
-
-<a id="dc-96"></a>
-### DC-96: Network tab: a card per adapter, keyed by interface ID, with unbound virtual adapters behind "Show all adapters"
-
-**Decision:** `NetworkView` lists the adapters as `AdapterCard`s in a scrolling column. By default it lists every hardware adapter and every adapter bound to IP, whatever its operational status (`isListedByDefault()`). A "Show all adapters" check box adds the rest: hidden virtual adapters with no IP interface. `listedAdapters()` puts adapters that are Up first, then hardware adapters, and orders each group by display name and then by interface ID. Cards are keyed by `NetworkSample::interfaceId`. When the list changes, the view moves the card of each adapter that is still listed, creates cards for new adapters, and deletes the others. When a read fails, the cards of the last successful read stay. `MainWindow` forwards every snapshot to the view, as it does to the other tabs. `updateSnapshot()` stores it, and the cards are updated only while the view is visible, with `showEvent()` catching up ([DC-54](#dc-54)).
-
-**Rationale:** The roadmap asks for all non-loopback adapters. The collector already drops loopback and NDIS filter rows ([DC-35](#dc-35)). What remains still includes adapters that Windows hides from Network Connections: the WAN Miniports, the 6to4, Teredo and IP-HTTPS tunnel pseudo-interfaces, and the kernel debugger adapter. They are not bound to IP, so they cannot carry IP traffic. On the development machine the collector reports 19 adapters, and 13 of them are not bound to IP: eight WAN Miniports, the RAS Async Adapter, 6to4, Teredo, IP-HTTPS and the kernel debugger adapter. (`Get-NetAdapter -IncludeHidden`, which leaves out the WAN Miniports, lists ten adapters, four of them not bound to IP.) The Performance tab's rule ([DC-59](#dc-59)) also requires the adapter to be Up. This tab is an inventory, though, so a disconnected Wi-Fi adapter or an unplugged Ethernet port is listed too, after the active adapters. The check box keeps the hidden adapters reachable without a second rule. Cards rather than a table give every adapter its own sparkline, which the roadmap asks for, and leave the large charts to the Performance tab's network page. An adapter changing state reorders the list, and reusing its card then keeps the scroll position and avoids rebuilding widgets. The interface-ID tie-break makes the order independent of `GetIfTable2`'s row order, so cards with the same name do not swap places between reads.
-
-**Superseded in part by [DC-106](#dc-106):** adapters that Windows hides are listed only with "Show all adapters" too, the order no longer depends on the operational status, names compare in natural order, and the cards that "Show all adapters" adds come last, under a heading. A disconnected adapter's chart is collapsed.
-
-<a id="dc-97"></a>
-### DC-97: Adapter type from the physical medium, then the interface type; link speed shown only while Up
-
-**Decision:** `NetworkSample::type` is a `domain::AdapterType`: Ethernet, Wi-Fi, Bluetooth, mobile broadband, tunnel, PPP, or other. `toAdapterType()` maps it at the platform boundary from `MIB_IF_ROW2`'s `PhysicalMediumType` when that names a medium (802.11, wireless LAN, Bluetooth, wireless WAN, or 802.3), and otherwise from its interface `Type`. Whether the adapter is physical stays in `isHardwareInterface`. `adapterTypeText()` combines the two, e.g. "Ethernet", "Wi-Fi (virtual)" and "Tunnel", or "Virtual" for a virtual adapter of type other. The Performance tab's "Type" readout, which said only "Hardware" or "Virtual", uses it too. Each Network tab card has the adapter's alias as its title and its operational status beside it, the device description below when it differs from the title, and readouts for the type, link speed, IPv4 and IPv6 addresses, and DNS servers. The link speed reads "Not connected" unless the adapter is Up. The address helpers that the Performance tab's readouts kept in an anonymous namespace are now `formatAddressList()`, `ipv4AddressText()` and `ipv6AddressText()` in `network_formatting.h`, which both tabs use.
-
-**Rationale:** The interface type alone mislabels adapters. A Bluetooth PAN adapter has the Ethernet interface type (6), and on the development machine only its physical medium told the two apart. Many virtual adapters report an unspecified medium, so the interface type is the fallback: it names tunnels (131) and PPP links. VPN clients such as Mullvad's use the proprietary virtual type (53), which has no better name than "Virtual". Keeping the type separate from the hardware flag lets a Hyper-V or kernel debugger adapter read as virtual Ethernet, which is what it is, and leaves the throughput totals, which count hardware adapters only ([DC-35](#dc-35)), unchanged. The domain type has no unknown value, because every interface row has a type and a medium. Windows keeps reporting a link speed for adapters that are not Up. On the development machine the disconnected Wi-Fi adapter reported 144.4 Mbps and the Bluetooth adapter 3 Mbps, so showing those values would describe a link that does not exist.
-
-**Extended by [DC-103](#dc-103):** the IPv4 and IPv6 addresses and the DNS servers also read "Not connected" unless the adapter is Up, for the same reason. The collector also drops the addresses that cannot be used and Windows' placeholder DNS servers.
-
-**Extended by [DC-108](#dc-108):** a virtual adapter's link speed has a tooltip saying that its driver chooses the figure, and each address is marked temporary or link-local.
-
-<a id="dc-98"></a>
-### DC-98: Adapter throughput charts: one minute per card, with the history shared with the Performance tab
-
-**Decision:** Each `AdapterCard` has a receive and send chart, 110 pixels high, set up like the Performance tab's network charts: an auto-scaled byte-rate axis with the shared axis-label templates, a grid, axis labels, and a legend with the current values. `NetworkView` records every adapter's throughput from every snapshot in an `AdapterThroughputHistory` of `kHistoryCapacity` (60) samples, one minute at 1 Hz as on the dashboard, and copies each listed adapter's history into its card when it refreshes. `AdapterThroughputHistory` is the recording logic that `NetworkPerformancePage` had, now shared: for every known adapter, one sample per series per snapshot. A rate that cannot be computed, or an adapter missing from the snapshot (every adapter, when the read failed), records a gap, and an adapter is dropped once it is missing and its history holds no values. The page now uses it with its 1800-sample capacity. `SampleHistory` and `hasAnyValue()` moved from `performance_page.h` to `sample_history.h`, so the class needs no widget header. The tick-cost benchmark ([DC-66](#dc-66)) now has a Network tab table. With the tab shown and 2, 8, or 16 adapters, a tick costs a mean of 4.2 ms (max 5.5), 5.7 ms (6.2), and 5.7 ms (6.9) in a Release build. These figures are from 2026-10-16, on an AMD Ryzen 7 9800X3D with the High performance plan, MSVC 19.51 and Qt 6.11.1.
-
-**Rationale:** The tab is an inventory, and its charts show what each adapter is doing now. The Performance tab's network page already offers 5- and 30-minute windows for the active adapters. One minute keeps each card's history at 120 values and its chart sparse, and matches the dashboard. Every adapter's history is recorded, listed or not, so an adapter that comes up, or that "Show all adapters" adds, already has its last minute, and a hidden tab loses nothing ([DC-54](#dc-54)). Sharing the class keeps the two tabs in agreement on gaps and on when an adapter's history ends; a copy would have had to follow every change. The benchmark varies the adapter count. Copying histories into the charts grows with it, but only the cards in view are painted, so 16 adapters cost what 8 do. While the tab is hidden, its only cost is recording, two ring-buffer pushes per adapter.
-
-**Re-measured on 2026-10-16 (code review F-40 and F-41):** the figures above came before the benchmark printed its environment, so their power mode and Windows version are not known. The benchmark now also times a list with "Show all adapters" and an adapter that changes state on every other tick. Three runs printed:
-
-```text
-Processor: AMD Ryzen 7 9800X3D 8-Core Processor
-Power plan: High performance; power mode: Best performance, on mains power
-Built with MSVC 19.51.36260 (Release), running Qt 6.11.1 on Windows 11 Version 25H2 (10.0.26200), 16 logical processors.
-```
-
-| Network tab scenario | Mean ms per tick, three runs | Longest tick |
-| --- | --- | --- |
-| 2 adapters | 5.8–5.9 | 7.2 |
-| 8 adapters | 6.4–6.8 | 7.9 |
-| 16 adapters | 6.4–6.6 | 8.8 |
-| 20 adapters with "Show all adapters", 10 of them Down and hidden | 6.3–6.5 | 7.4 |
-| 16 adapters, one going down and up on alternate ticks | 6.6–7.0 | 7.8 |
-
-These runs use the windows11 style, which costs this tab about 1 ms a tick ([DC-104](#dc-104)), and the machine ran every benchmark slower that day than for [DC-95](#dc-95), so they are compared with each other, not with the figures above. Twenty adapters with "Show all adapters" cost no more than 16: only the cards in view are painted, and a collapsed chart ([DC-106](#dc-106)) is not updated. An adapter that changes state collapses or expands its chart, which moves the cards below it, and costs about 0.3 ms more per tick. Cards no longer move to the top when their adapter comes up, so a change of state no longer re-inserts every card.
-
-<a id="dc-99"></a>
-### DC-99: Connectivity section: level, cost and roaming, each "Unknown" when Windows cannot say
-
-**Decision:** `ConnectivityStatus` has `isRoaming`, a `std::optional<bool>` that `toIsRoaming()` maps from `NL_NETWORK_CONNECTIVITY_HINT::Roaming`. Like `isMetered` ([DC-40](#dc-40)), it is `std::nullopt` before the first successful read and after a failed one. It is also `std::nullopt` whenever the cost is `NetworkConnectivityCostHintUnknown`. The collector's change log line includes it. Above the adapters, the Network tab has a "Connectivity" section with three readouts from `connectivityReadouts()`: the level ("Internet access" … "No connectivity", or "Unknown"), the cost ("Metered", "Unmetered" or "Unknown") and roaming ("Yes", "No" or "Unknown"). The level words come from `connectivityLevelText()`, which the dashboard's `connectivityText()` now shares. That one-line summary also appends ", roaming" when the connection is known to be roaming.
-
-**Rationale:** The roadmap asks for unknown states to be shown as unknown, not as offline or unmetered. Giving each field its own readout, each with its own "Unknown", does that without a sentence that combines three states. The dashboard's one line still mentions only what is known to be true. In the hint, roaming is a plain flag, so it reads false whenever Windows does not know the cost, for example at startup while the level is still unknown. Windows treats roaming as one of the connection's cost flags (`NLM_CONNECTION_COST_ROAMING` in the Network List Manager), so with an unknown cost, "not roaming" would be a guess. Until the first slow-collector refresh, every snapshot carries `ConnectivityLevel::Unknown` ([DC-77](#dc-77)), and the section shows "Unknown" in all three readouts.
-
-**Amended by code review F-44:** `toIsRoaming()` now returns `std::nullopt` whenever `toIsMetered()` does, which also covers a cost value that a later SDK might add, not only `NetworkConnectivityCostHintUnknown`. A platform test passes such a value.
-
-<a id="dc-100"></a>
-### DC-100: Network names from `INetworkListManager`, re-read after a connectivity change or a minute, and matched to adapters by LUID
-
-**Decision:** `NetworkProfileCollector`, a slow collector, reports the connected networks in the new `SystemSnapshot::networkProfiles` as `domain::NetworkProfile`s: each network's name, its category (`std::nullopt` if it cannot be read), and the interface IDs of its adapters. Its production reader creates an `INetworkListManager`, lists `GetNetworks(NLM_ENUM_NETWORK_CONNECTED)`, and reads each network's name, category and connections. `ConvertInterfaceGuidToLuid` turns each connection's adapter GUID into the interface LUID, which is the `NetworkSample::interfaceId` the network collector reports. The result is cached. The collector reads again only on its first `collect()`, after a connectivity change notification, or once `kMaxAge` (60 s) has passed. The notification is a second `NotifyNetworkConnectivityHintChange` registration, made through `subscribeToConnectivityChanges()`, which is now public, and its callback only marks the cache stale. A failed read is cached as `std::nullopt`, so it is retried at the next of these points. Each read initializes COM on the slow-collector thread, in the multithreaded apartment, and uninitializes it afterwards. `ScopedComApartment` is declared before the COM objects, so they are released first. COM pointers and the name's `BSTR` are held in `std::unique_ptr`s whose deleters release them. On the Network tab, each card's "Network" readout names the adapter's networks, e.g. "Normandy (Private)", and the connectivity section's "Networks" readout lists every connected network. "None" means there are none; "N/A" means the names could not be read.
-
-**Rationale:**
-- **Matching by LUID:** a network's name is most useful next to the adapter connected to it, and the LUID is the adapter's identity everywhere else ([DC-64](#dc-64)). `INetworkConnection::GetAdapterId` returns the interface GUID. Converting it at the platform boundary keeps GUIDs out of the domain. On the development machine, the two connected networks matched the Ethernet and Mullvad adapters.
-- **When to read:** the query is a COM call into the Network List Service, and [DC-06](#dc-06) limits it to change events. Windows sends a connectivity change when the system joins or leaves a network, and the platform module already had a subscriber for it. Renaming a network or changing its category in Settings changes no connectivity, though, and no C-style notification reports it. The Network List Manager's own events would need a COM event sink and an apartment held for the collector's lifetime. A one-minute maximum age picks those changes up at the cost of one query a minute, and DC-06 now notes it. Failures are retried at the same points, not on every 2-second slow refresh, so a host with the service disabled does not get a COM call every refresh.
-- **No seed:** the event-driven rules seed the cache in the constructor, but here that would run COM on the UI thread at startup, where Qt has made the apartment single-threaded. The first slow refresh reads instead, as it does for processes, and the names are missing until then. [architecture.md](architecture.md#event-driven-collectors-os-callback-threads) now describes this stale-mark form, which the adapter details already used.
-- **COM for each read:** keeping an apartment for the thread's lifetime would need a thread-local object that outlives every COM object the collector holds. Initializing COM for each read, about once a minute, keeps every COM object inside one function. If the thread already has a single-threaded apartment (`RPC_E_CHANGED_MODE`), the query uses it and leaves it initialized, and an integration test runs the collector on such a thread.
-- **Deleters, not WRL:** WRL's `ComPtr` is the usual choice, but `<wrl/client.h>` would be the module's only SDK header with a path, which `.clang-format`'s include categories do not cover. A deleter matches the RAII wrappers the module already uses for MIB tables.
-- **Category:** `GetCategory` comes with the same object and decides which firewall profile applies, which explains why one network behaves differently from another. A network whose category cannot be read keeps its name.
-
-**Extended by [DC-102](#dc-102):** the names are shown as plain text, because an access point chooses the name of its Wi-Fi network.
-
-**Superseded in part by [DC-107](#dc-107):** the collector reads on a worker thread of its own, not on the slow-collector thread, at most once a second, and the worker holds its COM apartment for its lifetime instead of initializing COM for each read.
-
-<a id="dc-101"></a>
-### DC-101: Connectivity changes wake the slow-collector thread, which collects only the event-driven collectors
-
-**Decision:** `monitoring::IEventDrivenCollector<T>` extends `ICollector<T>` with `setChangeListener()`, and `IConnectivityCollector` and `INetworkProfileCollector` are now this interface. When the scheduler registers one of them, it sets a listener that marks an event refresh as pending under the sleep mutex and notifies the condition variable. The scheduler's destructor clears the listeners. The slow-collector thread waits until its next full refresh or until an event refresh is pending. An event refresh that comes before the full refresh is due runs only the event-driven collectors (`collectEventDrivenResults()`): it replaces the connectivity and the network names in the slow results, and keeps the process list and the time of the next full refresh. A full refresh also clears a pending request. `ConnectivityCollector` calls its listener after a notification that changed the cached status, but not after a polled change. `NetworkProfileCollector` calls it when a notification makes its fresh cache stale. Both call it with their mutex held, so clearing a listener waits for a call in progress. `refreshEventDrivenCollectors()` runs the same step synchronously for tests.
-
-**Rationale:** Since [DC-77](#dc-77), the connectivity collector had received notifications, but the slow thread copied its cache only every 2 seconds and the tick merged it up to a second later. A change therefore reached the UI up to about 3 seconds after Windows reported it, because the scheduler polled the cache. Waking the slow thread lets the notification drive the update. In a unit test with a 60-second slow interval, a change reaches the snapshots within a few ticks, and no extra process enumeration runs. The network names that a change makes stale are also re-read at once ([DC-100](#dc-100)). Three alternatives were rejected:
-- **An extra snapshot on a change:** it would put two samples into the histories within one second, and every chart and rate assumes one sample per tick.
-- **Connectivity on the tick:** its polling fallback and the names' COM query would run on the tick again ([D-2](known_deviations.md#d-2-connectivity-fallback-polls-on-the-scheduler-thread)).
-- **A full slow refresh on a change:** processes would be enumerated off their cadence, and changes come in bursts while an adapter reconnects.
-
-The scheduler sets the listener, rather than the collector's constructor taking one, because `main.cpp` creates the collectors before handing them over and the scheduler is what needs waking. Calling the listener with the collector's mutex held lets the scheduler's destructor clear it safely. The listener refers to the scheduler, and once `setChangeListener({})` returns, no call can still be running. Locks are always taken in the same order, the collector's mutex and then the scheduler's sleep mutex, and the scheduler never calls a collector while it holds the sleep mutex. A notification that repeats the cached status, such as the initial notification after the seed, does not wake the thread.
-
-**Superseded in part by [DC-107](#dc-107):** `NetworkProfileCollector` no longer calls its listener when a notification makes its names stale. The notification wakes the collector's own worker, which reads and calls the listener once it has stored names that differ from the previous ones, so the event refresh only copies them.
-
-<a id="dc-102"></a>
-### DC-102: Labels that show text from the system or the network are plain text (code review F-35)
-
-**Decision:** Every label that can show text the program does not control has the text format `Qt::PlainText`:
-- `ReadoutGrid`'s name and value labels, which show the network names, addresses and DNS servers on both tabs, and every other readout;
-- `AdapterCard`'s title, status and description;
-- the adapter chart titles on the Performance tab's network page;
-- `ResourceCard`'s value and detail, whose disk detail names a volume.
-
-Labels whose text is a constant in the code keep Qt's default. The format is set before the text. [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-from-outside-the-program) state the rule: plain text for a label, and `toHtmlEscaped()` for each untrusted part of rich text, such as a tooltip.
-
-**Rationale:** A `QLabel` defaults to `Qt::AutoText`, which renders its text as HTML when `Qt::mightBeRichText()` finds something that looks like a tag before the first line break. The Network List Manager names a Wi-Fi network after its SSID, up to 32 bytes that the access point chooses ([DC-100](#dc-100)). The review gave a network the name `<img height=3000>`, and the main window's minimum size became 3142×3301 for as long as that network was connected, because the connectivity section is outside the scroll area. `<h1>` rendered a heading, and rich text ignores the `\n` that puts each network on its own line. The adapter's alias and description are local, but drivers and VPN clients choose them.
-- **In `ReadoutGrid`, not in each formatter:** setting the format where the labels are created covers every readout, now and later. The functions that build readouts need not know which values come from outside the program.
-- **Plain text, not escaping:** `toHtmlEscaped()` would also work, but a readout has no reason to be rich text, and one caller that forgot to escape would bring the problem back. Escaping stays for rich text that has a reason to be rich, as in the process tooltips ([DC-85](#dc-85)). Plain text for a process's name in a dialog is what [DC-88](#dc-88) already chose.
-- **The format before the text:** untrusted text is then never parsed as HTML, not even once.
-- **`ResourceCard`:** Windows paths cannot contain `<` or `>`, so a volume's name could not be read as a tag. The card follows the rule anyway, so that no label that shows outside text depends on what that text can contain.
-
-The tests give an alias, a description and two network names markup. They check that every label on the card and in the connectivity section is plain text and shows the literal string, and that `MainWindow`'s minimum size at 800×600 stays within 800×600. Before the fix that test reproduced the review's 3142×3301.
-
-<a id="dc-103"></a>
-### DC-103: Unusable addresses and placeholder DNS servers dropped; addresses and DNS servers shown only while Up (code review F-36)
-
-**Decision:**
-- **At the platform boundary:** `queryAdapterDetails()` keeps each unicast address's duplicate address detection state (`DadState`), which `toAddressState()` maps to the platform type `AddressState`. The address cache and `RawNetworkAdapter` carry each address as a `UnicastAddress`, its text with its state. `calculateNetworkSamples()` keeps Preferred addresses, keeps Deprecated ones only while the adapter is Up, and drops Tentative, Duplicate and Invalid ones. A state the mapping does not know counts as Invalid. `queryAdapterDetails()` also drops the DNS servers `fec0:0:0:ffff::1`, `::2` and `::3` (`isPlaceholderDnsServer()`), whatever the adapter's status. Both functions are in the internal header `ip_address_mapping.h`, which `tests/platform/` tests. `NetworkSample` is unchanged: its addresses and DNS servers are still lists of strings.
-- **On the Network tab:** `adapterDetailReadouts()` shows "Not connected" for the IPv4 and IPv6 addresses and the DNS servers of an adapter that is not Up, as it already did for the link speed ([DC-97](#dc-97)). The Performance tab's readouts are unchanged, because its network page charts only adapters that are Up ([DC-59](#dc-59)).
-
-**Rationale:** Windows keeps addresses on an adapter whose media is disconnected, in states that cannot be used, and `GetAdaptersAddresses` lists them all. On the development machine, each of the four disconnected adapters that the tab lists by default showed two addresses that `ipconfig /all` hides, because it reports these adapters as "Media disconnected". The Wi-Fi adapter showed the 192.168.1.16 lease from its last connection, in the Ethernet adapter's subnet, so the machine appeared to be on the LAN twice. The Bluetooth PAN and Wi-Fi Direct adapters showed Tentative 169.254 addresses that no other host can reach. Every one also showed a Deprecated link-local address.
-- **The state at the boundary, the status on each tick:** a Deprecated address can still be used on a link that is Up: an expired temporary IPv6 address keeps the connections that already use it. Whether to keep one therefore depends on the operational status, which `GetIfTable2` reports on every tick, while the addresses are cached and re-read after a change notification or 30 seconds ([DC-36](#dc-36)). Applying the rule in `calculateNetworkSamples()` uses the current status, and keeps the rule in a pure function that `tests/unit/` covers. Filtering in the collector, not only on the tab, also corrects the data for any later consumer, such as export.
-- **The state stays in the platform module:** the review also suggested carrying it into the domain, so that the tab could mark deprecated addresses as `ipconfig` does. Only an Up adapter could then show one, which is rare. Marking temporary and link-local addresses, which the review suggests separately (F-44), needs each address's origin too, and the domain can gain both together if that is done.
-- **Placeholder DNS servers:** Windows lists `fec0:0:0:ffff::1` to `::3`, site-local addresses from an expired draft for finding DNS servers over IPv6, as the DNS servers of an adapter that has none configured. On the development machine every adapter without a configured server listed them, loopback included, which is Up. An Up adapter with no DNS server, such as a direct link with an automatic private address, would show them too, so hiding them only while the adapter is not Up would not be enough. RFC 3879 deprecated site-local addresses in 2004, so no network configures them. The check compares the address bytes and ignores the scope ID, so it does not depend on how the address is formatted. Such an adapter now reads "None", which is true.
-- **"Not connected" for addresses and DNS servers:** the link speed's reason applies: they describe a link that does not exist. The DNS servers are configuration that Windows keeps while the adapter is down: the disconnected Wi-Fi adapter still lists 192.168.1.1 from its last lease. The collector reports them as they are, and the tab decides what to show, as it does for the link speed.
-
-Unit tests cover every state on an Up, a Down and a Dormant adapter, the development machine's disconnected Wi-Fi and Bluetooth adapters, a Deprecated address that is kept once its adapter comes Up, and the card and readouts of every status other than Up. Platform tests cover the state mapping and the placeholder check, and an integration test checks that no real adapter reports a placeholder DNS server. On the development machine the collector now reports no addresses for the four disconnected adapters, no DNS servers for the Bluetooth and Wi-Fi Direct adapters, and every address of the Ethernet and Mullvad adapters, which are all Preferred.
-
-**Extended by [DC-108](#dc-108):** each usable address also carries into the domain whether it is temporary or link-local, which this entry's note on the address state anticipated, and a link-local IPv6 address carries its zone index.
 
 <a id="dc-104"></a>
 ### DC-104: Qt's Windows style plugin deployed next to every executable (code review F-42)
@@ -1468,89 +1799,87 @@ Unit tests cover every state on an Up, a Down and a Dormant adapter, the develop
 - **Colours:** the style draws tab pages and card frames in the palette's base colour (#ffffff in the light scheme, #2d2d2d in the dark one), not the window colour. Its placeholder-text colour is the text colour at half opacity, which reaches only 4.0:1 on white. [DC-105](#dc-105) chooses the text colours against what this style draws.
 - **Cost:** the tick-cost benchmark ran three times with the plugin and twice without it, alternately, on the same Release binary, by renaming its `styles` directory. With the style, the Network tab cost about 1 ms more per tick: means of 5.9–8.6 ms against 5.6–7.1 ms, for 2 to 16 adapters. So did the Performance tab's network page at 1 minute: 7.2–8.9 ms against 6.1–7.1 ms. On the other pages, the ranges with and without the style overlapped. Every run on 2026-10-16 was slower than [DC-95](#dc-95)'s figures, with or without the style, although they printed the same processor, power plan and power mode. The Phase 5 review measured the same, so these runs are compared only with each other.
 
-<a id="dc-105"></a>
-### DC-105: Dimmed and status text drawn in colours that reach 4.5:1 in both colour schemes (code review F-37)
-
-**Decision:** `ui/text_tone.h` names what the colour of a text says, as a `TextTone`: Normal, Dimmed, Good, Warning or Critical. `textToneColor()` gives each tone's colour. Dimmed text is the text colour at 60% opacity (`kDimmedTextAlpha`). Good, Warning and Critical each have a darker shade for a light background and a lighter one for a dark background, picked by the lightness of the window colour:
-
-| Tone | Light background | Contrast on #f3f3f3 / #ffffff | Dark background | Contrast on #1e1e1e / #2d2d2d |
-| --- | --- | --- | --- | --- |
-| Dimmed | black at 60% | 5.58 / 5.74 | white at 60% | 6.77 / 6.00 |
-| Good | #1e7b45 | 4.76 / 5.28 | #3cb371 | 6.25 / 5.17 |
-| Warning | #a05a00 | 4.78 / 5.31 | #d98200 | 5.67 / 4.68 |
-| Critical | #c62828 | 5.07 / 5.62 | #ff6b6b | 6.01 / 4.96 |
-
-`TonedLabel` is a `QLabel` drawn in its tone's colour, in bold for Good, Warning and Critical. It works the colour out from the text and window colours it inherits, and again on every `PaletteChange`, so it follows a change of colour scheme while the app runs. It keeps the colour in its `PlaceholderText` role, which a label does not otherwise use, and draws its text with that role. The tones are used by:
-- `AdapterCard`'s status (Good while Up, otherwise Dimmed) and description (Dimmed), which used `palette(mid)` in a style sheet;
-- `ResourceCard`'s health status (Good, Warning and Critical, and Dimmed in italics for Unknown), whose colours were in a style sheet;
-- `ReadoutGrid`'s names (Dimmed), which used the `PlaceholderText` role;
-- the process table's "N/A" cells, which now use `dimmedTextColor()` of the text colour instead of `PlaceholderText`.
-
-Both cards take their margins from `kCardMargins` in `view_metrics.h`, and neither uses a style sheet any more. The rule is in [`src/ui/AGENTS.md`](../src/ui/AGENTS.md) and the [coding guidelines](coding_guidelines.md#text-colours).
-
-**Rationale:** `palette(mid)` is the bevel colour of 3D frames, not a text colour. The review measured the adapter's status and description at 1.13:1 in the dark scheme. With the windows11 style ([DC-104](#dc-104)) they became #282828 on #2d2d2d, 1.07:1, and the dashboard's "Unknown" #a0a0a0 on white, 2.61:1. WCAG's minimum for normal text is 4.5:1.
-- **Measured on what is drawn:** the windows11 style draws tab pages and cards in the base colour, #ffffff or #2d2d2d, not in the window colour, #f3f3f3 or #1e1e1e. Every tone reaches 4.5:1 on all four.
-- **Not `PlaceholderText`:** the review suggested the role that `ReadoutGrid` used. In the windows11 style it is the text colour at 50% opacity, which reaches 4.66:1 on #2d2d2d but only 3.95:1 on white, so the readout names fell short too. At 60%, the opacity the charts already use for their muted text, it reaches 5.74:1 and 6.00:1, and readout names, descriptions and chart labels are dimmed alike.
-- **Two shades per status colour:** no colour reaches 4.5:1 on both white and #2d2d2d. The old colours each failed in one scheme: the Healthy green #2e8b57 reached 4.25:1 on white but 3.24:1 on #2d2d2d, the Warning amber #d98200 4.68:1 on #2d2d2d but 2.94:1 on white, and the Critical red #d32f2f 4.98:1 on white but 2.77:1 on #2d2d2d.
-- **Worked out in code, not in a style sheet:** a style sheet fixes a colour when it is applied. The label picks the shade from the window colour it inherits, as the charts do, and picks again on every palette change. If it set its own `WindowText`, that role would no longer follow the palette, and the label could not tell the new scheme's text colour from the one it had set. A spare role leaves `WindowText` and `Window` inherited. Setting the palette sends another `PaletteChange`, which finds the colour already set and stops.
-- **Item models:** a table cell cannot hold a label, so the process model asks `dimmedTextColor()` for the colour each time the view paints, which follows the scheme without an event.
-
-Unit tests check every tone's colour on both schemes' window and base colours, that the status tones are bold, and that a label's colour follows its parent's palette. View tests render the main window in both schemes, with `QStyleHints::setColorScheme()`, and measure the contrast of the rendered pixels: the adapter cards' status, description and a readout name, in one window switched between the schemes, and the dashboard's four statuses. Rendered into an image with an alpha channel, text is drawn with greyscale antialiasing, so the strongest pixel is the text's own colour. The old Healthy green measured 3.244:1 on #2d2d2d, against 3.24:1 computed, and the tests fail with it or with dimmed text at 30% opacity.
-
-<a id="dc-106"></a>
-### DC-106: Adapters listed in a fixed order, with the ones Windows hides last; disconnected adapters' charts collapsed (code review F-39)
-
-**Decision:**
-- **Hidden adapters:** `NetworkSample::isHidden` is true for an adapter whose driver has the `NCF_HIDDEN` characteristic. Network Connections and `Get-NetAdapter` leave these adapters out. `queryHiddenAdapterGuids()` (`hidden_adapters.h`) lists the network adapter setup class with SetupAPI, including adapters that are not present, and reads `Characteristics` and `NetCfgInstanceId` from each one's driver key. The network collector matches the GUIDs with `MIB_IF_ROW2::InterfaceGuid`, and reads them again only when an interface appears that was not there at the last read. `isListedByDefault()` now also requires that Windows does not hide the adapter.
-- **Order:** `isListedBefore()` puts the adapters listed by default first, then hardware adapters, then compares display names in natural order, then interface IDs. `compareNaturally()` folds case with Unicode's locale-independent folding and compares each run of ASCII digits as a number. The operational status no longer takes part. The Network tab's `listedAdapters()` and the Performance tab's `chartedAdapters()` both use this order.
-- **"Show all adapters":** the cards it adds therefore come after the others, under a "Hidden adapters" heading.
-- **Collapsed charts:** an adapter that is not Up shows "Throughput is charted while the adapter is Up." in place of its chart. The view still records its history, and the card copies the history into the chart only while the chart is shown.
-
-**Rationale:** Rendered from the development machine's adapters, four of the six cards the tab listed by default were Down. Each had a 110-pixel chart that could only draw a flat line at zero, and two of the four were Wi-Fi Direct adapters that Windows hides.
-- **Windows' own flag, not a heuristic:** `MIB_IF_ROW2` has no hidden flag. The review suggested leaving out adapters that are virtual and not Up, but that would also hide the Bluetooth PAN adapter and a disconnected VPN, which Network Connections shows. `NCF_HIDDEN` is what Network Connections goes by, so the default list now matches it: on the development machine Ethernet, Wi-Fi, Bluetooth and Mullvad. "Show all adapters" adds the other 15, of which 12 are marked hidden. The flag is set when a driver is installed, so the query runs at the first read and then only when an interface appears. It takes 0.5–0.8 ms on the tick thread. A failed query hides no adapter, which only lists more. The tunnel pseudo-interfaces have no adapter device, so the flag cannot hide them, but `hasIpInterface` still does. The class GUID is written out in the code, because `devguid.h` defines `GUID_DEVCLASS_NET` only after `initguid.h`, an order the include rules do not keep.
-- **No status in the order:** an adapter that came up moved its card to the top and shifted every other card under the scroll position that DC-96 keeps by reusing cards. A card now stays where it is, and only the cards below it move when its chart collapses or expands. With its chart collapsed, a disconnected adapter's card is short, so leaving it in place costs little room.
-- **Natural, locale-independent order:** "Local Area Connection* 10" sorted before "… 2". `QString::localeAwareCompare()` would make the order depend on the machine's locale, which [DC-68](#dc-68) avoids.
-- **One order for both tabs:** the Performance tab sorted with a stable sort and no interface-ID tie-break, so adapters with the same name could swap places when `GetIfTable2`'s row order changed, and the two tabs ordered the same adapters differently.
-- **Added cards last:** mixed into the list, the cards that "Show all adapters" added could not be told from the others.
-- **Collapsed, not removed:** the history keeps being recorded, so when the adapter comes up its chart shows the whole minute, with the time it was down at zero.
-
-Unit tests cover the natural comparison, the order with and without "Show all adapters", that a change of status does not move an adapter, the same order on the Performance tab, the heading's place, the collapsed chart and its history once the adapter is Up, and that the hidden flag reaches the sample. An integration test checks that the WAN Miniports are hidden on the real host.
-
-<a id="dc-107"></a>
-### DC-107: Network names read on the collector's own thread, at most once a second (code review F-38)
-
-**Decision:** `NetworkProfileCollector` owns a `std::jthread`, its worker, which makes every Network List Manager query. The worker reads at once when it starts, again when a connectivity notification has made the names stale, and again once they are `kMaximumAge` (a minute) old, but never sooner than `kMinimumReadInterval` (a second) after its last read began. Both are `ReadIntervals`, which tests shorten. The notification callback only marks the names stale and wakes the worker. The worker stores each result and, if it differs from the previous one, calls the change listener with its mutex held. `collect()`, which the scheduler still calls on the slow-collector thread, only copies the latest result, and returns `std::nullopt` before the first read has finished. The production reader is made by a `NetworkProfileReaderFactory` that the worker calls, so the reader's `ScopedComApartment` is created on the worker, kept for the worker's lifetime, and destroyed on the worker when the reader is. Members are declared so that the subscription is cancelled first, the worker is stopped and joined next, and the state they share goes last. `readCount()` tells tests when a read has finished.
-
-**Rationale:** Before Phase 5 the slow-collector thread made only in-process calls. The Network List Manager query is a COM call into the Network List Service, and nothing bounded how often it ran or how long it could take.
-- **Its own thread:** if the service is slow to answer or stops responding, the query waits. On the shared slow-collector thread, the process list would stop refreshing and connectivity changes would not be collected. On the collector's own thread, only the names wait. A third scheduler thread for external queries was the alternative, but the scheduler would then have to know which collectors make such calls. The collector knows, and the worker also lets it keep its apartment.
-- **Shutdown still waits for a read in progress, and that risk is accepted:** `NetworkListManager` is an in-process COM object (`netprofm.dll`, threading model Both) that calls the service over its own RPC, so `CoCancelCall` cannot interrupt the query, and a thread cannot be stopped safely from outside. A detached thread could still be reading when the collector's state is destroyed. If the service hangs, closing the window therefore leaves the process waiting for the read before it exits, as it would have before.
-- **At most once a second:** the review's probe, with a subscription that kept notifying and a 5 ms reader, made 130 reads in 2 seconds. Notifications come in bursts while an adapter reconnects, and each tick copies only the latest result. A second between reads bounds a burst to one read a second, and a change still reaches the UI within about a second, the next tick. With a 200 ms minimum, a unit test's hundreds of notifications in half a second cause at most four reads.
-- **The listener after the read:** before, a notification called the listener and the scheduler's event refresh then read the names on the slow-collector thread. Now the worker reads, stores, and only then wakes the scheduler, which copies what it stored. This is the "store, then wake" rule that connectivity follows, and a read that finds the same names wakes nobody.
-- **The apartment for the worker's lifetime:** [DC-100](#dc-100) initialized COM for each read because the slow-collector thread was shared, and an apartment kept on it would have outlived the collector. The worker belongs to the collector, and every COM object is still released within one read. Creating the reader on the worker keeps `CoInitializeEx` and `CoUninitialize` on the same thread, as COM requires. The apartment of the thread that creates the collector no longer matters: an integration test creates one on a thread with a single-threaded apartment.
-- **The cost of a read:** in a Release build on the development machine, the first read in the process took about 11 ms, and later reads 4.4–6.1 ms. That is close to what the review measured with an apartment for each read, so the cost is the query, not COM's start-up. [architecture.md](architecture.md#threading-model) records the figure with the worker.
-
-The unit tests drive the worker with a fake reader that can hold reads back: the first read on the worker's own thread, the listener only for a changed result, a change reported during a read causing another read (the test fails if the stale mark is cleared after the read instead), a burst of notifications, the maximum age, failures, the reader destroyed on the worker, and a destruction that does not wait for the next read. A failing assertion releases held-back reads before the collector is destroyed.
-
-<a id="dc-108"></a>
-### DC-108: Addresses marked temporary or link-local, with the zone index; a virtual adapter's link speed explained in a tooltip (code review F-44)
-
-**Decision:**
-- **Addresses:** `NetworkSample::ipAddresses` is a list of `domain::IpAddress`: the address's text, `isTemporary` and `isLinkLocal`. The platform module sets them at the boundary. `isTemporaryAddress()` maps a unicast address's suffix origin: random means temporary. `isLinkLocalAddress()` is true for IPv6 fe80::/10 and IPv4 169.254.0.0/16. `formatIpAddress()` appends a link-local IPv6 address's scope ID as its zone index, e.g. "fe80::d347:c091:2487:3b32%16", for unicast addresses and DNS servers alike. On both tabs, `ipAddressText()` marks each line "(temporary)" or "(link-local)".
-- **Link speed:** `Readout` has an optional `toolTip`, which `ReadoutGrid` shows on the readout's name and value after converting it from plain text with `Qt::convertFromPlainText()`. On both tabs, a virtual adapter's reported link speed has `linkSpeedToolTip()`: its driver chooses the speed it reports, so the speed need not limit the adapter's throughput. A hardware adapter's has none.
-
-**Rationale:**
-- **The zone index:** a link-local address cannot be used without it: two adapters can have the same fe80:: address. ipconfig shows it, and so does the tab now.
-- **Marks on each line:** the Ethernet card showed three similar IPv6 addresses under one "IPv6 address" readout. ipconfig names them "IPv6 Address", "Temporary IPv6 Address" and "Link-local IPv6 Address". A readout has one name for several addresses, so each line carries its mark, and the stable address, like ipconfig's plain "IPv6 Address", carries none.
-- **Temporary by the suffix origin:** with identifier randomization on, as it is by default, Windows still reports a stable address's suffix origin as the link-layer address, and only a temporary address's as random. `netsh interface ipv6 show addresses` shows the two as Public and Temporary. On the development machine both fd44:: addresses on Ethernet matched ipconfig's names.
-- **In the domain:** [DC-103](#dc-103) kept each address's state in the platform module and noted that marks would need the origin in the domain. Two flags carry what the marks need without a Windows type, and the link-local test runs on the address bytes rather than on text in the UI. A later consumer, such as export, gets the same facts.
-- **A tooltip rather than leaving the speed out:** a VPN tunnel reports a nominal speed, Mullvad's 100 Gbps, but the Wi-Fi Direct and Bluetooth PAN adapters, which are virtual too, report the rate of their real link. Leaving every virtual adapter's speed out would hide those. The tooltip says what the figure is without hiding it.
-- **Plain text in a tooltip:** Qt shows a tooltip as rich text when it looks like markup. The grid converts each one, so a readout's tooltip, like its name and value ([DC-102](#dc-102)), never needs to be escaped by its caller.
-
-Platform tests cover the link-local test, including 169.254, and the suffix origins. Integration tests format addresses with and without a scope ID, because `formatIpAddress()` calls `inet_ntop`, and check that every link-local IPv6 address the real collector reports has a zone index. Unit tests cover the marks, the flags through `calculateNetworkSamples()`, the tooltip on a virtual adapter's speed, and the grid's tooltips as plain text, updated in place. The 800×600 tests of both tabs now include a temporary and a link-local address.
+**History:** Code review F-42.
 
 ---
 
-## Maintenance — Tests (`tests/`)
+## Testing
+
+How collectors are made testable, what integration tests assert, and how tests are shared and run.
+
+<a id="dc-21"></a>
+### DC-21: `test_main.cpp`: listing the tests creates no `QApplication`
+
+**Decision:** The test runner (`tests/test_main.cpp`) creates no `QApplication` when `--gtest_list_tests` is passed. It runs the tests with a `QApplication` otherwise.
+
+**Rationale:** Creating `QApplication` loads the platform plugin, which fails when the plugins are not deployed yet and can fail without a display session, with a modal error dialog or a timeout. Listing the tests needs no plugin, so it is instant and works anywhere. The build itself no longer lists the tests: CTest runs GoogleTest shards, not tests that `gtest_discover_tests` found at build time ([DC-113](#dc-113)). The check stays, so that listing the tests by hand or from a tool starts no `QApplication` either.
+
+**History:** Phase 1, basic UI shell; maintenance (the build no longer lists the tests).
+
+---
+
+<a id="dc-27"></a>
+### DC-27: Deterministic unit testing via injected time and clock readers
+
+**Decision:** `CpuCollector` provides a dependency-injected constructor accepting custom `SystemTimesReader` and `SteadyClockReader` lambdas alongside its default Windows constructor, paired with a pure `calculateCpuUsage` function.
+
+**Rationale:** Unit tests must be fast, deterministic, and free of OS dependencies per project rules. The injected constructor allows simulating edge cases such as exact idle/user/kernel ratios, zero elapsed intervals, clock jitter where idle temporarily appears greater than kernel, and API query failures without invoking the Windows kernel or relying on sleep timers. Real host integration tests in `tests/integration/` verify live `GetSystemTimes` execution separately.
+
+**History:** Phase 2, CPU collector.
+
+---
+
+<a id="dc-30"></a>
+### DC-30: CPU collector integration testing: Invariant-based assertions and synthetic load sensitivity
+
+**Decision:** Design host integration tests around system and mathematical invariants ($0.0 \le \text{usage} \le 100.0$, topology matching `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)`, non-NaN/Inf) and synthetic workload sensitivity rather than asserting fixed utilization values.
+
+**Rationale:** Unlike deterministic unit tests with injected data, host integration tests execute against live Windows kernel APIs where background OS services, indexing, and power-saving C-states cause continuous utilization fluctuations. Asserting fixed numbers produces flaky tests. Verifying invariants across multiple consecutive real-time samples, observing load increases during controlled multi-threaded synthetic loops, and validating live signal delivery through `SamplingScheduler` proves the collector operates correctly on real hardware under variable load without false positives.
+
+**Note:** [DC-110](#dc-110) replaces each collector's scheduler pipeline test with one test of every collector the app registers.
+
+**History:** Phase 2, CPU collector; maintenance (one scheduler pipeline test, for [DC-110](#dc-110)).
+
+---
+
+<a id="dc-33"></a>
+### DC-33: Deterministic testing of memory and disk collectors via reader injection
+
+**Decision:** Provide dependency-injected constructors in `MemoryCollector` and `DiskCollector` accepting reader callbacks (`MemoryStatusReader`, `LogicalDrivesReader`, `DiskSpaceReader`) alongside pure calculation functions `calculateMemorySample` and `calculateDiskSample`.
+
+**Rationale:** In accordance with project rules, unit tests must be fast, deterministic, and free of OS dependencies. Injected readers allow testing boundary conditions — such as zero total memory/disk space, free space exceeding total due to quota configurations, 100% capacity, API query failures, and multi-drive volume sets — without altering host configuration or creating synthetic drive partitions. Integration tests in `tests/integration/` independently verify live Windows API queries on real host hardware.
+
+**History:** Phase 2, memory and disk collector.
+
+---
+
+<a id="dc-38"></a>
+### DC-38: Deterministic testing of network collection via reader injection
+
+**Decision:** Inject `NetworkAdaptersReader` and `SteadyClockReader` lambdas into `NetworkCollector`, supported by a pure `calculateNetworkSamples` function managing historical baselines and purging disconnected adapters.
+
+**Rationale:** Simulating multiple network interfaces, varying link speeds, counter rollovers, IP/DNS configurations, loopback filters, and baseline eviction across elapsed intervals requires deterministic control over input data and monotonic timestamps. Injected readers allow comprehensive unit testing without network privileges or hardware manipulation, while host integration tests verify real Windows IP Helper API calls.
+
+**History:** Phase 2, network collector.
+
+---
+
+<a id="dc-78"></a>
+### DC-78: Process integration tests: a suspended child process, exact read sets, and an elevation-aware access check
+
+**Decision:** `tests/integration/process_tracking_test.cpp` tests the process collector end to end on the real machine:
+
+- **Enumeration:** a `cmd.exe` child, created suspended with a command line unique to the run, appears with its exact identity, this process as its parent, and its real path and command line. After it is terminated and its handles closed, it leaves the list. The test polls for up to 5 seconds, because the list can take a moment to drop an exited process. (This said at first that another process's handle, such as an antivirus scanner's, could keep it listed. The Phase 4 code review held a handle to a terminated child open, and the child had left the list 0.5 seconds later.)
+- **Cache behaviour:** a collector built from the real list reader and a counting wrapper around the real details reader reads exactly the identities of the first list, minus `lsass.exe` and `csrss.exe`. On the second collect it reads exactly the identities that are new, the child among them. The sets are compared exactly.
+- **Access-denied handling:** every process's `detailsStatus` must match the details present (`Available` with both, `NotQueried` only for the never-opened names and with neither, `AccessDenied` or `Unavailable` with at most one). When the test runs unelevated, at least one process must deny access and still carry its name, creation time, and memory counters. When elevated (as on CI runners), that test is skipped.
+
+Paths are compared ignoring case, because `GetSystemDirectoryW` can return `C:\WINDOWS\system32` while `QueryFullProcessImageNameW` returns the on-disk case.
+
+**Rationale:** A child created by the test is the one process whose identity, parent, path, and command line are known in advance. Creating it suspended means it never runs, needs no window, and cannot exit on its own during the test, and it shows that the command line is readable before the process has started. PID reuse cannot be forced on a real machine, so the unit tests cover it ([DC-73](#dc-73)). Instead, the exact read sets show that the real cache reads each identity once. Which processes deny access depends on the account and elevation, so the access test asserts invariants that hold everywhere, and counts denials only where they are certain to occur. That follows the integration-test rule to tolerate varying environments.
+
+**History:** Phase 4, process collector; code review F-33 (why an exited child can stay listed); maintenance (the scheduler test replaced by [DC-110](#dc-110)'s).
+
+---
 
 <a id="dc-109"></a>
 ### DC-109: Shared test builders and harnesses in `tests/support/`, header-only
@@ -1559,12 +1888,20 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 
 **Rationale:** Six adapter builders and four process builders had drifted apart: names with and without braces, IDs from a hash or none, rates or none. A test's data depended on the file it was in, and a new field in a domain type had to be added to each copy. Helpers of a few lines need no library target of their own, and headers compile into the one test executable that uses them. Named `AdapterTraits` constants (`kUnboundVirtualAdapter`) replace the positional `bool` arguments of the old builders. `process()` takes its creation time as `std::chrono::seconds`, whose constructor is explicit, so a CPU percentage passed in its place does not compile. `waitForSnapshot()` waits on a condition variable for a snapshot that satisfies a predicate instead of polling a count. Two of the loops it replaced appended to a `std::vector` on the tick thread while the test thread read its size, which is a data race.
 
+**History:** Maintenance, tests.
+
+---
+
 <a id="dc-110"></a>
 ### DC-110: One scheduler pipeline test, with the collectors `registerSystemCollectors()` registers
 
 **Decision:** `sysmon::app::registerSystemCollectors()` (`src/app/system_collectors.h`, in the `sysmon_app_collectors` library) registers the Windows collector of every metric with a `SamplingScheduler`. `main.cpp` calls it, and so does `SchedulerPipelineIntegration.AppCollectors_SnapshotCarriesEveryField`, the one integration test that runs the scheduler with real collectors. The test waits for a snapshot that has per-core CPU values and the slow collectors' results, then checks every field of `SystemSnapshot`, including the health the scheduler evaluated from it. It replaces the five per-collector `SchedulerPipeline_*` tests and the process tracking tests' scheduler test.
 
 **Rationale:** Each per-collector test registered one collector and checked one field. Together they showed that each collector works with the scheduler, but not that the app registers them all, or that every field is right while all of them run at once, as they do in the app. A copy of `main.cpp`'s registrations in the test could drift from it; a shared function cannot. A library of its own follows `sysmon_app_logging`, which exists so that tests can exercise it. The test waits for a condition, not a number of snapshots: the old CPU test took the third snapshot and failed now and then under the parallel run, because the collector leaves out the per-core values of a tick in which some core's counters did not advance. A collector of the test's own first finds out whether the Network List Manager answers on the host, so a host without it does not fail the test.
+
+**History:** Maintenance, tests.
+
+---
 
 <a id="dc-111"></a>
 ### DC-111: Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
@@ -1575,12 +1912,18 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 
 **History:** Maintenance, tests; maintenance (the `Collector` concept removed, and with it the `static_assert`s on the fakes, [DC-18](#dc-18)).
 
+---
+
 <a id="dc-112"></a>
 ### DC-112: A mapping's values tested in one test, as a table of named cases
 
 **Decision:** A mapping or a threshold function is tested by one test that loops over a table of cases, a local `Case` struct in a `std::array`, and passes each case's name to `SCOPED_TRACE`. It is not tested by one `TEST` per value, nor by a parameterized `TEST_P`.
 
 **Rationale:** A test per value repeated the same line under a name that restated the value (`ToConnectivityLevel_LocalAccess_ReturnsLocalAccess`), and one mapping's cases were spread over as many as fourteen tests. A table shows them side by side, so a missing value stands out, and `SCOPED_TRACE` names the row that fails. `TEST_P` also reports each row on its own, but it needs a fixture, an instantiation and a printer for the parameter, and `gtest_discover_tests` runs each row in a process of its own. `TEST_P` remains the tool for running a whole test over different inputs, as `SparklineBufferSize` runs the same checks at three buffer sizes.
+
+**History:** Maintenance, tests.
+
+---
 
 <a id="dc-113"></a>
 ### DC-113: Tests run as GoogleTest shards, one CTest test each, not one process per test
@@ -1589,9 +1932,13 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 
 **Rationale:** Every `system_monitor_tests` process creates a `QApplication` and loads its plugins before its first test. With a process per test, the 775 tests took 194 s of process time, and 12.6 s on 16 threads, while each executable ran all of its tests in one process in about 9 s together. On the same machine, in Debug, the 717 tests took 11.7 s with a process per test, 4.0 s with a process per suite (75 suites), 2.8 s as 16 shards, and 2.1 to 2.6 s as 32. GoogleTest deals the tests to the shards round-robin, so a shard's time depends on the slow tests it draws (the slowest takes 1.1 s), and with more shards than processors CTest starts another while the slowest finish. Registered with CTest, the shards keep its scheduling, `--output-on-failure` and timeouts, with no process management in `build.ps1`, and CI, which runs CTest without `--parallel`, starts a few processes rather than one per test. Before the change the tests passed in shuffled orders (`--gtest_shuffle`: ten of the main executable, twenty of the platform one), so the order within a shard cannot change a result, and eight consecutive runs as shards passed. A failed shard's output names the failing tests, and one test runs with the executable's `--gtest_filter` rather than `ctest -R`.
 
+**History:** Maintenance, tests.
+
 ---
 
-## Maintenance — Design decisions (`docs/`)
+## Design decision log
+
+How this file is organized and kept current.
 
 <a id="dc-114"></a>
 ### DC-114: Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
@@ -1600,21 +1947,40 @@ Platform tests cover the link-local test, including 169.254, and the suffix orig
 
 **Rationale:** Links named GitHub's slug of the heading, which is the whole title, so retitling or merging an entry broke every link to it, and nothing noticed. The ID does not change, and merged entries keep theirs as stubs. The anchor sits on a line of its own, not inside the heading, so headings read as before and `^### DC-` still finds them. In CommonMark a line holding only an inline tag is a paragraph, which the heading ends. An entry heading's slug is not accepted, so a link written the old way fails at once rather than at the next retitle. Section slugs are, because the contents list uses them. Code comments cite entries as plain `DC-NN`, which the citation check covers. The check needs nothing installed: it is PowerShell in the script that CI's Format Check job already runs, and it reads only the repository. `-Format`, which AGENTS.md says to run before committing, runs it too, so a broken link shows up before CI does.
 
+**History:** Maintenance, design decisions.
+
+---
+
 <a id="dc-115"></a>
 ### DC-115: Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
 
 **Decision:**
 
 - **Current state:** an entry describes the decision as the code now has it. A change that answers its question differently, or adds to the answer, rewrites its Decision and Rationale under the same ID. It adds no note ("Superseded in part by", "Extended by", "Amended", "Note"), and no new entry that patches the old one. A new entry is for a new question. The Rationale keeps an earlier choice only as a rejected alternative, when the reason it was dropped still argues for the current one.
-- **History line:** an entry ends with `**History:**` followed, separated by semicolons, by where the decision was made and each change since: a phase and its roadmap section (`Phase 4, process collector`), a code-review finding (`code review F-29`), or `maintenance`. Each change says in parentheses what it changed and, if it was made for another entry, which one. DC-76's reads "Phase 4, process collector; Phase 4, process explorer view (I/O rates, for DC-80)".
+- **History line:** an entry ends with `**History:**` followed, separated by semicolons, by where the decision was made and each change since: a phase and its roadmap section (`Phase 4, process collector`) or the known deviation it resolved (`Phase 2, known deviation D-6`), a code-review finding (`code review F-29`), or `maintenance`. Each change says in parentheses what it changed and, if it was made for another entry, which one. DC-76's reads "Phase 4, process collector; Phase 4, process explorer view (I/O rates, for DC-80); code review F-33 (what the CPU column adds up to)".
 - **Git for the rest:** `.gitattributes` gives Markdown files Git's `markdown` diff driver, so `git log -L ':DC-76\::docs/design_decisions.md'` lists every commit that changed an entry, with each version, and diff hunk headers name the entry a change is in.
 - **Stubs:** an ID is never reused, renumbered or deleted. An entry merged into another, or retired, keeps its anchor, its heading, retitled to say so (`DC-89: Merged into DC-88`), and its line in the contents. Its body is one line that says where the decision is now. Links and citations elsewhere in the repository move to that entry, except in `docs/code_reviews/`, which record what each review led to at the time.
-- **Applied:** the notes in DC-18, DC-21, DC-46, DC-71, DC-76 and DC-111 are folded into those entries, which now end with their history. The other notes are in entries that the roadmap's next items rewrite: the chains it merges, DC-62's and DC-66's content that moves to other documents, and DC-68, which it retires. Grouping the entries by topic gives every other entry its history line.
+- **Applied:** every entry ends with its history line, and the notes in DC-18, DC-21, DC-46, DC-70, DC-71, DC-76 and DC-111 are folded into their entries. The other notes are in entries that the roadmap's next items rewrite: the chains it merges, DC-62's, DC-66's and DC-98's content that moves to other documents, and DC-68, which it retires.
 
 **Rationale:** The log was append-only: a change left the earlier entry as written and added a note to it. 40 notes patched 31 entries, so learning how End process works meant reading DC-88 and its two notes, then DC-89, DC-90 and DC-93, and working out which sentences still held; DC-88 still said the result was not shown. A reader, or an agent, who stopped at the first entry followed a decision the code no longer makes. A living entry is right when read alone. What it drops, the wording of earlier versions, git keeps beside the commit message that explains each change.
 
 - **Immutable records**, as in Michael Nygard's architecture decision records, where a new record supersedes an old one, suit decisions made once that an audit has to trace. Here most changes refine a decision, often after a code-review finding, and a new record would repeat most of the old one.
 - **A change log in each entry** would grow as the notes did, and the Decision would still need rewriting to be right. The history line keeps only where each change came from, which is enough to find the finding in `docs/code_reviews/` and the commit in git.
-- **The `markdown` driver:** without it Git finds no heading in a Markdown file, so `-L ':DC-76\::…'` fails, and hunk headers show the nearest line above that starts with a letter. The escaped colon matches only the entry's heading, not one whose ID starts with the same digits or a stub that names DC-76. Moving an entry, as grouping by topic will, looks to `git log -L` like adding it; the same command run from that commit's parent continues further back.
+- **The `markdown` driver:** without it Git finds no heading in a Markdown file, so `-L ':DC-76\::…'` fails, and hunk headers show the nearest line above that starts with a letter. The escaped colon matches only the entry's heading, not one whose ID starts with the same digits or a stub that names DC-76. Moving an entry, as grouping by topic did ([DC-116](#dc-116)), looks to `git log -L` like adding it; the same command run from that commit's parent continues further back.
+
+**History:** Maintenance, design decisions; maintenance (a known deviation as a source, and every entry given its history line, for [DC-116](#dc-116)).
+
+---
+
+<a id="dc-116"></a>
+### DC-116: Entries grouped by topic, in ID order within each topic
+
+**Decision:** The entries are grouped under `##` headings by what they decide, not by the phase that made them: Windows APIs, modules and dependencies, the domain model, the scheduler and collectors, each collector area, charts, the main window and shared UI, each tab and process termination, build and tooling, testing, and this log. A line under each heading says what the topic covers. Within a topic the entries are in ID order, so a new entry goes at the end of its topic. An entry that spans topics goes under the one whose code it mostly decides, and the contents list each entry once. The phase that made an entry, and each phase or finding that changed it, are in its **History:** line ([DC-115](#dc-115)).
+
+**Rationale:** A reader comes to this file with a question about one part of the code, not about one phase. Later phases change earlier decisions, so under phase headings one topic's entries were spread out: the network names over "Windows API choices" and Phase 5, the connectivity collector over Phases 2, 4 and 5. Entries made for code-review findings went under whichever heading was near: DC-94 among DC-70 to DC-78, and DC-91, DC-92 and DC-95 under the process explorer view. The phase still leads to the roadmap item or the review behind a decision, so the history line keeps it.
+
+- **ID order within a topic:** filing a new entry needs no judgement beyond its topic, and no entry moves when one is added. A reading order would have to be decided again for every new entry.
+- **One file:** links name `design_decisions.md#dc-NN` ([DC-114](#dc-114)), so moving an entry to another topic breaks none, and one search covers every decision. A file per topic would put the topic into every link.
+- **Process termination as a topic:** its checks in `platform/windows` and its action on the Processes tab are one feature, which the roadmap's next item merges into fewer entries.
 
 **History:** Maintenance, design decisions.
