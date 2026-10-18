@@ -3,9 +3,10 @@
 Configures, builds, and optionally runs the System Monitor desktop application.
 
 .DESCRIPTION
-Runs CMake's default (Debug) preset, or the release preset with -Release, which
-use vcpkg to resolve project dependencies and Ninja/MSVC to compile the
-executable. With -Run, the script launches the executable after a successful
+Runs CMake's default (Debug) preset, the release preset with -Release, or the
+coverage preset with -Coverage. They use vcpkg to resolve project dependencies
+and Ninja to build; default and release compile with MSVC, coverage with
+clang-cl. With -Run, the script launches the executable after a successful
 build (and tests, if -Test is also supplied).
 
 Builds are incremental: Ninja recompiles only what changed. The configure step
@@ -54,6 +55,17 @@ does not run them. The script first prints the processor, the power plan and
 the Windows 11 power mode, and each benchmark prints the compiler, Qt and
 Windows versions it runs with; record them with the figures in
 docs\performance.md.
+
+.PARAMETER Coverage
+Builds the coverage preset in build\coverage, then runs the tests (-Test is
+implied). The preset compiles the project's targets, tests included, with the
+clang-cl of the Visual Studio installation whose environment the script
+imports, and instruments them for LLVM source-based coverage, which counts
+lines and branches. vcpkg's packages stay as MSVC builds them. It needs Visual
+Studio's "C++ Clang tools for Windows" component, which
+scripts\bootstrap.ps1 -InstallMissing adds. The script empties
+build\coverage\profiles before the tests run, and each test process writes its
+raw profile there. Cannot be combined with -Release, -Benchmark or -Run.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
@@ -105,6 +117,9 @@ version is an error; locally it is a warning.
 .\scripts\build.ps1 -Benchmark
 
 .EXAMPLE
+.\scripts\build.ps1 -Coverage
+
+.EXAMPLE
 .\scripts\build.ps1 -Format
 
 .EXAMPLE
@@ -117,6 +132,7 @@ param(
     [switch]$Configure,
     [switch]$Release,
     [switch]$Benchmark,
+    [switch]$Coverage,
     [switch]$Format,
     [switch]$CheckFormat
 )
@@ -228,8 +244,15 @@ function Write-BenchmarkMachine
 $projectRoot = Split-Path -Parent $PSScriptRoot
 # CMakePresets.json defines each preset's build directory as build\<preset name>.
 # Benchmarks are only meaningful with optimized code, so -Benchmark implies -Release.
-$preset = if ($Release -or $Benchmark) { "release" } else { "default" }
+# Coverage is measured by running the tests, so -Coverage implies -Test.
+if ($Coverage -and ($Release -or $Benchmark -or $Run))
+{
+    throw "-Coverage cannot be combined with -Release, -Benchmark or -Run."
+}
+$preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark) { "release" } else { "default" }
+$runsTests = $Test -or $Coverage
 $buildDirectory = Join-Path $projectRoot "build\$preset"
+$profileDirectory = Join-Path $buildDirectory "profiles"
 $applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
 $benchmarkPaths = @(
     (Join-Path $buildDirectory "benchmarks\system_monitor_benchmark.exe"),
@@ -698,6 +721,10 @@ if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
 # confusing linker errors (e.g. LNK1104) instead of a clear message here. Import
 # it into this process so the script works from any terminal, including VS
 # Code's built-in one, without requiring a separate Developer Prompt.
+#
+# The coverage preset compiles with the clang-cl of the same installation
+# (VC\Tools\Llvm), whose version matches that installation's STL, so with
+# -Coverage only an installation that has "C++ Clang tools for Windows" will do.
 function Import-X64DevShell
 {
     if ($env:VSCMD_ARG_TGT_ARCH -eq "x64")
@@ -711,11 +738,19 @@ function Import-X64DevShell
         throw "vswhere.exe was not found. Install Visual Studio Build Tools with the C++ workload (see scripts\bootstrap.ps1)."
     }
 
-    $vsInstallPath = & $vswherePath -latest -products * `
-        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-        -property installationPath
+    $requiredComponents = @("Microsoft.VisualStudio.Component.VC.Tools.x86.x64")
+    if ($Coverage)
+    {
+        $requiredComponents += "Microsoft.VisualStudio.Component.VC.Llvm.Clang"
+    }
+    $vsInstallPath = & $vswherePath -latest -products * -requires @requiredComponents -property installationPath
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($vsInstallPath))
     {
+        if ($Coverage)
+        {
+            throw ("No Visual Studio installation with the C++ workload and ""C++ Clang tools for Windows"" " +
+                "was found. Run .\scripts\bootstrap.ps1 -InstallMissing.")
+        }
         throw "No Visual Studio installation with the C++ workload was found. Run .\scripts\bootstrap.ps1 -InstallMissing."
     }
     $vsInstallPath = $vsInstallPath.Trim()
@@ -743,6 +778,20 @@ function Import-X64DevShell
 }
 
 Import-X64DevShell
+
+# The coverage preset names clang-cl by the path the developer environment's
+# VCINSTALLDIR gives. An environment that was already set up, by a Developer
+# PowerShell or CI, may come from an installation without it.
+if ($Coverage)
+{
+    $clangClPath = Join-Path "$env:VCINSTALLDIR" "Tools\Llvm\x64\bin\clang-cl.exe"
+    if ([string]::IsNullOrWhiteSpace($env:VCINSTALLDIR) -or -not (Test-Path -LiteralPath $clangClPath))
+    {
+        throw ("clang-cl was not found at '$clangClPath'. Add ""C++ Clang tools for Windows"" to the Visual " +
+            "Studio installation at '$env:VSINSTALLDIR' (.\scripts\bootstrap.ps1 -InstallMissing does), or " +
+            "run this script from a terminal without a developer environment.")
+    }
+}
 
 # Configuring takes about 3 seconds even when nothing changed, so it runs only
 # when needed. Ninja re-runs it by itself when a CMakeLists.txt or vcpkg.json
@@ -844,13 +893,41 @@ try
     # Build the default target with the matching build preset.
     Invoke-NativeCommand -Description "CMake build" -FilePath "cmake" -Arguments @("--build", "--preset", $preset)
 
-    if ($Test)
+    if ($runsTests)
     {
-        # The tests run as GoogleTest shards, about two per logical processor
-        # (tests\CMakeLists.txt), so running one shard per processor at a time
-        # keeps every processor busy until the slowest shards finish.
-        Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
-            -Arguments @("--preset", $preset, "--output-on-failure", "--parallel", [Environment]::ProcessorCount)
+        # An instrumented process writes its raw profile when it exits, to the
+        # file LLVM_PROFILE_FILE names. The shards run in parallel, so each
+        # process gets its own file (%p). Windows reuses process IDs, and %m
+        # makes a later process with the same ID and binary merge its counts
+        # into that file instead of overwriting it. The profiles of an earlier
+        # run are removed first, or they would be merged in as well.
+        $previousProfileFile = $env:LLVM_PROFILE_FILE
+        if ($Coverage)
+        {
+            if (Test-Path -LiteralPath $profileDirectory)
+            {
+                Remove-Item -LiteralPath $profileDirectory -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $profileDirectory | Out-Null
+            $env:LLVM_PROFILE_FILE = Join-Path $profileDirectory "%p_%m.profraw"
+        }
+        try
+        {
+            # The tests run as GoogleTest shards, about two per logical processor
+            # (tests\CMakeLists.txt), so running one shard per processor at a time
+            # keeps every processor busy until the slowest shards finish.
+            Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
+                -Arguments @("--preset", $preset, "--output-on-failure", "--parallel", [Environment]::ProcessorCount)
+        }
+        finally
+        {
+            $env:LLVM_PROFILE_FILE = $previousProfileFile
+        }
+        if ($Coverage)
+        {
+            $profileCount = @(Get-ChildItem -LiteralPath $profileDirectory -Filter "*.profraw").Count
+            Write-Host "The tests wrote $profileCount raw coverage profiles to build\$preset\profiles."
+        }
     }
 
     if ($Benchmark)

@@ -209,7 +209,8 @@ TEST(ProcessCollectorIntegration, RealHost_PidsAreUnique)
 TEST(ProcessCollectorIntegration, RealHost_PrivateWorkingSets_AddUpToLessThanPhysicalMemory)
 {
     ProcessCollector collector;
-    MEMORYSTATUSEX memory{.dwLength = sizeof(MEMORYSTATUSEX)};
+    MEMORYSTATUSEX memory{};
+    memory.dwLength = sizeof(MEMORYSTATUSEX);
     ASSERT_TRUE(::GlobalMemoryStatusEx(&memory));
 
     const auto processes = collector.collect();

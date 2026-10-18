@@ -147,6 +147,15 @@ This project targets **C++20**. Use modern language features where they improve 
 | `volatile` for threading | Does not provide synchronization on MSVC or any modern compiler | `std::atomic`, `std::mutex` |
 | Exceptions across module boundaries | Qt doesn't use exceptions; Windows API callbacks can't throw | Return error types or `std::optional` (see error handling section) |
 
+### Default member initializers
+
+A member that an initializer may leave out needs a default member initializer: `{0}` or a named value for a scalar, `{}` for a class type such as `std::string` or `std::optional`. The domain types give every member one, because they are built with designated initializers that name only the members that matter. The coverage build compiles with clang-cl ([DC-118](design_decisions.md#dc-118)), which warns about a left-out member without one (`-Wmissing-designated-field-initializers`, or `-Wmissing-field-initializers` for an initializer without designators), although it is value-initialized either way. A Windows SDK struct cannot have default member initializers, so value-initialize it and set its size member afterwards:
+
+```cpp
+SP_DEVINFO_DATA device{};
+device.cbSize = sizeof(SP_DEVINFO_DATA);
+```
+
 ---
 
 ## Error handling

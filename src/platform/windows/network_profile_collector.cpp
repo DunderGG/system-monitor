@@ -205,7 +205,7 @@ NetworkProfileCollector::NetworkProfileCollector()
                       return queryConnectedNetworks(*apartment, failureLog);
                   });
           },
-          subscribeToConnectivityChanges)
+          subscribeToConnectivityChanges, ReadIntervals{})
 {}
 
 NetworkProfileCollector::NetworkProfileCollector(NetworkProfileReaderFactory readerFactory,

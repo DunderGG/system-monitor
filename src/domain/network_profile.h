@@ -29,9 +29,9 @@ enum class NetworkCategory
  */
 struct NetworkProfile
 {
-    std::string name;
-    std::optional<NetworkCategory> category;
-    std::vector<uint64_t> interfaceIds;
+    std::string name{};
+    std::optional<NetworkCategory> category{};
+    std::vector<uint64_t> interfaceIds{};
 
     bool operator==(const NetworkProfile&) const = default;
 };

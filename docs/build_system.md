@@ -71,8 +71,39 @@ plan and the Windows 11 power mode, and each benchmark prints the compiler, Qt
 and Windows versions it runs with. [performance.md](performance.md) records
 the figures with those lines, and says how to record a new run.
 
+A `coverage` configure, build, and test preset inherits from `default`, so it
+is a Debug build, but builds in `build/coverage` with clang-cl instead of MSVC
+([DC-118](design_decisions.md#dc-118)). The compiler is the `clang-cl.exe` in
+`VC\Tools\Llvm\x64\bin` of the Visual Studio installation whose developer
+environment is active, which the preset finds through `VCINSTALLDIR`. Its
+version matches that installation's STL, and another LLVM on `PATH`, such as
+the standalone LLVM on GitHub's Windows runners, need not. The preset sets
+`SYSMON_COVERAGE`, which the root `CMakeLists.txt` turns into
+`-fprofile-instr-generate -fcoverage-mapping` for every target of the project,
+tests and benchmarks included; configuring fails if it is on and the compiler
+is not clang-cl. vcpkg still builds the dependencies with MSVC and its own
+flags, so they are not instrumented, and the coverage build restores the same
+packages from the binary cache as the other presets. Each instrumented object
+names the profile runtime, `clang_rt.profile-x86_64.lib`, as a default
+library, and `lld-link`, which CMake uses with clang-cl, finds it in the
+compiler's own directories, so linking needs no options.
+
+`.\scripts\build.ps1 -Coverage` selects the coverage preset and runs the
+tests, so `-Test` is implied; it cannot be combined with `-Release`,
+`-Benchmark` or `-Run`. It empties `build\coverage\profiles`, then runs CTest
+with `LLVM_PROFILE_FILE` set to `build\coverage\profiles\%p_%m.profraw`, so
+each test process writes its raw profile to a file of its own, named by its
+process ID and its binary's signature. The shards run in parallel, and
+Windows reuses process IDs: with `%m`, a later process of the same binary
+that gets an earlier one's ID adds its counts to that file instead of
+overwriting it. The script needs Visual Studio's "C++ Clang tools for
+Windows" (`Microsoft.VisualStudio.Component.VC.Llvm.Clang`). Without an active
+developer environment it imports one from an installation that has the
+component, and when the active environment's installation lacks
+`clang-cl.exe`, it stops and says so.
+
 vcpkg installs release and debug libraries for the `x64-windows` triplet, so
-the second build directory restores its dependencies from the binary cache
+each further build directory restores its dependencies from the binary cache
 instead of rebuilding them.
 
 `vcpkg.json` is the dependency manifest. It lists the packages the project
@@ -107,9 +138,15 @@ an existing vcpkg installation (such as Visual Studio's bundled vcpkg,
 `vcpkg.path.txt`, or `VCPKG_ROOT`) or clones and bootstraps a fresh checkout in
 `%LOCALAPPDATA%\vcpkg-root`, creates a binary cache in
 `%LOCALAPPDATA%\vcpkg-cache`, and verifies the result. Installation of Build
-Tools may require elevation. By default, the script only reports missing tools;
-the `-InstallMissing` switch is an explicit opt-in. The `-PersistEnvironment`
-switch saves the vcpkg environment variables for future terminals.
+Tools may require elevation. It also checks for Visual Studio's "C++ Clang
+tools for Windows", which the coverage build needs, and with `-InstallMissing`
+adds them to the Visual Studio installation it found, through the Visual
+Studio Installer, which asks for elevation; a new Build Tools installation
+gets them at once. Without the switch, missing Clang tools are a warning,
+because the other builds do not need them. By default, the script only
+reports missing tools; the `-InstallMissing` switch is an explicit opt-in. The
+`-PersistEnvironment` switch saves the vcpkg environment variables for future
+terminals.
 
 For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well. `scripts/build.ps1` does this
@@ -152,6 +189,7 @@ to `cl`, ensuring that CMake never silently falls back to an incompatible compil
 | Tool | Why this project uses it |
 | --- | --- |
 | MSVC Build Tools and Windows SDK | Build the Windows desktop application and provide the supported C++ compiler, linker, and Windows headers. The full Visual Studio IDE is optional. |
+| C++ Clang tools for Windows (Visual Studio component) | Provide clang-cl, `lld-link`, the profile runtime, `llvm-profdata` and `llvm-cov` for the coverage build, and clang-format for `-Format` and `-CheckFormat`. The other builds do not need them. |
 | CMake | Translates the portable target definitions in `CMakeLists.txt` into build files for the selected compiler and coordinates vcpkg during configuration. |
 | Ninja | Executes the generated build graph quickly and consistently. The checked-in `default` preset explicitly selects Ninja, so local, VS Code, and CI builds use the same backend. |
 | vcpkg | Downloads, builds, and exposes the declared C++ dependencies from `vcpkg.json`; it removes the need to install Qt, spdlog, GoogleTest, or nlohmann-json by hand. |
@@ -186,7 +224,10 @@ The GitHub Actions workflow runs the same three preset commands. It initializes
 the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
 by this repository, with GitHub Actions-backed binary caching. The checked-in
 presets, manifest, and baseline therefore keep developer and CI dependency
-resolution aligned.
+resolution aligned. No job builds the coverage preset yet. The
+`windows-latest` runner could: on 2026-10-18 it was Windows Server 2025 with
+Visual Studio Enterprise 2026 18.10, which includes "C++ Clang tools for
+Windows", and `msvc-dev-cmd` sets the `VCINSTALLDIR` the preset reads.
 
 A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
 `.\scripts\build.ps1 -CheckFormat`, which fails if any C++ source or header
@@ -222,6 +263,6 @@ is listed before the script fails.
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also
 recorded in `build.ps1`: locally a different version is a warning, and in CI it
-is an error. `bootstrap.ps1` reports whether it finds clang-format, and with
-`-InstallMissing` installs LLVM to get it. A missing clang-format is only a
-warning there, because building does not need it.
+is an error. `bootstrap.ps1` reports whether it finds clang-format, which comes
+with the C++ Clang tools that it adds with `-InstallMissing`. A missing
+clang-format is only a warning there, because building does not need it.

@@ -32,6 +32,16 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "coverage",
+      "inherits": "default",
+      "displayName": "Coverage",
+      "description": "Debug build with Visual Studio's clang-cl that instruments the project's targets for LLVM source-based coverage; vcpkg still builds the dependencies with MSVC.",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "$env{VCINSTALLDIR}Tools/Llvm/x64/bin/clang-cl.exe",
+        "SYSMON_COVERAGE": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -42,6 +52,10 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
     }
   ],
   "testPresets": [
@@ -56,6 +70,11 @@
       "name": "release",
       "inherits": "default",
       "configurePreset": "release"
+    },
+    {
+      "name": "coverage",
+      "inherits": "default",
+      "configurePreset": "coverage"
     }
   ]
 }

@@ -57,7 +57,7 @@ enum class AdapterType
  */
 struct IpAddress
 {
-    std::string text;
+    std::string text{};
     bool isTemporary{false};
     bool isLinkLocal{false};
 
@@ -114,18 +114,18 @@ struct IpAddress
 struct NetworkSample
 {
     uint64_t interfaceId{0};
-    std::string adapterName;
-    std::string friendlyName;
-    std::string description;
+    std::string adapterName{};
+    std::string friendlyName{};
+    std::string description{};
     uint64_t inBytesTotal{0};
     uint64_t outBytesTotal{0};
-    std::optional<uint64_t> inBytesPerSec;
-    std::optional<uint64_t> outBytesPerSec;
+    std::optional<uint64_t> inBytesPerSec{};
+    std::optional<uint64_t> outBytesPerSec{};
     uint64_t linkSpeedBps{0};
     OperationalStatus operationalStatus{OperationalStatus::Unknown};
     AdapterType type{AdapterType::Other};
-    std::vector<IpAddress> ipAddresses;
-    std::vector<std::string> dnsServers;
+    std::vector<IpAddress> ipAddresses{};
+    std::vector<std::string> dnsServers{};
     bool isHardwareInterface{false};
     bool hasIpInterface{false};
     bool isHidden{false};

@@ -43,17 +43,17 @@ namespace sysmon::domain
  */
 struct SystemSnapshot
 {
-    std::chrono::steady_clock::time_point timestamp;
-    std::optional<CpuSample> cpu;
-    std::optional<MemorySample> memory;
-    std::optional<std::vector<DiskSample>> disks;
-    std::optional<std::vector<NetworkSample>> networks;
-    ConnectivityStatus connectivity;
-    std::optional<std::vector<NetworkProfile>> networkProfiles;
-    std::optional<std::chrono::milliseconds> uptime;
-    SystemHealth health;
-    std::optional<std::vector<ProcessInfo>> processes;
-    std::optional<SystemActivitySample> activity;
+    std::chrono::steady_clock::time_point timestamp{};
+    std::optional<CpuSample> cpu{};
+    std::optional<MemorySample> memory{};
+    std::optional<std::vector<DiskSample>> disks{};
+    std::optional<std::vector<NetworkSample>> networks{};
+    ConnectivityStatus connectivity{};
+    std::optional<std::vector<NetworkProfile>> networkProfiles{};
+    std::optional<std::chrono::milliseconds> uptime{};
+    SystemHealth health{};
+    std::optional<std::vector<ProcessInfo>> processes{};
+    std::optional<SystemActivitySample> activity{};
 };
 
 } // namespace sysmon::domain

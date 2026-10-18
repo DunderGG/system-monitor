@@ -92,6 +92,8 @@ TEST(ConnectivityHintMapping, ToConnectivityStatus_FullHint_MapsEveryField)
     const NL_NETWORK_CONNECTIVITY_HINT hint{
         .ConnectivityLevel = NetworkConnectivityLevelHintConstrainedInternetAccess,
         .ConnectivityCost = NetworkConnectivityCostHintFixed,
+        .ApproachingDataLimit = FALSE,
+        .OverDataLimit = FALSE,
         .Roaming = TRUE,
     };
 

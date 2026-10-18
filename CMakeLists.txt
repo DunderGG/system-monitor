@@ -35,6 +35,25 @@ if(WIN32)
     )
 endif()
 
+# LLVM source-based coverage, which counts lines and branches (DC-118). The
+# coverage preset turns it on and compiles with clang-cl. The options reach
+# every target of this project, tests included, so that a header's inline
+# functions are instrumented in every object that holds a copy. vcpkg builds
+# the dependencies with MSVC and its own flags, so they are not instrumented.
+# Each object names the profile runtime as a default library, which lld-link
+# finds next to clang-cl, so linking needs no options.
+option(SYSMON_COVERAGE "Instrument the project's targets for LLVM source-based coverage (clang-cl only)" OFF)
+if(SYSMON_COVERAGE)
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR NOT CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        message(FATAL_ERROR "SYSMON_COVERAGE needs clang-cl, but the compiler is ${CMAKE_CXX_COMPILER}. "
+                            "Use '.\\scripts\\build.ps1 -Coverage', which configures the coverage preset.")
+    endif()
+    add_compile_options(
+        -fprofile-instr-generate
+        -fcoverage-mapping
+    )
+endif()
+
 include(CTest)
 
 # Copies the Qt plugins that Qt loads at run time, rather than links, into

@@ -40,6 +40,7 @@ The repository provides PowerShell scripts that automate tool detection, install
    .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment
    ```
    - Checks for Git, CMake, Ninja, and MSVC C++ Build Tools (installs any missing tools via WinGet with `-InstallMissing`).
+   - Checks for Visual Studio's "C++ Clang tools for Windows", which the coverage build and clang-format need, and adds them through the Visual Studio Installer with `-InstallMissing`.
    - Detects an existing vcpkg installation (such as Visual Studio's bundled `VC\vcpkg` or `vcpkg.path.txt`) or clones and bootstraps a fresh copy in `%LOCALAPPDATA%\vcpkg-root`.
    - Persists `VCPKG_ROOT` and `VCPKG_DEFAULT_BINARY_CACHE` to your User environment (`-PersistEnvironment`).
 
@@ -59,6 +60,8 @@ The repository provides PowerShell scripts that automate tool detection, install
    ```
 
 5. **Measure UI performance** (optional): `.\scripts\build.ps1 -Benchmark` builds the Release configuration and prints the Performance tab's cost per tick for each page and chart window, and the Network tab's for 2 to 20 adapters, then the Processes tab's for flat and tree views of 400 to 2,000 processes. Run it before and after changes to charts, pages, the Network tab, or the process table, and compare with the baseline in [performance.md](docs/performance.md). It also prints the compiler, Qt and Windows versions, the processor and the power settings; record them there with any figures, so a change in the machine can be told apart from a regression.
+
+6. **Build with coverage** (optional): `.\scripts\build.ps1 -Coverage` builds a Debug configuration in `build\coverage` with Visual Studio's clang-cl, instrumented for LLVM source-based coverage of lines and branches, and runs the tests. Each test process writes a raw profile to `build\coverage\profiles`. clang-cl warns about things MSVC accepts, such as a designated initializer that leaves out a member without a default member initializer, so run it after adding a struct or a Windows API call ([coding guidelines](docs/coding_guidelines.md#default-member-initializers)).
 
 ---
 

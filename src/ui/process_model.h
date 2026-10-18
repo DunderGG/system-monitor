@@ -146,18 +146,18 @@ signals:
 private:
     struct Node
     {
-        domain::ProcessInfo process;
+        domain::ProcessInfo process{};
         // The parent's node, or nullptr at the top level.
         Node* parent{nullptr};
-        std::vector<Node*> children;
+        std::vector<Node*> children{};
         // Position among its siblings, kept current so indexOf() needs no search.
         int row{0};
         // When the process was first listed, kept for the life of the row.
-        std::chrono::steady_clock::time_point listedAt;
+        std::chrono::steady_clock::time_point listedAt{};
         // When the process first appeared, while it is highlighted as new.
-        std::optional<std::chrono::steady_clock::time_point> startedAt;
+        std::optional<std::chrono::steady_clock::time_point> startedAt{};
         // When the process was first missing from the list; it has exited.
-        std::optional<std::chrono::steady_clock::time_point> exitedAt;
+        std::optional<std::chrono::steady_clock::time_point> exitedAt{};
     };
 
     // The smallest block of cells that covers the changed values among one

@@ -87,7 +87,8 @@ std::optional<std::vector<GUID>> queryHiddenAdapterGuids(RepeatedFailureLog& fai
     const ScopedDeviceInfoList devices(rawDevices);
 
     std::vector<GUID> hidden;
-    SP_DEVINFO_DATA device{.cbSize = sizeof(SP_DEVINFO_DATA)};
+    SP_DEVINFO_DATA device{};
+    device.cbSize = sizeof(SP_DEVINFO_DATA);
     for (DWORD index = 0; SetupDiEnumDeviceInfo(devices.get(), index, &device) != FALSE; ++index) {
         HKEY rawKey = SetupDiOpenDevRegKey(devices.get(), &device, DICS_FLAG_GLOBAL, 0, DIREG_DRV, KEY_QUERY_VALUE);
         if (rawKey == INVALID_HANDLE_VALUE) {

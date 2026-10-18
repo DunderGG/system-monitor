@@ -24,11 +24,11 @@ namespace sysmon::platform
  */
 struct AdapterDetails
 {
-    std::string adapterName;
-    std::string friendlyName;
-    std::string description;
-    std::vector<UnicastAddress> ipAddresses;
-    std::vector<std::string> dnsServers;
+    std::string adapterName{};
+    std::string friendlyName{};
+    std::string description{};
+    std::vector<UnicastAddress> ipAddresses{};
+    std::vector<std::string> dnsServers{};
 };
 
 /**

@@ -84,8 +84,8 @@ ProcessTerminationResult resultForError(HANDLE process, DWORD error)
 // A handle to the process an identity names, or why there is none.
 struct CheckedHandle
 {
-    ScopedHandle handle;
-    std::optional<ProcessTerminationResult> failure;
+    ScopedHandle handle{};
+    std::optional<ProcessTerminationResult> failure{};
 };
 
 // Opens the process with `access` and checks that it is the process with this

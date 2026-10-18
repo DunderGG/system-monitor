@@ -38,8 +38,8 @@ enum class ConnectivityLevel
 struct ConnectivityStatus
 {
     ConnectivityLevel level{ConnectivityLevel::Unknown};
-    std::optional<bool> isMetered;
-    std::optional<bool> isRoaming;
+    std::optional<bool> isMetered{};
+    std::optional<bool> isRoaming{};
 
     bool operator==(const ConnectivityStatus&) const = default;
 };

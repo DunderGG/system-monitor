@@ -17,8 +17,8 @@ namespace sysmon::platform
 /** The details of a process that can only be read by opening it. */
 struct ProcessDetails
 {
-    std::optional<std::string> imagePath;
-    std::optional<std::string> commandLine;
+    std::optional<std::string> imagePath{};
+    std::optional<std::string> commandLine{};
     domain::ProcessDetailsStatus status{domain::ProcessDetailsStatus::NotQueried};
 };
 

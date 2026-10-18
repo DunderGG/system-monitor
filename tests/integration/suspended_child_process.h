@@ -133,7 +133,8 @@ private:
         m_commandLine =
             L"\"" + m_imagePath + L"\" /c exit sysmon-test-child-" + std::to_wstring(::GetCurrentProcessId());
 
-        STARTUPINFOW startupInfo{.cb = sizeof(STARTUPINFOW)};
+        STARTUPINFOW startupInfo{};
+        startupInfo.cb = sizeof(STARTUPINFOW);
         PROCESS_INFORMATION processInfo{};
         std::wstring mutableCommandLine = m_commandLine;
         constexpr DWORD kCreationFlags = CREATE_SUSPENDED | CREATE_NO_WINDOW;

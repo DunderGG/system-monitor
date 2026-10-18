@@ -33,9 +33,9 @@ struct MemorySample
     float usagePercent{0.0f};
     uint64_t commitLimit{0};
     uint64_t commitCurrent{0};
-    std::optional<uint64_t> systemCacheBytes;
-    std::optional<uint64_t> pagedPoolBytes;
-    std::optional<uint64_t> nonPagedPoolBytes;
+    std::optional<uint64_t> systemCacheBytes{};
+    std::optional<uint64_t> pagedPoolBytes{};
+    std::optional<uint64_t> nonPagedPoolBytes{};
 };
 
 } // namespace sysmon::domain

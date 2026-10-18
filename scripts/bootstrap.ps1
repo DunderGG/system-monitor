@@ -150,8 +150,13 @@ function Find-ExistingVcpkgRoot
 
 function Find-VsInstallPath
 {
-    # Locate a Visual Studio installation that includes the MSVC x64/x86 tools.
-    # vswhere ships with Visual Studio and Build Tools installations.
+    # Locate a Visual Studio installation that includes the MSVC x64/x86 tools
+    # and any additional components named. vswhere ships with Visual Studio and
+    # Build Tools installations.
+    param(
+        [string[]]$AdditionalComponents = @()
+    )
+
     $vswherePaths = @(
         (Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"),
         (Join-Path $env:ProgramFiles "Microsoft Visual Studio\Installer\vswhere.exe")
@@ -162,7 +167,7 @@ function Find-VsInstallPath
         if (Test-Path -LiteralPath $vswherePath)
         {
             $installPath = & $vswherePath -latest -products * `
-                -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+                -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 @AdditionalComponents `
                 -property installationPath
             if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($installPath))
             {
@@ -188,6 +193,39 @@ function Install-WingetPackage
     if ($LASTEXITCODE -ne 0)
     {
         throw "winget could not install '$Id'. Install it manually, then rerun this script."
+    }
+}
+
+function Add-VsComponent
+{
+    # Add a component to an installed Visual Studio with its installer, which
+    # needs elevation and shows its progress without asking anything. The
+    # installer must not be started from its own directory, and it returns
+    # 3010 when the component needs a restart before it can be used.
+    param(
+        [Parameter(Mandatory)]
+        [string]$InstallPath,
+        [Parameter(Mandatory)]
+        [string]$Component
+    )
+
+    $installerPath = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\setup.exe"
+    if (-not (Test-Path -LiteralPath $installerPath))
+    {
+        throw "The Visual Studio Installer was not found at '$installerPath'. Add '$Component' in the Visual Studio Installer, then rerun this script."
+    }
+
+    $arguments = @("modify", "--installPath", "`"$InstallPath`"", "--add", $Component, "--passive", "--norestart")
+    $process = Start-Process -FilePath $installerPath -ArgumentList $arguments -Verb RunAs `
+        -WorkingDirectory $env:TEMP -Wait -PassThru
+    if ($process.ExitCode -eq 3010)
+    {
+        Write-Warning "Restart Windows before using '$Component'."
+    }
+    elseif ($process.ExitCode -ne 0)
+    {
+        throw ("The Visual Studio Installer could not add '$Component' (exit code $($process.ExitCode)). " +
+            "Close Visual Studio, or add the component in the Visual Studio Installer, then rerun this script.")
     }
 }
 
@@ -246,10 +284,11 @@ if ($null -eq $vsInstallPath)
         throw "winget is required to install Visual Studio Build Tools automatically. Install it manually, then rerun this script."
     }
 
-    Write-Host "Installing Visual Studio Build Tools with the C++ workload..."
+    Write-Host "Installing Visual Studio Build Tools with the C++ workload and C++ Clang tools for Windows..."
     Install-WingetPackage -Id "Microsoft.VisualStudio.2022.BuildTools" -AdditionalArguments @(
         "--override",
-        "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+        ("--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended " +
+            "--add Microsoft.VisualStudio.Component.VC.Llvm.Clang")
     )
     $vsInstallPath = Find-VsInstallPath
     if ($null -eq $vsInstallPath)
@@ -260,8 +299,35 @@ if ($null -eq $vsInstallPath)
 
 Write-Host "Found MSVC Build Tools at $vsInstallPath."
 
-# clang-format is needed only for .\scripts\build.ps1 -Format / -CheckFormat, so
-# a missing one is a warning. build.ps1 looks for it in the same places.
+# The coverage build (.\scripts\build.ps1 -Coverage) compiles with the clang-cl
+# of Visual Studio's "C++ Clang tools for Windows" component, which also has
+# clang-format. Other builds need neither, so a missing component is a warning.
+$clangComponent = "Microsoft.VisualStudio.Component.VC.Llvm.Clang"
+$clangInstallPath = Find-VsInstallPath -AdditionalComponents @($clangComponent)
+if ($null -eq $clangInstallPath -and $InstallMissing)
+{
+    Write-Host "Adding C++ Clang tools for Windows to $vsInstallPath..."
+    Add-VsComponent -InstallPath $vsInstallPath -Component $clangComponent
+    $clangInstallPath = Find-VsInstallPath -AdditionalComponents @($clangComponent)
+    if ($null -eq $clangInstallPath)
+    {
+        throw "C++ Clang tools for Windows could not be verified. Restart Windows if prompted, then rerun this script."
+    }
+}
+
+if ($null -eq $clangInstallPath)
+{
+    Write-Warning ("C++ Clang tools for Windows were not found; .\scripts\build.ps1 -Coverage will not work. " +
+        "Rerun with -InstallMissing, or add them in the Visual Studio Installer.")
+}
+else
+{
+    Write-Host "Found C++ Clang tools for Windows at $clangInstallPath."
+}
+
+# clang-format comes with the C++ Clang tools above. It is needed only for
+# .\scripts\build.ps1 -Format / -CheckFormat, so a missing one is a warning.
+# build.ps1 looks for it in the same places.
 function Find-ClangFormat
 {
     $command = Get-Command "clang-format" -CommandType Application -ErrorAction SilentlyContinue |
@@ -294,13 +360,6 @@ function Find-ClangFormat
 }
 
 $clangFormatPath = Find-ClangFormat
-if ($null -eq $clangFormatPath -and $InstallMissing -and (Test-CommandAvailable "winget"))
-{
-    Write-Host "Installing LLVM for clang-format..."
-    Install-WingetPackage -Id "LLVM.LLVM"
-    $clangFormatPath = Find-ClangFormat
-}
-
 if ($null -eq $clangFormatPath)
 {
     Write-Warning ("clang-format was not found; .\scripts\build.ps1 -Format and -CheckFormat will not work. " +

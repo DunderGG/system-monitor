@@ -80,7 +80,7 @@ public:
 
     /** Injected reader factory, change subscriber, and intervals, for testing. */
     NetworkProfileCollector(NetworkProfileReaderFactory readerFactory, ConnectivitySubscriber subscriber,
-                            ReadIntervals intervals = {});
+                            ReadIntervals intervals);
 
     ~NetworkProfileCollector() override = default;
 

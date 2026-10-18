@@ -127,7 +127,7 @@ namespace
 // outlives the collector, so the fakes can refer to it by reference.
 struct FakeSubscriptionState
 {
-    ConnectivityChangeHandler handler;
+    ConnectivityChangeHandler handler{};
     int subscribeCount = 0;
     bool isCancelled = false;
     bool shouldFail = false;

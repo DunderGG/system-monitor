@@ -34,18 +34,23 @@ constexpr NTSTATUS kStatusBufferTooSmall = static_cast<NTSTATUS>(0xC0000023L);
 
 // Not in winternl.h's PROCESSINFOCLASS. Returns a UNICODE_STRING followed by
 // its characters, and needs only PROCESS_QUERY_LIMITED_INFORMATION.
-constexpr auto kProcessCommandLineInformation = static_cast<PROCESSINFOCLASS>(60);
+constexpr ULONG kProcessCommandLineInformation = 60;
 
 // The longest path QueryFullProcessImageNameW can return, plus its null.
 constexpr std::size_t kMaxPathBufferCharacters = 32'768;
 constexpr std::size_t kInitialCommandLineBufferBytes = 1024;
 constexpr int kMaxCommandLineAttempts = 3;
 
-using NtQueryInformationProcessFn = decltype(&::NtQueryInformationProcess);
+// NtQueryInformationProcess as ntdll.dll exports it, but with the information
+// class as a ULONG: winternl.h's PROCESSINFOCLASS cannot hold 60, because its
+// enumerators end below 32, and converting a value outside an enumeration's
+// range is undefined behaviour. Both are passed as 32-bit values.
+using NtQueryInformationProcessFn = NTSTATUS(NTAPI*)(HANDLE process, ULONG informationClass, PVOID information,
+                                                     ULONG informationLength, PULONG returnLength);
 
 struct DetailResult
 {
-    std::optional<std::string> value;
+    std::optional<std::string> value{};
     ProcessDetailsStatus status{ProcessDetailsStatus::Unavailable};
 };
 

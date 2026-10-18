@@ -68,14 +68,14 @@ inline constexpr std::size_t kProcessDetailsStatusCount =
 struct ProcessInfo
 {
     uint32_t pid{0};
-    std::chrono::system_clock::time_point creationTime;
+    std::chrono::system_clock::time_point creationTime{};
     uint32_t parentPid{0};
-    std::string imageName;
-    std::optional<std::string> imagePath;
-    std::optional<std::string> commandLine;
+    std::string imageName{};
+    std::optional<std::string> imagePath{};
+    std::optional<std::string> commandLine{};
     uint64_t cpuUserTimeMs{0};
     uint64_t cpuKernelTimeMs{0};
-    std::optional<float> cpuUsagePercent;
+    std::optional<float> cpuUsagePercent{};
     // Working set: the process's pages in physical memory, including pages it
     // shares with other processes, such as DLL code. A shared page counts once
     // for every process that maps it, so working sets add up to more than the
@@ -92,8 +92,8 @@ struct ProcessInfo
     uint64_t ioWriteBytes{0};
     // The change in ioReadBytes and ioWriteBytes since the collector's previous
     // refresh, per second of monotonic time.
-    std::optional<uint64_t> ioReadBytesPerSec;
-    std::optional<uint64_t> ioWriteBytesPerSec;
+    std::optional<uint64_t> ioReadBytesPerSec{};
+    std::optional<uint64_t> ioWriteBytesPerSec{};
     uint32_t threadCount{0};
     uint32_t handleCount{0};
     ProcessDetailsStatus detailsStatus{ProcessDetailsStatus::NotQueried};

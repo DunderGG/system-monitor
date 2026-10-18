@@ -17,7 +17,7 @@ namespace sysmon::domain
 struct ProcessIdentity
 {
     uint32_t pid{0};
-    std::chrono::system_clock::time_point creationTime;
+    std::chrono::system_clock::time_point creationTime{};
 
     friend bool operator==(const ProcessIdentity&, const ProcessIdentity&) = default;
 };

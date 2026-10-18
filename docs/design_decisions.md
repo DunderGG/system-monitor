@@ -130,6 +130,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-86](#dc-86): qtbase built with PNG support for Qt's own Windows cursors
   - [DC-95](#dc-95): Benchmarks print the build and the machine they ran on (code review F-33)
   - [DC-104](#dc-104): Qt's Windows style plugin deployed next to every executable (code review F-42)
+  - [DC-118](#dc-118): Coverage measured with Visual Studio's clang-cl and LLVM source-based coverage, in a preset of its own
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1143,7 +1144,7 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 
 ## Build and tooling
 
-`build.ps1`, formatting, the Qt build and its plugins, and the benchmarks.
+`build.ps1`, formatting, the Qt build and its plugins, the benchmarks, and the coverage build.
 
 <a id="dc-23"></a>
 ### DC-23: Formatting enforced with a pinned clang-format and the existing house style
@@ -1230,6 +1231,19 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 - **Cost:** the style costs the Network tab, and the Performance tab's network page, about 1 ms a tick; on the other pages the difference is lost in the noise ([performance.md](performance.md)).
 
 **History:** Code review F-42; maintenance (the figures moved to performance.md).
+
+---
+
+<a id="dc-118"></a>
+### DC-118: Coverage measured with Visual Studio's clang-cl and LLVM source-based coverage, in a preset of its own
+
+**Decision:** The `coverage` preset builds Debug with the clang-cl that comes with the Visual Studio installation `build.ps1` imports, and its `SYSMON_COVERAGE` option instruments every target of the project, tests included, for LLVM source-based coverage. vcpkg still builds the dependencies with MSVC, uninstrumented. `build.ps1 -Coverage` builds it and runs the tests, and each test process writes its own raw profile.
+
+**Rationale:** Most of the project's rules are conditions, so coverage must count branches as well as lines. OpenCppCoverage counts lines only, `dotnet-coverage` instruments only .NET modules, and Visual Studio's native coverage counts blocks and lines. LLVM's coverage counts both, from the compiler's own map of each region. Visual Studio's clang-cl comes with the profile runtime, `llvm-profdata` and `llvm-cov`, at a version its STL accepts, which another LLVM on `PATH` need not be, and it is ABI-compatible with MSVC, so the binary cache's packages serve both builds. Instrumenting the tests as well instruments every copy of a header's inline function, whichever copy the linker keeps; the report is limited to `src/` instead. A profile is named by process ID and binary signature (`%p_%m`): Windows reuses process IDs, and with the signature a later process adds its counts to the earlier one's file instead of overwriting it.
+
+**Consequences:** The code must also build without warnings under clang-cl, which warns about a member that a designated initializer leaves out and that has no default member initializer ([coding guidelines](coding_guidelines.md#default-member-initializers)). The build needs Visual Studio's "C++ Clang tools for Windows", which `bootstrap.ps1` adds.
+
+**History:** Maintenance, coverage and test statistics.
 
 ---
 

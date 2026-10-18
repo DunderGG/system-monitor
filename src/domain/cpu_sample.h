@@ -19,9 +19,9 @@ namespace sysmon::domain
 struct CpuSample
 {
     float totalUsagePercent{0.0f};
-    std::vector<float> coreUsagePercents;
+    std::vector<float> coreUsagePercents{};
     int coreCount{0};
-    std::optional<uint32_t> baseSpeedMhz;
+    std::optional<uint32_t> baseSpeedMhz{};
 };
 
 } // namespace sysmon::domain

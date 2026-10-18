@@ -13,13 +13,14 @@ The rules below are self-contained. For deeper rationale or design context, cons
 
 ## Build & test commands
 
-**Prerequisite:** Run `.\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment` once on a new machine to install git, CMake, Ninja, MSVC Build Tools, and vcpkg.
+**Prerequisite:** Run `.\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment` once on a new machine to install git, CMake, Ninja, MSVC Build Tools with Visual Studio's C++ Clang tools, and vcpkg.
 
 - Build: `.\scripts\build.ps1`
 - Build and launch: `.\scripts\build.ps1 -Run`
 - Build and test: `.\scripts\build.ps1 -Test`
 - Release build, for measuring performance (Debug Qt paints many times slower): add `-Release`, e.g. `.\scripts\build.ps1 -Test -Release`
 - Measure the Performance, Network and Processes tabs' tick cost (Release build; prints tables to record in [docs/performance.md](docs/performance.md); not a test): `.\scripts\build.ps1 -Benchmark`
+- Coverage build (Debug, compiled with clang-cl for LLVM source-based coverage; needs Visual Studio's C++ Clang tools; runs the tests, and each test process writes a raw profile to `build\coverage\profiles`): `.\scripts\build.ps1 -Coverage`
 - Format C++ files and check the design decisions: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code, a link that does not resolve, or an entry whose fields are missing or out of order)
 - Check formatting and the design decisions only: `.\scripts\build.ps1 -CheckFormat`
 
@@ -37,6 +38,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 ## Code style rules
 
 - **C++20.** Use `std::jthread`, `std::stop_token`, `std::format`, `std::optional`, concepts, designated initializers.
+- **Default member initializers.** A struct member that an initializer may leave out has a default member initializer (`{}` for a class type); the coverage build's clang-cl warns otherwise. Value-initialize a Windows SDK struct, then set its size member.
 - **No exceptions.** Return `std::optional` or result structs for expected errors. Use assertions for programming bugs.
 - **Naming:** `PascalCase` for types, `camelCase` for functions/variables, `m_` prefix for members, `k` prefix for constants, `snake_case` for file names. Getters omit `get` prefix. Namespaces are lowercase under `sysmon::`.
 - **Formatting:** 4-space indentation, Allman braces for classes/functions, K&R braces for control flow. Always use braces. `Type* name` and `Type& name` (pointer and reference bind to the type). `.clang-format` is the source of truth; run `.\scripts\build.ps1 -Format`.

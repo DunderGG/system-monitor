@@ -27,9 +27,9 @@ namespace sysmon::ui
  */
 struct Readout
 {
-    QString name;
-    QString value;
-    QString toolTip;
+    QString name{};
+    QString value{};
+    QString toolTip{};
 
     friend bool operator==(const Readout&, const Readout&) = default;
 };

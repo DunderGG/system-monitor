@@ -30,7 +30,7 @@ enum class AddressState
  */
 struct UnicastAddress
 {
-    std::string address;
+    std::string address{};
     AddressState state{AddressState::Preferred};
     bool isTemporary{false};
     bool isLinkLocal{false};

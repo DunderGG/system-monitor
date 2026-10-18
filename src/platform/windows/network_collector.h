@@ -25,17 +25,17 @@ struct RawNetworkAdapter
 {
     uint64_t luid{0};
     uint32_t ifIndex{0};
-    std::string adapterName;
-    std::string friendlyName;
-    std::string description;
+    std::string adapterName{};
+    std::string friendlyName{};
+    std::string description{};
     uint64_t inBytesTotal{0};
     uint64_t outBytesTotal{0};
     uint64_t linkSpeedBps{0};
     domain::OperationalStatus operationalStatus{domain::OperationalStatus::Unknown};
     domain::AdapterType type{domain::AdapterType::Other};
     // Every unicast address, with its state; calculateNetworkSamples() keeps those that can be used.
-    std::vector<UnicastAddress> ipAddresses;
-    std::vector<std::string> dnsServers;
+    std::vector<UnicastAddress> ipAddresses{};
+    std::vector<std::string> dnsServers{};
     bool isLoopback{false};
     // An NDIS filter layer (e.g. WFP or QoS Packet Scheduler) bound to another
     // interface. Its counters repeat that interface's traffic.
@@ -55,7 +55,7 @@ struct NetworkBaseline
 {
     uint64_t inBytes{0};
     uint64_t outBytes{0};
-    std::chrono::steady_clock::time_point timestamp;
+    std::chrono::steady_clock::time_point timestamp{};
 };
 
 /**
