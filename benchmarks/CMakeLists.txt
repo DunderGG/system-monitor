@@ -1,7 +1,7 @@
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
 find_package(spdlog CONFIG REQUIRED)
 
-# Opt-in tick-cost benchmarks (DC-66, DC-83). Built with the project so they
+# Opt-in tick-cost benchmarks (DC-66, DC-79). Built with the project so they
 # keep compiling, but not registered with CTest: their timings depend on the
 # machine and are not a pass/fail check. Run them with .\scripts\build.ps1 -Benchmark.
 function(add_sysmon_benchmark name source)

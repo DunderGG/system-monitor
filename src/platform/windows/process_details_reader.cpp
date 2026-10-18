@@ -194,7 +194,7 @@ DetailResult queryCommandLine(NtQueryInformationProcessFn query, HANDLE handle, 
 
 ProcessDetails readProcessDetails(NtQueryInformationProcessFn query, const domain::ProcessInfo& process)
 {
-    // ProcessCollector already filters these out (DC-74). Checking again here,
+    // ProcessCollector already filters these out (DC-13). Checking again here,
     // next to OpenProcess, keeps direct callers that pass the listed name, or
     // no name, from opening them too.
     if (isNeverOpenedProcess(process)) {

@@ -71,7 +71,10 @@ The link check reads docs\design_decisions.md and the text files that are
 tracked or new. Each entry's "### DC-NN:" heading needs <a id="dc-NN"></a> on
 the line above it. A link into the file must name such an anchor or a "## "
 section heading, a link whose text is DC-NN must name that entry's anchor, and
-every DC-NN that a file cites must be an entry.
+every DC-NN that a file cites must be an entry. An entry whose heading reads
+"Merged into ..." or "Retired" is a stub: only its line in the contents may link
+to it, and no file but docs\design_decisions.md and those in docs\code_reviews\
+may cite it.
 
 clang-format is taken from the CLANG_FORMAT environment variable if set, then
 PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
@@ -381,7 +384,9 @@ function Get-LineNumber
 # anchors or a "## " section heading. An entry heading's own slug changes when
 # the entry is retitled, so a link to it fails. A link whose text is DC-NN must
 # name that entry, and every DC-NN that a tracked or new text file cites must be
-# an entry. Prints each problem and returns whether there were none.
+# an entry. An entry merged into another or retired is a stub (DC-115): only its
+# line in the contents may link to it, and only that file and docs\code_reviews\
+# may cite it. Prints each problem and returns whether there were none.
 function Test-DesignDecisionLinks
 {
     $decisionsName = "docs/design_decisions.md"
@@ -391,6 +396,8 @@ function Test-DesignDecisionLinks
     # The entries' IDs, and what a link may name. URL fragments are case-sensitive.
     $entries = New-Object "System.Collections.Generic.HashSet[string]" ([StringComparer]::Ordinal)
     $targets = New-Object "System.Collections.Generic.HashSet[string]" ([StringComparer]::Ordinal)
+    # Each stub's ID and the title that says where its decision is now.
+    $stubs = New-Object "System.Collections.Generic.Dictionary[string,string]" ([StringComparer]::Ordinal)
     $decisionLines = [System.IO.File]::ReadAllLines($decisionsPath)
     for ($index = 0; $index -lt $decisionLines.Count; $index++)
     {
@@ -402,13 +409,19 @@ function Test-DesignDecisionLinks
                 $problems.Add("${decisionsName}:$($index + 1): the anchor $($Matches[1]) is defined more than once.")
             }
         }
-        elseif ($line -cmatch '^### DC-(\d+):')
+        elseif ($line -cmatch '^### DC-(\d+):\s*(.*)$')
         {
-            [void]$entries.Add("DC-$($Matches[1])")
-            $anchor = "<a id=`"dc-$($Matches[1])`"></a>"
+            $number = $Matches[1]
+            $title = $Matches[2]
+            [void]$entries.Add("DC-$number")
+            if ($title -cmatch '^(Merged into|Retired)\b')
+            {
+                $stubs["DC-$number"] = $title
+            }
+            $anchor = "<a id=`"dc-$number`"></a>"
             if ($index -eq 0 -or $decisionLines[$index - 1] -cne $anchor)
             {
-                $problems.Add("${decisionsName}:$($index + 1): DC-$($Matches[1]) needs $anchor on the line above its heading.")
+                $problems.Add("${decisionsName}:$($index + 1): DC-$number needs $anchor on the line above its heading.")
             }
         }
         elseif ($line -cmatch '^## (.+)$')
@@ -441,6 +454,10 @@ function Test-DesignDecisionLinks
     {
         $path = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $file))
         $text = [System.IO.File]::ReadAllText($path)
+        $isDecisions = $path -eq $decisionsPath
+        # The code reviews record what each review led to at the time.
+        $isReview = $file.StartsWith("docs/code_reviews/")
+        $mayCiteStubs = $isDecisions -or $isReview
 
         foreach ($citation in [regex]::Matches($text, '\bDC-\d+'))
         {
@@ -448,6 +465,11 @@ function Test-DesignDecisionLinks
             {
                 $problems.Add("${file}:$(Get-LineNumber $text $citation.Index): " +
                     "$($citation.Value) is not an entry in $decisionsName.")
+            }
+            elseif (-not $mayCiteStubs -and $stubs.ContainsKey($citation.Value))
+            {
+                $problems.Add("${file}:$(Get-LineNumber $text $citation.Index): " +
+                    "$($citation.Value) is a stub ($($stubs[$citation.Value])); cite the entry that has the decision now.")
             }
         }
 
@@ -496,6 +518,20 @@ function Test-DesignDecisionLinks
             {
                 $problem = "should end in #$citedEntry"
             }
+            elseif (-not $isReview -and $null -ne $fragment -and $fragment -cmatch '^dc-(\d+)$' -and
+                $stubs.ContainsKey("DC-$($Matches[1])"))
+            {
+                $stubId = "DC-$($Matches[1])"
+                # The contents list each entry once, stubs included, as
+                # "  - [DC-NN](#dc-NN): <title>".
+                $lineStart = $text.LastIndexOf("`n", [Math]::Max($link.Index - 1, 0)) + 1
+                $linePrefix = $text.Substring($lineStart, $link.Index - $lineStart)
+                $isContentsLine = $isDecisions -and $linkText -ceq $stubId -and $linePrefix -cmatch '^\s*- $'
+                if (-not $isContentsLine)
+                {
+                    $problem = "leads to a stub ($($stubs[$stubId])); link to the entry that has the decision now"
+                }
+            }
             if ($null -ne $problem)
             {
                 $problems.Add("${file}:$(Get-LineNumber $text $link.Index): [$linkText]($destination) $problem.")
@@ -540,7 +576,7 @@ if ($Format -or $CheckFormat)
     }
     if (-not $linksResolve)
     {
-        throw "Some design decision links or citations do not resolve (see above)."
+        throw "Some design decision links or citations do not resolve or name a stub (see above)."
     }
     return
 }

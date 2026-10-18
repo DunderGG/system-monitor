@@ -189,8 +189,12 @@ Both `-Format` and `-CheckFormat` then check the links to design decisions
 `docs/design_decisions.md` lacks its `<a id="dc-NN"></a>` anchor, when a
 Markdown link into that file names neither an anchor nor a section heading,
 when a link whose text is `DC-NN` names another entry, or when any tracked or
-new text file cites a `DC-NN` that is not an entry. Every problem is listed
-before the script fails. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
+new text file cites a `DC-NN` that is not an entry. They also fail when a link
+or citation names a stub, an entry merged into another or retired, instead of
+the entry that has its decision now
+([DC-115](design_decisions.md#dc-115)): only the stub's line in the contents
+may link to it, and only `docs/design_decisions.md` and `docs/code_reviews/`
+may cite it. Every problem is listed before the script fails. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also
 recorded in `build.ps1`: locally a different version is a warning, and in CI it

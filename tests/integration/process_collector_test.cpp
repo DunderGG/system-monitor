@@ -216,7 +216,7 @@ TEST(ProcessCollectorIntegration, RealHost_PrivateWorkingSets_AddUpToLessThanPhy
 
     // No page is in two processes' private working sets, so unlike the full
     // working sets, which count a shared page once per process, they fit in
-    // physical memory. The Memory column shows them for that reason (DC-91).
+    // physical memory. The Memory column shows them for that reason (DC-79).
     ASSERT_TRUE(processes.has_value());
     uint64_t privateTotal = 0;
     for (const auto& process : *processes) {

@@ -182,7 +182,7 @@ std::optional<ProcessTerminationResult> checkOwner(HANDLE handle, HANDLE token, 
 
 // Returns why the process must not be terminated if it runs elevated, or
 // std::nullopt if it does not. The monitor ends only unelevated processes,
-// even when it runs elevated itself (DC-90).
+// even when it runs elevated itself (DC-87).
 std::optional<ProcessTerminationResult> checkNotElevated(HANDLE handle, HANDLE token,
                                                          const domain::ProcessInfo& process)
 {
@@ -235,7 +235,7 @@ std::optional<ProcessTerminationResult> checkToken(HANDLE handle, const domain::
 
 ProcessTerminationResult terminateOwnedProcess(const domain::ProcessInfo& process)
 {
-    // Checked before any OpenProcess call (DC-74). A process without a name
+    // Checked before any OpenProcess call (DC-13). A process without a name
     // is refused too, except the Idle process, which is handled next.
     if (isNeverOpenedProcess(process)) {
         return notTerminated(process, ProcessTerminationResult::NeverOpened,

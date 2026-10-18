@@ -111,7 +111,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 **Plan:** Make the `cpu` and `memory` snapshot fields `std::optional` (as `uptime` already is) and return `std::nullopt` on collector failure. Audit `CpuCollector` at the same time. Best done before the dashboard cards consume these fields.
 
-**Status:** Resolved (2026-09-25). `ICpuCollector` / `IMemoryCollector` and the `cpu` / `memory` snapshot fields are now `std::optional`. The `CpuCollector` audit found four more zero placeholders, all fixed: both queries failing, the baseline-only first sample, uncomputable rates in `calculateCpuUsage` (including counters that went backwards), and zero-filled per-core values on a core-count change. `MemoryCollector` returns `std::nullopt` on failure or a zero total. The dashboard shows "N/A". See design decision [DC-43](design_decisions.md#dc-43).
+**Status:** Resolved (2026-09-25). `ICpuCollector` / `IMemoryCollector` and the `cpu` / `memory` snapshot fields are now `std::optional`. The `CpuCollector` audit found four more zero placeholders, all fixed: both queries failing, the baseline-only first sample, uncomputable rates in `calculateCpuUsage` (including counters that went backwards), and zero-filled per-core values on a core-count change. `MemoryCollector` returns `std::nullopt` on failure or a zero total. The dashboard shows "N/A". See design decision [DC-12](design_decisions.md#dc-12).
 
 ---
 

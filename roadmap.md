@@ -130,7 +130,7 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 ### Process explorer view (`src/ui/`)
 
 - [x] Create a process table using `QTreeView` + a custom `QAbstractItemModel` subclass.
-- [x] Display columns: Name, PID, CPU %, Memory (private working set, as Task Manager shows it; see [DC-91](docs/design_decisions.md#dc-91)), Disk I/O (read + write bytes/sec), Network (placeholder until ETW), Threads, Handles.
+- [x] Display columns: Name, PID, CPU %, Memory (private working set, as Task Manager shows it; see [DC-79](docs/design_decisions.md#dc-79)), Disk I/O (read + write bytes/sec), Network (placeholder until ETW), Threads, Handles.
 - [x] Implement a `QSortFilterProxyModel` for column sorting and text filtering.
 - [x] Implement process tree view: build parent-child relationships from parent PID. Allow toggling between flat and tree views.
 - [x] Efficiently diff/update the model on each snapshot rather than rebuilding the entire model.
@@ -149,26 +149,26 @@ Replace synthetic collectors with real Windows API calls and build the dashboard
 
 ## Phase 5 — Network view
 
-- [x] Create a network tab showing all non-loopback adapters in a list or card layout. Adapters that Windows hides, and virtual adapters that are not bound to IP, are listed with "Show all adapters" ([DC-96](docs/design_decisions.md#dc-96), [DC-106](docs/design_decisions.md#dc-106)).
-- [x] Per adapter: name/alias, type (Ethernet/Wi-Fi/etc.), operational status, link speed, IP addresses (IPv4 and IPv6), DNS servers ([DC-97](docs/design_decisions.md#dc-97)).
+- [x] Create a network tab showing all non-loopback adapters in a list or card layout. Adapters that Windows hides, and virtual adapters that are not bound to IP, are listed with "Show all adapters" ([DC-96](docs/design_decisions.md#dc-96)).
+- [x] Per adapter: name/alias, type (Ethernet/Wi-Fi/etc.), operational status, link speed, IP addresses (IPv4 and IPv6), DNS servers ([DC-96](docs/design_decisions.md#dc-96)).
 - [x] Per adapter: live throughput sparklines (inbound and outbound bytes/sec). One minute per card; `.\scripts\build.ps1 -Benchmark` measures the tab's tick cost ([DC-98](docs/design_decisions.md#dc-98)).
-- [x] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming. Render `ConnectivityLevel::Unknown` and an unknown metered state (`isMetered == std::nullopt`) explicitly rather than as offline or unmetered ([DC-99](docs/design_decisions.md#dc-99)).
+- [x] Display overall connectivity status from `GetNetworkConnectivityHint`: connectivity level, metered/unmetered, roaming. Render `ConnectivityLevel::Unknown` and an unknown metered state (`isMetered == std::nullopt`) explicitly rather than as offline or unmetered ([DC-39](docs/design_decisions.md#dc-39)).
 - [x] Optionally display friendly network name from NLM (lazy, cached query). Shown per adapter and in the connectivity section, with the network category ([DC-100](docs/design_decisions.md#dc-100)).
-- [x] Update connectivity status reactively via `NotifyNetworkConnectivityHintChange` rather than polling. A notified change wakes the slow-collector thread, so it reaches the next snapshot ([DC-101](docs/design_decisions.md#dc-101)).
+- [x] Update connectivity status reactively via `NotifyNetworkConnectivityHintChange` rather than polling. A notified change wakes the slow-collector thread, so it reaches the next snapshot ([DC-77](docs/design_decisions.md#dc-77)).
 - [x] Perform phase code review to ensure all code committed in this phase complies with architecture, rules, and guidelines. See the [Phase 5 code review](docs/code_reviews/phase_5.md); fix F-35 to F-37 before starting Phase 6.
 
 ---
 
 ## Maintenance — design decisions and tests
 
-Every phase adds to both. [design_decisions.md](docs/design_decisions.md) has 108 entries in 256 KB, and entries grew from about 150 words on average (DC-01 to DC-48) to about 430 (DC-49 to DC-108). The suite has 775 tests in 63 files. Do this before Phase 6, so the settings work starts from the new structure.
+Every phase adds to both. [design_decisions.md](docs/design_decisions.md) has 108 entries in 256 KB, and entries grew from about 150 words on average in the first 48 to about 430 in the 60 after them. The suite has 775 tests in 63 files. Do this before Phase 6, so the settings work starts from the new structure.
 
 ### Design decisions
 
 - [x] Give every entry a short, stable anchor (`<a id="dc-89"></a>`) and change the links in code, `architecture.md`, `roadmap.md`, `known_deviations.md` and `docs/code_reviews/` to `#dc-89`. Links use the full title slug today, so merging or retitling an entry breaks them. Add a check (for example to `build.ps1 -CheckFormat`) that every `DC-xx` link resolves. Do this first; the items below merge and retitle entries. Every heading has its anchor, every link names one, and `build.ps1 -Format` and `-CheckFormat` fail on a link that does not resolve and on a cited `DC-xx` that is not an entry ([DC-114](docs/design_decisions.md#dc-114)).
-- [x] Decide the entry model. Today the log is append-only: 36 notes ("Superseded in part", "Extended by", "Amended", …) patch earlier entries, so learning how End process works means reading DC-88, DC-89, DC-90 and DC-93 in turn. Recommended: *living entries*, where an entry states the current decision and is rewritten when it changes, with a one-line history (phase, code-review findings) and git for the rest. This replaces the rule at the top of the file that superseded entries stay in place. Done as recommended: an entry ends with a **History:** line, a merged or retired entry stays as a one-line stub, and `git log -L ':DC-76\::docs/design_decisions.md'` lists an entry's versions. The top of the file and the rule in AGENTS.md and GEMINI.md say so. The notes in DC-18, 21, 46, 71, 76 and 111 are folded in; the items below rewrite the other entries with notes ([DC-115](docs/design_decisions.md#dc-115)).
-- [x] Group entries by topic instead of by phase (platform APIs, domain model, scheduling and threading, each collector area, charts, each tab, build and tooling, testing), and give each entry its **History:** line with the phase and code-review finding ([DC-115](docs/design_decisions.md#dc-115)). The phase headings already misfile entries: DC-94 sits among DC-70 to DC-78, and DC-91, DC-92 and DC-95 under the explorer view. Done: 18 topics, each with a line that says what it covers, and the entries in ID order within each, so a new entry goes at the end of its topic, as the rule in AGENTS.md and GEMINI.md now says. Every entry ends with its history line, and DC-70's correction note is folded in ([DC-116](docs/design_decisions.md#dc-116)).
-- [ ] Merge each chain into one entry per topic, with the chain's notes folded in, leaving the other IDs as one-line stubs that point to it. Candidates:
+- [x] Decide the entry model. Today the log is append-only: 36 notes ("Superseded in part", "Extended by", "Amended", …) patch earlier entries, so learning how End process works means reading four entries in turn. Recommended: *living entries*, where an entry states the current decision and is rewritten when it changes, with a one-line history (phase, code-review findings) and git for the rest. This replaces the rule at the top of the file that superseded entries stay in place. Done as recommended: an entry ends with a **History:** line, a merged or retired entry stays as a one-line stub, and `git log -L ':DC-76\::docs/design_decisions.md'` lists an entry's versions. The top of the file and the rule in AGENTS.md and GEMINI.md say so. The notes in DC-18, 21, 46, 71, 76 and 111 are folded in; the items below rewrite the other entries with notes ([DC-115](docs/design_decisions.md#dc-115)).
+- [x] Group entries by topic instead of by phase (platform APIs, domain model, scheduling and threading, each collector area, charts, each tab, build and tooling, testing), and give each entry its **History:** line with the phase and code-review finding ([DC-115](docs/design_decisions.md#dc-115)). The phase headings already misfile entries: the one for code review F-32 sits among the process collector's, and those for F-29, F-30 and F-33 under the explorer view. Done: 18 topics, each with a line that says what it covers, and the entries in ID order within each, so a new entry goes at the end of its topic, as the rule in AGENTS.md and GEMINI.md now says. Every entry ends with its history line, and DC-70's correction note is folded in ([DC-116](docs/design_decisions.md#dc-116)).
+- [x] Merge each chain into one entry per topic, with the chain's notes folded in, leaving the other IDs as one-line stubs that point to it. Candidates:
   - process details status and never-opened processes: DC-13, 72, 74, 94;
   - termination checks: DC-87, 90; End process UI: DC-88, 89, 93;
   - process table: DC-79 to 84, 91, 92 (at most three entries: model and updates, sorting and filtering, tree and highlights);
@@ -177,10 +177,12 @@ Every phase adds to both. [design_decisions.md](docs/design_decisions.md) has 10
   - sparkline widget: DC-48 to 52, 60, 65, 67;
   - missing data as `std::optional`: DC-12, 40, 43, 44;
   - testing approach: reader injection (DC-27, 33, 38) and integration tests (DC-30, 78).
+
+  Done: 34 entries are now stubs, merged into DC-12, DC-13, DC-27, DC-30, DC-35, DC-39, DC-48, DC-77, DC-79, DC-81, DC-82, DC-87, DC-88, DC-96 and DC-100. The lowest ID under a topic keeps the decision. The merged entries keep the test lists, benchmark tables and UI wording that the next item moves out, so several run to 1,500–2,100 words until then. A chain that spans topics became one entry under each: the slow-collector thread stays in DC-77 under the scheduler, apart from the connectivity collector in DC-39, and DC-06 stays the Windows API choice, with its note folded in. A stub whose decision went to two entries names both. Links and citations name the merged entries, except in `docs/code_reviews/`, and `build.ps1 -Format` and `-CheckFormat` now fail on one that names a stub ([DC-114](docs/design_decisions.md#dc-114), [DC-115](docs/design_decisions.md#dc-115)).
 - [ ] Move content that is not a decision out of the entries:
-  - Benchmark tables (DC-61, 66, 83, 84, 95, 98, 104) go to a new `docs/performance.md`: one current baseline per tab with the environment lines `build.ps1 -Benchmark` prints, and a short dated history. `architecture.md` quotes figures in two places and should link there instead.
-  - Test inventories ("Tests:" bullets and paragraphs in DC-87 to 94 and DC-102 to 108) are dropped. The test names list the cases; an entry names at most the test suite.
-  - UI wording copied from the code (the message table in DC-89, the dialog and tooltip texts in DC-91, 93 and 94) is replaced by the name of the formatter function.
+  - Benchmark tables (DC-61, 66, 79, 95, 98, 104) go to a new `docs/performance.md`: one current baseline per tab with the environment lines `build.ps1 -Benchmark` prints, and a short dated history. `architecture.md` quotes figures in two places and should link there instead.
+  - Test inventories ("Tests:" bullets and paragraphs in DC-13, 35, 79, 82, 87, 88, 96, 100, 102, 104 and 105) are dropped. The test names list the cases; an entry names at most the test suite.
+  - UI wording copied from the code (the message table and dialog texts in DC-88, the Memory column's tooltips in DC-79, and the texts for a process without a name in DC-13) is replaced by the name of the formatter function.
   - Build-script behaviour (DC-62, 69, and DC-23's mechanics) goes to [build_system.md](docs/build_system.md); the entries keep only the rationale.
 - [ ] Retire entries that restate a rule kept elsewhere or record where code lives, leaving stubs: DC-26 (an AGENTS.md rule), DC-68 (where shared UI constants live), and DC-102 and DC-105 once their rationale is in the coding guidelines' "Text from outside the program" and "Text colours" sections, which already state the rules.
 - [ ] Set a format and a budget, at the top of the file and in the design-decision rule of AGENTS.md and its copy in GEMINI.md: **Decision** (what was chosen), **Rationale** (why, and the alternatives rejected), optional **Consequences**, then the **History:** line; about 250 words; no test lists, benchmark tables, UI copy, or measurements beyond the one that justifies the choice.
@@ -240,7 +242,7 @@ The *Seen in* lines, and the monitors named in items, come from a comparison on 
 - [ ] Create a small helper executable that accepts a PID and action via command-line arguments.
 - [ ] Launch the helper via `ShellExecuteEx` with the `runas` verb to trigger a UAC prompt.
 - [ ] Show a shield icon in the process explorer next to actions that require elevation.
-- [ ] Investigate letting the monitor end the user's elevated processes itself when it runs elevated, which the MVP refuses even then ([DC-90](docs/design_decisions.md#dc-90)).
+- [ ] Investigate letting the monitor end the user's elevated processes itself when it runs elevated, which the MVP refuses even then ([DC-87](docs/design_decisions.md#dc-87)).
 - [ ] Use the same helper for the other actions below that need administrator rights (services, the machine's startup entries, closing a connection, and drive health if it needs it), so the monitor has one elevation path.
 
 ### Processes tab: columns and grouping
@@ -281,7 +283,7 @@ The *Seen in* lines, and the monitors named in items, come from a comparison on 
 
 > *Seen in: Task Manager, Process Explorer, Resource Monitor, Process Lasso.*
 
-Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so it extends the exception that termination has in AGENTS.md and architecture.md. It keeps the identity, ownership and elevation checks of [DC-87](docs/design_decisions.md#dc-87) and [DC-90](docs/design_decisions.md#dc-90), and gets a design decision.
+Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so it extends the exception that termination has in AGENTS.md and architecture.md. It keeps the identity, ownership and elevation checks of [DC-87](docs/design_decisions.md#dc-87), and gets a design decision.
 
 - [ ] Set the priority class (`SetPriorityClass`, which needs `PROCESS_SET_INFORMATION`). Realtime needs a privilege an unelevated user lacks, and Windows quietly sets High instead, so say so.
 - [ ] Efficiency mode, applied as Task Manager applies it: `SetProcessInformation(ProcessPowerThrottling)` with execution-speed throttling, plus `IDLE_PRIORITY_CLASS` (`PROCESS_SET_INFORMATION`).
@@ -337,7 +339,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 - [ ] Maintain an in-memory alert history viewable in the UI.
 - [ ] Alert on a process that stays above a CPU or memory threshold for a set time (a runaway process), naming it by its identity.
 - [ ] Alert on network events: an adapter going down, connectivity falling to local access or none, and a new listening port (with the connections table under [Network](#network-connections-wi-fi-data-usage-and-latency)).
-- [ ] Keep an event timeline beside the alert history: process starts and exits (time, name, PID, parent and command line), adapter and connectivity changes, and alerts (System Informer's log, GlassWire's timeline). The process model already finds starts and exits for its highlights ([DC-84](docs/design_decisions.md#dc-84)).
+- [ ] Keep an event timeline beside the alert history: process starts and exits (time, name, PID, parent and command line), adapter and connectivity changes, and alerts (System Informer's log, GlassWire's timeline). The process model already finds starts and exits for its highlights ([DC-82](docs/design_decisions.md#dc-82)).
 
 ### Persistent event and metric history
 
@@ -427,7 +429,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 - [ ] Subscribe to `Microsoft-Windows-Kernel-Network` for per-process network bandwidth.
 - [ ] Add short "diagnostic recording" sessions with start/stop and export.
 - [ ] Handle ETW session limits (`ERROR_NO_SYSTEM_RESOURCES`) and permission requirements gracefully.
-- [ ] Break each process's network traffic down by remote address and port, as Resource Monitor's Network Activity list does, and fill the Processes tab's Network column ([DC-80](docs/design_decisions.md#dc-80)).
+- [ ] Break each process's network traffic down by remote address and port, as Resource Monitor's Network Activity list does, and fill the Processes tab's Network column ([DC-79](docs/design_decisions.md#dc-79)).
 - [ ] Show which files each process reads and writes, with the response times, from the kernel's disk I/O events (Resource Monitor's Disk tab).
 - [ ] Show hard faults per second for each process (Resource Monitor's Memory tab).
 

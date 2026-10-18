@@ -2,7 +2,7 @@
 // applying a snapshot's process list, then, when the tab is shown, a
 // synchronous repaint of the view. It is built with the project but is not a
 // test and is not registered with CTest. Run it in a Release build with
-// .\scripts\build.ps1 -Benchmark; Debug Qt is many times slower. See DC-83 in
+// .\scripts\build.ps1 -Benchmark; Debug Qt is many times slower. See DC-79 in
 // docs/design_decisions.md.
 
 #include <algorithm>
