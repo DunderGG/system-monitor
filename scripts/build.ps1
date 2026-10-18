@@ -45,14 +45,15 @@ Qt libraries are many times slower, especially for painting.
 Builds the Release configuration (implies -Release) and runs the tick-cost
 benchmarks: the Performance tab's (benchmarks\performance_tick_benchmark.cpp),
 which prints the mean and maximum time per tick for each page and chart
-window and then for the Network tab with 2 to 16 adapters, then the
+window and then for the Network tab with 2 to 20 adapters, then the
 Processes tab's (benchmarks\process_table_benchmark.cpp),
 which prints the time per tick for flat and tree views of 400 to 2,000
 processes. They run after the tests when -Test is also supplied. Their
 timings depend on the machine, so they are not part of the test suite and CI
 does not run them. The script first prints the processor, the power plan and
 the Windows 11 power mode, and each benchmark prints the compiler, Qt and
-Windows versions it runs with; record them with the figures.
+Windows versions it runs with; record them with the figures in
+docs\performance.md.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in

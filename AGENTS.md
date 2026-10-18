@@ -7,6 +7,7 @@ The rules below are self-contained. For deeper rationale or design context, cons
 - [docs/build_system.md](docs/build_system.md) — Build prerequisites, CMake presets, vcpkg, and CI setup.
 - [docs/coding_guidelines.md](docs/coding_guidelines.md) — Naming, formatting, error handling, memory management, and testing conventions.
 - [docs/design_decisions.md](docs/design_decisions.md) — Rationale for non-obvious implementation choices made during development.
+- [docs/performance.md](docs/performance.md) — Measured tick costs of each tab from `build.ps1 -Benchmark`, with the build and the machine they were measured on.
 - [docs/known_deviations.md](docs/known_deviations.md) — Known places where the code departs from the architecture or guidelines, with plans to fix them.
 - [roadmap.md](roadmap.md) — Phased implementation plan.
 
@@ -18,7 +19,7 @@ The rules below are self-contained. For deeper rationale or design context, cons
 - Build and launch: `.\scripts\build.ps1 -Run`
 - Build and test: `.\scripts\build.ps1 -Test`
 - Release build, for measuring performance (Debug Qt paints many times slower): add `-Release`, e.g. `.\scripts\build.ps1 -Test -Release`
-- Measure the Performance, Network and Processes tabs' tick cost (Release build; prints tables; not a test): `.\scripts\build.ps1 -Benchmark`
+- Measure the Performance, Network and Processes tabs' tick cost (Release build; prints tables to record in [docs/performance.md](docs/performance.md); not a test): `.\scripts\build.ps1 -Benchmark`
 - Format C++ files and check design decision links: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code or a link that does not resolve)
 - Check formatting and design decision links only: `.\scripts\build.ps1 -CheckFormat`
 

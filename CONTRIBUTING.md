@@ -58,7 +58,7 @@ The repository provides PowerShell scripts that automate tool detection, install
    .\scripts\build.ps1 -Test
    ```
 
-5. **Measure UI performance** (optional): `.\scripts\build.ps1 -Benchmark` builds the Release configuration and prints the Performance tab's cost per tick for each page and chart window, and the Network tab's for 2 to 16 adapters, then the Processes tab's for flat and tree views of 400 to 2,000 processes. Run it before and after changes to charts, pages, the Network tab, or the process table. It also prints the compiler, Qt and Windows versions, the processor and the power settings; keep them with any figures you record, so a change in the machine can be told apart from a regression.
+5. **Measure UI performance** (optional): `.\scripts\build.ps1 -Benchmark` builds the Release configuration and prints the Performance tab's cost per tick for each page and chart window, and the Network tab's for 2 to 20 adapters, then the Processes tab's for flat and tree views of 400 to 2,000 processes. Run it before and after changes to charts, pages, the Network tab, or the process table, and compare with the baseline in [performance.md](docs/performance.md). It also prints the compiler, Qt and Windows versions, the processor and the power settings; record them there with any figures, so a change in the machine can be told apart from a regression.
 
 ---
 

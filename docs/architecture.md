@@ -10,7 +10,7 @@ Build a lightweight Windows desktop system monitor inspired by Task Manager. The
 | --- | --- | --- |
 | Language | C++20 | Team experience and direct, low-overhead access to Windows APIs. Leverage `std::jthread`, `std::stop_token`, `std::format`, concepts, and designated initializers. |
 | Desktop UI | Qt 6 Widgets | Productive C++ UI development with strong model/view support. Widgets are the right fit for data-dense monitoring views; QML may be considered for future feature areas. |
-| Charts | Custom `QWidget` sparklines | Task Manager-style rolling charts are simple polyline + gradient fills. A custom `QPainter` implementation is dependency-free, paints only what the charts need, and avoids GPL licensing constraints of Qt Charts and QCustomPlot. A whole Performance page tick, including repainting the window, costs about 4–15 ms at the default 1-minute window ([DC-66](design_decisions.md#dc-66)). |
+| Charts | Custom `QWidget` sparklines | Task Manager-style rolling charts are simple polyline + gradient fills. A custom `QPainter` implementation is dependency-free, paints only what the charts need, and avoids GPL licensing constraints of Qt Charts and QCustomPlot. [performance.md](performance.md) records what a tick of each page costs, repaint included. |
 | Build | CMake + CMake Presets | Standard, portable build configuration with good IDE support. Presets simplify contributor onboarding. |
 | Dependencies | vcpkg manifest mode | All dependencies, including Qt 6, are declared in `vcpkg.json` for fully reproducible builds. Contributors clone the repo and build without manual dependency installation. |
 | Logging | spdlog | High-performance structured logging with multiple sinks and size-based rotation. |
@@ -199,7 +199,7 @@ When the value is costly to read, a notification can instead mark a cache stale,
 
 - Use a single scheduler thread rather than a timer per chart or widget.
 - Sample aggregate CPU, memory, and network activity about once per second.
-- Refresh the process table at a lower cadence (every 2–5 seconds; the default is 2). With `NtQuerySystemInformation` this takes about 3.5–6 ms for 400 processes, most of it in the call itself ([DC-75](design_decisions.md#dc-75)), so it does not need per-second refresh. The process table model applies a refreshed list of 400 processes in under 0.5 ms and signals only the cells that changed, so a snapshot that repeats the previous list costs almost nothing; a repaint of the shown table adds about 5–6 ms ([DC-79](design_decisions.md#dc-79)).
+- Refresh the process table at a lower cadence (every 2–5 seconds; the default is 2). With `NtQuerySystemInformation` this takes about 3.5–6 ms for 400 processes, most of it in the call itself ([DC-75](design_decisions.md#dc-75)), so it does not need per-second refresh. The process table model signals only the cells that changed, so a snapshot that repeats the previous list changes little ([DC-79](design_decisions.md#dc-79)); [performance.md](performance.md) records what applying a list and repainting the table cost.
 - Calculate rates (CPU %, network throughput) using monotonic elapsed time from `std::chrono::steady_clock`, not wall-clock time.
 - Keep a fixed-size ring buffer per metric (for example, 300–1800 samples for 5–30 minutes at 1 Hz).
 - Do not write every sample to disk in the MVP.
@@ -249,7 +249,7 @@ Implement Task Manager-style rolling charts as custom `QWidget` subclasses:
 - When a chart has more points than pixel columns, keep each column's lowest and highest point and draw a one-pixel cosmetic line, so the cost is bounded by the chart's width ([DC-48](design_decisions.md#dc-48)).
 - Fill below the line with a `QLinearGradient` for the characteristic Task Manager look.
 - Draw a scrolling grid background by offsetting grid lines on each repaint.
-- Measured in a Release build with worst-case data, a 1 Hz tick (recording a snapshot, refreshing the page, and repainting the window) costs about 4–15 ms per page at the 1-minute window and up to about 40 ms at 30 minutes (re-measured on 2026-10-15, [DC-95](design_decisions.md#dc-95)). A Network tab tick, with a one-minute chart per adapter, costs about 4–6 ms for 2 to 16 adapters ([DC-98](design_decisions.md#dc-98)). Re-measure with `.\scripts\build.ps1 -Benchmark`, which also prints the build and the machine to record with the figures ([DC-66](design_decisions.md#dc-66)). Double-buffering via `QPixmap` has not been needed.
+- `.\scripts\build.ps1 -Benchmark` measures a 1 Hz tick in a Release build with worst-case data: recording a snapshot, refreshing the page, and repainting the window ([DC-66](design_decisions.md#dc-66)). [performance.md](performance.md) records the figures for the Performance, Network and Processes tabs, with the build and the machine they were measured on. Double-buffering via `QPixmap` has not been needed.
 - This avoids third-party charting library dependencies and GPL licensing constraints.
 
 ## Configuration and persistence

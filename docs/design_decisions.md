@@ -2,6 +2,8 @@
 
 Rationale for non-obvious implementation choices made during development, grouped by topic ([DC-116](#dc-116)). The line under each topic's heading says what it covers, and an entry's **History:** line names the phase or code-review finding that made it.
 
+An entry holds a decision and its reasons ([DC-117](#dc-117)). Measured tick costs are in [performance.md](performance.md), what `build.ps1` does is in [build_system.md](build_system.md), and the tests and the program's text are in the code.
+
 Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number and goes at the end of its topic, so the entries within a topic are in ID order. Numbers are never reused or renumbered.
 
 An entry states the decision as the code now has it ([DC-115](#dc-115)). A change to the decision rewrites the entry: its **Decision** and **Rationale** describe the choice as it now stands, and its last line, **History:**, which names the phase or code-review finding that made the decision, gains the one that changed it. The Rationale names an earlier choice only as a rejected alternative, when the reason it was dropped still matters. No note such as "Superseded in part by" or "Extended by" is added, and no new entry patches an old one. Earlier versions are in git: `git log -L ':DC-76\::docs/design_decisions.md'` lists every change to DC-76. An entry merged into another, or retired, keeps its anchor and its heading as a stub with one line that says where the decision is now, so that links to it still resolve.
@@ -97,7 +99,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-53](#dc-53): Performance view: a sidebar of resource pages that each own their history
   - [DC-57](#dc-57): Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
   - [DC-58](#dc-58): Performance pages fit an 800×600 window: re-flowing readouts and a scrolling per-core grid (code review F-20)
-  - [DC-61](#dc-61): 30 minutes of performance history, a chart-window selector, and the measured tick cost
+  - [DC-61](#dc-61): 30 minutes of performance history and a chart-window selector
   - [DC-63](#dc-63): Memory readouts name what `GetPerformanceInfo` reports, not Task Manager's figures (code review F-22)
 - [Processes tab](#processes-tab)
   - [DC-79](#dc-79): Process table model: one row per `ProcessIdentity`, its columns, and updates that signal only the cells that changed
@@ -123,10 +125,10 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
-  - [DC-66](#dc-66): A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
+  - [DC-66](#dc-66): Committed tick-cost benchmarks, run with `build.ps1 -Benchmark` (code review F-25)
   - [DC-69](#dc-69): `build.ps1` retries a failed configure once from a clean cache
   - [DC-86](#dc-86): qtbase built with PNG support for Qt's own Windows cursors
-  - [DC-95](#dc-95): Benchmarks print the build and the machine they ran on, and the figures re-measured (code review F-33)
+  - [DC-95](#dc-95): Benchmarks print the build and the machine they ran on (code review F-33)
   - [DC-104](#dc-104): Qt's Windows style plugin deployed next to every executable (code review F-42)
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
@@ -144,6 +146,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-114](#dc-114): Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
   - [DC-115](#dc-115): Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
   - [DC-116](#dc-116): Entries grouped by topic, in ID order within each topic
+  - [DC-117](#dc-117): Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, and no test lists or copied UI text
 
 ---
 
@@ -602,11 +605,7 @@ The process list, each process's details and rates, and the processes the monito
 - **Never opened:** `isNeverOpenedProcess()` (`platform/windows/process_access_policy.h`) takes the `ProcessInfo`. It is true for `lsass.exe` and `csrss.exe`, matched by image name ignoring ASCII case, and for a process with an empty image name and any PID but 0. `ProcessCollector` wraps every details reader it is given with `skippingNeverOpenedProcesses()`, so the reader is never called for these processes, and they get `NotQueried`. The Windows details reader checks again just before `OpenProcess` ([DC-75](#dc-75)), and the terminator refuses them as `NeverOpened` before any `OpenProcess` call ([DC-87](#dc-87)). The filter went in before the `OpenProcess` reader, so no commit contains code that would open them.
 - **The Idle process:** the System Idle Process (PID 0) has no name in the list ([DC-71](#dc-71)), and it was the only process without one on the development machine. It keeps its own handling: the details reader gets `Unavailable` from `OpenProcess`, and the terminator refuses it as `NotOwnedByCurrentUser`.
 - **Callers:** the comments on `terminateOwnedProcess()`, `makeWindowsProcessDetailsReader()` and `ProcessDetailsReader` say that the image name must be the one the process list reported.
-- **Explanations:** the logs and the UI give a reason of their own for a process without a name. Its name tooltip says "Not read: Windows listed this process without a name, and the monitor does not open a process it cannot tell apart from those it never opens, so its path and command line are not known." A refused request to end it says "Windows listed it without a name, so it could be a critical Windows process, which the monitor never opens."
-- **Tests:**
-  - Unit tests of the rule cover an empty name with several PIDs, and the Idle process. The reader filter skips a process without a name and passes on the Idle process.
-  - Integration tests check that the details reader refuses a process whose name is cleared, and that the terminator refuses a child passed with only its identity and leaves it running. `RealHost_IdleProcess_NotOwnedByCurrentUser` and `RealHost_IdleProcess_Unavailable` cover the Idle process.
-  - Formatting tests cover both texts.
+- **Explanations:** the logs and the UI give a process without a name a reason of its own, not the one for `lsass.exe` and `csrss.exe`. Its name tooltip (`processDetailsToolTip()`) and the message when a request to end it is refused (`processTerminationMessage()`) say that Windows listed it without a name, so it could be one of the processes the monitor never opens.
 
 **Rationale:**
 
@@ -743,7 +742,6 @@ Each adapter's counters, identity, addresses and DNS servers.
 - **Usable addresses:** `queryAdapterDetails()` keeps each unicast address's duplicate address detection state (`DadState`), which `toAddressState()` maps to the platform type `AddressState`. The cache and `RawNetworkAdapter` carry each address as a `UnicastAddress`, its text with its state. `calculateNetworkSamples()` keeps Preferred addresses, keeps Deprecated ones only while the adapter is Up, and drops Tentative, Duplicate and Invalid ones. A state the mapping does not know counts as Invalid. The state stays in the platform module.
 - **Placeholder DNS servers:** `queryAdapterDetails()` drops the DNS servers `fec0:0:0:ffff::1`, `::2` and `::3` (`isPlaceholderDnsServer()`), whatever the adapter's status. Both functions are in the internal header `ip_address_mapping.h`, which `tests/platform/` tests.
 - **Address flags and zone indexes:** `NetworkSample::ipAddresses` is a list of `domain::IpAddress`: the address's text, `isTemporary` and `isLinkLocal`, which the platform module sets. `isTemporaryAddress()` maps a unicast address's suffix origin: random means temporary. `isLinkLocalAddress()` is true for IPv6 fe80::/10 and IPv4 169.254.0.0/16. `formatIpAddress()` appends a link-local IPv6 address's scope ID as its zone index, e.g. "fe80::d347:c091:2487:3b32%16", for unicast addresses and DNS servers alike. The DNS servers are a list of strings. Both tabs mark each address from its flags ([DC-96](#dc-96)).
-- **Tests:** unit tests cover every address state on an Up, a Down and a Dormant adapter, the development machine's disconnected Wi-Fi and Bluetooth adapters, a Deprecated address that is kept once its adapter comes Up, and the flags through `calculateNetworkSamples()`. Platform tests cover the state mapping, the placeholder check, the link-local test, including 169.254, and the suffix origins. Integration tests check that no real adapter reports a placeholder DNS server, format addresses with and without a scope ID, because `formatIpAddress()` calls `inet_ntop`, and check that every link-local IPv6 address the real collector reports has a zone index.
 
 **Rationale:**
 
@@ -862,7 +860,6 @@ Roaming and the Network tab's connectivity section are described in [DC-39](#dc-
 - **The COM apartment:** the production reader is made by a `NetworkProfileReaderFactory` that the worker calls, so the reader's `ScopedComApartment`, a multithreaded apartment, is created on the worker, kept for the worker's lifetime, and destroyed on the worker when the reader is. Within a read, `ScopedComApartment` is declared before the COM objects, so they are released first.
 - **Shutdown:** members are declared so that the subscription is cancelled first, the worker is stopped and joined next, and the state they share goes last.
 - **On the Network tab:** each card's "Network" readout names the adapter's networks, e.g. "Normandy (Private)", and the connectivity section's "Networks" readout lists every connected network ([DC-39](#dc-39)). "None" means there are none; "N/A" means the names could not be read. The names are shown as plain text, because an access point chooses the name of its Wi-Fi network ([DC-102](#dc-102)).
-- **Tests:** the unit tests drive the worker with a fake reader that can hold reads back: the first read on the worker's own thread, the listener only for a changed result, a change reported during a read causing another read (the test fails if the stale mark is cleared after the read instead), a burst of notifications, the maximum age, failures, the reader destroyed on the worker, and a destruction that does not wait for the next read. A failing assertion releases held-back reads before the collector is destroyed.
 
 **Rationale:**
 
@@ -871,7 +868,7 @@ Roaming and the Network tab's connectivity section are described in [DC-39](#dc-
 - **No seed:** the event-driven rules seed the cache in the constructor, but here that would run COM on the UI thread at startup, where Qt has made the apartment single-threaded. The worker's first read takes the seed's place, and the names are missing until it finishes. [architecture.md](architecture.md#event-driven-collectors-os-callback-threads) describes this stale-mark form, which the adapter details also use.
 - **Its own thread:** if the service is slow to answer or stops responding, the query waits, and nothing bounds how long. On the shared slow-collector thread, the process list would stop refreshing and connectivity changes would not be collected. On the collector's own thread, only the names wait. A third scheduler thread for external queries was the alternative, but the scheduler would then have to know which collectors make such calls. The collector knows, and the worker also lets it keep its apartment.
 - **Shutdown still waits for a read in progress, and that risk is accepted:** `NetworkListManager` is an in-process COM object (`netprofm.dll`, threading model Both) that calls the service over its own RPC, so `CoCancelCall` cannot interrupt the query, and a thread cannot be stopped safely from outside. A detached thread could still be reading when the collector's state is destroyed. If the service hangs, closing the window therefore leaves the process waiting for the read before it exits.
-- **At most once a second:** the review's probe, with a subscription that kept notifying and a 5 ms reader, made 130 reads in 2 seconds. Notifications come in bursts while an adapter reconnects, and each tick copies only the latest result. A second between reads bounds a burst to one read a second, and a change still reaches the UI within about a second, the next tick. With a 200 ms minimum, a unit test's hundreds of notifications in half a second cause at most four reads.
+- **At most once a second:** the review's probe, with a subscription that kept notifying and a 5 ms reader, made 130 reads in 2 seconds. Notifications come in bursts while an adapter reconnects, and each tick copies only the latest result. A second between reads bounds a burst to one read a second, and a change still reaches the UI within about a second, the next tick.
 - **The listener after the read:** the worker reads, stores, and only then wakes the scheduler, which copies what it stored. This is the "store, then wake" rule that connectivity follows, and a read that finds the same names wakes nobody.
 - **The apartment for the worker's lifetime:** on the shared slow-collector thread, an apartment kept for the thread's lifetime would have outlived the collector, so COM had to be initialized for each read. The worker belongs to the collector, and every COM object is still released within one read. Creating the reader on the worker keeps `CoInitializeEx` and `CoUninitialize` on the same thread, as COM requires. The apartment of the thread that creates the collector does not matter: an integration test creates one on a thread with a single-threaded apartment.
 - **Deleters, not WRL:** WRL's `ComPtr` is the usual choice, but `<wrl/client.h>` would be the module's only SDK header with a path, which `.clang-format`'s include categories do not cover. A deleter matches the RAII wrappers the module already uses for MIB tables.
@@ -1023,8 +1020,6 @@ Labels whose text is a constant in the code keep Qt's default. The format is set
 - **The format before the text:** untrusted text is then never parsed as HTML, not even once.
 - **`ResourceCard`:** Windows paths cannot contain `<` or `>`, so a volume's name could not be read as a tag. The card follows the rule anyway, so that no label that shows outside text depends on what that text can contain.
 
-The tests give an alias, a description and two network names markup. They check that every label on the card and in the connectivity section is plain text and shows the literal string, and that `MainWindow`'s minimum size at 800×600 stays within 800×600. Before the fix that test reproduced the review's 3142×3301.
-
 **History:** Code review F-35.
 
 ---
@@ -1055,8 +1050,6 @@ Both cards take their margins from `kCardMargins` in `view_metrics.h`, and neith
 - **Two shades per status colour:** no colour reaches 4.5:1 on both white and #2d2d2d. The old colours each failed in one scheme: the Healthy green #2e8b57 reached 4.25:1 on white but 3.24:1 on #2d2d2d, the Warning amber #d98200 4.68:1 on #2d2d2d but 2.94:1 on white, and the Critical red #d32f2f 4.98:1 on white but 2.77:1 on #2d2d2d.
 - **Worked out in code, not in a style sheet:** a style sheet fixes a colour when it is applied. The label picks the shade from the window colour it inherits, as the charts do, and picks again on every palette change. If it set its own `WindowText`, that role would no longer follow the palette, and the label could not tell the new scheme's text colour from the one it had set. A spare role leaves `WindowText` and `Window` inherited. Setting the palette sends another `PaletteChange`, which finds the colour already set and stops.
 - **Item models:** a table cell cannot hold a label, so the process model asks `dimmedTextColor()` for the colour each time the view paints, which follows the scheme without an event.
-
-Unit tests check every tone's colour on both schemes' window and base colours, that the status tones are bold, and that a label's colour follows its parent's palette. View tests render the main window in both schemes, with `QStyleHints::setColorScheme()`, and measure the contrast of the rendered pixels: the adapter cards' status, description and a readout name, in one window switched between the schemes, and the dashboard's four statuses. Rendered into an image with an alpha channel, text is drawn with greyscale antialiasing, so the strongest pixel is the text's own colour. The old Healthy green measured 3.244:1 on #2d2d2d, against 3.24:1 computed, and the tests fail with it or with dimmed text at 30% opacity.
 
 **History:** Code review F-37.
 
@@ -1147,25 +1140,13 @@ The per-core grid scrolls instead of shrinking its charts further, because a cha
 ---
 
 <a id="dc-61"></a>
-### DC-61: 30 minutes of performance history, a chart-window selector, and the measured tick cost
+### DC-61: 30 minutes of performance history and a chart-window selector
 
 **Decision:** Each Performance page keeps 30 minutes of history (`PerformancePage::kHistoryCapacity` = 1800 samples at 1 Hz). A "Chart history" selector below the sidebar sets how much of it the charts show: 1 minute (the default, as in Task Manager), 5 minutes, or 30 minutes. `showHistory()` passes the chart only the newest window of samples and sets the chart's capacity to match. The selection is not saved yet, because persisting it belongs with the Phase 6 settings file. Windows are counted in samples, which equals seconds at the fixed 1 Hz sampling rate. A configurable refresh interval will need to convert them.
 
-The tick cost was measured with a throwaway benchmark (not committed; [DC-66](#dc-66) replaces it with a committed one and newer figures) in a Release build (`build.ps1 -Release`) on the development machine, a 16-thread 4.7 GHz desktop. The benchmark shows a 1280x800 window on the Performance tab and records 1800 synthetic snapshots. It then times 20 more snapshots, each forwarded by `MainWindow` and followed by a synchronous repaint of the window. The data is a worst case: every series swings across most of its range every 20 to 30 samples.
+**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. Measured with `build.ps1 -Benchmark` ([DC-66](#dc-66)), a page costs under 20 ms per second at the default window, 2% of the UI thread, and even the synthetic worst case at 30 minutes averages under 50 ms, one short frame per second ([performance.md](performance.md)). Real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in [DC-48](#dc-48). Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.
 
-| Page | 1 min | 5 min | 30 min |
-| --- | --- | --- | --- |
-| CPU, 16 cores | 6.2 ms | 9.8 ms | 26.9 ms |
-| CPU, 64 cores | 12.1 ms | 15.7 ms | 20.4 ms |
-| Memory | 2.4 ms | 4.9 ms | 8.2 ms |
-| Disk | 1.3 ms | 1.3 ms | 1.6 ms |
-| Network, 2 adapters | 3.8 ms | 12.5 ms | 36.6 ms |
-
-The 64-core CPU page is cheaper at 30 minutes than the 16-core one because its per-core charts are smaller. A Release build of the app run on the same machine used about 41 MiB of working set.
-
-**Rationale:** The roadmap asks for smooth 1 Hz updates with 5 to 30 minutes of history. At the default window, every page costs under 13 ms per second, about 1% of the UI thread. Even the synthetic worst case at 30 minutes stays under 40 ms, one short frame per second, and real data rarely swings that far on every sample. Reaching this needed the dense-chart painting in [DC-48](#dc-48). Before it, the 30-minute CPU page took about 210 ms per tick, and the Debug build was about three times slower still. The history always holds 30 minutes, so switching windows shows data at once rather than starting empty. It costs about 29 KB per series (the `RingBuffer` stores each sample twice), about 2 MB for a 64-core CPU page. Passing only the visible window keeps an auto-scaled axis, such as network throughput, fitted to what is on screen rather than to a spike that has scrolled out of view. A known side effect is that a volume or adapter that disappears stays in the chart's legend, with gaps, until its 30-minute history is empty.
-
-**History:** Phase 3, Performance tab; code review F-25 (the figures replaced by the committed benchmark's, for [DC-66](#dc-66)).
+**History:** Phase 3, Performance tab; code review F-25 (the figures replaced by the committed benchmark's, for [DC-66](#dc-66)); maintenance (the figures moved to performance.md).
 
 ---
 
@@ -1197,10 +1178,10 @@ The process table: its model, columns, sorting, tree, highlights and access indi
 **Decision:**
 
 - **Rows:** the Processes tab shows a `QTreeView` over `ProcessModel`, a `QAbstractItemModel` subclass. Each row is a node owned by a map keyed by `ProcessIdentity`. An index's internal pointer is its node, and each node keeps its row number, so `indexOf()` needs no search. `updateProcesses()` gives the kept rows their latest values, inserts the new processes, and removes the row of a process that left the list once its exited highlight has ended ([DC-82](#dc-82)). It never resets the model. A duplicate identity in a list adds one row.
-- **Every snapshot:** `MainWindow` forwards every snapshot to `ProcessesView`, which applies the list whether or not the tab is shown. A snapshot without a list keeps the last rows. The summary line above the table then reads "Processes: N/A (showing the last list read)", and "Processes: --" before the first list. The Idle process (PID 0) has no image name in the list ([DC-71](#dc-71)), and the table names it "System Idle Process".
+- **Every snapshot:** `MainWindow` forwards every snapshot to `ProcessesView`, which applies the list whether or not the tab is shown. A snapshot without a list keeps the last rows, and the summary line above the table (`processListSummary()`) then says that it shows the last list read. The Idle process (PID 0) has no image name in the list ([DC-71](#dc-71)), and the table names it "System Idle Process".
 - **Columns:** Name, PID, CPU, Memory, I/O, Network, Threads, and Handles.
   - **CPU** is `cpuUsagePercent` with one decimal ([DC-76](#dc-76)).
-  - **Memory** is `privateWorkingSetBytes`, the part of the working set that no other process shares, and the column sorts by it. The parser reads it from `WorkingSetPrivateSize` ([DC-71](#dc-71)), and the comments on the three memory fields say what each one counts. The header is "Memory", and its tooltip reads "Private working set: the physical memory the process uses on its own, as Task Manager's Memory column shows it. Point at a value to see the working set, which includes shared memory, and the commit size." `processMemoryToolTip()` gives each cell's tooltip: the three figures on three lines, each with what it counts, "Private working set: 207.0 MiB", "Working set: 378.7 MiB (includes memory shared with other processes)" and "Commit size: 250.0 MiB (private memory committed, which counts toward the commit limit)". The commit size is `privateBytes`.
+  - **Memory** is `privateWorkingSetBytes`, the part of the working set that no other process shares, and the column sorts by it. The parser reads it from `WorkingSetPrivateSize` ([DC-71](#dc-71)), and the comments on the three memory fields say what each one counts. The header is "Memory", and its tooltip (`headerToolTip()` in `process_model.cpp`) says that the column shows the private working set, as Task Manager's Memory column does. `processMemoryToolTip()` gives each cell's tooltip: the private working set, the working set and the commit size (`privateBytes`), each with what it counts.
   - **I/O** is read plus write bytes per second, from `ioReadBytesPerSec` and `ioWriteBytesPerSec`, which `ProcessCollector` computes with the CPU usage ([DC-76](#dc-76)). The cell shows the sum, or "N/A" when either rate is missing, and its tooltip shows each rate. The column is headed "I/O" rather than the roadmap's "Disk I/O", and its header tooltip says it counts files, pipes, and devices, not only disk.
   - **Network** shows "N/A" until per-process network usage is collected with ETW, and its header tooltip says so.
   - **Threads** and **Handles** are counts with thousands separators, from `formatCount()`, which the tabs share in `dashboard_formatting.h` ([DC-68](#dc-68)).
@@ -1209,20 +1190,7 @@ The process table: its model, columns, sorting, tree, highlights and access indi
 - **Changed cells only:** `updateProcesses()` compares each kept process's raw values with its previous ones, column by column, and signals only what changed: one `dataChanged()` per parent, covering the smallest block of rows and columns that changed under it. A list that repeats the previous one signals nothing. A change in any of the three memory figures marks the Memory cell as changed, because its tooltip shows all of them. Name and PID never change for an identity.
 - **Named roles:** the value signals name the display, tooltip, foreground, and decoration roles. The proxy's filter role is `Qt::UserRole`, which no signal names, because the filter matches only names and PIDs ([DC-81](#dc-81)), and those never change for a row.
 - **Batches:** `ProcessModel` emits `valueChangesStarted(firstColumn, lastColumn, signalCount)` before a refresh's value signals and `valueChangesEnded()` after them, so that the proxy can sort once per refresh ([DC-81](#dc-81)).
-- **Benchmark:** `benchmarks/process_table_benchmark.cpp` builds `system_monitor_process_benchmark`, which `build.ps1 -Benchmark` runs after the Performance tab's ([DC-66](#dc-66)). It times a Processes tab tick for 400, 1,000, and 2,000 simulated processes in five views, with the tab shown (including a full repaint of a 1280×800 view) and hidden. It reports a refresh, in which 40% of the processes change values and 2 exit and 2 start, separately from a repeat of the same list, which the scheduler sends every other tick. Each simulated process's private working set is three fifths of its working set. It is derived rather than drawn at random, so the simulated lists are the ones measured below.
-
-  Measured on the development machine when the updates were changed to signal only changed cells and to sort once (Release build, tab hidden, 2,000 processes, ms per tick for a refresh / a repeat):
-
-  | View | Before | After |
-  | --- | --- | --- |
-  | Flat, by name | 0.26 / 0.22 | 0.24 / 0.17 |
-  | Flat, by CPU | 1.33 / 0.58 | 1.23 / 0.19 |
-  | Tree, by name | 4.01 / 2.03 | 2.23 / 0.19 |
-  | Tree, by CPU | 27.18 / 1.79 | 2.72 / 0.17 |
-  | Tree, by CPU, filtered | 8.55 / 6.77 | 1.93 / 0.18 |
-
-  At 400 processes every view then cost under 0.5 ms per refresh and 0.03 ms per repeat. A full repaint of the shown tab adds about 5–6 ms; the CPU-sorted tree of 2,000 processes went from 32.7 to 9.7 ms per refresh with the tab shown. Since exited rows are kept for three seconds ([DC-82](#dc-82)), a removal happens on the tick three seconds after the exit, which is usually a tick that repeats the list, so the refresh and repeat columns above can no longer be compared one by one with later runs; their sum can. With the highlights, a CPU-sorted tree of 2,000 processes cost 2.8 ms over a refresh and a repeat with the tab hidden, against 2.9 ms before. [DC-95](#dc-95) re-measured every view with the environment recorded.
-- **Tests:** the parser test reads `WorkingSetPrivateSize`, and another checks that negative signed counters read as zero. Model and proxy tests show and sort by the private working set, including a process whose larger working set is mostly shared, and others cover the memory tooltip's text and a change to each figure. An integration test checks that the private working sets of all processes add up to less than physical memory, and the test of the monitor's own entry checks that its private working set is above zero and no larger than its working set.
+- **Measured:** `build.ps1 -Benchmark` times the tab with up to 2,000 processes ([DC-66](#dc-66)), and [performance.md](performance.md) records the figures.
 
 **Rationale:**
 
@@ -1233,7 +1201,7 @@ The process table: its model, columns, sorting, tree, highlights and access indi
 - **N/A, dimmed, and fixed widths:** the Network column stays so the layout does not change when ETW arrives. Its cells say "N/A" rather than zero because no value is known, and they are dimmed so a column of placeholders does not draw the eye. Fixed widths from templates keep the columns still as values change, and avoid `QHeaderView::ResizeToContents`, which measures every row whenever the data changes.
 - **Changed cells and named roles:** when every refresh signalled every kept row, one block per parent, naming no roles, a repeat of the same list still cost up to 6.8 ms. In a tree with recursive filtering, Qt re-filters every ancestor of a block whose signal names no roles or names the filter role, and treats each ancestor as a changed range of its own. Naming the roles and moving the filter role away from them removes that walk, and comparing values makes a repeat signal nothing at all. Raw values are compared rather than display text because a change too small to show can still reorder a sorted view. A block per parent, rather than a signal per changed row, keeps the number of signals to one per parent, and every signal that covers the sorted column can cost a re-sort. Re-checking the unchanged rows inside a block is cheaper.
 
-**History:** Phase 4, process explorer view; Phase 4, process explorer view (exited rows kept for three seconds, for [DC-82](#dc-82)); code review F-29 (Memory shows the private working set); code review F-33 (re-measured, for [DC-95](#dc-95)); code review F-37 (N/A in the dimmed text colour, for [DC-105](#dc-105)); maintenance (DC-80, DC-83 and DC-91 merged in, DC-83's single sort per refresh into [DC-81](#dc-81)).
+**History:** Phase 4, process explorer view; Phase 4, process explorer view (exited rows kept for three seconds, for [DC-82](#dc-82)); code review F-29 (Memory shows the private working set); code review F-33 (re-measured, for [DC-95](#dc-95)); code review F-37 (N/A in the dimmed text colour, for [DC-105](#dc-105)); maintenance (DC-80, DC-83 and DC-91 merged in, DC-83's single sort per refresh into [DC-81](#dc-81)); maintenance (the benchmark moved to [DC-66](#dc-66), and its figures to performance.md).
 
 ---
 
@@ -1282,7 +1250,6 @@ Re-sorting once per parent was quadratic. Each re-sort that moves a row is a lay
 - **Not by colour alone:** the name cell's tooltip says that the process started in the last few seconds or has exited ([DC-85](#dc-85)), and exited rows are italic.
 - **Signals:** a highlight that starts or ends emits `dataChanged()` for the whole row, naming the background, font, and tooltip roles.
 - **Counts:** the summary line counts the listed processes, so exited rows on show are not counted.
-- **Tests:** a seeded random-churn unit test, `RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredProxyStayConsistent`, makes 300 refreshes of processes starting, exiting, reusing PIDs, and sharing creation ticks. It changes the proxy's filter every 40 refreshes and switches the mode every 25. After each update it checks the structure, the parent rule, that no parent was marked exited before its child was first listed, every persistent index, and every level of the sorted and filtered proxy against an independently filtered and sorted copy of the model's tree. A proxy that left a deferred sort undone failed it within five refreshes, and without the listing-time rule the parent check failed at three of the 300 refreshes. Two more tests reproduce the code review's probe, after a refresh and after `setTreeMode()`: a process exits, its PID goes to a launcher that is never listed, and the launcher's child appears a refresh later at the top level, not under the exited row.
 
 **Rationale:**
 
@@ -1304,7 +1271,7 @@ Re-sorting once per parent was quadratic. Each re-sort that moves a row is a lay
 <a id="dc-83"></a>
 ### DC-83: Merged into DC-79 and DC-81
 
-The updates of changed cells and the process table benchmark are described in [DC-79](#dc-79), and the single sort per refresh in [DC-81](#dc-81).
+The updates of changed cells are described in [DC-79](#dc-79), the single sort per refresh in [DC-81](#dc-81), and the process table benchmark in [DC-66](#dc-66).
 
 ---
 
@@ -1372,11 +1339,7 @@ Ending a process: the checks in `platform/windows`, and the End process action a
 - **Logging:** `info` for `Terminated` and `AlreadyExited`, `warn` for a refusal or a denial, and `error` for any other failure, each with the image name, PID, and the failing call's error code. An `Elevated` refusal logs both values, e.g. "it runs elevated (elevated token: false, integrity level 0x3000)".
 - **Rules:** the access-rights rule in AGENTS.md (and its copies), `platform/windows/AGENTS.md`, and [architecture.md](architecture.md#unelevated-process-termination) name this function as its one exception.
 - **Shared code:** `platform/windows/process_handle.h` holds `ScopedHandle` and `processCreationTime()`, which the details reader ([DC-75](#dc-75)) and the terminator share.
-- **Tests:**
-  - `tests/platform/process_elevation_test.cpp` checks the elevation rule for each integrity level, with and without an elevated token.
-  - `tests/integration/process_terminator_test.cpp` uses the suspended `cmd.exe` children of `tests/integration/suspended_child_process.h`, which the process tracking tests use too ([DC-30](#dc-30)). It creates the children it expects to end with `SuspendedChildProcess(UnelevatedToken{})`. That copies the test's own token with `CreateRestrictedToken(LUA_TOKEN | DISABLE_MAX_PRIVILEGE)`, sets it to medium integrity, and starts the child with `CreateProcessAsUserW`, so the child is unelevated even when the tests run elevated.
-  - A child is terminated with exit code 1. The same PID with an earlier creation time leaves the child running. A child that has already been terminated, with the test's handle open and with every handle closed, is `AlreadyExited`. A child named `csrss.exe` is refused and left running. PID 0 is not the user's. The System process is never terminated: it is either denied at `OpenProcess` (unelevated) or not the user's (elevated).
-  - When the tests run elevated, two tests check that a child with the test's own token, and an unelevated child at high integrity, are both refused as `Elevated` and left running. They are skipped when the tests run unelevated. `isCurrentProcessElevated()` is in `tests/integration/current_process_elevation.h`, which the tracking tests share. The integration tests also passed when run elevated on a machine with UAC on.
+- **Integration tests:** the `ProcessTerminatorIntegration` tests end only suspended `cmd.exe` children that they start ([DC-30](#dc-30)). They start the children they expect to end with `SuspendedChildProcess(UnelevatedToken{})`, which copies the test's own token with `CreateRestrictedToken(LUA_TOKEN | DISABLE_MAX_PRIVILEGE)`, sets it to medium integrity, and starts the child with `CreateProcessAsUserW`, so the child is unelevated even when the tests run elevated. The tests of an elevated child run only when the tests run elevated.
 
 **Rationale:**
 
@@ -1401,41 +1364,25 @@ Ending a process: the checks in `platform/windows`, and the End process action a
 **Decision:**
 
 - **Action:** `ProcessesView` has one End process `QAction`, offered three ways: an End process button at the right end of the toolbar, the table's context menu (`Qt::ActionsContextMenu`), and the Delete key while the table has focus (`Qt::WidgetShortcut`). It is enabled while a terminator is set and the table has a current process that is not marked as exited (`ProcessModel::hasExited()`), and `confirmEndProcess()` checks both again. It is checked again when the current row changes, after the reset that switching tree mode causes, and after every snapshot, because a row can be marked as exited, or listed again, without the current index changing.
-- **Confirmation:** a `QMessageBox` with the warning icon, titled "End process". Its text names the process and its PID (`processTerminationQuestion()`: "Do you want to end explorer.exe (PID 1234)?") as plain text. Its informative text warns: "Ending a process stops it immediately. Any unsaved data in it is lost, and programs that depend on it may stop working." Its buttons are End process (`DestructiveRole`) and Cancel, which is both the default and the escape button. It is opened with `open()`, so it is window-modal, and it deletes itself when it closes. Its answer is read when it emits `finished`, from `clickedButton()`, so the terminator runs, and any message opens, after the dialog has closed.
+- **Confirmation:** a `QMessageBox` with the warning icon, titled "End process". Its text, from `processTerminationQuestion()`, asks whether to end the process, named with its PID, as plain text. Its informative text, `kEndProcessWarning` in `processes_view.cpp`, warns that unsaved data is lost and that programs that depend on the process may stop working. Its buttons are End process (`DestructiveRole`) and Cancel, which is both the default and the escape button. It is opened with `open()`, so it is window-modal, and it deletes itself when it closes. Its answer is read when it emits `finished`, from `clickedButton()`, so the terminator runs, and any message opens, after the dialog has closed.
 - **Identity:** the dialog acts on a copy of the `ProcessInfo` taken when it opened. Confirming passes that copy to the terminator, whatever the table shows by then.
 - **Terminator:** `ui::ProcessTerminator` is a `std::function<domain::ProcessTerminationResult(const domain::ProcessInfo&)>`, set with `ProcessesView::setProcessTerminator()`. `main.cpp` sets `platform::terminateOwnedProcess` ([DC-87](#dc-87)). It runs on the UI thread.
-- **Result:** a process that was ended gets no message. For every other result, `ProcessesView` shows a `QMessageBox` titled "End process", with one OK button, opened with `open()` (window-modal) and deleted when it closes. `processTerminationMessage()` (`process_formatting.h`) gives its text, which names the process and its PID, and its informative text, which says why:
-
-  | Result | Icon | Text | Informative text |
-  | --- | --- | --- | --- |
-  | `Terminated` | — | No message. | — |
-  | `AlreadyExited` | Information | "explorer.exe (PID 1234) has already exited." | "It exited before it could be ended. If another process now has its PID, that process was left running." |
-  | `NotOwnedByCurrentUser` | Warning | "Could not end explorer.exe (PID 1234)." | "It runs as another user, such as SYSTEM or a service account. The monitor ends only processes that run as you." |
-  | `Elevated` | Warning | As above. | "It runs elevated, with administrator or system rights. The monitor ends only processes that run with standard user rights." |
-  | `NeverOpened` | Warning | As above. | "It is a critical Windows process, which the monitor never opens." A process without a name has a reason of its own ([DC-13](#dc-13)). |
-  | `AccessDenied` | Warning | As above. | "Windows denied access to it. That happens for a system process or a service when the monitor runs without administrator rights, and for a process that Windows protects." |
-  | `Failed` | Critical | As above. | "Windows reported an unexpected error. The monitor's log has the error code." |
-
+- **Result:** a process that was ended gets no message. For every other result, `ProcessesView` shows a `QMessageBox` titled "End process", with one OK button, opened with `open()` (window-modal) and deleted when it closes. `processTerminationMessage()` (`process_formatting.h`) gives its text, which names the process and its PID, and its informative text, which gives the reason in the user's terms. A process without a name has a reason of its own ([DC-13](#dc-13)), and `Failed`'s reason points to the log. The icon is Information for `AlreadyExited`, Warning for `NotOwnedByCurrentUser`, `Elevated`, `NeverOpened` and `AccessDenied`, and Critical for `Failed`.
 - **Plain text:** the message's text format is `Qt::PlainText`, which `QMessageBox` also gives the informative text. Only the text contains the process's name. The question and the messages name the process the same way, "explorer.exe (PID 1234)", through one helper.
-- **The monitor's own row:** `platform::currentProcessIdentity()` (`platform/windows/current_process.h`) returns the monitor's PID and its creation time from `GetProcessTimes`, and `main.cpp` passes it to `ProcessesView::setMonitorIdentity()`. End process on that row opens a dialog with the question icon instead of the warning: "system_monitor.exe (PID 1234) is System Monitor itself. Do you want to close System Monitor?" (`monitorCloseQuestion()`), with the informative text "It closes the same way as when you close its window." Its buttons are Close System Monitor (`AcceptRole`) and Cancel, which is the default and the escape button. Confirming closes the window that holds the view, and the terminator is never called. If the identity cannot be read, a warning is logged and the row is treated like any other.
+- **The monitor's own row:** `platform::currentProcessIdentity()` (`platform/windows/current_process.h`) returns the monitor's PID and its creation time from `GetProcessTimes`, and `main.cpp` passes it to `ProcessesView::setMonitorIdentity()`. End process on that row opens a dialog with the question icon instead of the warning. Its text, from `monitorCloseQuestion()`, says that the row is System Monitor itself and asks whether to close it, and its informative text is `kCloseMonitorExplanation`. Its buttons are Close System Monitor (`AcceptRole`) and Cancel, which is the default and the escape button. Confirming closes the window that holds the view, and the terminator is never called. If the identity cannot be read, a warning is logged and the row is treated like any other.
 - **One dialog helper:** `askToConfirm()` in `processes_view.cpp` opens both confirmations, so the plain-text question, the Cancel default and the handling of `finished` are written once.
 - **Rules:** [ui/AGENTS.md](../src/ui/AGENTS.md) says that an action that changes the system calls a function `main.cpp` sets, and is disabled while none is set.
-- **Tests:**
-  - `tests/unit/processes_view_test.cpp` checks when the action and the button are enabled, that the context menu and the Delete key offer the action, and the confirmation's text, icon, and buttons. End process passes the selected process's identity to a recording terminator, and Cancel passes nothing. A process that left the list while the dialog was open, with another process current by then, is still the one ended.
-  - The view tests also check that an ended process gets no message; that `AccessDenied` gets a window-modal message with the title, warning icon, plain text, and OK button; the icon for every result; that no dialog is shown while the terminator runs (the test fails if the answer is read from `buttonClicked`); that closing the dialog from its title bar ends nothing; and that OK closes the message.
-  - They check that the action is disabled when the current process exits, opens no dialog then, and is enabled again when the process is listed again, and that it is disabled when an exited row becomes current. For the monitor's own row, they check the dialog's text, icon and buttons, that confirming closes the window that holds the view without calling the terminator, and that Cancel leaves it open.
-  - `tests/unit/process_formatting_test.cpp` checks both questions, including a name that contains `%1` and `%2`, that `Terminated` has no message, and the text and reason for every other result, with the System Idle Process's name. `process_model_test.cpp` covers `hasExited()`, and `tests/integration/process_collector_test.cpp` checks that `currentProcessIdentity()` matches this process's entry in the process list.
 
 **Rationale:**
 
 - **One action:** it keeps the button, the menu item, and the key in step: one enabled state, one text, one dialog. The button makes the action easy to find, as Task Manager's End task button does, and the context menu and the Delete key are where Task Manager users also look for it. The key works only on the table, so Delete in the filter box still deletes text.
 - **Cancel as default:** Enter, or a key pressed just as the dialog appears, never ends a process; ending one takes a click or a deliberate Tab. The question names the process for the user to recognise, and gives its PID to tell apart processes with the same name, such as the many svchost.exe processes. The name is plain text because the process chose it, and a name that looked like HTML would otherwise be rendered as rich text. A single `arg()` call keeps a `%2` in a name from being replaced by the PID.
 - **`open()` and `finished`:** `open()` avoids the nested event loop of `exec()`, which Qt advises against, and lets the tests inspect and answer the dialog without blocking. Window modality keeps the user from starting a second request from the same window while the first is open. `QMessageBox` emits `buttonClicked` while it is still shown, and closes afterwards (`QMessageBoxPrivate::setClickedButton()` emits the signal, then calls `done()`). A message opened from `buttonClicked` would be stacked over the confirmation, and Windows would choose which window to activate when the confirmation hid. `finished` is emitted after the dialog has hidden. The title bar's close button also emits `finished`, but before `clickedButton()` is set, so it ends nothing, like Cancel. `~QDialog` only hides the dialog without emitting `finished`, so a view destroyed while its dialog is open ends nothing.
-- **A copy of the process:** the table refreshes every two seconds while the dialog is open. The row it was opened from is removed a few seconds after the process exits ([DC-82](#dc-82)), and the current row then moves to a neighbour, as the test shows. Reading the selection when the user confirms could end a process the dialog never named. The copy keeps the identity the user saw, and `terminateOwnedProcess()` checks its creation time, so a process that exited in the meantime is reported as `AlreadyExited`, and a process that reused its PID is not touched.
+- **A copy of the process:** the table refreshes every two seconds while the dialog is open. The row it was opened from is removed a few seconds after the process exits ([DC-82](#dc-82)), and the current row then moves to a neighbour. Reading the selection when the user confirms could end a process the dialog never named. The copy keeps the identity the user saw, and `terminateOwnedProcess()` checks its creation time, so a process that exited in the meantime is reported as `AlreadyExited`, and a process that reused its PID is not touched.
 - **An injected function:** the UI may depend only on Qt and domain types ([DC-20](#dc-20)), so it cannot name the platform function. A `std::function` suits a single operation better than an interface class, and lets the tests pass a lambda that records identities: a fake, not a mock. Calling an empty `std::function` throws `std::bad_function_call`, and the project uses no exceptions, so the action stays disabled until a function is set, and `confirmEndProcess()` checks again. The terminator runs on the UI thread because `terminateOwnedProcess()` only opens the process, reads its token, and calls `TerminateProcess`, and never waits for the process to exit. A worker thread would add a path back to the UI thread for the result, for calls that do not wait.
 - **No message on success:** Windows ends the process asynchronously, and within one process refresh (two seconds) its row is marked as exited ([DC-82](#dc-82)), which shows the user that it worked without a box to dismiss after every success. Task Manager also stays silent when End task succeeds. A failure is rare and needs reading, so it gets a dialog rather than a line the user could miss. The main window has no status bar, and the user is looking at the spot where the confirmation dialog just was. The message is window-modal, as the confirmation is, so the user reads it before starting another request from the same window.
 - **The messages:** `AlreadyExited` is not an error, since the user wanted the process gone and it is, so its icon is Information. It still gets a message, because otherwise nothing would happen when the user confirmed, and the list may already show another process with the same PID. The message says that process was left running. The icons follow the levels at which the terminator logs each result ([DC-87](#dc-87)): information, warning for a refusal or a denial, and error for anything else. The message and the log then agree on how serious the outcome was. The reasons describe the user's situation rather than Win32 error codes, and `Failed` points to the log, which has the code. Elevated processes are refused before Windows is asked, so a denial is most often a system process or a service while the monitor runs unelevated, and a protected process can deny even an elevated monitor. The `AccessDenied` reason names both, each with when it happens, so it does not claim that the monitor runs without administrator rights. The process chose its own name, so the name appears only in the text, as plain text, as in the confirmation.
-- **Disabled on exited rows:** an exited row has nothing left to end. Confirming only produced "notepad.exe (PID 900) has already exited.", which the red, italic row already showed. Checking the action after every snapshot costs one lookup.
+- **Disabled on exited rows:** an exited row has nothing left to end. Confirming only produced the `AlreadyExited` message, which the red, italic row already showed. Checking the action after every snapshot costs one lookup.
 - **The monitor's own row:** the monitor is listed like any other process. When it runs unelevated, every check of [DC-87](#dc-87) passes, so End process called `TerminateProcess` on the monitor itself. It stopped at once: `main()` never stopped the scheduler or called `spdlog::shutdown()`, and info-level lines written since the last flush were lost, because the log flushes on its own only at `warn`. When the monitor ran elevated, the request was refused as `Elevated`, which reads oddly when the monitor is asked to end itself. Closing the main window ends the event loop, and `main()` then stops the scheduler and flushes the log. Task Manager also lets users end it from its own list, so offering to close the monitor matches what they expect. Asking first keeps the Cancel default that every End process dialog has. Closing the monitor loses no data, so the question icon fits better than the warning.
 - **An injected identity:** the code review suggested comparing the row's PID with `QCoreApplication::applicationPid()`, which needs no platform call. But a process is identified by its PID and creation time, never by its PID alone. Also, the unit tests run in a process whose PID could be one of the PIDs they list, such as 800 or 900, which would make those tests fail now and then. An injected identity keeps to the rule, lets the tests choose the monitor's identity, and follows the pattern of the terminator that `main.cpp` sets.
 
@@ -1480,10 +1427,9 @@ The adapter cards: which adapters are listed, in what order, and what each card 
 - **A card:** its title is the adapter's alias, with its operational status beside it, and the device description is below the title when it differs from it. Readouts (`adapterDetailReadouts()`) show the type, the link speed, the adapter's networks ([DC-100](#dc-100)), the IPv4 and IPv6 addresses, and the DNS servers, and a chart shows receive and send ([DC-98](#dc-98)).
 - **Type:** `NetworkSample::type` is a `domain::AdapterType`: Ethernet, Wi-Fi, Bluetooth, mobile broadband, tunnel, PPP, or other. `toAdapterType()` maps it at the platform boundary from `MIB_IF_ROW2`'s `PhysicalMediumType` when that names a medium (802.11, wireless LAN, Bluetooth, wireless WAN, or 802.3), and otherwise from its interface `Type`. Whether the adapter is physical stays in `isHardwareInterface`. `adapterTypeText()` combines the two, e.g. "Ethernet", "Wi-Fi (virtual)" and "Tunnel", or "Virtual" for a virtual adapter of type other. The Performance tab's "Type" readout uses it too.
 - **Only while Up:** the link speed, the IPv4 and IPv6 addresses and the DNS servers read "Not connected" unless the adapter is Up. The Performance tab's readouts need no such rule, because its network page charts only adapters that are Up ([DC-53](#dc-53)).
-- **Collapsed charts:** an adapter that is not Up shows "Throughput is charted while the adapter is Up." in place of its chart. The view still records its history, and the card copies the history into the chart only while the chart is shown.
+- **Collapsed charts:** an adapter that is not Up shows a line in place of its chart that says throughput is charted while the adapter is Up. The view still records its history, and the card copies the history into the chart only while the chart is shown.
 - **Address marks:** on both tabs, `ipAddressText()` marks each address "(temporary)" or "(link-local)" from its flags ([DC-35](#dc-35)). `formatAddressList()`, `ipv4AddressText()` and `ipv6AddressText()` in `network_formatting.h` serve both tabs.
 - **The link speed's tooltip:** `Readout` has an optional `toolTip`, which `ReadoutGrid` shows on the readout's name and value after converting it from plain text with `Qt::convertFromPlainText()`. On both tabs, a virtual adapter's reported link speed has `linkSpeedToolTip()`: its driver chooses the speed it reports, so the speed need not limit the adapter's throughput. A hardware adapter's has none.
-- **Tests:** unit tests cover the natural comparison, the order with and without "Show all adapters", that a change of status does not move an adapter, the same order on the Performance tab, the heading's place, the collapsed chart and its history once the adapter is Up, and that the hidden flag reaches the sample. They also cover the card and readouts of every status other than Up, the address marks, the tooltip on a virtual adapter's speed, and the grid's tooltips as plain text, updated in place. The 800×600 tests of both tabs include a temporary and a link-local address. An integration test checks that the WAN Miniports are hidden on the real host.
 
 **Rationale:**
 
@@ -1515,29 +1461,11 @@ The adapter type and the link speed are described in [DC-96](#dc-96).
 <a id="dc-98"></a>
 ### DC-98: Adapter throughput charts: one minute per card, with the history shared with the Performance tab
 
-**Decision:** Each `AdapterCard` has a receive and send chart, 110 pixels high, set up like the Performance tab's network charts: an auto-scaled byte-rate axis with the shared axis-label templates, a grid, axis labels, and a legend with the current values. `NetworkView` records every adapter's throughput from every snapshot in an `AdapterThroughputHistory` of `kHistoryCapacity` (60) samples, one minute at 1 Hz as on the dashboard, and copies each listed adapter's history into its card when it refreshes. `AdapterThroughputHistory` is the recording logic that `NetworkPerformancePage` had, now shared: for every known adapter, one sample per series per snapshot. A rate that cannot be computed, or an adapter missing from the snapshot (every adapter, when the read failed), records a gap, and an adapter is dropped once it is missing and its history holds no values. The page now uses it with its 1800-sample capacity. `SampleHistory` and `hasAnyValue()` moved from `performance_page.h` to `sample_history.h`, so the class needs no widget header. The tick-cost benchmark ([DC-66](#dc-66)) now has a Network tab table. With the tab shown and 2, 8, or 16 adapters, a tick costs a mean of 4.2 ms (max 5.5), 5.7 ms (6.2), and 5.7 ms (6.9) in a Release build. These figures are from 2026-10-16, on an AMD Ryzen 7 9800X3D with the High performance plan, MSVC 19.51 and Qt 6.11.1.
+**Decision:** Each `AdapterCard` has a receive and send chart, 110 pixels high, set up like the Performance tab's network charts: an auto-scaled byte-rate axis with the shared axis-label templates, a grid, axis labels, and a legend with the current values. `NetworkView` records every adapter's throughput from every snapshot in an `AdapterThroughputHistory` of `kHistoryCapacity` (60) samples, one minute at 1 Hz as on the dashboard, and copies each listed adapter's history into its card when it refreshes. `AdapterThroughputHistory` is the recording logic that `NetworkPerformancePage` had, now shared: for every known adapter, one sample per series per snapshot. A rate that cannot be computed, or an adapter missing from the snapshot (every adapter, when the read failed), records a gap, and an adapter is dropped once it is missing and its history holds no values. The page now uses it with its 1800-sample capacity. `SampleHistory` and `hasAnyValue()` moved from `performance_page.h` to `sample_history.h`, so the class needs no widget header. `build.ps1 -Benchmark` times the tab with 2 to 20 adapters, including a list with "Show all adapters" and an adapter that goes down and up ([DC-66](#dc-66)).
 
-**Rationale:** The tab is an inventory, and its charts show what each adapter is doing now. The Performance tab's network page already offers 5- and 30-minute windows for the active adapters. One minute keeps each card's history at 120 values and its chart sparse, and matches the dashboard. Every adapter's history is recorded, listed or not, so an adapter that comes up, or that "Show all adapters" adds, already has its last minute, and a hidden tab loses nothing ([DC-54](#dc-54)). Sharing the class keeps the two tabs in agreement on gaps and on when an adapter's history ends; a copy would have had to follow every change. The benchmark varies the adapter count. Copying histories into the charts grows with it, but only the cards in view are painted, so 16 adapters cost what 8 do. While the tab is hidden, its only cost is recording, two ring-buffer pushes per adapter.
+**Rationale:** The tab is an inventory, and its charts show what each adapter is doing now. The Performance tab's network page already offers 5- and 30-minute windows for the active adapters. One minute keeps each card's history at 120 values and its chart sparse, and matches the dashboard. Every adapter's history is recorded, listed or not, so an adapter that comes up, or that "Show all adapters" adds, already has its last minute, and a hidden tab loses nothing ([DC-54](#dc-54)). Sharing the class keeps the two tabs in agreement on gaps and on when an adapter's history ends; a copy would have had to follow every change. Copying histories into the charts grows with the number of adapters, but only the cards in view are painted, and a collapsed chart ([DC-96](#dc-96)) is not updated, so 16 or 20 adapters cost about what 8 do ([performance.md](performance.md)). While the tab is hidden, its only cost is recording, two ring-buffer pushes per adapter.
 
-**Re-measured on 2026-10-16 (code review F-40 and F-41):** the figures above came before the benchmark printed its environment, so their power mode and Windows version are not known. The benchmark now also times a list with "Show all adapters" and an adapter that changes state on every other tick. Three runs printed:
-
-```text
-Processor: AMD Ryzen 7 9800X3D 8-Core Processor
-Power plan: High performance; power mode: Best performance, on mains power
-Built with MSVC 19.51.36260 (Release), running Qt 6.11.1 on Windows 11 Version 25H2 (10.0.26200), 16 logical processors.
-```
-
-| Network tab scenario | Mean ms per tick, three runs | Longest tick |
-| --- | --- | --- |
-| 2 adapters | 5.8–5.9 | 7.2 |
-| 8 adapters | 6.4–6.8 | 7.9 |
-| 16 adapters | 6.4–6.6 | 8.8 |
-| 20 adapters with "Show all adapters", 10 of them Down and hidden | 6.3–6.5 | 7.4 |
-| 16 adapters, one going down and up on alternate ticks | 6.6–7.0 | 7.8 |
-
-These runs use the windows11 style, which costs this tab about 1 ms a tick ([DC-104](#dc-104)), and the machine ran every benchmark slower that day than for [DC-95](#dc-95), so they are compared with each other, not with the figures above. Twenty adapters with "Show all adapters" cost no more than 16: only the cards in view are painted, and a collapsed chart ([DC-96](#dc-96)) is not updated. An adapter that changes state collapses or expands its chart, which moves the cards below it, and costs about 0.3 ms more per tick. Cards no longer move to the top when their adapter comes up, so a change of state no longer re-inserts every card.
-
-**History:** Phase 5, network view; code review F-40 and F-41 (re-measured).
+**History:** Phase 5, network view; code review F-40 and F-41 (re-measured); maintenance (the figures moved to performance.md).
 
 ---
 
@@ -1555,62 +1483,47 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 <a id="dc-23"></a>
 ### DC-23: Formatting enforced with a pinned clang-format and the existing house style
 
-**Decision:** `.clang-format` describes the style the code already followed: indented `case` labels, and a Windows SDK include block whose `SortPriority` keeps the order the SDK requires. Pointers and references bind to the type (`Type* name`, `Type& name`), as in the C++ Core Guidelines (NL.18) and the guideline examples. All files were reformatted once in a formatting-only commit. `build.ps1 -Format` and `-CheckFormat` run clang-format on every C++ file under `src/`, `tests/`, and `benchmarks/` that is tracked, or new and not ignored, so files created since the last commit are formatted before they are first committed. A CI job pins clang-format 22.1.3 from PyPI, and `build.ps1` fails in CI (and warns locally) when the major version differs. `bootstrap.ps1` reports clang-format and can install LLVM with `-InstallMissing`, but a missing one is only a warning because building does not need it.
+**Decision:** `.clang-format` describes the style the code already followed: indented `case` labels, and a Windows SDK include block whose `SortPriority` keeps the order the SDK requires. Pointers and references bind to the type (`Type* name`, `Type& name`), as in the C++ Core Guidelines (NL.18) and the guideline examples. All files were reformatted once in a formatting-only commit. `build.ps1 -Format` formats the C++ files, and `-CheckFormat`, which CI runs, fails on one that differs. Both cover new files, so a file is formatted before its first commit. CI pins clang-format's version, and the script checks the major version. [build_system.md](build_system.md) describes which files they cover, how the script finds clang-format, and how `bootstrap.ps1` installs it.
 
 **Rationale:** Code review F-7 added `.clang-format`, but nothing ran it, and drift had begun: lines over the hard limit, Qt headers inside the standard-library group, and SDK headers in different orders ([code review F-17](code_reviews/phase_2.md#f-17-clang-format-is-not-enforced)). Matching the configuration to the existing style kept the reformat to alignment and line wrapping, rather than re-indenting every `switch`. The SDK order cannot be left to alphabetical sorting: `iphlpapi.h` sorts before `ws2tcpip.h`, which leaves `CancelMibChangeNotify2` undeclared. clang-format's output changes between major versions, so CI and developers must use the same major version, and PyPI offers the exact release that Visual Studio ships. The standard-library category matches case-sensitively because clang-format's include regexes are otherwise case-insensitive and would put `<QString>` in the standard-library group. The left alignment was chosen over LLVM's default right alignment (`Type &name`, also Qt's style) because the project's guidelines follow the C++ Core Guidelines, which recommend emphasizing the type.
 
-**History:** Code review F-17; Phase 3 (new files formatted before their first commit); code review F-25 (`benchmarks/` formatted too).
+**History:** Code review F-17; Phase 3 (new files formatted before their first commit); code review F-25 (`benchmarks/` formatted too); maintenance (the script's behaviour moved to build_system.md).
 
 ---
 
 <a id="dc-62"></a>
 ### DC-62: `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
 
-**Decision:** `build.ps1` builds (and tests, with `-Test`) without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory has no `build.ninja`, has not been configured by the script yet (a `build_ps1_configure.stamp` file in the build directory records the last successful configure), or a presets file is newer than that stamp. `-Configure` forces it. CTest runs with `--parallel` set to the number of logical processors.
+**Decision:** `build.ps1` builds, and tests with `-Test`, without launching the app; `-Run` launches it. It runs CMake's configure step only when the build directory needs it, which a stamp file of its own records, and CTest runs as many test processes at a time as there are logical processors. [build_system.md](build_system.md) describes when the script configures.
 
-**Rationale:** Builds and test runs far outnumber launches, especially for agents, so launching is the opt-in. Measured on the 16-thread development machine, an edit to one UI file followed by `-Test` took about 26 s: about 3 s re-configuring although nothing had changed, about 4 s compiling and linking, and about 18 s of tests. `gtest_discover_tests` runs each of the 362 tests in its own process at about 50 ms each, so process startup dominates and the tests parallelize well. Together the two changes cut that cycle to about 8 s (tests about 4 s), and a build with nothing to do from about 5 s to under 2 s. Skipping configure is safe because Ninja re-runs CMake itself when a `CMakeLists.txt` changes, and the vcpkg toolchain adds `vcpkg.json` and `vcpkg-configuration.json` to `CMAKE_CONFIGURE_DEPENDS`. Ninja does not track the presets files, hence the stamp. `CMakeCache.txt` cannot serve as the stamp, because CMake rewrites it only when its contents change. Ten consecutive parallel runs passed. The integration tests' timing checks allow up to a second, and the one test that writes a file uses its own directory, so the tests do not interfere with each other.
+**Rationale:** Builds and test runs far outnumber launches, especially for agents, so launching is the opt-in. Measured on the 16-thread development machine, an edit to one UI file followed by `-Test` took about 26 s: about 3 s re-configuring although nothing had changed, about 4 s compiling and linking, and about 18 s of tests. Each test then ran in its own process, and process startup dominated, so the tests parallelized well. Together the two changes cut that cycle to about 8 s, and a build with nothing to do from about 5 s to under 2 s. The tests now run as GoogleTest shards, about two per logical processor, which keeps every processor busy until the slowest shards finish ([DC-113](#dc-113)).
 
-**Note:** [DC-113](#dc-113) replaces the process per test with GoogleTest shards; CTest still runs them with `--parallel`.
+- **Skipping configure is safe:** Ninja re-runs CMake itself when a `CMakeLists.txt` changes, and the vcpkg toolchain adds `vcpkg.json` and `vcpkg-configuration.json` to `CMAKE_CONFIGURE_DEPENDS`. Ninja does not track the presets files, hence the stamp. `CMakeCache.txt` cannot serve as the stamp, because CMake rewrites it only when its contents change.
+- **Running in parallel is safe:** ten consecutive parallel runs passed. The integration tests' timing checks allow up to a second, and the one test that writes a file uses its own directory, so the tests do not interfere with each other.
 
-**History:** Phase 3 (build script); maintenance (GoogleTest shards, for [DC-113](#dc-113)).
+**History:** Phase 3 (build script); maintenance (GoogleTest shards, for [DC-113](#dc-113)); maintenance (the script's behaviour moved to build_system.md).
 
 ---
 
 <a id="dc-66"></a>
-### DC-66: A committed tick-cost benchmark, run with `build.ps1 -Benchmark` (code review F-25)
+### DC-66: Committed tick-cost benchmarks, run with `build.ps1 -Benchmark` (code review F-25)
 
-**Decision:** `benchmarks/performance_tick_benchmark.cpp` builds `system_monitor_benchmark`, an executable that is built with every preset but not registered with CTest. `build.ps1 -Benchmark` implies `-Release` and runs it after the build (and after the tests, with `-Test`). For each page it shows a 1280x800 `MainWindow` off screen (`WA_DontShowOnScreen`), records 1800 snapshots while the Performance tab is hidden, then selects the page and, for each chart window, times 20 ticks: `MainWindow::onSnapshotReady()` followed by `grab()` of the whole window. It prints the mean and maximum per tick as a Markdown table. The data is a fixed worst case: every series (total and per-core CPU, memory usage and commit, three volumes, receive and send for two adapters) is a sine wave between 5% and 95% of its range, with a period of 20 to 30 samples that differs per series. Throughput peaks at 100 MiB/s.
+**Decision:** Two executables in `benchmarks/` time the UI thread's work for one tick. `system_monitor_benchmark` (`performance_tick_benchmark.cpp`) times each Performance page at each chart window, and the Network tab with 2 to 20 adapters: `MainWindow::onSnapshotReady()` followed by `grab()` of a 1280x800 window shown off screen. `system_monitor_process_benchmark` (`process_table_benchmark.cpp`) times the Processes tab applying a list of 400 to 2,000 processes in flat and tree views, with the tab hidden, and shown with a repaint. They are built with every preset but not registered with CTest. `build.ps1 -Benchmark` implies `-Release` and runs both after the build, and after the tests with `-Test`. Each prints the mean and maximum per tick as Markdown tables, after the environment it ran in ([DC-95](#dc-95)). The data is synthetic, fixed and a worst case: every chart series swings across most of its range every 20 to 30 samples, and 40% of the processes change values in every refresh. [performance.md](performance.md) describes the scenarios and records the figures.
 
-One run on the development machine (16 threads, 4.7 GHz), mean with maximum in parentheses. Over three runs, every mean stayed within 3 ms of these:
+**Rationale:** [DC-61](#dc-61)'s first figures came from a benchmark that was not committed, so they could not be reproduced, and the review's rebuilt benchmark differed from them by up to 2x, for reasons its unrecorded data could not show. That benchmark had already caught a 210 ms tick, so later changes to charts and pages need the same tool, and the process table became the next large cost on the UI thread. An executable outside CTest suits timings, which depend on the machine and would make a flaky pass/fail test. Building it with every preset keeps it compiling in CI without running it. The Performance tab records 1800 snapshots while hidden before it is timed, which uses the recording-only path ([DC-54](#dc-54)), so the warm-up takes seconds. Fixed data makes two runs comparable, and a worst case bounds what real data costs: real disk usage, for example, never swings on every sample. Printing through spdlog follows the logging rule.
 
-| Page | 1 min | 5 min | 30 min |
-| --- | --- | --- | --- |
-| CPU, 16 cores | 7.6 ms (9.6) | 12.5 ms (13.5) | 39.1 ms (40.1) |
-| CPU, 64 cores | 14.3 ms (15.3) | 18.9 ms (20.3) | 34.1 ms (35.0) |
-| Memory | 4.0 ms (4.7) | 9.5 ms (10.2) | 22.9 ms (24.9) |
-| Disk, 3 volumes | 4.5 ms (5.0) | 23.8 ms (24.6) | 38.7 ms (48.6) |
-| Network, 2 adapters | 4.9 ms (5.4) | 11.3 ms (12.3) | 13.3 ms (18.0) |
-
-**Rationale:** The table in [DC-61](#dc-61) came from a benchmark that was not committed, so it could not be reproduced, and the review's rebuilt benchmark differed from it by up to 2x. That benchmark had already caught a 210 ms tick, so later changes to charts and pages need the same tool, and the Phase 4 process table will be the next large cost on the UI thread. An executable outside CTest suits timings, which depend on the machine and would make a flaky pass/fail test. Building it with every preset keeps it compiling in CI without running it. Recording while the tab is hidden uses the recording-only path ([DC-54](#dc-54)), so the 1800-sample warm-up takes seconds. Printing through spdlog follows the logging rule.
-
-The new numbers support DC-61's conclusions with slightly higher figures. A tick at the default 1-minute window costs at most about 15 ms (14 ms for 64 cores, against "under 13 ms"). The worst case at 30 minutes averages about 40 ms, with single ticks up to about 49 ms. That is still one short frame per second. Individual pages differ from DC-61 because the data differs: every series here swings, including all three disk volumes, which real disk usage never does, so the disk page is far slower than DC-61's 1.6 ms. The network page is faster than DC-61's 36.6 ms. The throwaway benchmark's data is not recorded in enough detail to say why, which is the reason to commit this one.
-
-**Extended by [DC-79](#dc-79):** `build.ps1 -Benchmark` also runs `system_monitor_process_benchmark`, which measures the Processes tab.
-
-**Extended by [DC-95](#dc-95):** the benchmarks print the compiler, Qt and Windows versions, and `build.ps1` the processor and the power settings. Three runs on 2026-10-15 reproduced this table to within 2 ms.
-
-**History:** Code review F-25; Phase 4, process explorer view (the process table benchmark, for [DC-79](#dc-79)); code review F-33 (the environment printed and the figures reproduced, for [DC-95](#dc-95)).
+**History:** Code review F-25; Phase 4, process explorer view (the process table benchmark, for [DC-79](#dc-79)); code review F-33 (the environment printed and the figures reproduced, for [DC-95](#dc-95)); maintenance (the process table benchmark described here rather than in DC-79, and the figures moved to performance.md).
 
 ---
 
 <a id="dc-69"></a>
 ### DC-69: `build.ps1` retries a failed configure once from a clean cache
 
-**Decision:** When `cmake --preset` fails and the build directory already had a `CMakeCache.txt`, `build.ps1` warns, removes `CMakeCache.txt` and `CMakeFiles`, and configures once more. `vcpkg_installed` and the Ninja build outputs are kept. A failure without an existing cache, or a second failure, stops the script as before. The configure stamp ([DC-62](#dc-62)) is removed before configuring and written only after success, so a failed configure is always repeated on the next run.
+**Decision:** When configuring fails in a build directory that already has a CMake cache, `build.ps1` removes the cache and configures once more, keeping the restored dependencies and the build outputs. [build_system.md](build_system.md) says what it removes and when it stops.
 
-**Rationale:** After a Visual Studio update, the Release build directory's cache recorded a compiler that no longer matched the preset's `cl`. CMake deleted the cache and re-ran itself, the re-run could not find vcpkg's packages, and the cache it left behind failed every later configure in the same way, including with `-Configure`. Deleting the two cache entries by hand fixed it. A cache created for another source directory (a moved or copied checkout) fails in a similar way, and the retry was tested with that case. The presets define every cache variable and the script passes none of its own, so a clean cache loses nothing. Keeping `vcpkg_installed` avoids restoring dependencies again, and in the test Ninja found nothing to rebuild afterwards. Retrying only once, and only when a cache existed, means a genuine error in a `CMakeLists.txt` still fails, after one extra configure of a few seconds. Deleting the whole build directory was rejected, because it would force a full rebuild and a dependency restore for a problem confined to the cache.
+**Rationale:** After a Visual Studio update, the Release build directory's cache recorded a compiler that no longer matched the preset's `cl`. CMake deleted the cache and re-ran itself, the re-run could not find vcpkg's packages, and the cache it left behind failed every later configure in the same way, including with `-Configure`. Deleting `CMakeCache.txt` and `CMakeFiles` by hand fixed it. A cache created for another source directory (a moved or copied checkout) fails in a similar way, and the retry was tested with that case. The presets define every cache variable and the script passes none of its own, so a clean cache loses nothing. Keeping `vcpkg_installed` avoids restoring dependencies again, and in the test Ninja found nothing to rebuild afterwards. Retrying only once, and only when a cache existed, means a genuine error in a `CMakeLists.txt` still fails, after one extra configure of a few seconds. Deleting the whole build directory was rejected, because it would force a full rebuild and a dependency restore for a problem confined to the cache.
 
-**History:** Phase 3 (build script).
+**History:** Phase 3 (build script); maintenance (the script's behaviour moved to build_system.md).
 
 ---
 
@@ -1626,62 +1539,32 @@ The new numbers support DC-61's conclusions with slightly higher figures. A tick
 ---
 
 <a id="dc-95"></a>
-### DC-95: Benchmarks print the build and the machine they ran on, and the figures re-measured (code review F-33)
+### DC-95: Benchmarks print the build and the machine they ran on (code review F-33)
 
 **Decision:**
 
 - **Build and runtime:** both benchmarks start by printing, through `logBenchmarkEnvironment()` (`benchmarks/benchmark_environment.h`), the MSVC version they were built with (`_MSC_FULL_VER`), the configuration, the Qt version they run with (`qVersion()`), the Windows version (`QSysInfo`), and the number of logical processors.
-- **Machine:** before it runs them, `build.ps1 -Benchmark` prints the processor's name from the registry, the power plan from `powercfg /getactivescheme`, and the Windows 11 power mode for the current power source. The power mode is the plan's overlay, read from the registry: Best power efficiency, Balanced or Best performance. A value that cannot be read prints as "unknown".
-- **Recording:** tables of figures are recorded with these lines. Three runs on 2026-10-15 printed:
+- **Machine:** before it runs them, `build.ps1 -Benchmark` prints the processor's name, the power plan, and the Windows 11 power mode for the current power source: Best power efficiency, Balanced or Best performance. A value that cannot be read prints as "unknown".
+- **Recording:** [performance.md](performance.md) records every table of figures with these lines.
 
-  ```text
-  Processor: AMD Ryzen 7 9800X3D 8-Core Processor
-  Power plan: High performance; power mode: Best performance, on mains power
-  Built with MSVC 19.51.36260 (Release), running Qt 6.11.1 on Windows 11 Version 25H2 (10.0.26200), 16 logical processors.
-  ```
+**Rationale:** The code review measured the Performance tab 25–45% above the figures then recorded, and the Processes tab 15–20% above. The end-of-Phase-3 code measured the same, so the code was not the cause, but nothing recorded what had changed in the meantime. Runs on the same machine afterwards were 15–34% below the review's and back at the recorded figures. The review's runs therefore reflected the machine's state, not a lasting change in the code. Which state is not known: the power plan and power mode, which change how fast the processor runs and are easy to change and forget, are the likeliest candidates, so they are now printed with every run. With the environment printed, the next drift can be told apart from a regression without rebuilding older code. The benchmark knows its own compiler and Qt version exactly, and Qt reports the Windows version, so the benchmark prints those. The processor's name and the power settings need registry reads or Windows calls. Only `platform/windows` calls Windows APIs, and the benchmarks depend on the UI and domain modules only, so the script reads them with PowerShell instead.
 
-  Performance tab, range of the mean ms per tick over the three runs:
-
-  | Page | 1 min | 5 min | 30 min |
-  | --- | --- | --- | --- |
-  | CPU, 16 cores | 7.0–7.2 | 12.1–12.5 | 38.2–39.7 |
-  | CPU, 64 cores | 12.4–13.0 | 17.3–17.9 | 32.5–32.7 |
-  | Memory | 3.9–4.1 | 9.3–9.5 | 22.5–23.5 |
-  | Disk, 3 volumes | 4.3–4.4 | 23.4–24.0 | 37.6–38.4 |
-  | Network, 2 adapters | 4.6–4.7 | 11.1–11.2 | 13.1–13.3 |
-
-  The longest single tick was 53.3 ms (disk, 30 minutes). Processes tab, 2,000 processes with the tab hidden, ms per tick for a refresh / a repeat:
-
-  | View | Refresh | Repeat |
-  | --- | --- | --- |
-  | Flat, by name | 0.22–0.25 | 0.18–0.19 |
-  | Flat, by CPU | 1.05–1.07 | 0.20 |
-  | Tree, by name | 0.48–0.52 | 1.62–1.77 |
-  | Tree, by CPU | 0.92–0.98 | 1.63–1.64 |
-  | Tree, by CPU, filtered | 1.11–1.18 | 0.91–0.98 |
-
-  At 400 processes every view costs at most 0.28 ms per tick with the tab hidden, and 4.1–4.7 ms with it shown. With the tab shown, the CPU-sorted tree of 2,000 processes costs 7.0–7.4 ms per refresh.
-
-- **Recorded figures kept:** the new runs reproduce [DC-66](#dc-66)'s table to within 2 ms on every page and window, so DC-66 and the figures in [architecture.md](architecture.md) stand, now with a date and a pointer here. The CPU-sorted tree's refresh and repeat add up to 2.6 ms, against 2.8 ms in [DC-82](#dc-82) and the code review's 3.4 ms.
-
-**Rationale:** The code review measured the Performance tab 25–45% above DC-66, and the Processes tab 15–20% above the figures in DC-79 and DC-82. The end-of-Phase-3 code measured the same, so the code was not the cause, but nothing recorded what had changed in the meantime. These runs, on the same machine, are 15–34% below the review's and back at DC-66's figures. The review's runs therefore reflected the machine's state, not a lasting change in the code. Which state is not known: the power plan and power mode, which change how fast the processor runs and are easy to change and forget, are the likeliest candidates, so they are now printed with every run. With the environment printed, the next drift can be told apart from a regression without rebuilding older code. The benchmark knows its own compiler and Qt version exactly, and Qt reports the Windows version, so the benchmark prints those. The processor's name and the power settings need registry reads or Windows calls. Only `platform/windows` calls Windows APIs, and the benchmarks depend on the UI and domain modules only, so the script reads them with PowerShell instead.
-
-**History:** Code review F-33.
+**History:** Code review F-33; maintenance (the figures moved to performance.md).
 
 ---
 
 <a id="dc-104"></a>
 ### DC-104: Qt's Windows style plugin deployed next to every executable (code review F-42)
 
-**Decision:** The top-level `CMakeLists.txt` defines `sysmon_deploy_qt_plugins()`, which copies two plugins next to an executable after it links: the Windows platform plugin into `platforms/`, as before, and `Qt6::QModernWindowsStylePlugin` (`qmodernwindowsstyle.dll`) into `styles/`. The app, the tests and both benchmarks call it, in place of three copies of the platform plugin's step. The app does not choose a style: Qt picks `windows11` on Windows 11 and `windowsvista` on Windows 10. `tests/unit/qt_configuration_test.cpp` checks that `QStyleFactory::keys()` lists both, and that the application's style is one of them.
+**Decision:** The top-level `CMakeLists.txt` defines `sysmon_deploy_qt_plugins()`, which copies two plugins next to an executable after it links: the Windows platform plugin into `platforms/`, as before, and `Qt6::QModernWindowsStylePlugin` (`qmodernwindowsstyle.dll`) into `styles/`. The app, the tests and both benchmarks call it, in place of three copies of the platform plugin's step. The app does not choose a style: Qt picks `windows11` on Windows 11 and `windowsvista` on Windows 10. The `QtConfiguration` tests fail if either style is missing.
 
 **Rationale:** The style plugin is loaded at run time, like the platform plugin. Only the platform plugin was copied, though, and the comment on that step said it was the only one needed. Without a `styles` directory, Qt falls back to its built-in classic `windows` style: bevelled check boxes, scroll bars, tabs and frames, and that style's dark palette. vcpkg's qtbase port ships no `windeployqt`, so the build copies the plugins itself, and one function deploys a plugin added later to every executable at once.
 - **Tests and benchmarks get the same plugins** as the app, so that the layouts, colours and tick costs they measure are the ones the app shows.
-- **Layout:** under `windows11` every test passes, including the 800×600 tests of the Performance pages and the Network tab. Rendered at 800×600 in both colour schemes, the main window's minimum size is 602×492 and every tab fits.
+- **Layout:** under `windows11` every tab still fits an 800×600 window, in both colour schemes.
 - **Colours:** the style draws tab pages and card frames in the palette's base colour (#ffffff in the light scheme, #2d2d2d in the dark one), not the window colour. Its placeholder-text colour is the text colour at half opacity, which reaches only 4.0:1 on white. [DC-105](#dc-105) chooses the text colours against what this style draws.
-- **Cost:** the tick-cost benchmark ran three times with the plugin and twice without it, alternately, on the same Release binary, by renaming its `styles` directory. With the style, the Network tab cost about 1 ms more per tick: means of 5.9–8.6 ms against 5.6–7.1 ms, for 2 to 16 adapters. So did the Performance tab's network page at 1 minute: 7.2–8.9 ms against 6.1–7.1 ms. On the other pages, the ranges with and without the style overlapped. Every run on 2026-10-16 was slower than [DC-95](#dc-95)'s figures, with or without the style, although they printed the same processor, power plan and power mode. The Phase 5 review measured the same, so these runs are compared only with each other.
+- **Cost:** the style costs the Network tab, and the Performance tab's network page, about 1 ms a tick; on the other pages the difference is lost in the noise ([performance.md](performance.md)).
 
-**History:** Code review F-42.
+**History:** Code review F-42; maintenance (the figures moved to performance.md).
 
 ---
 
@@ -1847,7 +1730,7 @@ How this file is organized and kept current.
 - **Git for the rest:** `.gitattributes` gives Markdown files Git's `markdown` diff driver, so `git log -L ':DC-76\::docs/design_decisions.md'` lists every commit that changed an entry, with each version, and diff hunk headers name the entry a change is in.
 - **Stubs:** an ID is never reused, renumbered or deleted. An entry merged into another, or retired, keeps its anchor, its heading, retitled to say so (`DC-89: Merged into DC-88`), and its line in the contents. Its body is one line that says where the decision is now. A stub whose decision went to two entries names both (`DC-103: Merged into DC-35 and DC-96`). Links and citations elsewhere in the repository move to that entry, except in `docs/code_reviews/`, which record what each review led to at the time, and `build.ps1` fails on one that still names a stub ([DC-114](#dc-114)).
 - **Merges:** entries that patch one another, or answer one question between them, are merged into one entry per topic ([DC-116](#dc-116)). The lowest ID among them under that topic keeps the merged decision, and the others become stubs. A chain whose entries sit under different topics becomes one entry under each: the slow-collector thread is in DC-77, under the scheduler, and the connectivity collector that runs on it in DC-39. The merged entry's history line keeps the sources of every entry merged into it and ends with the merge: `maintenance (DC-72, DC-74 and DC-94 merged in)`.
-- **Applied:** every entry ends with its history line, and the notes in DC-06, DC-18, DC-21, DC-46, DC-70, DC-71, DC-76 and DC-111 are folded into their entries. 34 entries that patched one another are merged into DC-12, DC-13, DC-27, DC-30, DC-35, DC-39, DC-48, DC-77, DC-79, DC-81, DC-82, DC-87, DC-88, DC-96 and DC-100. The remaining notes are in DC-62, DC-66 and DC-98, whose content the roadmap's next item moves to other documents, and in DC-68, which it retires.
+- **Applied:** every entry ends with its history line, and the notes in DC-06, DC-18, DC-21, DC-46, DC-70, DC-71, DC-76 and DC-111 are folded into their entries. 34 entries that patched one another are merged into DC-12, DC-13, DC-27, DC-30, DC-35, DC-39, DC-48, DC-77, DC-79, DC-81, DC-82, DC-87, DC-88, DC-96 and DC-100. The notes in DC-62 and DC-66 are folded in too, and DC-98's went to performance.md with the figures it recorded ([DC-117](#dc-117)). The last note is in DC-68, which the roadmap's next item retires.
 
 **Rationale:** The log was append-only: a change left the earlier entry as written and added a note to it. 40 notes patched 31 entries, so learning how End process works meant reading DC-88 and its two notes, then DC-89, DC-90 and DC-93, and working out which sentences still held; DC-88 still said the result was not shown. A reader, or an agent, who stopped at the first entry followed a decision the code no longer makes. A living entry is right when read alone. What it drops, the wording of earlier versions, git keeps beside the commit message that explains each change.
 
@@ -1856,7 +1739,7 @@ How this file is organized and kept current.
 - **The `markdown` driver:** without it Git finds no heading in a Markdown file, so `-L ':DC-76\::…'` fails, and hunk headers show the nearest line above that starts with a letter. The escaped colon matches only the entry's heading, not one whose ID starts with the same digits or a stub that names DC-76. Moving an entry, as grouping by topic did ([DC-116](#dc-116)), looks to `git log -L` like adding it; the same command run from that commit's parent continues further back.
 - **The lowest ID under the topic:** it is the decision's oldest ID, so the oldest links lead to all of it, and choosing it needs no judgement. One entry for a chain that spans topics would take a decision away from the code it decides: the slow-collector thread, which runs the process and network-name collectors too, would have become part of a connectivity entry.
 
-**History:** Maintenance, design decisions; maintenance (a known deviation as a source, and every entry given its history line, for [DC-116](#dc-116)); maintenance (how chains are merged, and stubs neither linked nor cited).
+**History:** Maintenance, design decisions; maintenance (a known deviation as a source, and every entry given its history line, for [DC-116](#dc-116)); maintenance (how chains are merged, and stubs neither linked nor cited); maintenance (the notes in DC-62, DC-66 and DC-98, for [DC-117](#dc-117)).
 
 ---
 
@@ -1870,5 +1753,22 @@ How this file is organized and kept current.
 - **ID order within a topic:** filing a new entry needs no judgement beyond its topic, and no entry moves when one is added. A reading order would have to be decided again for every new entry.
 - **One file:** links name `design_decisions.md#dc-NN` ([DC-114](#dc-114)), so moving an entry to another topic breaks none, and one search covers every decision. A file per topic would put the topic into every link.
 - **Process termination as a topic:** its checks in `platform/windows` and its action on the Processes tab are one feature, with an entry for each: the checks in [DC-87](#dc-87) and the action in [DC-88](#dc-88).
+
+**History:** Maintenance, design decisions.
+
+---
+
+<a id="dc-117"></a>
+### DC-117: Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, and no test lists or copied UI text
+
+**Decision:**
+
+- **Benchmark figures:** [performance.md](performance.md) records what `build.ps1 -Benchmark` prints: a baseline per tab with the environment lines ([DC-95](#dc-95)), and a dated history of earlier baselines and measured changes. An entry quotes at most the figure that justifies its choice, and links there.
+- **Build-script behaviour:** what `build.ps1` and `bootstrap.ps1` do, and when, is in [build_system.md](build_system.md) and the script's help. An entry about the script keeps what it chose and why.
+- **Tests:** an entry lists no tests. The test names list the cases, and an entry names at most the suite. How something is tested is in an entry only when it is a decision of its own, such as the unelevated children of the termination tests ([DC-87](#dc-87)).
+- **UI text:** an entry names the function or constant that gives a text, such as `processTerminationMessage()`, rather than copying it. Short labels, such as "N/A" or "Show all adapters", are still quoted.
+- **Applied:** the figures of DC-61, DC-66, DC-79, DC-95, DC-98 and DC-104 are in performance.md, with a baseline of all three tabs measured on 2026-10-18. DC-23's, DC-62's and DC-69's account of the script is in build_system.md. The test lists in DC-13, DC-35, DC-79, DC-82, DC-87, DC-88, DC-96, DC-100, DC-102 and DC-105 are dropped, and DC-13, DC-79 and DC-88 name formatters instead of their text.
+
+**Rationale:** Test lists, benchmark tables and copied text made up much of the longest entries, and none of it is a decision. Each copy went stale without anything noticing: figures change with the code and the machine, a test list with every test, a text with every rewording. The tests, the formatters and the script's help are current by construction, so an entry points to them. Benchmark figures have no such place in the code, so they get one document, where a tab's figures sit beside its last baseline, rather than six entries' tables, each from a different day and none current. An appendix to this file was rejected: the figures would still grow the file that is searched for decisions.
 
 **History:** Maintenance, design decisions.

@@ -3,7 +3,7 @@
 // whole window. It is built with the project but is not a test and is not
 // registered with CTest. Run it in a Release build with
 // .\scripts\build.ps1 -Benchmark; Debug Qt paints many times slower. See DC-66
-// and DC-98 in docs/design_decisions.md.
+// in docs/design_decisions.md, and docs/performance.md for the figures.
 
 #include <algorithm>
 #include <array>

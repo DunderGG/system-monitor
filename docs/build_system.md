@@ -68,7 +68,8 @@ built with every preset so they keep compiling, but they are not registered
 with CTest and CI does not run them, because their timings depend on the
 machine. For the same reason the script first prints the processor, the power
 plan and the Windows 11 power mode, and each benchmark prints the compiler, Qt
-and Windows versions it runs with. Record those lines with any figures.
+and Windows versions it runs with. [performance.md](performance.md) records
+the figures with those lines, and says how to record a new run.
 
 vcpkg installs release and debug libraries for the `x64-windows` triplet, so
 the second build directory restores its dependencies from the binary cache
@@ -113,7 +114,9 @@ switch saves the vcpkg environment variables for future terminals.
 For the current default preset, Ninja must be available on `PATH`. The MSVC
 environment must be initialized as well. `scripts/build.ps1` does this
 automatically (via `Enter-VsDevShell`), so it works from any terminal,
-including VS Code's built-in one. Pass `-Test` to run CTest after the build
+including VS Code's built-in one. The script builds without launching the
+app; pass `-Run` to launch it after the build, and after the tests when they
+pass. Pass `-Test` to run CTest after the build
 (`.\scripts\build.ps1 -Test`). Each test executable runs as GoogleTest shards,
 one CTest test per shard (about two per logical processor for
 `system_monitor_tests`), and CTest runs one shard per logical processor at a
@@ -121,14 +124,21 @@ time. A failed shard's output lists the tests that failed. To run one test,
 or a suite, start the executable with a filter, e.g.
 `build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*`.
 Builds are incremental, and the script runs the configure step only when the
-build directory has not been configured by it yet or a presets file changed
-since; Ninja re-runs configuration itself when a `CMakeLists.txt` or
-`vcpkg.json` changes. Pass `-Configure` to force it, for example after changing
-an environment variable that configuration reads. If configuring fails in a
-build directory that already has a CMake cache, the script removes
-`CMakeCache.txt` and `CMakeFiles` (keeping `vcpkg_installed`) and tries once
-more. A stale cache, such as one from before a Visual Studio update or from a
-moved checkout, therefore does not have to be deleted by hand. The script checks native tools by exit code
+build directory needs it ([DC-62](design_decisions.md#dc-62)). It records each
+successful configure in `build_ps1_configure.stamp` in the build directory, and
+configures when that stamp or `build.ninja` is missing, or when
+`CMakePresets.json` or `CMakeUserPresets.json` is newer than the stamp; Ninja
+re-runs configuration itself when a `CMakeLists.txt` or `vcpkg.json` changes.
+Pass `-Configure` to force it, for example after changing an environment
+variable that configuration reads. The stamp is removed before each configure
+and written only after it succeeds, so a failed configure is repeated on the
+next run. If configuring fails in a build directory that already has a CMake
+cache, the script warns, removes `CMakeCache.txt` and `CMakeFiles`, keeping
+`vcpkg_installed` and the Ninja build outputs, and tries once more
+([DC-69](design_decisions.md#dc-69)). A stale cache, such as one from before a
+Visual Studio update or from a moved checkout, therefore does not have to be
+deleted by hand. A failure without an existing cache, or a second failure,
+stops the script. The script checks native tools by exit code
 rather than stderr output, so redirecting or capturing its output (as CI and
 agents do) cannot turn a CMake warning into a failure. If you invoke `cmake`/`ctest` directly
 instead of going through `build.ps1`, use the **Developer PowerShell for VS 2022**
@@ -179,10 +189,13 @@ presets, manifest, and baseline therefore keep developer and CI dependency
 resolution aligned.
 
 A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
-`.\scripts\build.ps1 -CheckFormat`, which fails if any file under `src/`,
-`tests/`, or `benchmarks/` differs from `.clang-format`. It checks every file
-before it fails, so the log lists all of them. Run `.\scripts\build.ps1 -Format` locally
-before pushing.
+`.\scripts\build.ps1 -CheckFormat`, which fails if any C++ source or header
+under `src/`, `tests/`, or `benchmarks/` differs from `.clang-format`
+([DC-23](design_decisions.md#dc-23)). It checks every file before it fails, so
+the log lists all of them. Run `.\scripts\build.ps1 -Format` locally before
+pushing; it formats the same files in place. Both take the files that git
+tracks and the new ones that `.gitignore` does not exclude, so a file is
+formatted before its first commit.
 
 Both `-Format` and `-CheckFormat` then check the links to design decisions
 ([DC-114](design_decisions.md#dc-114)). They fail when an entry heading in
@@ -198,4 +211,6 @@ may cite it. Every problem is listed before the script fails. `build.ps1` finds 
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also
 recorded in `build.ps1`: locally a different version is a warning, and in CI it
-is an error.
+is an error. `bootstrap.ps1` reports whether it finds clang-format, and with
+`-InstallMissing` installs LLVM to get it. A missing clang-format is only a
+warning there, because building does not need it.
