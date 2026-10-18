@@ -361,7 +361,7 @@ std::optional<std::wstring> queryProcessImagePath(DWORD pid) {
 .\scripts\build.ps1 -CheckFormat   # check only; CI runs this and fails on differences
 ```
 
-Both also check the links to design decisions, so that a link to an entry that does not resolve fails as unformatted code does ([DC-114](design_decisions.md#dc-114)).
+Both also check the design decisions, so that a link to an entry that does not resolve fails as unformatted code does ([DC-114](design_decisions.md#dc-114)), and so does an entry whose fields are missing or out of order ([DC-117](design_decisions.md#dc-117)).
 
 CI uses clang-format 22 (pinned in `.github/workflows/ci.yml`). Visual Studio's "C++ Clang tools for Windows" component includes a matching version, and `bootstrap.ps1` reports whether one is available. A different major version can format code differently, so `build.ps1` warns locally and fails in CI when the version differs.
 

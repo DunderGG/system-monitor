@@ -207,7 +207,18 @@ or citation names a stub, an entry merged into another or retired, instead of
 the entry that has its decision now
 ([DC-115](design_decisions.md#dc-115)): only the stub's line in the contents
 may link to it, and only `docs/design_decisions.md` and `docs/code_reviews/`
-may cite it. Every problem is listed before the script fails. `build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
+may cite it.
+
+Both then check the fields of each entry
+([DC-117](design_decisions.md#dc-117)). An entry that is not a stub must have
+`**Decision:**`, `**Rationale:**`, an optional `**Consequences:**` and
+`**History:**`, in that order, each at the start of a line, and no other field,
+with nothing before its Decision and its History line last. A stub must have
+one line and no field. The checks do not count words: the budget of about 250
+words is the writer's to keep. Every problem from clang-format and both checks
+is listed before the script fails.
+
+`build.ps1` finds clang-format through `CLANG_FORMAT`, `PATH`,
 the Visual Studio LLVM tools, or `%ProgramFiles%\LLVM`. Formatting output can
 change between clang-format major versions, so the pinned major version is also
 recorded in `build.ps1`: locally a different version is a warning, and in CI it

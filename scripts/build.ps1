@@ -58,15 +58,17 @@ docs\performance.md.
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
 place with clang-format, using the repository's .clang-format, then checks the
-design decision links (see -CheckFormat) and exits without building. New files
-count even before they are added to git; files ignored by .gitignore do not.
+design decision links and fields (see -CheckFormat) and exits without building.
+New files count even before they are added to git; files ignored by .gitignore
+do not.
 
 .PARAMETER CheckFormat
 Checks that every C++ source and header under src/, tests/, and benchmarks/
 (the same files as -Format) matches .clang-format, without changing files, then
-checks the design decision links and exits without building. Fails and lists
-the differences in every file that needs formatting and every link that does
-not resolve, after checking them all. CI runs this check.
+checks the design decision links and fields and exits without building. Fails
+and lists the differences in every file that needs formatting, every link that
+does not resolve and every entry whose fields are wrong, after checking them
+all. CI runs this check.
 
 The link check reads docs\design_decisions.md and the text files that are
 tracked or new. Each entry's "### DC-NN:" heading needs <a id="dc-NN"></a> on
@@ -76,6 +78,11 @@ every DC-NN that a file cites must be an entry. An entry whose heading reads
 "Merged into ..." or "Retired" is a stub: only its line in the contents may link
 to it, and no file but docs\design_decisions.md and those in docs\code_reviews\
 may cite it.
+
+The field check reads docs\design_decisions.md. An entry that is not a stub has
+"**Decision:**", "**Rationale:**", an optional "**Consequences:**" and
+"**History:**", in that order, each at the start of a line, with nothing before
+its Decision and its History line last. A stub has one line and no fields.
 
 clang-format is taken from the CLANG_FORMAT environment variable if set, then
 PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
@@ -551,14 +558,97 @@ function Test-DesignDecisionLinks
     return $problems.Count -eq 0
 }
 
+# Checks the fields of each entry in docs\design_decisions.md (DC-117). An entry
+# that is not a stub has **Decision:**, **Rationale:**, optionally
+# **Consequences:**, and **History:**, in that order, each at the start of a
+# line, and **History:** is its last line. A stub, an entry merged into another
+# or retired (DC-115), has one line and no fields. An entry ends at the next
+# "---" line, anchor or heading. Prints each problem and returns whether there
+# were none.
+function Test-DesignDecisionFields
+{
+    $decisionsName = "docs/design_decisions.md"
+    $decisionLines = [System.IO.File]::ReadAllLines((Join-Path $projectRoot $decisionsName))
+    $problems = New-Object System.Collections.Generic.List[string]
+    $entryCount = 0
+
+    for ($index = 0; $index -lt $decisionLines.Count; $index++)
+    {
+        if ($decisionLines[$index] -cnotmatch '^### (DC-\d+):\s*(.*)$')
+        {
+            continue
+        }
+        $id = $Matches[1]
+        $isStub = $Matches[2] -cmatch '^(Merged into|Retired)\b'
+        $headingLine = $index + 1
+        $entryCount++
+
+        # The indexes of the entry's non-blank lines, and the fields that start them.
+        $bodyIndexes = New-Object System.Collections.Generic.List[int]
+        $fields = New-Object System.Collections.Generic.List[string]
+        $fieldIndexes = New-Object System.Collections.Generic.List[int]
+        while ($index + 1 -lt $decisionLines.Count -and $decisionLines[$index + 1] -cnotmatch '^(---$|<a id=|#+ )')
+        {
+            $index++
+            $line = $decisionLines[$index]
+            if ($line.Trim() -eq "")
+            {
+                continue
+            }
+            $bodyIndexes.Add($index)
+            if ($line -cmatch '^\*\*([^*]+):\*\*')
+            {
+                $fields.Add($Matches[1])
+                $fieldIndexes.Add($index)
+            }
+        }
+
+        if ($isStub)
+        {
+            if ($bodyIndexes.Count -ne 1 -or $fields.Count -ne 0)
+            {
+                $problems.Add("${decisionsName}:${headingLine}: $id is a stub, which has one line that says " +
+                    "where its decision is now and no fields.")
+            }
+            continue
+        }
+        $sequence = $fields -join ", "
+        if ($sequence -cnotmatch '^Decision, Rationale, (Consequences, )?History$')
+        {
+            $found = if ($fields.Count -eq 0) { "no fields" } else { "the fields $sequence" }
+            $problems.Add("${decisionsName}:${headingLine}: $id has $found; an entry has Decision, Rationale, " +
+                "an optional Consequences, and History, in that order, each starting a line as **Name:**.")
+        }
+        elseif ($bodyIndexes[0] -ne $fieldIndexes[0])
+        {
+            $problems.Add("${decisionsName}:$($bodyIndexes[0] + 1): $id has text before its **Decision:**.")
+        }
+        elseif ($bodyIndexes[$bodyIndexes.Count - 1] -ne $fieldIndexes[$fieldIndexes.Count - 1])
+        {
+            $problems.Add("${decisionsName}:$($fieldIndexes[$fieldIndexes.Count - 1] + 1): $id has text " +
+                "after its **History:** line, which is the entry's last.")
+        }
+    }
+
+    foreach ($problem in $problems)
+    {
+        Write-Host $problem
+    }
+    if ($problems.Count -eq 0)
+    {
+        Write-Host "All $entryCount design decision entries have their fields in order."
+    }
+    return $problems.Count -eq 0
+}
+
 if ($Format -and $CheckFormat)
 {
     throw "Use either -Format or -CheckFormat, not both."
 }
 
-# Formatting and the link check need neither vcpkg nor the MSVC environment, so
-# they run first and exit. Both run before either fails, so that every problem
-# is listed.
+# Formatting and the design decision checks need neither vcpkg nor the MSVC
+# environment, so they run first and exit. All three run before any fails, so
+# that every problem is listed.
 if ($Format -or $CheckFormat)
 {
     $formatError = $null
@@ -571,6 +661,7 @@ if ($Format -or $CheckFormat)
         $formatError = $_
     }
     $linksResolve = Test-DesignDecisionLinks
+    $fieldsInOrder = Test-DesignDecisionFields
     if ($null -ne $formatError)
     {
         throw $formatError
@@ -578,6 +669,10 @@ if ($Format -or $CheckFormat)
     if (-not $linksResolve)
     {
         throw "Some design decision links or citations do not resolve or name a stub (see above)."
+    }
+    if (-not $fieldsInOrder)
+    {
+        throw "Some design decision entries do not have their fields in order (see above)."
     }
     return
 }

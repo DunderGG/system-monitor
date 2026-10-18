@@ -244,7 +244,7 @@ Open a GitHub issue describing the feature, its use case, and how it fits into t
 
 4. **Keep commits focused**. One logical change per commit. Write clear commit messages.
 
-5. **Format your changes** with `.\scripts\build.ps1 -Format`. CI checks formatting against `.clang-format` and fails on differences. Both also check that every link to a design decision resolves.
+5. **Format your changes** with `.\scripts\build.ps1 -Format`. CI checks formatting against `.clang-format` and fails on differences. Both also check that every link to a design decision resolves, and that each entry has its fields in order.
 
 6. **Ensure CI passes**. The GitHub Actions workflow checks formatting, builds, and runs tests automatically on every push and pull request.
 

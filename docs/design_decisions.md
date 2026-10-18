@@ -2,7 +2,7 @@
 
 Rationale for non-obvious implementation choices made during development, grouped by topic ([DC-116](#dc-116)). The line under each topic's heading says what it covers, and an entry's **History:** line names the phase or code-review finding that made it.
 
-An entry holds a decision and its reasons ([DC-117](#dc-117)). Measured tick costs are in [performance.md](performance.md), what `build.ps1` does is in [build_system.md](build_system.md), the rules that every change follows are in [AGENTS.md](../AGENTS.md) and the [coding guidelines](coding_guidelines.md), with their reasons, and the tests, the program's text and where code lives are in the code.
+An entry holds a decision and its reasons in about 250 words, not counting its heading and its **History:** line ([DC-117](#dc-117)). Its fields, each at the start of a line, are **Decision:**, what was chosen; **Rationale:**, why, and the alternatives rejected; **Consequences:**, only when the choice has a cost or constrains later changes in a way the Rationale leaves out; and last **History:**. `.\scripts\build.ps1 -Format` and `-CheckFormat` fail on a field that is missing, unknown or out of order. An entry quotes at most the one measurement that justifies its choice, and a merged entry gives each of its parts a sentence. Measured tick costs are in [performance.md](performance.md), what `build.ps1` does is in [build_system.md](build_system.md), the rules that every change follows are in [AGENTS.md](../AGENTS.md) and the [coding guidelines](coding_guidelines.md), with their reasons, and the tests, the program's text and where code lives are in the code.
 
 Each entry has a permanent ID (`DC-01`, `DC-02`, …) that other documents and code comments can cite. A new entry takes the next unused number and goes at the end of its topic, so the entries within a topic are in ID order. Numbers are never reused or renumbered.
 
@@ -146,7 +146,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-114](#dc-114): Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
   - [DC-115](#dc-115): Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
   - [DC-116](#dc-116): Entries grouped by topic, in ID order within each topic
-  - [DC-117](#dc-117): Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, rules in the coding guidelines, and no test lists, copied UI text or code locations
+  - [DC-117](#dc-117): Entries: Decision, Rationale, optional Consequences and History in about 250 words, with figures, script behaviour, rules, tests, UI text and code locations kept elsewhere
 
 ---
 
@@ -1707,21 +1707,16 @@ How this file is organized and kept current.
 ---
 
 <a id="dc-117"></a>
-### DC-117: Entries hold decisions: benchmark figures in `performance.md`, build-script behaviour in `build_system.md`, rules in the coding guidelines, and no test lists, copied UI text or code locations
+### DC-117: Entries: Decision, Rationale, optional Consequences and History in about 250 words, with figures, script behaviour, rules, tests, UI text and code locations kept elsewhere
 
 **Decision:**
 
-- **Benchmark figures:** [performance.md](performance.md) records what `build.ps1 -Benchmark` prints: a baseline per tab with the environment lines ([DC-95](#dc-95)), and a dated history of earlier baselines and measured changes. An entry quotes at most the figure that justifies its choice, and links there.
-- **Build-script behaviour:** what `build.ps1` and `bootstrap.ps1` do, and when, is in [build_system.md](build_system.md) and the script's help. An entry about the script keeps what it chose and why.
-- **Tests:** an entry lists no tests. The test names list the cases, and an entry names at most the suite. How something is tested is in an entry only when it is a decision of its own, such as the unelevated children of the termination tests ([DC-87](#dc-87)).
-- **UI text:** an entry names the function or constant that gives a text, such as `processTerminationMessage()`, rather than copying it. Short labels, such as "N/A" or "Show all adapters", are still quoted.
-- **Rules:** a rule that every change follows is in the [coding guidelines](coding_guidelines.md), with its reasons, and in short in AGENTS.md or the module's AGENTS.md. An entry does not restate it, and links to the guideline where its decision applies it. An entry that only restated a rule is retired, and the reasons it gave move to the guideline.
-- **Code locations:** a header's comment says what it holds. An entry names the function, type or header that carries its decision, but a list of what lives where is not a decision, and an entry that was only such a list is retired.
-- **Applied:** the figures of DC-61, DC-66, DC-79, DC-95, DC-98 and DC-104 are in performance.md, with a baseline of all three tabs measured on 2026-10-18. DC-23's, DC-62's and DC-69's account of the script is in build_system.md. The test lists in DC-13, DC-35, DC-79, DC-82, DC-87, DC-88, DC-96, DC-100, DC-102 and DC-105 are dropped, and DC-13, DC-79 and DC-88 name formatters instead of their text. DC-26, DC-68, DC-102 and DC-105 are retired: the guidelines' "Windows API wrapping" now says that a header other modules include has no Windows headers, which was all of DC-26 that still held; the headers that DC-68 listed say what they hold; and the reasons that DC-102 and DC-105 gave are in the guidelines' "Text from outside the program" and "Text colours", which already stated their rules.
+- **Fields:** **Decision:**, what was chosen; **Rationale:**, why, and the alternatives rejected; **Consequences:**, only for a cost or a constraint on later changes that the Rationale leaves out; then the one-line **History:** ([DC-115](#dc-115)). `build.ps1 -Format` and `-CheckFormat` fail on a field that is missing, unknown or out of order, and on a stub longer than one line.
+- **Budget:** about 250 words, without the heading and the History line, and with at most the one measurement that justifies the choice. A merged entry gives each of its parts a sentence.
+- **Kept elsewhere:** benchmark figures are in [performance.md](performance.md), what the build scripts do in [build_system.md](build_system.md), and the rules that every change follows, with their reasons, in the [coding guidelines](coding_guidelines.md). An entry lists no tests, unless how something is tested is itself a decision ([DC-87](#dc-87)), names the function that gives a text, such as `processTerminationMessage()`, instead of copying it, and names the code that carries its decision without listing where code lives.
 
-**Rationale:** Test lists, benchmark tables and copied text made up much of the longest entries, and none of it is a decision. Each copy went stale without anything noticing: figures change with the code and the machine, a test list with every test, a text with every rewording. The tests, the formatters and the script's help are current by construction, so an entry points to them. Benchmark figures have no such place in the code, so they get one document, where a tab's figures sit beside its last baseline, rather than six entries' tables, each from a different day and none current. An appendix to this file was rejected: the figures would still grow the file that is searched for decisions.
+**Rationale:** Test lists, figures, copied text and lists of files filled the longest entries, and each copy went stale unnoticed. The tests, formatters, script help and header comments stay current, so entries point to them. Figures get one document; an appendix would grow the file searched for decisions. A rule restated here drifts from the guideline, as DC-26 did.
 
-- **Rules in the guidelines:** a rule kept in two places drifts too. DC-26 said that Windows headers stay inside translation units, but eight headers in `platform/windows` include them, as the module's rules allow for a header that no other module includes. A rule is read where code is written, so its reasons belong beside it, where someone who wants to bend it finds them; an entry is found only by someone already looking for the decision.
-- **No code locations:** a list of what lives where goes stale with every move, and DC-68's already named a sort that DC-96 had replaced. The headers' own comments move with the code.
+The first 48 entries averaged about 150 words and the next 60 about 430, and half of today's fit in 250. What runs over mostly describes how the code carries out the choice, which the code says. The check counts fields, not words, because a hard limit would cut whichever sentence crossed it, and refusing unknown fields keeps out the notes that DC-115 removed. Consequences is optional because most costs are already in the Rationale.
 
-**History:** Maintenance, design decisions; maintenance (rules in the coding guidelines and no code locations; DC-26, DC-68, DC-102 and DC-105 retired).
+**History:** Maintenance, design decisions; maintenance (rules in the coding guidelines and no code locations; DC-26, DC-68, DC-102 and DC-105 retired); maintenance (the fields and the budget).

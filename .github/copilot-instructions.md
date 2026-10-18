@@ -10,8 +10,8 @@ The rules below are self-contained. For deeper context, see `docs/architecture.m
 - Build and test: `.\scripts\build.ps1 -Test`
 - Release build, for measuring performance (Debug Qt paints many times slower): add `-Release`, e.g. `.\scripts\build.ps1 -Test -Release`
 - Measure the Performance, Network and Processes tabs' tick cost (Release build; prints tables to record in [docs/performance.md](docs/performance.md); not a test): `.\scripts\build.ps1 -Benchmark`
-- Format C++ files and check design decision links: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code or a link that does not resolve)
-- Check formatting and design decision links only: `.\scripts\build.ps1 -CheckFormat`
+- Format C++ files and check the design decisions: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code, a link that does not resolve, or an entry whose fields are missing or out of order)
+- Check formatting and the design decisions only: `.\scripts\build.ps1 -CheckFormat`
 
 Do not invoke `cmake` or `ctest` directly: `build.ps1` initializes the x64 MSVC developer environment the build requires. If the script is missing something you need, improve it instead of working around it, and keep its help and these commands in sync.
 
