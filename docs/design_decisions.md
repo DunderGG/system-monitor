@@ -132,6 +132,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-104](#dc-104): Qt's Windows style plugin deployed next to every executable (code review F-42)
   - [DC-118](#dc-118): Coverage measured with Visual Studio's clang-cl and LLVM source-based coverage, in a preset of its own
   - [DC-120](#dc-120): The coverage dashboard is one self-contained page that a PowerShell script writes, with a history of the runs whose tests passed
+  - [DC-121](#dc-121): CI keeps the coverage history on the `gh-pages` branch and publishes the dashboard with GitHub Pages
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1252,13 +1253,26 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 <a id="dc-120"></a>
 ### DC-120: The coverage dashboard is one self-contained page that a PowerShell script writes, with a history of the runs whose tests passed
 
-**Decision:** `build.ps1 -Coverage` ends by running `scripts/coverage_dashboard.ps1`, which puts the run's data as JSON into `scripts/coverage_dashboard.html` and writes `build/coverage/index.html`, a page whose inline script draws its tables and SVG charts. Each run whose tests pass first adds a JSON line to `build/coverage/history.jsonl`, with its counts, times, and covered and total lines and branches, and the page draws the trend from it. A run whose tests fail still gets the page, without coverage.
+**Decision:** `build.ps1 -Coverage` ends by running `scripts/coverage_dashboard.ps1`, which puts the run's data as JSON into `scripts/coverage_dashboard.html` and writes `build/coverage/index.html`, a page whose inline script draws its tables and SVG charts. Each run whose tests pass first adds a JSON line to the history, `build/coverage/history.jsonl` unless CI names its own ([DC-121](#dc-121)), with its counts, times, and covered and total lines and branches, and the page draws the trend from it. A run whose tests fail still gets the page, without coverage.
 
 **Rationale:** A page that loads nothing opens from disk and can be published as it is; a charting library would have to be copied into every page for three line charts. Windows PowerShell 5.1 needs nothing that `bootstrap.ps1` does not install, unlike Python or Node. The HTML stays in a file of its own rather than in PowerShell strings, and the data is escaped so that a test's name cannot end the script element. The script is separate from `build.ps1` so that a CI job that runs CTest itself can call it. The history keeps counts rather than percentages, so that every value is rounded the same way and a change in the number of lines is told apart from a change in coverage. It keeps only runs whose tests passed, because only they have coverage. A failed run's page lists the failures, and compares the reports with those that `ctest --show-only=json-v1` says each shard was told to write: a shard that crashed writes none, and its tests would otherwise vanish from the counts.
 
-**Consequences:** Deleting `build/` loses the history. The times come from an instrumented Debug build, so they compare only with other coverage runs.
+**Consequences:** Deleting `build/` loses the local history; CI's is kept apart from it ([DC-121](#dc-121)). The times come from an instrumented Debug build, so they compare only with other coverage runs.
 
-**History:** Maintenance, coverage and test statistics (the dashboard).
+**History:** Maintenance, coverage and test statistics (the dashboard); maintenance (the history CI names, for [DC-121](#dc-121)).
+
+---
+
+<a id="dc-121"></a>
+### DC-121: CI keeps the coverage history on the `gh-pages` branch and publishes the dashboard with GitHub Pages
+
+**Decision:** CI's `Coverage` job runs `build.ps1 -Coverage` on each push to `main` and each pull request, with the history that `scripts/coverage_pages.ps1 -Fetch` clones from the `gh-pages` branch. After a passing run on `main`, `-Publish` pushes the dashboard, `llvm-cov`'s HTML and the extended history to the branch, which GitHub Pages serves; a pull request's dashboard becomes an artifact. The job summary compares the run with the history's last, for a pull request `main`'s. Local runs keep their own history.
+
+**Rationale:** The history in `build/` was lost with it, could be seen only where it was made, and mixed machines, uncommitted changes and repeated runs of a commit. CI adds one run per commit on `main`, from a clean checkout on one runner image, so its points compare. A branch versions the data without a commit on `main` for each run, and Pages serves it free for a public repository. Rejected: the history on `main` (those commits), workflow artifacts (they expire), and Codecov or Coveralls (an outside service and token, without the test counts or times). Only this job may write, and the checkout keeps no token, so only the publishing step can push. Runs on `main` share a concurrency group, so each extends the history its predecessor published. The steps use Windows PowerShell 5.1, which the scripts are tried with.
+
+**Consequences:** Pages is turned on once, for the branch. GitHub keeps only the newest of the runs waiting behind one in progress, so a commit can get no point. CI's times vary more than local ones.
+
+**History:** Maintenance, coverage and test statistics (where the history lives).
 
 ---
 

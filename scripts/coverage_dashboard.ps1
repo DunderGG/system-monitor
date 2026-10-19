@@ -23,6 +23,9 @@ appends this run to the history: its date, commit, test counts, times, and the
 covered and total lines and branches of src\. A run whose tests fail is shown
 but not added, so every run in the history has its coverage.
 
+With -SummaryPath, it also writes a short Markdown summary of the run, which CI
+adds to its job summary (DC-121).
+
 .PARAMETER TestResultsDirectory
 The directory of the shards' GoogleTest JSON reports, such as
 build\coverage\test_results.
@@ -38,6 +41,12 @@ The page to write, such as build\coverage\index.html.
 .PARAMETER CoverageSummaryPath
 What llvm-cov export -summary-only wrote for the run. Without it, the page has
 no coverage and the run is not added to the history.
+
+.PARAMETER SummaryPath
+The Markdown summary to write, such as build\coverage\summary.md. When the tests
+passed, it compares the line and branch coverage of src\ and the test count with
+those of the previous run in the history; otherwise it lists the tests that
+failed and the shards that wrote no report.
 
 .PARAMETER AnnotatedSourceDirectory
 The directory llvm-cov show -format=html wrote, such as build\coverage\html.
@@ -67,6 +76,7 @@ param(
     [Parameter(Mandatory)][string]$HistoryPath,
     [Parameter(Mandatory)][string]$OutputPath,
     [string]$CoverageSummaryPath = "",
+    [string]$SummaryPath = "",
     [string]$AnnotatedSourceDirectory = "",
     [string[]]$ExpectedReportPaths = @(),
     [Nullable[double]]$TestRunSeconds = $null,
@@ -265,6 +275,113 @@ function Get-KindRank
         return $kindOrder.Count
     }
     return $rank
+}
+
+# The summary formats numbers as the page does, in the invariant culture, which
+# PowerShell's -f operator would replace with the user's. The minus sign and the
+# dash for a missing value are the page's too.
+$invariant = [System.Globalization.CultureInfo]::InvariantCulture
+$minusSign = [string][char]0x2212
+$missingValue = [string][char]0x2013
+$listedFailureCount = 20
+
+# Returns a run's coverage of one kind from the history as a percentage rounded
+# down, as build.ps1 prints it, so that only full coverage reads 100%, with the
+# counts.
+function Format-Coverage
+{
+    param(
+        [AllowNull()][object]$Counts
+    )
+
+    $count = if ($null -eq $Counts) { $null } else { Get-JsonProperty $Counts "count" }
+    if ($null -eq $count -or $count -eq 0)
+    {
+        return $missingValue
+    }
+    $covered = Get-JsonProperty $Counts "covered"
+    $percent = [Math]::Floor(1000 * $covered / $count) / 10
+    return [string]::Format($invariant, "{0:0.0}% ({1:N0} of {2:N0})", $percent, $covered, $count)
+}
+
+# Returns a run's coverage of one kind from the history as an unrounded
+# percentage, or $null.
+function Get-ExactPercent
+{
+    param(
+        [AllowNull()][object]$Counts
+    )
+
+    $count = if ($null -eq $Counts) { $null } else { Get-JsonProperty $Counts "count" }
+    if ($null -eq $count -or $count -eq 0)
+    {
+        return $null
+    }
+    return 100.0 * (Get-JsonProperty $Counts "covered") / $count
+}
+
+# Returns the change from one value to another with its sign, formatted with
+# the given format string, or the dash for a missing value.
+function Format-Change
+{
+    param(
+        [Nullable[double]]$Current,
+        [Nullable[double]]$Before,
+        [Parameter(Mandatory)][string]$Format
+    )
+
+    if ($null -eq $Current -or $null -eq $Before)
+    {
+        return $missingValue
+    }
+    $magnitude = [string]::Format($invariant, $Format, [Math]::Abs($Current - $Before))
+    if ($magnitude -eq [string]::Format($invariant, $Format, 0.0))
+    {
+        return $magnitude
+    }
+    $sign = if ($Current -gt $Before) { "+" } else { $minusSign }
+    return $sign + $magnitude
+}
+
+# Returns a run's date from the history as the page shows it. PowerShell 7's
+# ConvertFrom-Json reads it as a DateTime, Windows PowerShell's as a string.
+function Format-RunDate
+{
+    param(
+        [AllowNull()][object]$Date
+    )
+
+    if ($Date -is [DateTime])
+    {
+        return $Date.ToString("yyyy-MM-dd HH:mm", $invariant)
+    }
+    $parsed = [DateTimeOffset]::MinValue
+    if ([DateTimeOffset]::TryParse([string]$Date, $invariant, [System.Globalization.DateTimeStyles]::None, [ref]$parsed))
+    {
+        return $parsed.ToString("yyyy-MM-dd HH:mm", $invariant)
+    }
+    return [string]$Date
+}
+
+# Returns the commit a run from the history built, such as "commit `fdf2c26`
+# (Add a dashboard)", or "no commit" outside a git checkout.
+function Format-RunCommit
+{
+    param(
+        [Parameter(Mandatory)][object]$Run
+    )
+
+    $hash = [string](Get-JsonProperty $Run "commit")
+    if ($hash -eq "")
+    {
+        return "no commit"
+    }
+    $text = "commit ``$($hash.Substring(0, [Math]::Min(7, $hash.Length)))`` ($(Get-JsonProperty $Run "subject"))"
+    if (Get-JsonProperty $Run "changes")
+    {
+        $text += " with uncommitted changes"
+    }
+    return $text
 }
 
 function New-CoverageCount
@@ -565,3 +682,104 @@ if (-not $template.Contains($placeholder))
     throw "$templatePath has no $placeholder for the data."
 }
 [System.IO.File]::WriteAllText($OutputPath, $template.Replace($placeholder, $json), $utf8)
+
+# The summary: the run's problems, or its coverage and test count beside those
+# of the previous run in the history. A run that is in the history is its last.
+if (-not [string]::IsNullOrEmpty($SummaryPath))
+{
+    $summary = New-Object System.Collections.Generic.List[string]
+    $summary.Add("### Tests and coverage")
+    $summary.Add("")
+    $failedTests = $testRows.failed
+    if ($failedTests.Count -gt 0)
+    {
+        $summary.Add([string]::Format($invariant, "**{0:N0} of {1:N0} tests failed:**", $failedTests.Count, $total.tests))
+        $summary.Add("")
+        foreach ($test in ($failedTests | Select-Object -First $listedFailureCount))
+        {
+            $location = if ($test.file -eq "") { "" } elseif ($null -eq $test.line) { " ($($test.file))" } else
+            {
+                " ($($test.file):$($test.line))"
+            }
+            $summary.Add("- ``$($test.suite).$($test.name)``$location")
+        }
+        if ($failedTests.Count -gt $listedFailureCount)
+        {
+            $summary.Add([string]::Format($invariant, "- and {0:N0} more", $failedTests.Count - $listedFailureCount))
+        }
+        $summary.Add("")
+    }
+    if ($missingReports.Count -gt 0)
+    {
+        $shardText = if ($missingReports.Count -eq 1) { "1 shard wrote no report**, so its" } else
+        {
+            [string]::Format($invariant, "{0:N0} shards wrote no report**, so their", $missingReports.Count)
+        }
+        $summary.Add("**$shardText tests are not counted: $($missingReports -join ', '). A shard writes its " +
+            "report when it ends, so it may have crashed or timed out; see CTest's output.")
+        $summary.Add("")
+    }
+    if ($TestsFailed -and $failedTests.Count -eq 0 -and $missingReports.Count -eq 0)
+    {
+        $summary.Add("**CTest reported a failure** that no report records; see its output.")
+        $summary.Add("")
+    }
+
+    if ($TestsFailed)
+    {
+        $summary.Add("Coverage is measured only when every test passes, so this run has none and is not in the history.")
+    }
+    else
+    {
+        $outcomes = @([string]::Format($invariant, "{0:N0} passed", $total.passed))
+        if ($total.skipped -gt 0)
+        {
+            $outcomes += [string]::Format($invariant, "{0:N0} skipped", $total.skipped)
+        }
+        if ($total.disabled -gt 0)
+        {
+            $outcomes += [string]::Format($invariant, "{0:N0} disabled", $total.disabled)
+        }
+        $summary.Add("No test failed: $($outcomes -join ', ').")
+        $summary.Add("")
+        if (-not $inHistory)
+        {
+            $summary.Add("Coverage was not measured.")
+        }
+        else
+        {
+            $current = $history[$history.Count - 1]
+            $previous = if ($history.Count -ge 2) { $history[$history.Count - 2] } else { $null }
+            $before = @{}
+            foreach ($name in @("lines", "branches", "tests"))
+            {
+                $before[$name] = if ($null -eq $previous) { $null } else { Get-JsonProperty $previous $name }
+            }
+            $summary.Add("| src/ | This run | Previous run | Change |")
+            $summary.Add("| --- | --: | --: | --: |")
+            foreach ($row in @(@{ label = "Line coverage"; name = "lines" }, @{ label = "Branch coverage"; name = "branches" }))
+            {
+                $change = Format-Change -Current (Get-ExactPercent $current.($row.name)) `
+                    -Before (Get-ExactPercent $before[$row.name]) -Format "{0:0.00} points"
+                $summary.Add("| $($row.label) | $(Format-Coverage $current.($row.name)) | " +
+                    "$(Format-Coverage $before[$row.name]) | $change |")
+            }
+            $previousTests = if ($null -eq $before.tests) { $missingValue } else
+            {
+                [string]::Format($invariant, "{0:N0}", $before.tests)
+            }
+            $summary.Add([string]::Format($invariant, "| Tests | {0:N0} | {1} | {2} |", $current.tests, $previousTests,
+                    (Format-Change -Current $current.tests -Before $before.tests -Format "{0:N0}")))
+            $summary.Add("")
+            $comparison = if ($null -eq $previous) { "There is no earlier run in the history to compare it with." } else
+            {
+                "The previous run in the history built $(Format-RunCommit $previous) on " +
+                "$(Format-RunDate (Get-JsonProperty $previous 'date'))."
+            }
+            $summary.Add("This run built $(Format-RunCommit $current). $comparison")
+        }
+    }
+
+    $SummaryPath = Resolve-FullPath $SummaryPath
+    [System.IO.File]::WriteAllText($SummaryPath, ($summary -join "`n") + "`n", $utf8)
+}

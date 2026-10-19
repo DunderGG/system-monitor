@@ -131,8 +131,9 @@ Then `scripts\coverage_dashboard.ps1` writes `build\coverage\index.html`, a
 dashboard of the run's tests and coverage and of their trend
 ([DC-120](design_decisions.md#dc-120)). It reads the shards' GoogleTest reports,
 the output of `llvm-cov export -summary-only`, which `build.ps1` saves as
-`build\coverage\coverage_summary.json`, and `build\coverage\history.jsonl`, and
-fills in `scripts\coverage_dashboard.html`. The page draws its charts as inline
+`build\coverage\coverage_summary.json`, and the history,
+`build\coverage\history.jsonl` or the file that `-CoverageHistoryPath` names,
+and fills in `scripts\coverage_dashboard.html`. The page draws its charts as inline
 SVG with an inline script and loads nothing else, so it opens from disk. It shows
 the tests by kind (the directory under `tests\` of each test's source file) and
 by suite, with how many passed, failed, were skipped or are disabled; their
@@ -148,7 +149,11 @@ before the tests, but keeps the history. When tests fail, the script still
 writes the page, without coverage, listing the failed tests with their messages
 and naming any shard that wrote no report, which `ctest --show-only=json-v1`
 lists with the report each shard was told to write. It adds nothing to the
-history, then fails.
+history, then fails. Either way it also writes `build\coverage\summary.md`, a
+Markdown summary of the run that CI adds to its job summary: the failed tests
+and the shards that wrote no report, or a table of the line and branch coverage
+and the test count beside those of the previous run in the history, with their
+change.
 
 The integration tests call real Windows APIs, so the coverage of
 `platform/windows` depends on the machine and on what runs on it. Three runs on
@@ -285,14 +290,46 @@ with the `default` preset, then build or test with the matching preset. CMake
 Tools supplies the compiler environment; adding only `cl.exe` to `PATH` is not
 enough because MSVC also needs its include and library environment variables.
 
-The GitHub Actions workflow runs the same three preset commands. It initializes
+The GitHub Actions workflow's `Build and Test` job runs the same three preset
+commands. It initializes
 the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
 by this repository, with GitHub Actions-backed binary caching. The checked-in
 presets, manifest, and baseline therefore keep developer and CI dependency
-resolution aligned. No job builds the coverage preset yet. The
-`windows-latest` runner could: on 2026-10-18 it was Windows Server 2025 with
-Visual Studio Enterprise 2026 18.10, which includes "C++ Clang tools for
-Windows", and `msvc-dev-cmd` sets the `VCINSTALLDIR` the preset reads.
+resolution aligned.
+
+A `Coverage` job runs `.\scripts\build.ps1 -Coverage` on each push to `main`
+and each pull request, and keeps the history of the runs on `main` on the
+`gh-pages` branch, which GitHub Pages serves at
+<https://dundergg.github.io/system-monitor/>
+([DC-121](design_decisions.md#dc-121)). It has no `msvc-dev-cmd` step: the
+script imports the developer environment of a Visual Studio installation with
+"C++ Clang tools for Windows", which the `windows-latest` runner's has (on
+2026-10-18, Windows Server 2025 with Visual Studio Enterprise 2026 18.10). Its
+steps run in Windows PowerShell 5.1, which the scripts are tried with. Before
+the build, `scripts\coverage_pages.ps1 -Fetch` clones the branch into
+`$env:RUNNER_TEMP\coverage-site`, or starts an empty clone when the branch does
+not exist yet, and the build is given the clone's `history.jsonl` with
+`-CoverageHistoryPath`. The run's dashboard therefore draws the published
+trend, and the job summary, which the job copies from
+`build\coverage\summary.md`, compares the run with the last run on `main`. The
+job uploads the dashboard and `llvm-cov`'s HTML as the `coverage-dashboard`
+artifact, which opens from disk once extracted. After a push to `main` whose
+tests pass, `coverage_pages.ps1 -Publish` replaces the clone's files with the
+run's, keeps the history that the run added to, adds an empty `.nojekyll` so
+that Pages serves the files as they are, commits, and pushes the branch. A pull
+request's run publishes nothing; its line goes only into its own clone's
+history.
+
+Only the `Coverage` job has `contents: write`. Its checkout keeps no
+credentials, so the build and the tests run without the token, and the
+publishing step gives it to git for that push alone. Runs on `main` share a
+concurrency group, so that each fetches the history that the one before it
+published; a newer run of a pull request cancels the older one. The clone turns
+off `core.autocrlf`, which Git for Windows sets, so that the site's files are
+stored as the build writes them. `coverage_pages.ps1 -Remote` takes another
+URL or a local path, such as a bare repository, to try the script outside CI.
+GitHub Pages has to be turned on once, in the repository's Pages settings, to
+deploy from the root of the `gh-pages` branch.
 
 A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
 `.\scripts\build.ps1 -CheckFormat`, which fails if any C++ source or header

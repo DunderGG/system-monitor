@@ -51,7 +51,8 @@ jobs:
         with:
           # Keep vcpkgGitCommitId in sync with the "default-registry.baseline"
           # commit in vcpkg-configuration.json; a mismatch can resolve
-          # different port versions locally than in CI.
+          # different port versions locally than in CI. The coverage job pins
+          # the same commit.
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
           vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
           runVcpkgInstall: false
@@ -65,3 +66,75 @@ jobs:
 
       - name: Test
         run: ctest --preset default --output-on-failure
+
+  # Builds the coverage preset and runs the tests. On a push to main it adds the
+  # run to the history on the gh-pages branch and publishes the dashboard there
+  # with GitHub Pages; on a pull request it uploads the dashboard and compares
+  # the run with main's last (DC-121).
+  coverage:
+    name: Coverage
+    runs-on: windows-latest
+    # Only this job may write, and only its last step gets the token.
+    permissions:
+      contents: write
+    # Runs on main take turns, so that each adds to the history that the one
+    # before it published. A newer run of a pull request cancels the older one.
+    concurrency:
+      group: coverage-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    # Windows PowerShell 5.1, which the scripts are written for and tried with;
+    # PowerShell 7 reads JSON dates and passes arguments differently.
+    defaults:
+      run:
+        shell: powershell
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The build and the tests run without the token in .git/config.
+          persist-credentials: false
+
+      # No msvc-dev-cmd: build.ps1 imports the MSVC environment itself, from a
+      # Visual Studio installation that has the C++ Clang tools.
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          # Keep vcpkgGitCommitId in sync with the build job's, which follows
+          # vcpkg-configuration.json.
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+          vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
+          runVcpkgInstall: false
+          doNotCache: false
+
+      - name: Fetch the published history
+        run: .\scripts\coverage_pages.ps1 -Fetch -SiteDirectory "$env:RUNNER_TEMP\coverage-site"
+
+      - name: Build, test and measure coverage
+        run: .\scripts\build.ps1 -Coverage -CoverageHistoryPath "$env:RUNNER_TEMP\coverage-site\history.jsonl"
+
+      - name: Summarize
+        if: ${{ !cancelled() }}
+        # Windows PowerShell's Out-File would start the file with a byte order mark.
+        run: |
+          $summaryPath = "build\coverage\summary.md"
+          if (Test-Path -LiteralPath $summaryPath) {
+            $utf8 = New-Object System.Text.UTF8Encoding $false
+            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText((Resolve-Path $summaryPath).Path), $utf8)
+          }
+
+      - name: Upload the dashboard
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dashboard
+          path: |
+            build/coverage/index.html
+            build/coverage/html/
+          if-no-files-found: ignore
+
+      - name: Publish the dashboard
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .\scripts\coverage_pages.ps1 -Publish -SiteDirectory "$env:RUNNER_TEMP\coverage-site"

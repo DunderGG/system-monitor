@@ -89,14 +89,25 @@ and by suite, with how many passed, failed, were skipped or are disabled, their
 total time and the slowest tests, the coverage of each directory and the
 least-covered files, each linking to its annotated source, and the trend of the
 test count, the time and the coverage. The trend comes from
-build\coverage\history.jsonl, to which each run whose tests pass adds a line,
-and which the script keeps between runs. When tests fail, the script writes the
-page without coverage, with the failed tests and any shard that wrote no
-report, adds nothing to the history, and then fails.
+build\coverage\history.jsonl, or the file -CoverageHistoryPath names, to which
+each run whose tests pass adds a line, and which the script keeps between runs.
+When tests fail, the script writes the page without coverage, with the failed
+tests and any shard that wrote no report, adds nothing to the history, and then
+fails. It also writes build\coverage\summary.md, a Markdown summary of the run:
+the failures, or the line and branch coverage and the test count beside those
+of the previous run in the history, and their change. CI adds it to the job
+summary.
 
 The integration tests call real Windows APIs, so how much of platform/windows
 they cover depends on the machine and on the processes running on it. It can
 differ between runs, and between this machine and CI.
+
+.PARAMETER CoverageHistoryPath
+With -Coverage, the history file that the dashboard draws the trend from and
+adds a passing run to, instead of build\coverage\history.jsonl, which then stays
+as it was. CI passes the history it fetched from the gh-pages branch with
+scripts\coverage_pages.ps1 -Fetch (DC-121). The file is created when it does
+not exist.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
@@ -151,6 +162,9 @@ version is an error; locally it is a warning.
 .\scripts\build.ps1 -Coverage
 
 .EXAMPLE
+.\scripts\build.ps1 -Coverage -CoverageHistoryPath $env:RUNNER_TEMP\coverage-site\history.jsonl
+
+.EXAMPLE
 .\scripts\build.ps1 -Format
 
 .EXAMPLE
@@ -164,6 +178,7 @@ param(
     [switch]$Release,
     [switch]$Benchmark,
     [switch]$Coverage,
+    [string]$CoverageHistoryPath = "",
     [switch]$Format,
     [switch]$CheckFormat
 )
@@ -280,6 +295,10 @@ if ($Coverage -and ($Release -or $Benchmark -or $Run))
 {
     throw "-Coverage cannot be combined with -Release, -Benchmark or -Run."
 }
+if ($CoverageHistoryPath -ne "" -and -not $Coverage)
+{
+    throw "-CoverageHistoryPath needs -Coverage."
+}
 $preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark) { "release" } else { "default" }
 $runsTests = $Test -or $Coverage
 $buildDirectory = Join-Path $projectRoot "build\$preset"
@@ -290,9 +309,15 @@ $profileDataPath = Join-Path $buildDirectory "coverage.profdata"
 $coverageHtmlDirectory = Join-Path $buildDirectory "html"
 $coverageSummaryPath = Join-Path $buildDirectory "coverage_summary.json"
 $dashboardPath = Join-Path $buildDirectory "index.html"
+$summaryPath = Join-Path $buildDirectory "summary.md"
 # Each passing coverage run adds a line, so unlike the run's other outputs the
-# history is kept from one run to the next.
-$historyPath = Join-Path $buildDirectory "history.jsonl"
+# history is kept from one run to the next. CI names the one it fetched from
+# the gh-pages branch. A relative path is resolved against the caller's
+# location, before the script moves to the project root.
+$historyPath = if ($CoverageHistoryPath -eq "") { Join-Path $buildDirectory "history.jsonl" } else
+{
+    $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($CoverageHistoryPath)
+}
 $applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
 # The coverage report reads the application as well as the test executables,
 # although no test runs it, so that code only the application compiles, such
@@ -1089,6 +1114,7 @@ function Write-Dashboard
         ExpectedReportPaths = $expectedReportPaths
         HistoryPath = $historyPath
         OutputPath = $dashboardPath
+        SummaryPath = $summaryPath
         TestRunSeconds = $TestRunSeconds
         TestsFailed = -not $TestsPassed
     }
@@ -1135,7 +1161,7 @@ try
         if ($Coverage)
         {
             $earlierOutputs += @($profileDirectory, $profileDataPath, $coverageHtmlDirectory, $coverageSummaryPath,
-                $dashboardPath)
+                $dashboardPath, $summaryPath)
         }
         foreach ($earlierOutput in $earlierOutputs)
         {
