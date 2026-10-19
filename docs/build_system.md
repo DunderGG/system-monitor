@@ -190,6 +190,17 @@ one CTest test per shard (about two per logical processor for
 time. A failed shard's output lists the tests that failed. To run one test,
 or a suite, start the executable with a filter, e.g.
 `build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*`.
+Each shard also writes GoogleTest's JSON report of the tests it ran to
+`test_results\<executable>_shard_<index>.json` in the build directory, such as
+`build\default\test_results\system_monitor_tests_shard_0.json`
+([DC-119](design_decisions.md#dc-119)). It gives each test's suite, name,
+result and failures, time, and source file and line, and the directory of the
+file tells unit, platform and integration tests apart. `tests/CMakeLists.txt`
+sets `GTEST_OUTPUT` in each shard's environment, so every preset writes the
+reports, and so does CTest run directly, as in CI. The script removes the
+previous run's reports before the tests run, so that a shard that crashed
+before writing its report, or one that a build with fewer shards no longer
+has, leaves no stale file among them.
 Builds are incremental, and the script runs the configure step only when the
 build directory needs it ([DC-62](design_decisions.md#dc-62)). It records each
 successful configure in `build_ps1_configure.stamp` in the build directory, and

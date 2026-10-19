@@ -143,6 +143,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-111](#dc-111): Fixed-value fake collectors in `tests/support/`, not synthetic collectors in `monitoring`
   - [DC-112](#dc-112): A mapping's values tested in one test, as a table of named cases
   - [DC-113](#dc-113): Tests run as GoogleTest shards, one CTest test each, not one process per test
+  - [DC-119](#dc-119): Each test shard writes GoogleTest's JSON report to a file named by its executable and shard index
 - [Design decision log](#design-decision-log)
   - [DC-114](#dc-114): Links name an entry's ID anchor, not its heading, and `build.ps1` checks that they resolve
   - [DC-115](#dc-115): Living entries: an entry states the current decision, is rewritten when it changes, and ends with a one-line history
@@ -1370,6 +1371,17 @@ The process integration tests are described in [DC-30](#dc-30).
 **Rationale:** Every `system_monitor_tests` process creates a `QApplication` and loads its plugins before its first test. With a process per test, the 775 tests took 194 s of process time, and 12.6 s on 16 threads, while each executable ran all of its tests in one process in about 9 s together. On the same machine, in Debug, the 717 tests took 11.7 s with a process per test, 4.0 s with a process per suite (75 suites), 2.8 s as 16 shards, and 2.1 to 2.6 s as 32. GoogleTest deals the tests to the shards round-robin, so a shard's time depends on the slow tests it draws (the slowest takes 1.1 s), and with more shards than processors CTest starts another while the slowest finish. Registered with CTest, the shards keep its scheduling, `--output-on-failure` and timeouts, with no process management in `build.ps1`, and CI, which runs CTest without `--parallel`, starts a few processes rather than one per test. Before the change the tests passed in shuffled orders (`--gtest_shuffle`: ten of the main executable, twenty of the platform one), so the order within a shard cannot change a result, and eight consecutive runs as shards passed. A failed shard's output names the failing tests, and one test runs with the executable's `--gtest_filter` rather than `ctest -R`.
 
 **History:** Maintenance, tests.
+
+---
+
+<a id="dc-119"></a>
+### DC-119: Each test shard writes GoogleTest's JSON report to a file named by its executable and shard index
+
+**Decision:** `sysmon_add_sharded_tests()` sets `GTEST_OUTPUT=json:<build directory>/test_results/<target>_shard_<index>.json` in each shard's environment, in every preset. `build.ps1` removes the directory before the tests run.
+
+**Rationale:** Counting the tests by kind and suite, and finding the slowest, needs a result per test, and each CTest test is a shard ([DC-113](#dc-113)): CTest's `--output-junit` records one result per shard, and a CTest test per GoogleTest test is what DC-113 rejected. GoogleTest's own report gives each test's suite, name, result, time, and source file and line, and the directory of the file tells unit, platform and integration tests apart. Each shard names its file: given only a directory, GoogleTest chooses a name that no file has yet when the process starts, and writes the file when it ends, so shards that run together choose the same name and overwrite one another's reports. JSON rather than GoogleTest's XML, which has the same fields, because `llvm-cov export` writes JSON too, so a script that reads both parses one format. Set in CMake rather than by the script, the variable reaches every shard however CTest is started, as in CI. A shard that crashes writes no report, so the script removes the earlier run's reports first, or that shard's old report, or one from a build with more shards, would be read as this run's.
+
+**History:** Maintenance, coverage and test statistics.
 
 ---
 

@@ -14,14 +14,20 @@ cmake_host_system_information(RESULT sysmonLogicalProcessors QUERY NUMBER_OF_LOG
 math(EXPR sysmonTestShards "2 * ${sysmonLogicalProcessors}")
 
 # Adds the tests of target as shardCount CTest tests named
-# <target>_shard_<index>_of_<shardCount>.
+# <target>_shard_<index>_of_<shardCount>. Each shard writes GoogleTest's JSON
+# report of its tests to test_results/<target>_shard_<index>.json in the build
+# directory (DC-119), which build.ps1 empties before the tests run. The shards
+# run in parallel, so each names its own file: given only a directory,
+# GoogleTest picks a name that no file has yet when the process starts, and
+# writes the file when it ends, so shards running together pick the same name.
 function(sysmon_add_sharded_tests target shardCount)
     math(EXPR lastShard "${shardCount} - 1")
     foreach(shard RANGE ${lastShard})
         set(testName "${target}_shard_${shard}_of_${shardCount}")
+        set(resultsPath "${CMAKE_BINARY_DIR}/test_results/${target}_shard_${shard}.json")
         add_test(NAME "${testName}" COMMAND "${target}")
         set_tests_properties("${testName}" PROPERTIES
-            ENVIRONMENT "GTEST_TOTAL_SHARDS=${shardCount};GTEST_SHARD_INDEX=${shard}"
+            ENVIRONMENT "GTEST_TOTAL_SHARDS=${shardCount};GTEST_SHARD_INDEX=${shard};GTEST_OUTPUT=json:${resultsPath}"
         )
     endforeach()
 endfunction()

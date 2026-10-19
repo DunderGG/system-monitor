@@ -294,6 +294,10 @@ GoogleTest shards, not one by one, so start the test executable with a filter:
 .\build\default\tests\system_monitor_tests.exe --gtest_filter="RingBuffer.*"
 ```
 
+Each shard writes GoogleTest's JSON report of its tests, with each test's
+result, time, and source file and line, to `test_results` in the build
+directory, such as `build\default\test_results`.
+
 ### Writing tests
 
 - Use GoogleTest (`TEST`, `TEST_F`, `EXPECT_*`, `ASSERT_*`).

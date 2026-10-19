@@ -33,6 +33,11 @@ build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*.
 The script fails if any test fails. Combine with -Run to launch the
 application after the tests pass.
 
+Each shard writes GoogleTest's JSON report of the tests it ran to
+build\<preset>\test_results\<executable>_shard_<index>.json, with each test's
+suite, name, result, time, and source file and line. The script removes the
+previous run's results before the tests run.
+
 .PARAMETER Configure
 Runs CMake's configure step even when the build directory looks up to date, for
 example after changing an environment variable that configuration reads.
@@ -267,6 +272,8 @@ if ($Coverage -and ($Release -or $Benchmark -or $Run))
 $preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark) { "release" } else { "default" }
 $runsTests = $Test -or $Coverage
 $buildDirectory = Join-Path $projectRoot "build\$preset"
+# tests\CMakeLists.txt has each test shard write its results here.
+$testResultsDirectory = Join-Path $buildDirectory "test_results"
 $profileDirectory = Join-Path $buildDirectory "profiles"
 $profileDataPath = Join-Path $buildDirectory "coverage.profdata"
 $coverageHtmlDirectory = Join-Path $buildDirectory "html"
@@ -1044,6 +1051,11 @@ try
 
     if ($runsTests)
     {
+        # Each shard writes its results to a file of its own, and only when it
+        # finishes, so an earlier run's results are removed first: a shard that
+        # crashed, or one that a build with fewer shards no longer has, would
+        # otherwise leave its old file among this run's.
+        $earlierOutputs = @($testResultsDirectory)
         # An instrumented process writes its raw profile when it exits, to the
         # file LLVM_PROFILE_FILE names. The shards run in parallel, so each
         # process gets its own file (%p). Windows reuses process IDs, and %m
@@ -1051,16 +1063,20 @@ try
         # into that file instead of overwriting it. The profiles of an earlier
         # run are removed first, or they would be merged in as well, and so is
         # its report, which a run whose tests fail would otherwise leave behind.
+        if ($Coverage)
+        {
+            $earlierOutputs += @($profileDirectory, $profileDataPath, $coverageHtmlDirectory)
+        }
+        foreach ($earlierOutput in $earlierOutputs)
+        {
+            if (Test-Path -LiteralPath $earlierOutput)
+            {
+                Remove-Item -LiteralPath $earlierOutput -Recurse -Force
+            }
+        }
         $previousProfileFile = $env:LLVM_PROFILE_FILE
         if ($Coverage)
         {
-            foreach ($earlierOutput in @($profileDirectory, $profileDataPath, $coverageHtmlDirectory))
-            {
-                if (Test-Path -LiteralPath $earlierOutput)
-                {
-                    Remove-Item -LiteralPath $earlierOutput -Recurse -Force
-                }
-            }
             New-Item -ItemType Directory -Path $profileDirectory | Out-Null
             $env:LLVM_PROFILE_FILE = Join-Path $profileDirectory "%p_%m.profraw"
         }
