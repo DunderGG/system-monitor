@@ -133,6 +133,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-118](#dc-118): Coverage measured with Visual Studio's clang-cl and LLVM source-based coverage, in a preset of its own
   - [DC-120](#dc-120): The coverage dashboard is one self-contained page that a PowerShell script writes, with a history of the runs whose tests passed
   - [DC-121](#dc-121): CI keeps the coverage history on the `gh-pages` branch and publishes the dashboard with GitHub Pages
+  - [DC-122](#dc-122): Coverage fails no build until CI's history shows how much it varies, and then only below a fixed minimum
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1273,6 +1274,19 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 **Consequences:** Pages is turned on once, for the branch. GitHub keeps only the newest of the runs waiting behind one in progress, so a commit can get no point. CI's times vary more than local ones.
 
 **History:** Maintenance, coverage and test statistics (where the history lives).
+
+---
+
+<a id="dc-122"></a>
+### DC-122: Coverage fails no build until CI's history shows how much it varies, and then only below a fixed minimum
+
+**Decision:** No build fails because of coverage. `build.ps1 -Coverage` and CI's `Coverage` job fail only when the build or a test fails, and report coverage in the console, the dashboard and the job summary. Once the history on `gh-pages` shows how much the runner's coverage varies, the job will also fail, on pushes to `main` and on pull requests, when the line or branch coverage of `src/` falls below a fixed minimum for each. The minimums sit below the lowest that a run gives, and are raised as coverage rises.
+
+**Rationale:** A minimum must sit below what an unchanged commit can give, and that is not known yet. The integration tests read the real machine, so coverage varies between runs: three local runs of the same sources differed by 0.24 points of `src/`'s lines and 0.41 of its branches, and the runner, with other processes and services, may give other figures and another spread. A fixed minimum was chosen over a limit on the fall from `main`'s last run, which lets coverage drift down in steps smaller than the limit, and over the coverage of the changed lines, which needs the diff mapped to lines. A minimum catches only a fall below it, so it follows coverage up as tests are added. The check also runs on pushes to `main` because changes are committed straight to it; on pull requests alone it would never run.
+
+**Consequences:** A push that falls below the minimum cannot be stopped, only reported. The check has to follow publishing, so that such a run still enters the history.
+
+**History:** Maintenance, coverage and test statistics (whether coverage can fail the build).
 
 ---
 

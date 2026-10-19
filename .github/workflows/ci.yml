@@ -70,7 +70,8 @@ jobs:
   # Builds the coverage preset and runs the tests. On a push to main it adds the
   # run to the history on the gh-pages branch and publishes the dashboard there
   # with GitHub Pages; on a pull request it uploads the dashboard and compares
-  # the run with main's last (DC-121).
+  # the run with main's last (DC-121). It fails only when the build or a test
+  # does, never because of coverage (DC-122).
   coverage:
     name: Coverage
     runs-on: windows-latest

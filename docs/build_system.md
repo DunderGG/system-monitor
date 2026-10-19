@@ -159,7 +159,10 @@ The integration tests call real Windows APIs, so the coverage of
 `platform/windows` depends on the machine and on what runs on it. Three runs on
 2026-10-19 on one machine covered 83.4% to 84.1% of its lines, because
 `process_details_reader.cpp` reads the details of whichever processes are
-running. CI's figures can differ again.
+running. CI's figures can differ again, so neither `-Coverage` nor CI's
+`Coverage` job fails because of coverage, only because of the build or a test,
+until CI's history shows how much it varies on the runner
+([DC-122](design_decisions.md#dc-122)).
 
 vcpkg installs release and debug libraries for the `x64-windows` triplet, so
 each further build directory restores its dependencies from the binary cache
