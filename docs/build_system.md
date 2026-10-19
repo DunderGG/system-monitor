@@ -124,7 +124,31 @@ mismatched data". A binary records an inline function that it compiles but
 never calls with hash 0, which matches no profile, and the application's
 `main()` has no profile at all; each is still counted, from the binary that
 calls it or as not covered. A run removes the previous run's profiles and
-report before its tests start, so a run whose tests fail leaves no report.
+report before its tests start, so a run whose tests fail leaves no coverage
+report.
+
+Then `scripts\coverage_dashboard.ps1` writes `build\coverage\index.html`, a
+dashboard of the run's tests and coverage and of their trend
+([DC-120](design_decisions.md#dc-120)). It reads the shards' GoogleTest reports,
+the output of `llvm-cov export -summary-only`, which `build.ps1` saves as
+`build\coverage\coverage_summary.json`, and `build\coverage\history.jsonl`, and
+fills in `scripts\coverage_dashboard.html`. The page draws its charts as inline
+SVG with an inline script and loads nothing else, so it opens from disk. It shows
+the tests by kind (the directory under `tests\` of each test's source file) and
+by suite, with how many passed, failed, were skipped or are disabled; their
+total time, both added up and as CTest's run took from start to end, and the
+slowest tests; the coverage of each directory and the least-covered files, each
+linking to its page in `build\coverage\html`; and the trend of the test count,
+the time and the coverage, one point per run. The times come from the
+instrumented Debug build, so they compare only with other coverage runs. Each
+run whose tests pass adds a line to the history first, with its date, commit
+(and whether the working tree had changes), test counts, times, and covered and
+total lines and branches of `src\`; the script removes the run's other outputs
+before the tests, but keeps the history. When tests fail, the script still
+writes the page, without coverage, listing the failed tests with their messages
+and naming any shard that wrote no report, which `ctest --show-only=json-v1`
+lists with the report each shard was told to write. It adds nothing to the
+history, then fails.
 
 The integration tests call real Windows APIs, so the coverage of
 `platform/windows` depends on the machine and on what runs on it. Three runs on

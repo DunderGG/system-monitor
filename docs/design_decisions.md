@@ -131,6 +131,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-95](#dc-95): Benchmarks print the build and the machine they ran on (code review F-33)
   - [DC-104](#dc-104): Qt's Windows style plugin deployed next to every executable (code review F-42)
   - [DC-118](#dc-118): Coverage measured with Visual Studio's clang-cl and LLVM source-based coverage, in a preset of its own
+  - [DC-120](#dc-120): The coverage dashboard is one self-contained page that a PowerShell script writes, with a history of the runs whose tests passed
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1245,6 +1246,19 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 **Consequences:** The code must also build without warnings under clang-cl ([coding guidelines](coding_guidelines.md#default-member-initializers)), and the build needs Visual Studio's "C++ Clang tools for Windows", which `bootstrap.ps1` adds. The coverage of `platform/windows` varies with the machine and its processes, because the integration tests call real Windows APIs.
 
 **History:** Maintenance, coverage and test statistics; maintenance (the report).
+
+---
+
+<a id="dc-120"></a>
+### DC-120: The coverage dashboard is one self-contained page that a PowerShell script writes, with a history of the runs whose tests passed
+
+**Decision:** `build.ps1 -Coverage` ends by running `scripts/coverage_dashboard.ps1`, which puts the run's data as JSON into `scripts/coverage_dashboard.html` and writes `build/coverage/index.html`, a page whose inline script draws its tables and SVG charts. Each run whose tests pass first adds a JSON line to `build/coverage/history.jsonl`, with its counts, times, and covered and total lines and branches, and the page draws the trend from it. A run whose tests fail still gets the page, without coverage.
+
+**Rationale:** A page that loads nothing opens from disk and can be published as it is; a charting library would have to be copied into every page for three line charts. Windows PowerShell 5.1 needs nothing that `bootstrap.ps1` does not install, unlike Python or Node. The HTML stays in a file of its own rather than in PowerShell strings, and the data is escaped so that a test's name cannot end the script element. The script is separate from `build.ps1` so that a CI job that runs CTest itself can call it. The history keeps counts rather than percentages, so that every value is rounded the same way and a change in the number of lines is told apart from a change in coverage. It keeps only runs whose tests passed, because only they have coverage. A failed run's page lists the failures, and compares the reports with those that `ctest --show-only=json-v1` says each shard was told to write: a shard that crashed writes none, and its tests would otherwise vanish from the counts.
+
+**Consequences:** Deleting `build/` loses the history. The times come from an instrumented Debug build, so they compare only with other coverage runs.
+
+**History:** Maintenance, coverage and test statistics (the dashboard).
 
 ---
 

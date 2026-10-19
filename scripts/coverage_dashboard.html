@@ -1,0 +1,1231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tests and Coverage</title>
+<!--
+  The template of build\coverage\index.html. scripts\coverage_dashboard.ps1
+  replaces the placeholder in the dashboard-data element with the run's data,
+  and the script at the end draws the page from it. The page loads nothing else,
+  so it opens from disk.
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --shadow: rgba(11, 11, 11, 0.12);
+    --link: #1c5cab;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --track: #cde2fb;
+    --good: #0ca30c;
+    --critical: #d03b3b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #f0efec;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --shadow: rgba(0, 0, 0, 0.5);
+      --link: #86b6ef;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --track: #0d366b;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 16px 48px;
+  }
+
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; }
+  p { margin: 0 0 8px; }
+  a { color: var(--link); }
+  code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; }
+
+  .meta, .note, .footer { color: var(--ink-2); }
+  .note { font-size: 13px; }
+  .footer { font-size: 12px; margin-top: 24px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 16px;
+  }
+
+  .alert {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--critical);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+  }
+  .alert p:last-child { margin-bottom: 0; }
+
+  .status-icon {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .status-icon.good { background: var(--good); }
+  .status-icon.critical { background: var(--critical); }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .tile-label { color: var(--ink-2); font-size: 13px; }
+  .tile-value { display: flex; align-items: center; gap: 8px; font-size: 28px; font-weight: 600; line-height: 1.3; }
+  .tile-sub, .tile-delta { color: var(--ink-2); font-size: 12px; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    font-size: 12px;
+  }
+  .legend strong { color: var(--ink); font-weight: 600; }
+  .key-box, .key-line { display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .key-box { width: 10px; height: 10px; border-radius: 2px; }
+  .key-line { width: 14px; height: 2px; border-radius: 1px; }
+  .k1 { background: var(--series-1); }
+  .k2 { background: var(--series-2); }
+  .k3 { background: var(--series-3); }
+  .k4 { background: var(--series-4); }
+
+  .table-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--grid); text-align: left; vertical-align: middle; }
+  th { color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.path { overflow-wrap: anywhere; }
+  tfoot td { font-weight: 600; border-top: 1px solid var(--axis); border-bottom: none; }
+  th button {
+    all: unset;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  th button:focus-visible, .show-all:focus-visible, summary:focus-visible, svg:focus-visible, .segment:focus-visible {
+    outline: 2px solid var(--series-1);
+    outline-offset: 2px;
+  }
+  th[aria-sort="ascending"] button::after { content: " \2191"; }
+  th[aria-sort="descending"] button::after { content: " \2193"; }
+
+  .coverage-cell { display: flex; align-items: center; gap: 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .meter {
+    flex: none;
+    width: 96px;
+    height: 8px;
+    background: var(--track);
+    border-radius: 0 4px 4px 0;
+    overflow: hidden;
+  }
+  .meter > span { display: block; height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; }
+
+  .show-all {
+    margin-top: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .bars { list-style: none; margin: 0; padding: 0; }
+  .bars li { padding: 6px 0; border-bottom: 1px solid var(--grid); }
+  .bar-name { overflow-wrap: anywhere; }
+  .bar-meta { color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  @media (min-width: 720px) {
+    .bars li { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0 24px; align-items: center; }
+    .bar-row { margin-top: 0; }
+  }
+  .bar {
+    flex: none;
+    width: calc((100% - 72px) * var(--ratio));
+    min-width: 2px;
+    height: 10px;
+    background: var(--series-1);
+    border-radius: 0 4px 4px 0;
+  }
+  .bar-value { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .test-list { margin: 0; padding-left: 20px; }
+  .test-list li { margin-bottom: 12px; }
+  .test-name { overflow-wrap: anywhere; font-weight: 600; }
+  .test-list pre {
+    margin: 4px 0 0;
+    padding: 8px 10px;
+    background: var(--page);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  details { margin-top: 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details > :not(summary) { margin-top: 8px; }
+
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  figure { margin: 0; min-width: 0; }
+  figcaption { font-weight: 600; margin-bottom: 4px; }
+  .plot { width: 100%; min-width: 0; }
+  .plot svg { display: block; overflow: visible; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .axis-line { stroke: var(--axis); stroke-width: 1; }
+  .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .end-label { fill: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .dot { stroke: var(--surface); stroke-width: 2; }
+  .crosshair { stroke: var(--axis); stroke-width: 1; pointer-events: none; }
+  .hover-dot { pointer-events: none; }
+  .s1 { stroke: var(--series-1); }
+  .s2 { stroke: var(--series-2); }
+  .s3 { stroke: var(--series-3); }
+  .s4 { stroke: var(--series-4); }
+  .f1 { fill: var(--series-1); }
+  .f2 { fill: var(--series-2); }
+  .f3 { fill: var(--series-3); }
+  .f4 { fill: var(--series-4); }
+  .segment { cursor: default; }
+  .segment:hover { opacity: 0.85; }
+
+  .tooltip {
+    position: fixed;
+    z-index: 10;
+    pointer-events: none;
+    min-width: 140px;
+    max-width: 320px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px var(--shadow);
+    font-size: 12px;
+  }
+  .tooltip-title { color: var(--ink-2); margin-bottom: 4px; overflow-wrap: anywhere; }
+  .tooltip-row { display: flex; align-items: center; gap: 6px; }
+  .tooltip-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tooltip-name { color: var(--ink-2); }
+</style>
+</head>
+<body>
+<main id="dashboard"></main>
+<script id="dashboard-data" type="application/json">/*DASHBOARD_DATA*/</script>
+<script>
+"use strict";
+
+const data = JSON.parse(document.getElementById("dashboard-data").textContent);
+const svgNamespace = "http://www.w3.org/2000/svg";
+
+// Builds an element. Text children become text nodes, so names from the reports
+// are never parsed as markup.
+function element(tag, attributes, ...children) {
+  return fill(document.createElement(tag), attributes, children);
+}
+
+function svgElement(tag, attributes, ...children) {
+  return fill(document.createElementNS(svgNamespace, tag), attributes, children);
+}
+
+function fill(node, attributes, children) {
+  for (const [name, value] of Object.entries(attributes || {})) {
+    if (value === null || value === undefined || value === false) {
+      continue;
+    }
+    node.setAttribute(name, value === true ? "" : String(value));
+  }
+  for (const child of children.flat()) {
+    if (child !== null && child !== undefined && child !== false) {
+      node.append(child instanceof Node ? child : String(child));
+    }
+  }
+  return node;
+}
+
+const integerFormat = new Intl.NumberFormat("en-US");
+const formatCount = (value) => integerFormat.format(value);
+const plural = (count, one, many) => `${formatCount(count)} ${count === 1 ? one : many}`;
+const pad = (value) => String(value).padStart(2, "0");
+
+// Rounded down, as build.ps1 prints it, so that only full coverage reads 100%.
+function percentOf(counts) {
+  return counts && counts.count > 0 ? Math.floor((1000 * counts.covered) / counts.count) / 10 : null;
+}
+
+function formatPercent(value) {
+  return value === null || value === undefined ? "–" : `${value.toFixed(1)}%`;
+}
+
+function formatSeconds(seconds) {
+  if (seconds === null || seconds === undefined) {
+    return "–";
+  }
+  return `${seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2)} s`;
+}
+
+function formatDate(text) {
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatShortDate(text) {
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function commitText(hash, changes) {
+  if (!hash) {
+    return "no commit";
+  }
+  return `${hash.slice(0, 7)}${changes ? " with changes" : ""}`;
+}
+
+const kindNames = { unit: "Unit", platform: "Platform", integration: "Integration" };
+const kindKeys = { unit: "1", platform: "2", integration: "3" };
+const kindName = (kind) => kindNames[kind] || kind.charAt(0).toUpperCase() + kind.slice(1);
+const kindKey = (kind) => kindKeys[kind] || "4";
+const testName = (test) => (test.name ? `${test.suite}.${test.name}` : `${test.suite || "(no suite)"}: set-up or tear-down`);
+const testLocation = (test) => (test.file ? `${test.file}${test.line ? `:${test.line}` : ""}` : "");
+
+// --- Tooltip -----------------------------------------------------------------
+
+const tooltip = element("div", { class: "tooltip", role: "status", hidden: true });
+document.body.append(tooltip);
+
+// Shows rows of { key, value, name } next to a point on the screen. The value
+// leads, as the reader already knows which series they are pointing at.
+function showTooltip(title, rows, x, y) {
+  tooltip.replaceChildren(
+    ...[title].flat().map((line) => element("div", { class: "tooltip-title" }, line)),
+    ...rows.map((row) =>
+      element(
+        "div",
+        { class: "tooltip-row" },
+        row.key ? element("span", { class: `key-line k${row.key}` }) : null,
+        element("span", { class: "tooltip-value" }, row.value),
+        element("span", { class: "tooltip-name" }, row.name)
+      )
+    )
+  );
+  tooltip.hidden = false;
+  const gap = 12;
+  const box = tooltip.getBoundingClientRect();
+  let left = x + gap;
+  if (left + box.width > window.innerWidth - 8) {
+    left = x - gap - box.width;
+  }
+  let top = y + gap;
+  if (top + box.height > window.innerHeight - 8) {
+    top = y - gap - box.height;
+  }
+  tooltip.style.left = `${Math.max(8, left)}px`;
+  tooltip.style.top = `${Math.max(8, top)}px`;
+}
+
+function hideTooltip() {
+  tooltip.hidden = true;
+}
+
+// --- Building blocks ---------------------------------------------------------
+
+function card(title, ...children) {
+  return element("section", { class: "card" }, element("h2", {}, title), ...children);
+}
+
+function legend(items) {
+  return element(
+    "ul",
+    { class: "legend" },
+    items.map((item) =>
+      element(
+        "li",
+        {},
+        element("span", { class: `${item.line ? "key-line" : "key-box"} k${item.key}` }),
+        item.name,
+        item.value !== undefined ? [" ", element("strong", {}, item.value)] : null
+      )
+    )
+  );
+}
+
+// A holder that draws its SVG again whenever its width changes.
+function responsive(draw) {
+  const holder = element("div", { class: "plot" });
+  let drawnWidth = 0;
+  new ResizeObserver(() => {
+    const width = Math.floor(holder.clientWidth);
+    if (width > 0 && width !== drawnWidth) {
+      drawnWidth = width;
+      holder.replaceChildren(draw(width));
+    }
+  }).observe(holder);
+  return holder;
+}
+
+function meter(counts) {
+  const value = percentOf(counts);
+  if (value === null) {
+    return formatPercent(value);
+  }
+  return element(
+    "div",
+    { class: "coverage-cell" },
+    element(
+      "span",
+      { class: "meter", "aria-hidden": "true" },
+      element("span", { style: `width: ${value}%` })
+    ),
+    formatPercent(value)
+  );
+}
+
+const coveredOf = (counts) => `${formatCount(counts.covered)} of ${formatCount(counts.count)}`;
+
+// A table that sorts by the column whose header is clicked. With a limit, it
+// shows that many rows until "Show all" is pressed.
+function sortableTable({ columns, rows, sortKey, descending, limit, label }) {
+  let key = sortKey;
+  let isDescending = descending;
+  let isExpanded = false;
+  const headerCells = new Map();
+  const body = element("tbody");
+  const showAll = limit && rows.length > limit ? element("button", { type: "button", class: "show-all" }) : null;
+
+  const headerRow = element(
+    "tr",
+    {},
+    columns.map((column) => {
+      const button = element("button", { type: "button" }, column.label);
+      button.addEventListener("click", () => {
+        isDescending = key === column.key ? !isDescending : Boolean(column.descendingFirst);
+        key = column.key;
+        render();
+      });
+      const cell = element("th", { scope: "col", class: column.numeric ? "num" : null }, button);
+      headerCells.set(column.key, cell);
+      return cell;
+    })
+  );
+
+  function compare(left, right) {
+    if (left === right) {
+      return 0;
+    }
+    if (left === null || left === undefined) {
+      return 1;
+    }
+    if (right === null || right === undefined) {
+      return -1;
+    }
+    return typeof left === "string" ? left.localeCompare(right) : left - right;
+  }
+
+  function render() {
+    const column = columns.find((candidate) => candidate.key === key);
+    const sorted = rows
+      .map((row, index) => ({ row, index }))
+      .sort((a, b) => {
+        const order = compare(column.sortValue(a.row), column.sortValue(b.row));
+        return (isDescending ? -order : order) || a.index - b.index;
+      })
+      .map((entry) => entry.row);
+    const visible = showAll && !isExpanded ? sorted.slice(0, limit) : sorted;
+    body.replaceChildren(
+      ...visible.map((row) =>
+        element(
+          "tr",
+          {},
+          columns.map((candidate) =>
+            element(
+              "td",
+              { class: candidate.numeric ? "num" : candidate.path ? "path" : null },
+              candidate.cell ? candidate.cell(row) : candidate.sortValue(row)
+            )
+          )
+        )
+      )
+    );
+    for (const [cellKey, cell] of headerCells) {
+      if (cellKey === key) {
+        cell.setAttribute("aria-sort", isDescending ? "descending" : "ascending");
+      } else {
+        cell.removeAttribute("aria-sort");
+      }
+    }
+    if (showAll) {
+      showAll.textContent = isExpanded ? `Show the first ${limit}` : `Show all ${formatCount(rows.length)}`;
+    }
+  }
+
+  if (showAll) {
+    showAll.addEventListener("click", () => {
+      isExpanded = !isExpanded;
+      render();
+    });
+  }
+  render();
+  return element(
+    "div",
+    {},
+    element(
+      "div",
+      { class: "table-scroll" },
+      element("table", { "aria-label": label }, element("thead", {}, headerRow), body)
+    ),
+    showAll
+  );
+}
+
+function plainTable({ columns, rows, footer, label }) {
+  const cells = (row) =>
+    columns.map((column) =>
+      element("td", { class: column.numeric ? "num" : null }, column.cell(row))
+    );
+  return element(
+    "div",
+    { class: "table-scroll" },
+    element(
+      "table",
+      { "aria-label": label },
+      element(
+        "thead",
+        {},
+        element(
+          "tr",
+          {},
+          columns.map((column) => element("th", { scope: "col", class: column.numeric ? "num" : null }, column.label))
+        )
+      ),
+      element("tbody", {}, rows.map((row) => element("tr", {}, cells(row)))),
+      footer ? element("tfoot", {}, element("tr", {}, cells(footer))) : null
+    )
+  );
+}
+
+// --- Charts ------------------------------------------------------------------
+
+// Round ticks that span low..high, padded by a tenth of the range and kept
+// within floor and ceiling.
+function niceScale(low, high, tickCount, floor, ceiling) {
+  if (high > low) {
+    const padding = (high - low) * 0.1;
+    low -= padding;
+    high += padding;
+  } else {
+    const padding = Math.abs(high) * 0.02 || 1;
+    low -= padding;
+    high += padding;
+  }
+  if (floor !== undefined) {
+    low = Math.max(low, floor);
+  }
+  if (ceiling !== undefined) {
+    high = Math.min(high, ceiling);
+  }
+  const rawStep = (high - low) / tickCount;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  const lo = Math.floor(low / step) * step;
+  const hi = Math.ceil(high / step) * step;
+  const ticks = [];
+  for (let index = 0; lo + index * step <= hi + step / 1e6; index++) {
+    ticks.push(Number((lo + index * step).toPrecision(12)));
+  }
+  const decimals = step < 1 ? Math.ceil(-Math.log10(step)) : 0;
+  return { lo, hi, ticks, decimals };
+}
+
+// A line chart of one value per run, with a crosshair and a tooltip that lists
+// every series at the run nearest the pointer. Arrow keys move it when the
+// chart has focus.
+function lineChart({ title, series, runs, format, floor, ceiling, extraRows }) {
+  return element(
+    "figure",
+    {},
+    element("figcaption", {}, title),
+    series.length > 1 ? legend(series.map((item) => ({ key: item.key, name: item.name, line: true }))) : null,
+    responsive((width) => drawLineChart(width, { title, series, runs, format, floor, ceiling, extraRows }))
+  );
+}
+
+function drawLineChart(width, { title, series, runs, format, floor, ceiling, extraRows }) {
+  const height = 200;
+  const margin = { top: 10, right: 56, bottom: 26, left: 44 };
+  const plotWidth = Math.max(40, width - margin.left - margin.right);
+  const plotHeight = height - margin.top - margin.bottom;
+  const runCount = runs.length;
+  const step = runCount > 1 ? plotWidth / (runCount - 1) : 0;
+  const xOf = (index) => margin.left + (runCount > 1 ? index * step : plotWidth / 2);
+  const values = series.flatMap((item) => item.values).filter((value) => Number.isFinite(value));
+  if (values.length === 0) {
+    return element("p", { class: "note" }, "No run has these values.");
+  }
+  const scale = niceScale(Math.min(...values), Math.max(...values), 4, floor, ceiling);
+  const yOf = (value) => margin.top + plotHeight - ((value - scale.lo) / (scale.hi - scale.lo)) * plotHeight;
+  const bottom = margin.top + plotHeight;
+
+  const first = series[0].values.find((value) => Number.isFinite(value));
+  const last = [...series[0].values].reverse().find((value) => Number.isFinite(value));
+  const svg = svgElement("svg", {
+    width,
+    height,
+    viewBox: `0 0 ${width} ${height}`,
+    role: "img",
+    tabindex: 0,
+    "aria-label": `${title}: ${series[0].name} from ${format(first)} to ${format(last)} over ${plural(runCount, "run", "runs")}`,
+  });
+
+  for (const tick of scale.ticks) {
+    const y = yOf(tick);
+    svg.append(
+      svgElement("line", { class: "grid-line", x1: margin.left, x2: margin.left + plotWidth, y1: y, y2: y }),
+      svgElement("text", { class: "tick", x: margin.left - 8, y: y + 4, "text-anchor": "end" }, tick.toFixed(scale.decimals))
+    );
+  }
+  svg.append(svgElement("line", { class: "axis-line", x1: margin.left, x2: margin.left + plotWidth, y1: bottom, y2: bottom }));
+
+  const labelCount = Math.min(runCount, Math.max(1, Math.floor(plotWidth / 72)));
+  const labelIndexes = new Set(
+    labelCount === 1
+      ? [runCount - 1]
+      : Array.from({ length: labelCount }, (_, index) => Math.round((index * (runCount - 1)) / (labelCount - 1)))
+  );
+  // Runs of a single day are told apart by their time.
+  const isOneDay = formatShortDate(runs[0].date) === formatShortDate(runs[runCount - 1].date);
+  for (const index of labelIndexes) {
+    const label = isOneDay ? formatDate(runs[index].date).slice(11) : formatShortDate(runs[index].date);
+    svg.append(svgElement("text", { class: "tick", x: xOf(index), y: height - 6, "text-anchor": "middle" }, label));
+  }
+
+  // Each series is drawn in runs of consecutive values, so a run without the
+  // value leaves a gap. A value on its own gets a dot, or it would not show.
+  const endLabels = [];
+  for (const item of series) {
+    let path = "";
+    item.values.forEach((value, index) => {
+      if (!Number.isFinite(value)) {
+        return;
+      }
+      const isStart = index === 0 || !Number.isFinite(item.values[index - 1]);
+      path += `${isStart ? "M" : "L"}${xOf(index).toFixed(1)},${yOf(value).toFixed(1)}`;
+      const isAlone = isStart && (index === runCount - 1 || !Number.isFinite(item.values[index + 1]));
+      if (isAlone && index !== item.values.length - 1) {
+        svg.append(svgElement("circle", { class: `dot f${item.key}`, cx: xOf(index), cy: yOf(value), r: 4 }));
+      }
+    });
+    if (path) {
+      svg.append(svgElement("path", { class: `series-line s${item.key}`, d: path }));
+    }
+    const lastIndex = item.values.map((value) => Number.isFinite(value)).lastIndexOf(true);
+    if (lastIndex >= 0) {
+      const value = item.values[lastIndex];
+      svg.append(svgElement("circle", { class: `dot f${item.key}`, cx: xOf(lastIndex), cy: yOf(value), r: 4 }));
+      endLabels.push({ x: xOf(lastIndex) + 8, y: yOf(value) + 4, text: format(value) });
+    }
+  }
+  // A label too close to one already placed is left to the legend and the
+  // tooltip rather than moved away from its line.
+  const placed = [];
+  for (const label of endLabels) {
+    if (placed.every((other) => Math.abs(other.y - label.y) >= 12)) {
+      placed.push(label);
+      svg.append(svgElement("text", { class: "end-label", x: label.x, y: label.y }, label.text));
+    }
+  }
+
+  const crosshair = svgElement("line", { class: "crosshair", y1: margin.top, y2: bottom, visibility: "hidden" });
+  const hoverDots = series.map((item) =>
+    svgElement("circle", { class: `dot hover-dot f${item.key}`, r: 4, visibility: "hidden" })
+  );
+  const overlay = svgElement("rect", {
+    x: margin.left - step / 2 - 8,
+    y: margin.top,
+    width: plotWidth + step + 16,
+    height: plotHeight,
+    fill: "transparent",
+  });
+  svg.append(crosshair, ...hoverDots, overlay);
+
+  let current = runCount - 1;
+  function focusRun(index, x, y) {
+    current = Math.max(0, Math.min(runCount - 1, index));
+    const run = runs[current];
+    const runX = xOf(current);
+    crosshair.setAttribute("x1", runX);
+    crosshair.setAttribute("x2", runX);
+    crosshair.setAttribute("visibility", "visible");
+    series.forEach((item, seriesIndex) => {
+      const value = item.values[current];
+      const dot = hoverDots[seriesIndex];
+      if (Number.isFinite(value)) {
+        dot.setAttribute("cx", runX);
+        dot.setAttribute("cy", yOf(value));
+        dot.setAttribute("visibility", "visible");
+      } else {
+        dot.setAttribute("visibility", "hidden");
+      }
+    });
+    const rows = series.map((item) => ({ key: item.key, value: format(item.values[current]), name: item.name }));
+    const title = [`${formatDate(run.date)} · ${commitText(run.commit, run.changes)}`];
+    if (run.subject) {
+      title.push(run.subject);
+    }
+    showTooltip(title, rows.concat(extraRows ? extraRows(run) : []), x, y);
+  }
+  function hide() {
+    crosshair.setAttribute("visibility", "hidden");
+    hoverDots.forEach((dot) => dot.setAttribute("visibility", "hidden"));
+    hideTooltip();
+  }
+  function focusFromKeyboard(index) {
+    const box = svg.getBoundingClientRect();
+    focusRun(index, box.left + xOf(Math.max(0, Math.min(runCount - 1, index))), box.top + margin.top);
+  }
+
+  overlay.addEventListener("pointermove", (event) => {
+    const box = svg.getBoundingClientRect();
+    const index = runCount > 1 ? Math.round((event.clientX - box.left - margin.left) / step) : 0;
+    focusRun(index, event.clientX, event.clientY);
+  });
+  overlay.addEventListener("pointerleave", hide);
+  svg.addEventListener("focus", () => focusFromKeyboard(current));
+  svg.addEventListener("blur", hide);
+  svg.addEventListener("keydown", (event) => {
+    const moves = { ArrowLeft: current - 1, ArrowRight: current + 1, Home: 0, End: runCount - 1 };
+    if (event.key in moves) {
+      event.preventDefault();
+      focusFromKeyboard(moves[event.key]);
+    }
+  });
+  return svg;
+}
+
+// One bar of the tests, split by kind, with a gap between the parts.
+function drawKindBar(width, kinds, total) {
+  const height = 20;
+  const gap = 2;
+  const usable = width - gap * (kinds.length - 1);
+  const svg = svgElement("svg", {
+    width,
+    height,
+    viewBox: `0 0 ${width} ${height}`,
+    role: "img",
+    "aria-label": `Tests by kind: ${kinds.map((kind) => `${formatCount(kind.tests)} ${kind.kind}`).join(", ")}`,
+  });
+  let x = 0;
+  kinds.forEach((kind, index) => {
+    const segmentWidth = Math.max(1, (usable * kind.tests) / total);
+    const isLast = index === kinds.length - 1;
+    const radius = isLast ? Math.min(4, segmentWidth) : 0;
+    const right = x + segmentWidth;
+    // Square where the bar starts, rounded where it ends.
+    const d =
+      `M${x},0H${right - radius}Q${right},0 ${right},${radius}` +
+      `V${height - radius}Q${right},${height} ${right - radius},${height}H${x}Z`;
+    const segment = svgElement("path", { class: `segment f${kindKey(kind.kind)}`, d, tabindex: 0 });
+    const show = (pointX, pointY) =>
+      showTooltip(kindName(kind.kind), [
+        { key: kindKey(kind.kind), value: formatCount(kind.tests), name: "tests" },
+        { value: `${((100 * kind.tests) / total).toFixed(1)}%`, name: "of all tests" },
+      ], pointX, pointY);
+    segment.addEventListener("pointermove", (event) => show(event.clientX, event.clientY));
+    segment.addEventListener("pointerleave", hideTooltip);
+    segment.addEventListener("focus", () => {
+      const box = segment.getBoundingClientRect();
+      show(box.left + box.width / 2, box.bottom);
+    });
+    segment.addEventListener("blur", hideTooltip);
+    svg.append(segment);
+    x = right + gap;
+  });
+  return svg;
+}
+
+// --- Sections ----------------------------------------------------------------
+
+const history = data.history || [];
+const tests = data.tests;
+const coverage = data.coverage;
+// The run before this one: this run is the history's last when it was added.
+const previous = data.run.inHistory ? history[history.length - 2] : history[history.length - 1];
+
+function delta(current, before, format, unitName) {
+  if (current === null || current === undefined || before === null || before === undefined) {
+    return null;
+  }
+  const change = current - before;
+  if (Math.abs(change) < 1e-9 || format(Math.abs(change)) === format(0)) {
+    return "Same as the previous run";
+  }
+  return `${change > 0 ? "+" : "−"}${format(Math.abs(change))}${unitName} since the previous run`;
+}
+
+function renderHeader() {
+  const run = data.run;
+  const commit = run.commit;
+  const meta = [formatDate(run.date)];
+  if (commit) {
+    meta.push(`commit ${commitText(commit.hash, false)}`, commit.subject);
+    if (commit.changes) {
+      meta.push("with uncommitted changes");
+    }
+  }
+  return element(
+    "header",
+    {},
+    element("h1", {}, "Tests and coverage"),
+    element("p", { class: "meta" }, meta.filter(Boolean).join(" · ")),
+    element(
+      "p",
+      { class: "note" },
+      "From build.ps1 -Coverage: a Debug build compiled with clang-cl and instrumented for coverage, " +
+        "so its times compare only with other coverage runs."
+    )
+  );
+}
+
+function renderProblems() {
+  const problems = [];
+  const failed = tests.total.failed;
+  const missing = data.shards.missing;
+  if (failed > 0) {
+    problems.push(`${plural(failed, "test", "tests")} failed; they are listed under Tests.`);
+  }
+  if (missing.length > 0) {
+    problems.push(
+      `${plural(missing.length, "shard", "shards")} wrote no report, so ${missing.length === 1 ? "its" : "their"} ` +
+        `tests are missing from this page: ` +
+        `${missing.join(", ")}. A shard writes its report when it ends, so it may have crashed or timed out; see CTest's output.`
+    );
+  }
+  if (data.run.testsFailed && failed === 0 && missing.length === 0) {
+    problems.push("CTest reported a failure that no report records; see its output.");
+  }
+  if (problems.length === 0) {
+    return null;
+  }
+  if (data.run.testsFailed) {
+    problems.push("Coverage is measured only when every test passes, and this run is not added to the trend.");
+  }
+  return element(
+    "div",
+    { class: "alert", role: "alert" },
+    element("span", { class: "status-icon critical", "aria-hidden": "true" }, "✕"),
+    element("div", {}, problems.map((problem) => element("p", {}, problem)))
+  );
+}
+
+function tile(label, value, sub, deltaText, icon) {
+  return element(
+    "div",
+    { class: "tile" },
+    element("div", { class: "tile-label" }, label),
+    element("div", { class: "tile-value" }, icon, value),
+    sub ? element("div", { class: "tile-sub" }, sub) : null,
+    deltaText ? element("div", { class: "tile-delta" }, deltaText) : null
+  );
+}
+
+function renderTiles() {
+  const total = tests.total;
+  const failed = total.failed;
+  const kindSummary = tests.kinds.map((kind) => `${formatCount(kind.tests)} ${kind.kind}`).join(" · ");
+  const countFormat = (value) => formatCount(Math.round(value));
+  const pointFormat = (value) => value.toFixed(1);
+  const exactPercent = (counts) => (counts && counts.count > 0 ? (100 * counts.covered) / counts.count : null);
+  const coverageTile = (label, kind, noun) =>
+    coverage
+      ? tile(
+          label,
+          formatPercent(percentOf(coverage[kind])),
+          `${coveredOf(coverage[kind])} ${noun}`,
+          previous && delta(exactPercent(coverage[kind]), exactPercent(previous[kind]), pointFormat, " points")
+        )
+      : tile(label, "–", "Not measured");
+  return element(
+    "div",
+    { class: "tiles" },
+    tile("Tests", formatCount(total.tests), kindSummary, previous && delta(total.tests, previous.tests, countFormat, "")),
+    tile(
+      "Failed",
+      formatCount(failed),
+      `${formatCount(total.passed)} passed · ${formatCount(total.skipped)} skipped · ${formatCount(total.disabled)} disabled`,
+      null,
+      element(
+        "span",
+        { class: `status-icon ${failed > 0 ? "critical" : "good"}`, "aria-label": failed > 0 ? "Failed" : "Passed" },
+        failed > 0 ? "✕" : "✓"
+      )
+    ),
+    coverageTile("Line coverage", "lines", "lines"),
+    coverageTile("Branch coverage", "branches", "branches"),
+    tile(
+      "Test time",
+      formatSeconds(total.seconds),
+      data.run.runSeconds !== null && data.run.runSeconds !== undefined
+        ? `The tests' times added up; CTest ran them in ${formatSeconds(data.run.runSeconds)}`
+        : "The tests' times added up",
+      previous && delta(total.seconds, previous.testSeconds, (value) => formatSeconds(value).replace(" s", ""), " s")
+    )
+  );
+}
+
+function renderTests() {
+  const total = tests.total;
+  const kinds = tests.kinds.filter((kind) => kind.tests > 0);
+  const tallyColumns = [
+    { label: "Tests", numeric: true, cell: (row) => formatCount(row.tests) },
+    { label: "Passed", numeric: true, cell: (row) => formatCount(row.passed) },
+    { label: "Failed", numeric: true, cell: (row) => formatCount(row.failed) },
+    { label: "Skipped", numeric: true, cell: (row) => formatCount(row.skipped) },
+    { label: "Disabled", numeric: true, cell: (row) => formatCount(row.disabled) },
+    { label: "Time", numeric: true, cell: (row) => formatSeconds(row.seconds) },
+  ];
+  const section = card("Tests");
+
+  if (kinds.length > 0) {
+    section.append(
+      element("p", { class: "note" }, "A test's kind is the directory under tests/ of its source file."),
+      legend(kinds.map((kind) => ({ key: kindKey(kind.kind), name: kindName(kind.kind), value: formatCount(kind.tests) }))),
+      responsive((width) => drawKindBar(width, kinds, total.tests))
+    );
+  }
+  section.append(
+    element("h3", {}, "By kind"),
+    plainTable({
+      label: "Tests by kind",
+      columns: [{ label: "Kind", cell: (row) => row.label }, ...tallyColumns],
+      rows: tests.kinds.map((kind) => ({ ...kind, label: kindName(kind.kind) })),
+      footer: { ...total, label: "Total" },
+    })
+  );
+
+  if (tests.failed.length > 0) {
+    section.append(element("h3", {}, "Failed tests"), testList(tests.failed));
+  }
+  if (tests.skipped.length > 0) {
+    section.append(element("h3", {}, "Skipped and disabled tests"), testList(tests.skipped));
+  }
+
+  if (tests.slowest.length > 0) {
+    const slowest = tests.slowest[0].seconds || 1;
+    section.append(
+      element("h3", {}, "Slowest tests"),
+      element(
+        "ul",
+        { class: "bars" },
+        tests.slowest.map((test) =>
+          element(
+            "li",
+            {},
+            element(
+              "div",
+              {},
+              element("div", { class: "bar-name" }, testName(test)),
+              element("div", { class: "bar-meta" }, `${kindName(test.kind)} · ${testLocation(test)}`)
+            ),
+            element(
+              "div",
+              { class: "bar-row" },
+              element("span", { class: "bar", style: `--ratio: ${(test.seconds / slowest).toFixed(4)}`, "aria-hidden": "true" }),
+              element("span", { class: "bar-value" }, formatSeconds(test.seconds))
+            )
+          )
+        )
+      )
+    );
+  }
+
+  section.append(
+    element(
+      "details",
+      {},
+      element("summary", {}, `Tests by suite (${plural(tests.suites.length, "suite", "suites")})`),
+      sortableTable({
+        label: "Tests by suite",
+        sortKey: "kind",
+        descending: false,
+        rows: tests.suites,
+        columns: [
+          { key: "name", label: "Suite", path: true, sortValue: (row) => row.name },
+          {
+            key: "kind",
+            label: "Kind",
+            sortValue: (row) => `${Object.keys(kindKeys).indexOf(row.kind) + 1 || 9}${row.kind} ${row.name}`,
+            cell: (row) => kindName(row.kind),
+          },
+          { key: "tests", label: "Tests", numeric: true, descendingFirst: true, sortValue: (row) => row.tests, cell: (row) => formatCount(row.tests) },
+          { key: "passed", label: "Passed", numeric: true, descendingFirst: true, sortValue: (row) => row.passed, cell: (row) => formatCount(row.passed) },
+          { key: "failed", label: "Failed", numeric: true, descendingFirst: true, sortValue: (row) => row.failed, cell: (row) => formatCount(row.failed) },
+          { key: "skipped", label: "Skipped", numeric: true, descendingFirst: true, sortValue: (row) => row.skipped, cell: (row) => formatCount(row.skipped) },
+          { key: "disabled", label: "Disabled", numeric: true, descendingFirst: true, sortValue: (row) => row.disabled, cell: (row) => formatCount(row.disabled) },
+          { key: "seconds", label: "Time", numeric: true, descendingFirst: true, sortValue: (row) => row.seconds, cell: (row) => formatSeconds(row.seconds) },
+        ],
+      })
+    )
+  );
+  return section;
+}
+
+function testList(list) {
+  return element(
+    "ol",
+    { class: "test-list" },
+    list.map((test) =>
+      element(
+        "li",
+        {},
+        element("div", { class: "test-name" }, testName(test)),
+        element(
+          "div",
+          { class: "bar-meta" },
+          [test.outcome === "disabled" ? "Disabled" : null, kindName(test.kind), testLocation(test)].filter(Boolean).join(" · ")
+        ),
+        (test.messages || []).map((message) => element("pre", {}, message))
+      )
+    )
+  );
+}
+
+function renderCoverage() {
+  const section = card("Coverage of src");
+  if (!coverage) {
+    section.append(
+      element(
+        "p",
+        { class: "note" },
+        data.run.testsFailed ? "Coverage is measured only when every test passes." : "This run has no coverage data."
+      )
+    );
+    return section;
+  }
+
+  const link = (text, href) => (href ? element("a", { href }, text) : text);
+  section.append(
+    element(
+      "p",
+      { class: "note" },
+      "The lines and branches of src/ that the tests ran, rounded down so that only full coverage reads 100%. " +
+        "Each directory and file links to its annotated source, which marks every line and branch. ",
+      coverage.index ? link("All annotated sources", coverage.index) : null
+    ),
+    plainTable({
+      label: "Coverage by directory",
+      columns: [
+        { label: "Directory", cell: (row) => (row.label ? row.label : link(row.name || "(src)", row.link)) },
+        { label: "Lines", cell: (row) => meter(row.lines) },
+        { label: "", numeric: true, cell: (row) => coveredOf(row.lines) },
+        { label: "Branches", cell: (row) => meter(row.branches) },
+        { label: "", numeric: true, cell: (row) => coveredOf(row.branches) },
+      ],
+      rows: coverage.directories,
+      footer: { label: "Total", lines: coverage.lines, branches: coverage.branches },
+    }),
+    element(
+      "p",
+      { class: "note", style: "margin-top: 8px" },
+      "The integration tests call real Windows APIs, so the coverage of platform/windows varies with the machine and the processes running on it."
+    )
+  );
+
+  const uncovered = (counts) => counts.count - counts.covered;
+  const ratio = (counts) => (counts.count > 0 ? counts.covered / counts.count : null);
+  section.append(
+    element("h3", {}, "Least-covered files"),
+    sortableTable({
+      label: "Coverage by file",
+      sortKey: "lines",
+      descending: false,
+      limit: 15,
+      rows: coverage.files
+        .slice()
+        .sort((a, b) => uncovered(b.lines) - uncovered(a.lines) || a.path.localeCompare(b.path)),
+      columns: [
+        { key: "path", label: "File", path: true, sortValue: (row) => row.path, cell: (row) => link(row.path, row.link) },
+        { key: "lines", label: "Lines", sortValue: (row) => ratio(row.lines), cell: (row) => meter(row.lines) },
+        {
+          key: "uncoveredLines",
+          label: "Lines not run",
+          numeric: true,
+          descendingFirst: true,
+          sortValue: (row) => uncovered(row.lines),
+          cell: (row) => formatCount(uncovered(row.lines)),
+        },
+        { key: "branches", label: "Branches", sortValue: (row) => ratio(row.branches), cell: (row) => meter(row.branches) },
+        {
+          key: "uncoveredBranches",
+          label: "Branches not taken",
+          numeric: true,
+          descendingFirst: true,
+          sortValue: (row) => uncovered(row.branches),
+          cell: (row) => formatCount(uncovered(row.branches)),
+        },
+      ],
+    })
+  );
+  return section;
+}
+
+function renderTrend() {
+  const section = card("Trend");
+  if (history.length === 0) {
+    section.append(element("p", { class: "note" }, "No run has passed yet, so there is no trend."));
+    return section;
+  }
+  section.append(
+    element(
+      "p",
+      { class: "note" },
+      `${plural(history.length, "run", "runs")} in the history, one point per run.` +
+        (data.run.inHistory ? "" : " This run is not among them, because its tests failed.") +
+        (history.length === 1 ? " The trend starts with the next run." : "")
+    )
+  );
+
+  const valueOf = (value) => (Number.isFinite(value) ? value : null);
+  const kindRows = (run) =>
+    Object.entries(run.kinds || {}).map(([kind, count]) => ({ value: formatCount(count), name: kind }));
+  section.append(
+    element(
+      "div",
+      { class: "charts" },
+      lineChart({
+        title: "Tests",
+        runs: history,
+        series: [{ key: "1", name: "Tests", values: history.map((run) => valueOf(run.tests)) }],
+        format: (value) => (Number.isFinite(value) ? formatCount(value) : "–"),
+        floor: 0,
+        extraRows: kindRows,
+      }),
+      lineChart({
+        title: "Time (s)",
+        runs: history,
+        series: [
+          { key: "1", name: "Tests added up", values: history.map((run) => valueOf(run.testSeconds)) },
+          { key: "2", name: "CTest, start to end", values: history.map((run) => valueOf(run.runSeconds)) },
+        ],
+        format: formatSeconds,
+        floor: 0,
+      }),
+      lineChart({
+        title: "Coverage of src (%)",
+        runs: history,
+        series: [
+          { key: "1", name: "Lines", values: history.map((run) => percentOf(run.lines)) },
+          { key: "2", name: "Branches", values: history.map((run) => percentOf(run.branches)) },
+        ],
+        format: formatPercent,
+        floor: 0,
+        ceiling: 100,
+      })
+    ),
+    element(
+      "details",
+      {},
+      element("summary", {}, "The runs as a table"),
+      plainTable({
+        label: "Runs in the trend",
+        columns: [
+          { label: "Run", cell: (run) => formatDate(run.date) },
+          { label: "Commit", cell: (run) => commitText(run.commit, run.changes) },
+          { label: "Tests", numeric: true, cell: (run) => formatCount(run.tests) },
+          { label: "Skipped", numeric: true, cell: (run) => formatCount(run.skipped) },
+          { label: "Tests added up", numeric: true, cell: (run) => formatSeconds(run.testSeconds) },
+          { label: "CTest", numeric: true, cell: (run) => formatSeconds(run.runSeconds) },
+          { label: "Lines", numeric: true, cell: (run) => formatPercent(percentOf(run.lines)) },
+          { label: "Branches", numeric: true, cell: (run) => formatPercent(percentOf(run.branches)) },
+        ],
+        rows: history.slice().reverse(),
+      })
+    )
+  );
+  return section;
+}
+
+function renderFooter() {
+  const sources = [plural(data.shards.reports, "shard report", "shard reports")];
+  if (coverage) {
+    sources.push("llvm-cov's summary");
+  }
+  sources.push(`${plural(history.length, "run", "runs")} of history`);
+  return element("p", { class: "footer" }, `Written by scripts/coverage_dashboard.ps1 from ${sources.join(", ")}.`);
+}
+
+document.getElementById("dashboard").append(
+  ...[renderHeader(), renderProblems(), renderTiles(), renderTests(), renderCoverage(), renderTrend(), renderFooter()].filter(Boolean)
+);
+</script>
+</body>
+</html>

@@ -83,6 +83,17 @@ the count of each line and of each branch's true and false outcomes; open
 build\coverage\html\index.html. The script removes the profiles and the report
 of the previous run before the tests run.
 
+Then scripts\coverage_dashboard.ps1 writes build\coverage\index.html, one page
+that opens from disk. It shows the tests by kind (unit, platform, integration)
+and by suite, with how many passed, failed, were skipped or are disabled, their
+total time and the slowest tests, the coverage of each directory and the
+least-covered files, each linking to its annotated source, and the trend of the
+test count, the time and the coverage. The trend comes from
+build\coverage\history.jsonl, to which each run whose tests pass adds a line,
+and which the script keeps between runs. When tests fail, the script writes the
+page without coverage, with the failed tests and any shard that wrote no
+report, adds nothing to the history, and then fails.
+
 The integration tests call real Windows APIs, so how much of platform/windows
 they cover depends on the machine and on the processes running on it. It can
 differ between runs, and between this machine and CI.
@@ -277,6 +288,11 @@ $testResultsDirectory = Join-Path $buildDirectory "test_results"
 $profileDirectory = Join-Path $buildDirectory "profiles"
 $profileDataPath = Join-Path $buildDirectory "coverage.profdata"
 $coverageHtmlDirectory = Join-Path $buildDirectory "html"
+$coverageSummaryPath = Join-Path $buildDirectory "coverage_summary.json"
+$dashboardPath = Join-Path $buildDirectory "index.html"
+# Each passing coverage run adds a line, so unlike the run's other outputs the
+# history is kept from one run to the next.
+$historyPath = Join-Path $buildDirectory "history.jsonl"
 $applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
 # The coverage report reads the application as well as the test executables,
 # although no test runs it, so that code only the application compiles, such
@@ -981,7 +997,10 @@ function Write-CoverageReport
     }
     $coverageArguments += "-instr-profile=$profileDataPath"
 
-    $export = Invoke-LlvmCov -Arguments (@("export", "-summary-only") + $coverageArguments) | ConvertFrom-Json
+    # The dashboard reads the summary too.
+    $exportText = Invoke-LlvmCov -Arguments (@("export", "-summary-only") + $coverageArguments)
+    [System.IO.File]::WriteAllText($coverageSummaryPath, $exportText, (New-Object System.Text.UTF8Encoding $false))
+    $export = $exportText | ConvertFrom-Json
     $sourcePrefix = (Join-Path $projectRoot "src") + "\"
     $sourceFiles = @($export.data[0].files | Where-Object {
             $_.filename.Replace("/", "\").StartsWith($sourcePrefix, [StringComparison]::OrdinalIgnoreCase)
@@ -1032,6 +1051,56 @@ function Write-CoverageReport
     Write-Host "Annotated sources: build\$preset\html\index.html"
 }
 
+# Writes build\coverage\index.html, the dashboard of the run's tests and
+# coverage and of their trend, with scripts\coverage_dashboard.ps1 (DC-120). It
+# runs whether the tests passed or not, so that the page lists the tests that
+# failed. CTest lists the report that each shard was told to write, so that the
+# page can name a shard that crashed or timed out before writing its own.
+function Write-Dashboard
+{
+    param(
+        [Parameter(Mandatory)][bool]$TestsPassed,
+        [Parameter(Mandatory)][double]$TestRunSeconds
+    )
+
+    $testListText = (Invoke-NativeCommand -Description "Listing the tests" -FilePath "ctest" `
+            -Arguments @("--preset", $preset, "--show-only=json-v1")) -join "`n"
+    $expectedReportPaths = @(foreach ($test in ($testListText | ConvertFrom-Json).tests)
+        {
+            $properties = $test.PSObject.Properties["properties"]
+            if ($null -eq $properties)
+            {
+                continue
+            }
+            foreach ($property in @($properties.Value | Where-Object { $_.name -eq "ENVIRONMENT" }))
+            {
+                foreach ($variable in @($property.value))
+                {
+                    if ($variable -match '^GTEST_OUTPUT=json:(.+)$')
+                    {
+                        [System.IO.Path]::GetFullPath($Matches[1])
+                    }
+                }
+            }
+        })
+
+    $dashboardArguments = @{
+        TestResultsDirectory = $testResultsDirectory
+        ExpectedReportPaths = $expectedReportPaths
+        HistoryPath = $historyPath
+        OutputPath = $dashboardPath
+        TestRunSeconds = $TestRunSeconds
+        TestsFailed = -not $TestsPassed
+    }
+    if ($TestsPassed)
+    {
+        $dashboardArguments.CoverageSummaryPath = $coverageSummaryPath
+        $dashboardArguments.AnnotatedSourceDirectory = $coverageHtmlDirectory
+    }
+    & (Join-Path $PSScriptRoot "coverage_dashboard.ps1") @dashboardArguments
+    Write-Host "Dashboard: build\$preset\index.html"
+}
+
 Push-Location $projectRoot
 try
 {
@@ -1065,7 +1134,8 @@ try
         # its report, which a run whose tests fail would otherwise leave behind.
         if ($Coverage)
         {
-            $earlierOutputs += @($profileDirectory, $profileDataPath, $coverageHtmlDirectory)
+            $earlierOutputs += @($profileDirectory, $profileDataPath, $coverageHtmlDirectory, $coverageSummaryPath,
+                $dashboardPath)
         }
         foreach ($earlierOutput in $earlierOutputs)
         {
@@ -1080,6 +1150,8 @@ try
             New-Item -ItemType Directory -Path $profileDirectory | Out-Null
             $env:LLVM_PROFILE_FILE = Join-Path $profileDirectory "%p_%m.profraw"
         }
+        $testError = $null
+        $testStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         try
         {
             # The tests run as GoogleTest shards, about two per logical processor
@@ -1088,13 +1160,44 @@ try
             Invoke-NativeCommand -Description "Tests" -FilePath "ctest" `
                 -Arguments @("--preset", $preset, "--output-on-failure", "--parallel", [Environment]::ProcessorCount)
         }
+        catch
+        {
+            # With -Coverage, the dashboard lists the tests that failed before
+            # the script fails.
+            if (-not $Coverage)
+            {
+                throw
+            }
+            $testError = $_
+        }
         finally
         {
             $env:LLVM_PROFILE_FILE = $previousProfileFile
         }
+        $testRunSeconds = $testStopwatch.Elapsed.TotalSeconds
         if ($Coverage)
         {
-            Write-CoverageReport
+            if ($null -eq $testError)
+            {
+                Write-CoverageReport
+            }
+            try
+            {
+                Write-Dashboard -TestsPassed ($null -eq $testError) -TestRunSeconds $testRunSeconds
+            }
+            catch
+            {
+                # The tests' failure is the one to report.
+                if ($null -eq $testError)
+                {
+                    throw
+                }
+                Write-Warning "The dashboard could not be written: $_"
+            }
+        }
+        if ($null -ne $testError)
+        {
+            throw $testError
         }
     }
 
