@@ -102,6 +102,36 @@ developer environment it imports one from an installation that has the
 component, and when the active environment's installation lacks
 `clang-cl.exe`, it stops and says so.
 
+When the tests pass, the script merges the profiles with `llvm-profdata merge`
+into `build\coverage\coverage.profdata` and reports on `src\` alone.
+`llvm-cov export -summary-only` gives each file's line and branch counts. It
+reads the two test executables and the application, which no test runs, so
+that `main.cpp` counts as not covered instead of being absent. The script keeps
+the files under `src\`, which leaves out test, moc and vcpkg sources, and
+prints the coverage of each directory (`app`, `domain`, `monitoring`,
+`platform/windows`, `ui`, `ui/charts`) and of `src\` in total, rounded down so
+that only full coverage reads 100%. It chooses the files itself, regardless of
+case, because `llvm-cov` compares paths case-sensitively: given `src` with its
+drive letter in another case than CMake's, as VS Code's terminal may give it,
+`llvm-cov` matches no file and reports every file instead. Then
+`llvm-cov show -format=html -show-branches=count` writes `build\coverage\html`,
+which gives each line's count and each branch's true and false counts, and a
+summary of each directory; open `build\coverage\html\index.html`. A template's
+instantiations are titled with MSVC's decorated names, because the LLVM tools
+that come with Visual Studio have no demangler for them that `llvm-cov` can
+call. The script leaves out `llvm-cov`'s warning that a few functions "have
+mismatched data". A binary records an inline function that it compiles but
+never calls with hash 0, which matches no profile, and the application's
+`main()` has no profile at all; each is still counted, from the binary that
+calls it or as not covered. A run removes the previous run's profiles and
+report before its tests start, so a run whose tests fail leaves no report.
+
+The integration tests call real Windows APIs, so the coverage of
+`platform/windows` depends on the machine and on what runs on it. Three runs on
+2026-10-19 on one machine covered 83.4% to 84.1% of its lines, because
+`process_details_reader.cpp` reads the details of whichever processes are
+running. CI's figures can differ again.
+
 vcpkg installs release and debug libraries for the `x64-windows` triplet, so
 each further build directory restores its dependencies from the binary cache
 instead of rebuilding them.

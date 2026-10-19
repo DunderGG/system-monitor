@@ -10,7 +10,7 @@ The rules below are self-contained. For deeper context, see `docs/architecture.m
 - Build and test: `.\scripts\build.ps1 -Test`
 - Release build, for measuring performance (Debug Qt paints many times slower): add `-Release`, e.g. `.\scripts\build.ps1 -Test -Release`
 - Measure the Performance, Network and Processes tabs' tick cost (Release build; prints tables to record in [docs/performance.md](docs/performance.md); not a test): `.\scripts\build.ps1 -Benchmark`
-- Coverage build (Debug, compiled with clang-cl for LLVM source-based coverage; needs Visual Studio's C++ Clang tools; runs the tests, and each test process writes a raw profile to `build\coverage\profiles`): `.\scripts\build.ps1 -Coverage`
+- Coverage build (Debug, compiled with clang-cl for LLVM source-based coverage; needs Visual Studio's C++ Clang tools; runs the tests, prints the line and branch coverage of each directory under `src\` and in total, and writes each file's annotated lines and branches to `build\coverage\html\index.html`): `.\scripts\build.ps1 -Coverage`
 - Format C++ files and check the design decisions: `.\scripts\build.ps1 -Format` (run before committing; CI fails on unformatted code, a link that does not resolve, or an entry whose fields are missing or out of order)
 - Check formatting and the design decisions only: `.\scripts\build.ps1 -CheckFormat`
 

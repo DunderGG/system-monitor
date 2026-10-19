@@ -57,15 +57,30 @@ Windows versions it runs with; record them with the figures in
 docs\performance.md.
 
 .PARAMETER Coverage
-Builds the coverage preset in build\coverage, then runs the tests (-Test is
-implied). The preset compiles the project's targets, tests included, with the
-clang-cl of the Visual Studio installation whose environment the script
-imports, and instruments them for LLVM source-based coverage, which counts
-lines and branches. vcpkg's packages stay as MSVC builds them. It needs Visual
-Studio's "C++ Clang tools for Windows" component, which
-scripts\bootstrap.ps1 -InstallMissing adds. The script empties
-build\coverage\profiles before the tests run, and each test process writes its
-raw profile there. Cannot be combined with -Release, -Benchmark or -Run.
+Builds the coverage preset in build\coverage, runs the tests (-Test is
+implied), and reports how much of src\ they cover. The preset compiles the
+project's targets, tests included, with the clang-cl of the Visual Studio
+installation whose environment the script imports, and instruments them for
+LLVM source-based coverage, which counts lines and branches. vcpkg's packages
+stay as MSVC builds them. It needs Visual Studio's "C++ Clang tools for
+Windows" component, which scripts\bootstrap.ps1 -InstallMissing adds. Cannot be
+combined with -Release, -Benchmark or -Run.
+
+Each test process writes its raw profile to build\coverage\profiles. When the
+tests pass, llvm-profdata merges the profiles into
+build\coverage\coverage.profdata, and the script prints the line and branch
+coverage of each directory under src\ (app, domain, monitoring,
+platform/windows, ui, ui/charts) and of src\ in total. It reads the test
+executables and the application, so code that only the application compiles,
+such as main.cpp, counts as not covered. Test, moc and vcpkg sources are left out.
+llvm-cov also writes every file of src\ as HTML to build\coverage\html, with
+the count of each line and of each branch's true and false outcomes; open
+build\coverage\html\index.html. The script removes the profiles and the report
+of the previous run before the tests run.
+
+The integration tests call real Windows APIs, so how much of platform/windows
+they cover depends on the machine and on the processes running on it. It can
+differ between runs, and between this machine and CI.
 
 .PARAMETER Format
 Formats every C++ source and header under src/, tests/, and benchmarks/ in
@@ -253,7 +268,17 @@ $preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark) { "rele
 $runsTests = $Test -or $Coverage
 $buildDirectory = Join-Path $projectRoot "build\$preset"
 $profileDirectory = Join-Path $buildDirectory "profiles"
+$profileDataPath = Join-Path $buildDirectory "coverage.profdata"
+$coverageHtmlDirectory = Join-Path $buildDirectory "html"
 $applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
+# The coverage report reads the application as well as the test executables,
+# although no test runs it, so that code only the application compiles, such
+# as main.cpp, counts as not covered instead of being left out of the report.
+$coverageObjectPaths = @(
+    (Join-Path $buildDirectory "tests\system_monitor_tests.exe"),
+    (Join-Path $buildDirectory "tests\system_monitor_platform_tests.exe"),
+    $applicationPath
+)
 $benchmarkPaths = @(
     (Join-Path $buildDirectory "benchmarks\system_monitor_benchmark.exe"),
     (Join-Path $buildDirectory "benchmarks\system_monitor_process_benchmark.exe")
@@ -784,7 +809,9 @@ Import-X64DevShell
 # PowerShell or CI, may come from an installation without it.
 if ($Coverage)
 {
-    $clangClPath = Join-Path "$env:VCINSTALLDIR" "Tools\Llvm\x64\bin\clang-cl.exe"
+    # llvm-profdata and llvm-cov, which the coverage report runs, are next to it.
+    $llvmBinDirectory = Join-Path "$env:VCINSTALLDIR" "Tools\Llvm\x64\bin"
+    $clangClPath = Join-Path $llvmBinDirectory "clang-cl.exe"
     if ([string]::IsNullOrWhiteSpace($env:VCINSTALLDIR) -or -not (Test-Path -LiteralPath $clangClPath))
     {
         throw ("clang-cl was not found at '$clangClPath'. Add ""C++ Clang tools for Windows"" to the Visual " +
@@ -876,6 +903,128 @@ function Invoke-Configure
     Set-Content -LiteralPath $configureStampPath -Value "Last configured by scripts\build.ps1." -Encoding ASCII
 }
 
+# Runs llvm-cov and returns what it writes to standard output. llvm-cov warns
+# that "N functions have mismatched data" when a binary holds an inline function
+# that it compiles but never calls, which it records with hash 0, and when a
+# function never ran, such as the application's main(). Each such function is
+# still counted, from the binary that calls it or as not covered, so that
+# warning is left out. Anything else on standard error is printed.
+function Invoke-LlvmCov
+{
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    # Each line on standard error becomes an ErrorRecord (see
+    # Invoke-NativeCommand). llvm-cov writes UTF-8, which PowerShell would
+    # otherwise decode with the console's code page.
+    $previousPreference = $ErrorActionPreference
+    $previousEncoding = [Console]::OutputEncoding
+    $ErrorActionPreference = "Continue"
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    try
+    {
+        $lines = @(& (Join-Path $llvmBinDirectory "llvm-cov.exe") @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally
+    {
+        [Console]::OutputEncoding = $previousEncoding
+        $ErrorActionPreference = $previousPreference
+    }
+
+    $standardOutput = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $lines)
+    {
+        if ($line -isnot [System.Management.Automation.ErrorRecord])
+        {
+            $standardOutput.Add($line)
+        }
+        elseif ($line.ToString() -notmatch '^warning: \d+ functions have mismatched data$')
+        {
+            Write-Host $line.ToString()
+        }
+    }
+    if ($exitCode -ne 0)
+    {
+        throw "llvm-cov $($Arguments[0]) failed with exit code $exitCode."
+    }
+    return $standardOutput -join "`n"
+}
+
+# Merges the tests' raw profiles, prints the line and branch coverage of each
+# directory under src\ and of src\ in total, and writes llvm-cov's HTML of
+# every file under src\ (DC-118). The coverage data spells each path as CMake
+# gave it to the compiler, and llvm-cov compares paths case-sensitively: given
+# src\ with a drive letter in another case, as a terminal may give it, it
+# matches no file and reports every file instead, tests and moc files included.
+# So the files are chosen here, regardless of case, and llvm-cov is given src\
+# as the coverage data spells it.
+function Write-CoverageReport
+{
+    $profileCount = @(Get-ChildItem -LiteralPath $profileDirectory -Filter "*.profraw").Count
+    Invoke-NativeCommand -Description "Merging the coverage profiles" `
+        -FilePath (Join-Path $llvmBinDirectory "llvm-profdata.exe") `
+        -Arguments @("merge", "-sparse", "-o", $profileDataPath, $profileDirectory)
+
+    $coverageArguments = @($coverageObjectPaths[0])
+    foreach ($objectPath in ($coverageObjectPaths | Select-Object -Skip 1))
+    {
+        $coverageArguments += @("-object", $objectPath)
+    }
+    $coverageArguments += "-instr-profile=$profileDataPath"
+
+    $export = Invoke-LlvmCov -Arguments (@("export", "-summary-only") + $coverageArguments) | ConvertFrom-Json
+    $sourcePrefix = (Join-Path $projectRoot "src") + "\"
+    $sourceFiles = @($export.data[0].files | Where-Object {
+            $_.filename.Replace("/", "\").StartsWith($sourcePrefix, [StringComparison]::OrdinalIgnoreCase)
+        })
+    if ($sourceFiles.Count -eq 0)
+    {
+        throw "The coverage data has no file under $sourcePrefix."
+    }
+
+    # Percentages are rounded down, so that only full coverage reads 100%.
+    $rowFormat = "{0,-18}{1,8}{2,15}{3,10}{4,15}"
+    function Format-CoverageRow
+    {
+        param(
+            [Parameter(Mandatory)][string]$Name,
+            [Parameter(Mandatory)][object[]]$Files
+        )
+
+        $cells = @($Name)
+        foreach ($kind in @("lines", "branches"))
+        {
+            $covered = ($Files | ForEach-Object { $_.summary.$kind.covered } | Measure-Object -Sum).Sum
+            $count = ($Files | ForEach-Object { $_.summary.$kind.count } | Measure-Object -Sum).Sum
+            $percent = if ($count -eq 0) { "-" } else { "{0:0.0}%" -f ([Math]::Floor(1000 * $covered / $count) / 10) }
+            $cells += @($percent, "$covered of $count")
+        }
+        return $rowFormat -f $cells
+    }
+
+    Write-Host ""
+    Write-Host "Coverage of src\ by the tests, from $profileCount raw profiles:"
+    Write-Host ($rowFormat -f "Directory", "Lines", "", "Branches", "").TrimEnd()
+    $directories = $sourceFiles |
+        Group-Object { [System.IO.Path]::GetDirectoryName($_.filename.Substring($sourcePrefix.Length)).Replace("\", "/") } |
+        Sort-Object Name
+    foreach ($directory in $directories)
+    {
+        Write-Host (Format-CoverageRow -Name $directory.Name -Files $directory.Group)
+    }
+    Write-Host (Format-CoverageRow -Name "Total" -Files $sourceFiles)
+
+    $recordedSourceDirectories = @($sourceFiles |
+            ForEach-Object { $_.filename.Substring(0, $sourcePrefix.Length - 1) } |
+            Sort-Object -Unique -CaseSensitive)
+    Invoke-LlvmCov -Arguments (@("show", "-format=html", "-output-dir=$coverageHtmlDirectory",
+            "-show-branches=count", "-show-directory-coverage", "-project-title=System Monitor") +
+        $coverageArguments + $recordedSourceDirectories) | Out-Null
+    Write-Host "Annotated sources: build\$preset\html\index.html"
+}
+
 Push-Location $projectRoot
 try
 {
@@ -900,13 +1049,17 @@ try
         # process gets its own file (%p). Windows reuses process IDs, and %m
         # makes a later process with the same ID and binary merge its counts
         # into that file instead of overwriting it. The profiles of an earlier
-        # run are removed first, or they would be merged in as well.
+        # run are removed first, or they would be merged in as well, and so is
+        # its report, which a run whose tests fail would otherwise leave behind.
         $previousProfileFile = $env:LLVM_PROFILE_FILE
         if ($Coverage)
         {
-            if (Test-Path -LiteralPath $profileDirectory)
+            foreach ($earlierOutput in @($profileDirectory, $profileDataPath, $coverageHtmlDirectory))
             {
-                Remove-Item -LiteralPath $profileDirectory -Recurse -Force
+                if (Test-Path -LiteralPath $earlierOutput)
+                {
+                    Remove-Item -LiteralPath $earlierOutput -Recurse -Force
+                }
             }
             New-Item -ItemType Directory -Path $profileDirectory | Out-Null
             $env:LLVM_PROFILE_FILE = Join-Path $profileDirectory "%p_%m.profraw"
@@ -925,8 +1078,7 @@ try
         }
         if ($Coverage)
         {
-            $profileCount = @(Get-ChildItem -LiteralPath $profileDirectory -Filter "*.profraw").Count
-            Write-Host "The tests wrote $profileCount raw coverage profiles to build\$preset\profiles."
+            Write-CoverageReport
         }
     }
 
