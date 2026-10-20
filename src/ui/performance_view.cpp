@@ -12,6 +12,7 @@
 #include <QVariant>
 #include <QVBoxLayout>
 
+#include "domain/settings.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/cpu_performance_page.h"
 #include "ui/disk_performance_page.h"
@@ -35,6 +36,13 @@ QString sidebarEntry(const PerformancePage& page)
     return page.title() + "\n" + page.summary();
 }
 
+// The selector's text for a window of samples: the time they cover, as the charts' X-axis labels tell it.
+QString historyWindowText(std::size_t samples, std::chrono::milliseconds sampleInterval)
+{
+    return charts::formatHistoryWindow(std::chrono::duration_cast<std::chrono::seconds>(
+        sampleInterval * static_cast<std::chrono::milliseconds::rep>(samples)));
+}
+
 } // namespace
 
 PerformanceView::PerformanceView(QWidget* parent) : QWidget(parent)
@@ -55,8 +63,8 @@ PerformanceView::PerformanceView(QWidget* parent) : QWidget(parent)
     m_windowSelector = new QComboBox(this);
     m_windowSelector->setFixedWidth(kSidebarWidth);
     for (const std::size_t samples : kHistoryWindows) {
-        const QString label = charts::formatHistoryWindow(std::chrono::seconds{static_cast<long long>(samples)});
-        m_windowSelector->addItem(label, QVariant::fromValue(samples));
+        m_windowSelector->addItem(historyWindowText(samples, domain::kDefaultRefreshInterval),
+                                  QVariant::fromValue(samples));
     }
     windowLabel->setBuddy(m_windowSelector);
     sidebarColumn->addWidget(m_windowSelector);
@@ -112,6 +120,30 @@ void PerformanceView::setHistoryWindow(std::size_t samples)
 std::size_t PerformanceView::historyWindow() const
 {
     return m_windowSelector->currentData().value<std::size_t>();
+}
+
+QComboBox* PerformanceView::historyWindowSelector() const
+{
+    return m_windowSelector;
+}
+
+void PerformanceView::setSampleInterval(std::chrono::milliseconds interval)
+{
+    for (auto* page : m_pages) {
+        page->setSampleInterval(interval);
+    }
+    for (int index = 0; index < m_windowSelector->count(); ++index) {
+        const auto samples = m_windowSelector->itemData(index).value<std::size_t>();
+        m_windowSelector->setItemText(index, historyWindowText(samples, interval));
+    }
+    if (isVisible()) {
+        refreshVisible();
+    }
+}
+
+std::chrono::milliseconds PerformanceView::sampleInterval() const
+{
+    return m_cpuPage->sampleInterval();
 }
 
 void PerformanceView::updateSnapshot(const domain::SystemSnapshot& snapshot)

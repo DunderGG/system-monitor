@@ -97,6 +97,8 @@ QAction* MainWindow::exitAction() const
 void MainWindow::setSettings(const domain::Settings& settings)
 {
     m_settings = settings;
+    m_performanceView->setSampleInterval(settings.refreshInterval);
+    m_networkView->setSampleInterval(settings.refreshInterval);
 }
 
 const domain::Settings& MainWindow::settings() const
@@ -111,7 +113,7 @@ void MainWindow::openSettingsDialog()
     connect(dialog, &QDialog::accepted, this, [this, dialog] {
         const domain::Settings edited = dialog->settings();
         if (edited != m_settings) {
-            m_settings = edited;
+            setSettings(edited);
             emit settingsChanged(m_settings);
         }
     });

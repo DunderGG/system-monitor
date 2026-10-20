@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 #include <QColor>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QLabel>
 #include <QPoint>
@@ -628,4 +629,25 @@ TEST(PerformanceView, HistoryWindow_AutoRangeFollowsVisibleSamplesOnly)
     view.setHistoryWindow(300);
 
     EXPECT_GT(chart->effectiveRange().max, 1'000'000.0f);
+}
+
+TEST(PerformanceView, SetSampleInterval_SelectorAndChartsTellTheTimeTheSamplesCover)
+{
+    ShownPerformanceView view;
+    view.updateSnapshot(populatedSnapshot());
+    constexpr std::chrono::seconds kInterval{2};
+
+    view.setSampleInterval(kInterval);
+
+    EXPECT_EQ(view.sampleInterval(), kInterval);
+    const QComboBox* selector = view.historyWindowSelector();
+    ASSERT_EQ(selector->count(), 3);
+    EXPECT_EQ(selector->itemText(0), charts::formatHistoryWindow(std::chrono::minutes{2}));
+    EXPECT_EQ(selector->itemText(1), charts::formatHistoryWindow(std::chrono::minutes{10}));
+    EXPECT_EQ(selector->itemText(2), charts::formatHistoryWindow(std::chrono::hours{1}));
+    EXPECT_EQ(view.cpuPage()->totalChart()->sampleInterval(), kInterval);
+    EXPECT_EQ(view.cpuPage()->coreChart(0)->sampleInterval(), kInterval);
+    // A page that is not shown gives its charts the interval when it is.
+    view.setCurrentPage(PerformanceView::Page::Network);
+    EXPECT_EQ(view.networkPage()->adapterChart(0)->sampleInterval(), kInterval);
 }

@@ -20,6 +20,7 @@
 #include "ui/dashboard_view.h"
 #include "ui/main_window.h"
 #include "ui/network_view.h"
+#include "ui/performance_view.h"
 #include "ui/process_model.h"
 #include "ui/processes_view.h"
 #include "ui/resource_card.h"
@@ -149,7 +150,18 @@ TEST(MainWindow, SettingsAction_OpensWindowModalDialogWithTheSettings)
     EXPECT_EQ(dialog->settings(), nonDefaultSettings());
 }
 
-TEST(MainWindow, SettingsDialogAccepted_ChangedSettings_KeepsAndEmitsThem)
+TEST(MainWindow, SetSettings_ChartsTellTimeAtTheRefreshInterval)
+{
+    MainWindow mainWindow;
+
+    mainWindow.setSettings(nonDefaultSettings());
+
+    EXPECT_EQ(mainWindow.settings(), nonDefaultSettings());
+    EXPECT_EQ(mainWindow.performanceView()->sampleInterval(), nonDefaultSettings().refreshInterval);
+    EXPECT_EQ(mainWindow.networkView()->sampleInterval(), nonDefaultSettings().refreshInterval);
+}
+
+TEST(MainWindow, SettingsDialogAccepted_ChangedSettings_AppliesAndEmitsThem)
 {
     MainWindow mainWindow;
     std::vector<Settings> emitted;
@@ -161,6 +173,7 @@ TEST(MainWindow, SettingsDialogAccepted_ChangedSettings_KeepsAndEmitsThem)
     dialog->buttonBox()->button(QDialogButtonBox::Ok)->click();
 
     EXPECT_EQ(mainWindow.settings(), nonDefaultSettings());
+    EXPECT_EQ(mainWindow.performanceView()->sampleInterval(), nonDefaultSettings().refreshInterval);
     EXPECT_EQ(emitted, std::vector<Settings>{nonDefaultSettings()});
 }
 

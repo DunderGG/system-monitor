@@ -128,6 +128,11 @@ void AdapterCard::setThroughput(const AdapterThroughputHistory::Adapter* history
     m_chart->setSampleIndex(sampleIndex);
 }
 
+void AdapterCard::setSampleInterval(std::chrono::milliseconds interval)
+{
+    m_chart->setSampleInterval(interval);
+}
+
 QString AdapterCard::title() const
 {
     return m_titleLabel->text();

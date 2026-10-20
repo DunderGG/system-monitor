@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -11,6 +12,7 @@
 #include "domain/connectivity_status.h"
 #include "domain/network_profile.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "ui/adapter_throughput_history.h"
 #include "ui/sample_history.h"
@@ -41,9 +43,10 @@ class ReadoutGrid;
  * charts.
  *
  * Each card charts the adapter's throughput over the last kHistoryCapacity
- * snapshots. Like the Performance tab, the view records every snapshot, so the
- * charts have no holes, and updates its widgets only while it is visible:
- * updateSnapshot() always records, and showEvent() catches up.
+ * snapshots, and its X-axis label tells the time they cover at the sample
+ * interval (DC-61). Like the Performance tab, the view records every
+ * snapshot, so the charts have no holes, and updates its widgets only while
+ * it is visible: updateSnapshot() always records, and showEvent() catches up.
  *
  * Not thread-safe; use only on the UI thread.
  */
@@ -52,7 +55,7 @@ class NetworkView : public QWidget
     Q_OBJECT
 
 public:
-    /** Samples of history per chart: one minute (kOneMinuteOfSamples), as on the dashboard. */
+    /** Samples of history per chart: one minute at the default interval (kOneMinuteOfSamples), as on the dashboard. */
     static constexpr std::size_t kHistoryCapacity = kOneMinuteOfSamples;
 
     explicit NetworkView(QWidget* parent = nullptr);
@@ -67,6 +70,13 @@ public:
      */
     void setShowAllAdapters(bool showAll);
     [[nodiscard]] bool showsAllAdapters() const;
+
+    /**
+     * Sets the time between samples, the refresh interval, from which the
+     * cards' charts tell the time their samples cover. One second until set.
+     */
+    void setSampleInterval(std::chrono::milliseconds interval);
+    [[nodiscard]] std::chrono::milliseconds sampleInterval() const;
 
     /** Interface IDs of the listed adapters, in display order, as of the last update of the widgets. */
     [[nodiscard]] const std::vector<uint64_t>& listedInterfaceIds() const;
@@ -102,6 +112,7 @@ private:
     std::vector<uint64_t> m_listedIds;
     std::size_t m_hiddenStart{0};
     std::vector<AdapterCard*> m_cards;
+    std::chrono::milliseconds m_sampleInterval{domain::kDefaultRefreshInterval};
 
     std::uint64_t m_recordedCount{0};
     domain::ConnectivityStatus m_connectivity;

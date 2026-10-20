@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -395,6 +396,23 @@ TEST(NetworkView, ReadFails_ChartsRecordGap)
     const auto receive = view.adapterCard(0)->chart()->seriesSamples(0);
     ASSERT_EQ(receive.size(), 2u);
     EXPECT_FALSE(receive[1].has_value());
+}
+
+TEST(NetworkView, SetSampleInterval_ChartsOfListedAndNewCardsTellTheTimeTheSamplesCover)
+{
+    ShownNetworkView view;
+    const NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
+    view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{ethernet}));
+    constexpr std::chrono::milliseconds kInterval{500};
+
+    view.setSampleInterval(kInterval);
+    view.updateSnapshot(
+        snapshotWithNetworks(std::vector<NetworkSample>{ethernet, adapter(2, "Wi-Fi", OperationalStatus::Up)}));
+
+    EXPECT_EQ(view.sampleInterval(), kInterval);
+    ASSERT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+    EXPECT_EQ(view.adapterCard(0)->chart()->sampleInterval(), kInterval);
+    EXPECT_EQ(view.adapterCard(1)->chart()->sampleInterval(), kInterval);
 }
 
 TEST(NetworkView, Connectivity_PlaceholderBeforeFirstSnapshotThenReadouts)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -7,6 +8,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "ui/charts/sparkline_widget.h"
 #include "ui/sample_history.h"
@@ -33,10 +35,10 @@ class PerformancePage : public QWidget
     Q_OBJECT
 
 public:
-    /** Samples of history kept per series: 30 minutes at the default 1 Hz sampling rate. */
+    /** Samples of history kept per series: 30 minutes at the default refresh interval of 1 s (DC-61). */
     static constexpr std::size_t kHistoryCapacity = 1800;
 
-    /** Samples the charts show until setVisibleWindow() is called: one minute at 1 Hz. */
+    /** Samples the charts show until setVisibleWindow() is called: one minute at the default interval. */
     static constexpr std::size_t kDefaultVisibleWindow = 60;
 
     explicit PerformancePage(const QString& title, QWidget* parent = nullptr);
@@ -64,6 +66,14 @@ public:
     void setVisibleWindow(std::size_t samples);
     [[nodiscard]] std::size_t visibleWindow() const;
 
+    /**
+     * Sets the time between samples, the refresh interval, from which the
+     * charts' X-axis labels tell the time their samples cover. Must be > 0.
+     * Takes effect on the next refresh().
+     */
+    void setSampleInterval(std::chrono::milliseconds interval);
+    [[nodiscard]] std::chrono::milliseconds sampleInterval() const;
+
 protected:
     /** Appends the snapshot's samples to the subclass's history. */
     virtual void recordSamples(const domain::SystemSnapshot& snapshot) = 0;
@@ -83,7 +93,8 @@ protected:
 
     /**
      * Shows the visible window of history as the given series of chart, sizes
-     * the chart to the window, and scrolls its grid to the newest sample. Only
+     * the chart to the window, gives it the sample interval, and scrolls its
+     * grid to the newest sample. Only
      * the window is passed to the chart, so an auto-scaled Y axis follows the
      * samples on screen.
      */
@@ -94,6 +105,7 @@ private:
     QVBoxLayout* m_contentLayout{nullptr};
     std::uint64_t m_recordedCount{0};
     std::size_t m_visibleWindow{kDefaultVisibleWindow};
+    std::chrono::milliseconds m_sampleInterval{domain::kDefaultRefreshInterval};
 };
 
 } // namespace sysmon::ui

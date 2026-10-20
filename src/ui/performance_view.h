@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 
 #include <QString>
@@ -32,8 +33,11 @@ class PerformancePage;
  * page and the sidebar summaries) are refreshed only while this view is
  * visible, and again when it is shown or another page is selected.
  *
- * Pages keep 30 minutes of history. A selector below the sidebar picks how
- * much of it the charts show (kHistoryWindows); one minute by default.
+ * Pages keep 1,800 samples of history, 30 minutes at the default refresh
+ * interval of 1 s. A selector below the sidebar picks how much of it the
+ * charts show (kHistoryWindows); one minute by default. The windows are
+ * counted in samples, so at another interval they cover more or less time,
+ * and the selector and the charts say how much (setSampleInterval(), DC-61).
  */
 class PerformanceView : public QWidget
 {
@@ -49,7 +53,7 @@ public:
         Network,
     };
 
-    /** Chart windows the selector offers, in samples: 1, 5, and 30 minutes at the default 1 Hz. */
+    /** Chart windows the selector offers, in samples: 1, 5, and 30 minutes at the default interval of 1 s. */
     static constexpr std::array<std::size_t, 3> kHistoryWindows{60, 300, 1800};
 
     explicit PerformanceView(QWidget* parent = nullptr);
@@ -64,6 +68,15 @@ public:
     /** Selects how many samples the charts show. Must be one of kHistoryWindows. */
     void setHistoryWindow(std::size_t samples);
     [[nodiscard]] std::size_t historyWindow() const;
+    [[nodiscard]] QComboBox* historyWindowSelector() const;
+
+    /**
+     * Sets the time between samples, the refresh interval, from which the
+     * selector and every page's charts tell the time their samples cover. One
+     * second until set. Must be > 0.
+     */
+    void setSampleInterval(std::chrono::milliseconds interval);
+    [[nodiscard]] std::chrono::milliseconds sampleInterval() const;
 
     /** Returns the sidebar entry for page: its title and summary on separate lines. */
     [[nodiscard]] QString sidebarText(Page page) const;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -59,6 +60,9 @@ public:
      * sampleIndex is the running index of the newest sample, which scrolls the grid.
      */
     void setThroughput(const AdapterThroughputHistory::Adapter* history, std::uint64_t sampleIndex);
+
+    /** Sets the time between the chart's samples, from which its X-axis label tells the time they cover. */
+    void setSampleInterval(std::chrono::milliseconds interval);
 
     [[nodiscard]] QString title() const;
     /** The device description shown below the name; empty when it is hidden. */

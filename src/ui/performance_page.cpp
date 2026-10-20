@@ -65,6 +65,17 @@ std::size_t PerformancePage::visibleWindow() const
     return m_visibleWindow;
 }
 
+void PerformancePage::setSampleInterval(std::chrono::milliseconds interval)
+{
+    assert(interval.count() > 0 && "sample interval must be positive");
+    m_sampleInterval = interval;
+}
+
+std::chrono::milliseconds PerformancePage::sampleInterval() const
+{
+    return m_sampleInterval;
+}
+
 QVBoxLayout* PerformancePage::contentLayout() const
 {
     return m_contentLayout;
@@ -96,6 +107,9 @@ void PerformancePage::showHistory(charts::SparklineWidget* chart, std::size_t se
 {
     if (chart->capacity() != m_visibleWindow) {
         chart->setCapacity(m_visibleWindow);
+    }
+    if (chart->sampleInterval() != m_sampleInterval) {
+        chart->setSampleInterval(m_sampleInterval);
     }
     const auto samples = history.samples();
     chart->setSeriesSamples(series, samples.last(std::min(samples.size(), m_visibleWindow)));

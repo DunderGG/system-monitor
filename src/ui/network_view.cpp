@@ -122,6 +122,19 @@ bool NetworkView::showsAllAdapters() const
     return m_showAllCheckBox->isChecked();
 }
 
+void NetworkView::setSampleInterval(std::chrono::milliseconds interval)
+{
+    m_sampleInterval = interval;
+    for (auto* card : m_cards) {
+        card->setSampleInterval(interval);
+    }
+}
+
+std::chrono::milliseconds NetworkView::sampleInterval() const
+{
+    return m_sampleInterval;
+}
+
 const std::vector<uint64_t>& NetworkView::listedInterfaceIds() const
 {
     return m_listedIds;
@@ -216,7 +229,9 @@ void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds, std::s
             cards.push_back(it->second);
             previous.erase(it);
         } else {
-            cards.push_back(new AdapterCard(kHistoryCapacity, m_scrollArea->widget()));
+            auto* card = new AdapterCard(kHistoryCapacity, m_scrollArea->widget());
+            card->setSampleInterval(m_sampleInterval);
+            cards.push_back(card);
         }
     }
     for (auto& [interfaceId, card] : previous) {

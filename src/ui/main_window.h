@@ -21,8 +21,9 @@ class NetworkView;
  *
  * Its File menu has Settings..., which opens a window-modal SettingsDialog
  * with settings(), and Exit, which closes the window. When the dialog is
- * accepted with settings that differ from settings(), they become settings()
- * and settingsChanged() is emitted. The window applies none of them itself.
+ * accepted with settings that differ from settings(), the window applies them
+ * as setSettings() does and emits settingsChanged(), whose receiver saves
+ * them and applies the rest: the window applies only what the views show.
  */
 class MainWindow : public QMainWindow
 {
@@ -40,7 +41,11 @@ public:
     [[nodiscard]] QAction* settingsAction() const;
     [[nodiscard]] QAction* exitAction() const;
 
-    /** Sets the settings that the Settings dialog opens with. */
+    /**
+     * Sets the settings that the Settings dialog opens with, and applies what
+     * the views show of them: the refresh interval, from which the charts tell
+     * the time they cover.
+     */
     void setSettings(const domain::Settings& settings);
     [[nodiscard]] const domain::Settings& settings() const;
 
