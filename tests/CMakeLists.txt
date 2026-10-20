@@ -91,6 +91,7 @@ add_executable(system_monitor_tests
     unit/utf8_conversion_test.cpp
     unit/health_evaluator_test.cpp
     unit/settings_file_test.cpp
+    unit/settings_dialog_test.cpp
     integration/cpu_collector_test.cpp
     integration/memory_collector_test.cpp
     integration/disk_collector_test.cpp

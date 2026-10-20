@@ -1,5 +1,8 @@
 #include "ui/main_window.h"
 
+#include <QAction>
+#include <QMenu>
+#include <QMenuBar>
 #include <QRect>
 #include <QScreen>
 #include <QSize>
@@ -9,6 +12,7 @@
 #include "ui/network_view.h"
 #include "ui/performance_view.h"
 #include "ui/processes_view.h"
+#include "ui/settings_dialog.h"
 
 namespace sysmon::ui
 {
@@ -46,6 +50,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     m_tabWidget->addTab(m_networkView, "Network");
 
     setCentralWidget(m_tabWidget);
+
+    QMenu* fileMenu = menuBar()->addMenu("&File");
+    m_settingsAction = fileMenu->addAction("&Settings...");
+    fileMenu->addSeparator();
+    m_exitAction = fileMenu->addAction("E&xit");
+    connect(m_settingsAction, &QAction::triggered, this, &MainWindow::openSettingsDialog);
+    connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 }
 
 QTabWidget* MainWindow::tabWidget() const
@@ -71,6 +82,40 @@ ProcessesView* MainWindow::processesView() const
 NetworkView* MainWindow::networkView() const
 {
     return m_networkView;
+}
+
+QAction* MainWindow::settingsAction() const
+{
+    return m_settingsAction;
+}
+
+QAction* MainWindow::exitAction() const
+{
+    return m_exitAction;
+}
+
+void MainWindow::setSettings(const domain::Settings& settings)
+{
+    m_settings = settings;
+}
+
+const domain::Settings& MainWindow::settings() const
+{
+    return m_settings;
+}
+
+void MainWindow::openSettingsDialog()
+{
+    auto* dialog = new SettingsDialog(m_settings, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &QDialog::accepted, this, [this, dialog] {
+        const domain::Settings edited = dialog->settings();
+        if (edited != m_settings) {
+            m_settings = edited;
+            emit settingsChanged(m_settings);
+        }
+    });
+    dialog->open();
 }
 
 void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)

@@ -124,6 +124,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-106](#dc-106): Merged into DC-96
 - [Settings](#settings)
   - [DC-123](#dc-123): Settings: one JSON file, read one setting at a time, with its types in `domain`
+  - [DC-124](#dc-124): Settings dialog: a window-modal `QDialog` from the File menu, which edits a copy and changes nothing until OK
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
@@ -1150,7 +1151,7 @@ The adapters Windows hides, the adapter order and the collapsed charts are descr
 
 ## Settings
 
-The settings file: what it holds, how it is read and written, and where its types live.
+The settings file and the settings dialog: what the file holds, how it is read and written, where its types live, and how the user edits them.
 
 <a id="dc-123"></a>
 ### DC-123: Settings: one JSON file, read one setting at a time, with its types in `domain`
@@ -1162,6 +1163,15 @@ The settings file: what it holds, how it is read and written, and where its type
 **Consequences:** A save drops the keys this version does not know, such as a newer version's settings. Comments are rejected rather than read, because a save would drop them.
 
 **History:** Phase 6, settings file.
+
+<a id="dc-124"></a>
+### DC-124: Settings dialog: a window-modal `QDialog` from the File menu, which edits a copy and changes nothing until OK
+
+**Decision:** The main window's File menu has Settings... and Exit. Settings... opens a window-modal `SettingsDialog` on a copy of the window's settings, with OK, Cancel and Restore Defaults, which resets the controls without closing it. Only OK changes anything: the window keeps the dialog's settings and emits `settingsChanged()` if they differ from its own, for the receiver to save and apply. The refresh interval is a spin box in seconds, shown to a tenth with a decimal point whatever the locale, as [DC-57](#dc-57)'s numbers are, and stepping by half a second. An interval the user leaves as shown keeps the milliseconds it was given.
+
+**Rationale:** OK and Cancel let the user try values and back out, as Windows' dialogs do; applying each control at once would save the file at every step of the spin box. Windows programs keep their settings in a menu bar, whose File menu will also hold the roadmap's "Run new task", as Task Manager's does. The window emits the settings rather than saving them, because `ui` may not depend on `persistence` ([DC-20](#dc-20)), and the scheduler and the logger are not the UI's to set. A spin box reaches every interval the file allows, where presets such as Process Explorer's 0.5 to 10 s would have no place for a hand-edited value; half-second steps still reach each preset. Keeping an untouched interval stops a file's 1,234 ms from becoming 1,200 ms when only the units change, and emitting only on a change keeps an OK that changed nothing from saving the file.
+
+**History:** Phase 6, settings dialog.
 
 ---
 
