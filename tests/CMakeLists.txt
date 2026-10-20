@@ -43,6 +43,7 @@ add_executable(system_monitor_tests
     support/process_samples.h
     support/readouts.h
     support/scheduler_harness.h
+    support/settings_samples.h
     support/snapshots.h
     support/sparkline_samples.h
     support/text_contrast.h
@@ -89,6 +90,7 @@ add_executable(system_monitor_tests
     unit/process_identity_cache_test.cpp
     unit/utf8_conversion_test.cpp
     unit/health_evaluator_test.cpp
+    unit/settings_file_test.cpp
     integration/cpu_collector_test.cpp
     integration/memory_collector_test.cpp
     integration/disk_collector_test.cpp
@@ -107,6 +109,7 @@ add_executable(system_monitor_tests
     integration/current_process_elevation.h
     integration/app_logging_test.cpp
     integration/ip_address_formatting_test.cpp
+    integration/settings_file_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
 )
@@ -125,6 +128,7 @@ target_link_libraries(system_monitor_tests
         sysmon_app_logging
         sysmon_domain
         sysmon_monitoring
+        sysmon_persistence
         sysmon_platform_windows
         sysmon_ui
         Qt6::Core

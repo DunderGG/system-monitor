@@ -1,6 +1,6 @@
 # Domain Module Rules
 
-This module defines the core data types, metrics, process identity, health states, and error types for the system monitor. It also holds `RingBuffer<T>`, a dependency-free container shared by `monitoring` and `ui` for time-series history.
+This module defines the core data types, metrics, process identity, health states, and error types for the system monitor. It also holds `RingBuffer<T>`, a dependency-free container shared by `monitoring` and `ui` for time-series history, and `Settings` (`settings.h`), the user's preferences, which `persistence` reads and writes and `ui` edits and applies.
 
 ## Dependency constraints
 

@@ -105,8 +105,8 @@ Windows integration layer (platform/windows)
 | `ui` | Qt Widgets, custom sparkline chart widgets, tables, and view models. Contains no direct Windows API calls. |
 | `monitoring` | Collector interfaces, scheduler, snapshot aggregation, sampling policy, and health evaluation. Metric history uses `domain::RingBuffer`. |
 | `platform/windows` | Narrow wrappers around Windows APIs and conversion into application domain types. Its collectors implement the interfaces in `monitoring/collector.h` (CMake target `sysmon_collector_interfaces`), its only dependency on `monitoring`. |
-| `domain` | Typed metrics, process identity, health state, error types, and commands, plus the `RingBuffer<T>` container for time-series history. Free of Qt and Windows dependencies. |
-| `persistence` | JSON settings initially; a repository interface and SQLite implementation when durable history is added. |
+| `domain` | Typed metrics, process identity, health state, error types, commands, and the user's settings, plus the `RingBuffer<T>` container for time-series history. Free of Qt and Windows dependencies. |
+| `persistence` | The JSON settings file initially; a repository interface and SQLite implementation when durable history is added. Free of Qt and Windows dependencies. |
 | `tests` | Unit and integration tests. |
 
 ### Threading model
@@ -254,15 +254,16 @@ Implement Task Manager-style rolling charts as custom `QWidget` subclasses:
 
 ## Configuration and persistence
 
-Store small user preferences in a JSON settings file, including:
+Store small user preferences in a JSON settings file. It holds:
 
-- refresh interval;
-- preferred display units;
-- enabled dashboard panels and layout;
-- alert thresholds and whether alerts are enabled;
-- log level.
+- the refresh interval, from 0.5 to 10 seconds;
+- the display units: binary (KiB) or decimal (KB) byte units, and network throughput in bytes or bits per second;
+- which dashboard panels are shown;
+- the log level.
 
-Use `nlohmann/json` through vcpkg. Keep configuration access behind a small settings service so validation, defaults, and future migrations are centralized.
+The dashboard's layout, and alert thresholds and whether alerts are enabled, can join it when those features exist.
+
+Use `nlohmann/json` through vcpkg. Keep configuration access behind a small settings service so validation, defaults, and future migrations are centralized. `domain::Settings` holds the values, and its defaults are what the monitor does without a file. The `persistence` module's `settings_file.h` writes and reads the file. It reads one setting at a time, so a missing or invalid setting keeps its default without costing the others, and it returns each problem for the caller to log, because the log level is itself a setting ([DC-123](design_decisions.md#dc-123)).
 
 When durable metric history or an event log becomes a feature, add SQLite behind an interface such as `IMetricsStore`. This lets monitoring code remain agnostic to whether data is held only in memory, exported, or persisted.
 

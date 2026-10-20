@@ -122,6 +122,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-97](#dc-97): Merged into DC-96
   - [DC-98](#dc-98): Adapter throughput charts: one minute per card, with the history shared with the Performance tab
   - [DC-106](#dc-106): Merged into DC-96
+- [Settings](#settings)
+  - [DC-123](#dc-123): Settings: one JSON file, read one setting at a time, with its types in `domain`
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
@@ -1143,6 +1145,23 @@ The adapter type and the link speed are described in [DC-96](#dc-96).
 ### DC-106: Merged into DC-96
 
 The adapters Windows hides, the adapter order and the collapsed charts are described in [DC-96](#dc-96).
+
+---
+
+## Settings
+
+The settings file: what it holds, how it is read and written, and where its types live.
+
+<a id="dc-123"></a>
+### DC-123: Settings: one JSON file, read one setting at a time, with its types in `domain`
+
+**Decision:** `domain::Settings` holds the refresh interval, the display units, the dashboard panels shown and the log level, and its defaults are what the monitor does without a file. `sysmon_persistence` (the standard library and nlohmann/json only) writes it as JSON with a `version`, enumerations by name and the panels as booleans. It reads one setting at a time: a missing setting keeps its default, a refresh interval outside 0.5 to 10 s takes the nearer limit, and any other invalid value or unknown key keeps the default and is returned as a problem. A save writes a temporary file, which then replaces the file.
+
+**Rationale:** The types are in `domain` because `ui`, which depends only on `domain` ([DC-20](#dc-20)), will edit them and apply the units and panels. Problems are returned rather than logged, because the log level is read from the file before the logger is configured. Reading each setting alone means that a typing mistake costs one setting, not all, and booleans rather than a list of the panels shown keep a panel added later shown in an older file. Binary and decimal byte units are unambiguous; Windows' 1,024-byte "KB" is not. Bits per second are decimal, as link speeds are. The limits are Task Manager's fastest update speed and Process Explorer's slowest. A save that fails cannot leave a truncated file, which would reset every setting. Without exceptions, nlohmann/json's `parse()` says only that the text is not valid, so a SAX handler finds where.
+
+**Consequences:** A save drops the keys this version does not know, such as a newer version's settings. Comments are rejected rather than read, because a save would drop them.
+
+**History:** Phase 6, settings file.
 
 ---
 

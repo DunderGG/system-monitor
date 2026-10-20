@@ -74,7 +74,7 @@ combined with -Release, -Benchmark or -Run.
 Each test process writes its raw profile to build\coverage\profiles. When the
 tests pass, llvm-profdata merges the profiles into
 build\coverage\coverage.profdata, and the script prints the line and branch
-coverage of each directory under src\ (app, domain, monitoring,
+coverage of each directory under src\ (app, domain, monitoring, persistence,
 platform/windows, ui, ui/charts) and of src\ in total. It reads the test
 executables and the application, so code that only the application compiles,
 such as main.cpp, counts as not covered. Test, moc and vcpkg sources are left out.
