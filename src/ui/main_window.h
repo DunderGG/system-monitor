@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QString>
 
 #include "domain/settings.h"
 #include "domain/system_snapshot.h"
@@ -49,6 +50,13 @@ public:
      */
     void setSettings(const domain::Settings& settings);
     [[nodiscard]] const domain::Settings& settings() const;
+
+    /**
+     * Says in a window-modal message box that the settings could not be saved
+     * to the file at path, and why (reason), and that they apply until the
+     * monitor closes. Both are shown as plain text.
+     */
+    void showSettingsNotSaved(const QString& path, const QString& reason);
 
 signals:
     /** Emitted when the Settings dialog is accepted with settings that differ from the previous settings(). */

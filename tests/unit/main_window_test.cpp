@@ -8,7 +8,9 @@
 #include <QAction>
 #include <QCoreApplication>
 #include <QDialogButtonBox>
+#include <QMessageBox>
 #include <QPushButton>
+#include <QString>
 #include <QTabWidget>
 
 #include "domain/settings.h"
@@ -208,6 +210,24 @@ TEST(MainWindow, SettingsDialogCancelled_KeepsTheSettingsAndEmitsNothing)
 
     EXPECT_EQ(mainWindow.settings(), Settings{});
     EXPECT_TRUE(emitted.empty());
+}
+
+TEST(MainWindow, ShowSettingsNotSaved_WindowModalWarningWithThePathAndTheReasonAsPlainText)
+{
+    MainWindow mainWindow;
+    const QString path = "C:\\Users\\<b>me</b>\\settings.json";
+    const QString reason = "Cannot replace the file: Access is denied.";
+
+    mainWindow.showSettingsNotSaved(path, reason);
+
+    const auto* box = mainWindow.findChild<QMessageBox*>();
+    ASSERT_NE(box, nullptr);
+    EXPECT_TRUE(box->isVisible());
+    EXPECT_EQ(box->windowModality(), Qt::WindowModal);
+    EXPECT_EQ(box->icon(), QMessageBox::Warning);
+    EXPECT_EQ(box->textFormat(), Qt::PlainText);
+    EXPECT_TRUE(box->informativeText().contains(path)) << box->informativeText().toStdString();
+    EXPECT_TRUE(box->informativeText().contains(reason)) << box->informativeText().toStdString();
 }
 
 TEST(MainWindow, ExitAction_ClosesTheWindow)

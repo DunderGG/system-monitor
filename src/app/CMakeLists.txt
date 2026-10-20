@@ -15,6 +15,29 @@ target_include_directories(sysmon_app_logging
 target_link_libraries(sysmon_app_logging
     PUBLIC
         spdlog::spdlog
+        sysmon_domain
+)
+
+# Logging, applying and saving the settings (DC-127), in its own library so
+# tests can exercise it.
+add_library(sysmon_app_settings STATIC
+    settings_service.cpp
+    settings_service.h
+)
+
+target_include_directories(sysmon_app_settings
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+target_link_libraries(sysmon_app_settings
+    PUBLIC
+        sysmon_domain
+        sysmon_monitoring
+        sysmon_persistence
+    PRIVATE
+        spdlog::spdlog
+        sysmon_app_logging
 )
 
 # The collectors the app registers, in their own library so the scheduler
@@ -49,7 +72,10 @@ target_link_libraries(system_monitor
         spdlog::spdlog
         sysmon_app_collectors
         sysmon_app_logging
+        sysmon_app_settings
+        sysmon_domain
         sysmon_monitoring
+        sysmon_persistence
         sysmon_platform_windows
         sysmon_ui
 )

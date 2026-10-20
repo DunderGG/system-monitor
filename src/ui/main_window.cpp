@@ -3,6 +3,7 @@
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QRect>
 #include <QScreen>
 #include <QSize>
@@ -110,6 +111,18 @@ void MainWindow::setSettings(const domain::Settings& settings)
 const domain::Settings& MainWindow::settings() const
 {
     return m_settings;
+}
+
+void MainWindow::showSettingsNotSaved(const QString& path, const QString& reason)
+{
+    auto* box =
+        new QMessageBox(QMessageBox::Warning, "Settings", "The settings could not be saved.", QMessageBox::Ok, this);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    // The path and the reason come from the system; neither is rich text.
+    box->setTextFormat(Qt::PlainText);
+    box->setInformativeText(
+        QString("%1\n%2\n\nThe changed settings apply until System Monitor closes.").arg(path, reason));
+    box->open();
 }
 
 void MainWindow::openSettingsDialog()

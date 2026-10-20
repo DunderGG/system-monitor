@@ -46,6 +46,7 @@ add_executable(system_monitor_tests
     support/settings_samples.h
     support/snapshots.h
     support/sparkline_samples.h
+    support/temporary_directory.h
     support/text_contrast.h
     unit/domain_types_test.cpp
     unit/ring_buffer_test.cpp
@@ -92,6 +93,8 @@ add_executable(system_monitor_tests
     unit/health_evaluator_test.cpp
     unit/settings_file_test.cpp
     unit/settings_dialog_test.cpp
+    unit/settings_service_test.cpp
+    unit/app_logging_test.cpp
     integration/cpu_collector_test.cpp
     integration/memory_collector_test.cpp
     integration/disk_collector_test.cpp
@@ -111,6 +114,7 @@ add_executable(system_monitor_tests
     integration/app_logging_test.cpp
     integration/ip_address_formatting_test.cpp
     integration/settings_file_test.cpp
+    integration/settings_service_test.cpp
     # Same manifest as the app, so tests run with the UTF-8 process code page.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
 )
@@ -127,6 +131,7 @@ target_link_libraries(system_monitor_tests
         GTest::gtest
         sysmon_app_collectors
         sysmon_app_logging
+        sysmon_app_settings
         sysmon_domain
         sysmon_monitoring
         sysmon_persistence
