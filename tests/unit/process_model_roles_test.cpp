@@ -163,13 +163,13 @@ TEST(ProcessModel, SetByteUnits_MemoryAndIoInThemAndSignalledForEveryRow)
     EXPECT_EQ(svchostIo.data().toString(), formatByteRate(2048, ByteUnits::Decimal));
     EXPECT_EQ(svchostIo.data(Qt::ToolTipRole).toString(), processIoToolTip(svchost, ByteUnits::Decimal));
     // One block for each parent's rows, the top level's two and services.exe's one, and none for the repeat.
+    // The blocks come in no set order. A predicate, because clang-cl rejects MSVC's vectorized find of a CellRange.
+    const auto isSignalled = [&log](const CellRange& block) {
+        return std::ranges::any_of(log.changed, [&block](const CellRange& changed) { return changed == block; });
+    };
     ASSERT_EQ(log.changed.size(), 2u);
-    EXPECT_NE(std::ranges::find(log.changed,
-                                CellRange{.firstRow = 0, .lastRow = 1, .firstColumn = kMemory, .lastColumn = kIo}),
-              log.changed.end());
-    EXPECT_NE(std::ranges::find(log.changed,
-                                CellRange{.firstRow = 0, .lastRow = 0, .firstColumn = kMemory, .lastColumn = kIo}),
-              log.changed.end());
+    EXPECT_TRUE(isSignalled({.firstRow = 0, .lastRow = 1, .firstColumn = kMemory, .lastColumn = kIo}));
+    EXPECT_TRUE(isSignalled({.firstRow = 0, .lastRow = 0, .firstColumn = kMemory, .lastColumn = kIo}));
 }
 
 TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
