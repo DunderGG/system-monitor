@@ -8,7 +8,8 @@ find_package(spdlog CONFIG REQUIRED)
 function(add_sysmon_benchmark name source)
     add_executable(${name}
         ${source}
-        # Same manifest as the app, so the benchmark runs with the UTF-8 process code page.
+        # Same manifest as the app, so the benchmark runs with its UTF-8 process
+        # code page and paints with its DPI awareness.
         ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
     )
 

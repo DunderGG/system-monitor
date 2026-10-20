@@ -93,6 +93,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-102](#dc-102): Retired, the rule is in the coding guidelines
   - [DC-105](#dc-105): Retired, the rule is in the coding guidelines
   - [DC-126](#dc-126): Display units: every formatter of a size or a rate takes them, and every view shows the latest values in new units at once
+  - [DC-128](#dc-128): Per-monitor DPI awareness (V2) declared in the application manifest, which Qt keeps
 - [Dashboard tab](#dashboard-tab)
   - [DC-45](#dc-45): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
   - [DC-46](#dc-46): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
@@ -234,11 +235,11 @@ Which Windows API supplies each kind of data, and the code page of the text that
 <a id="dc-22"></a>
 ### DC-22: UTF-8 active code page through an application manifest
 
-**Decision:** `src/app/system_monitor.manifest` sets `activeCodePage` to `UTF-8`, and CMake embeds it in `system_monitor.exe` and in `system_monitor_tests.exe`, so tests run under the same code page as the app. Narrow strings passed to Windows and the CRT are therefore UTF-8. The logging setup moved into the `sysmon_app_logging` library so an integration test can configure logging with a path that contains CJK and Cyrillic characters.
+**Decision:** `src/app/system_monitor.manifest` sets `activeCodePage` to `UTF-8`, and CMake embeds it in `system_monitor.exe`, in `system_monitor_tests.exe` and in the benchmarks, so tests and benchmarks run under the same code page as the app. Narrow strings passed to Windows and the CRT are therefore UTF-8. The logging setup moved into the `sysmon_app_logging` library so an integration test can configure logging with a path that contains CJK and Cyrillic characters.
 
-**Rationale:** `configureLogging()` passes `path::string()` to spdlog. Under a legacy ANSI code page, MSVC's `path::string()` throws `std::system_error` for characters that page cannot represent. A user profile path with a Chinese or Cyrillic name on a Western-locale system therefore made the app terminate at startup, and against the no-exceptions rule ([code review F-19](code_reviews/phase_2.md#f-19-log-file-path-is-converted-to-the-ansi-code-page)). The UTF-8 code page fixes every narrow-string path in the process, not only the log file, and it matches the decision that domain strings are UTF-8. It needs Windows 10 1903, below the project's existing 2004 requirement (`GetNetworkConnectivityHint`). The rejected alternative, building spdlog with wide file names, would fix only the log path and depends on what the vcpkg port offers. The manifest is also where the Phase 6 DPI-awareness setting belongs. A test checks `GetACP() == CP_UTF8`, so losing the manifest fails the build's tests.
+**Rationale:** `configureLogging()` passes `path::string()` to spdlog. Under a legacy ANSI code page, MSVC's `path::string()` throws `std::system_error` for characters that page cannot represent. A user profile path with a Chinese or Cyrillic name on a Western-locale system therefore made the app terminate at startup, and against the no-exceptions rule ([code review F-19](code_reviews/phase_2.md#f-19-log-file-path-is-converted-to-the-ansi-code-page)). The UTF-8 code page fixes every narrow-string path in the process, not only the log file, and it matches the decision that domain strings are UTF-8. It needs Windows 10 1903, below the project's existing 2004 requirement (`GetNetworkConnectivityHint`). The rejected alternative, building spdlog with wide file names, would fix only the log path and depends on what the vcpkg port offers. The same manifest makes the process per-monitor DPI aware ([DC-128](#dc-128)). A test checks `GetACP() == CP_UTF8`, so losing the manifest fails the build's tests.
 
-**History:** Code review F-19.
+**History:** Code review F-19; Phase 6, DPI awareness (the benchmarks named, and the manifest's DPI setting in [DC-128](#dc-128)).
 
 ---
 
@@ -857,7 +858,7 @@ The annotation formatter, the named extremes and the colour slots are described 
 
 ## Main window and shared UI
 
-How snapshots reach the tabs. The rules for the text that the tabs show, its format and its colours, are in the [coding guidelines](coding_guidelines.md#text-from-outside-the-program).
+How snapshots reach the tabs, and how the windows scale to each monitor. The rules for the text that the tabs show, its format and its colours, are in the [coding guidelines](coding_guidelines.md#text-from-outside-the-program).
 
 <a id="dc-54"></a>
 ### DC-54: Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
@@ -899,6 +900,19 @@ The rule and its reasons are in [coding_guidelines.md — Text colours](coding_g
 **Rationale:** A default would let a caller that forgets the units show binary sizes beside decimal ones. Bits are decimal because link speeds are, and a user who picks them wants throughput to compare with the link. Process I/O counts files and pipes as well as the network, so it stays in bytes. Showing a change at once matters at a 10 s interval, where the next snapshot can be ten seconds away; sending the views the last snapshot again would record it twice. Keeping the dashboard's values costs a copy of the disks and adapters per snapshot, as the other views already make. A change of units keeps the model's values, so a sorted view keeps its order.
 
 **History:** Phase 6, settings at startup.
+
+---
+
+<a id="dc-128"></a>
+### DC-128: Per-monitor DPI awareness (V2) declared in the application manifest, which Qt keeps
+
+**Decision:** `src/app/system_monitor.manifest` sets `dpiAwareness` to `PerMonitorV2`, so the app, the tests and the benchmarks are per-monitor DPI aware from the start of the process. Qt's Windows platform plugin asks for the same awareness when the `QApplication` starts, finds it set, keeps it, and scales each window to the monitor it is on. The older `dpiAware` element is left out. An integration test reads the setting back from the process's activation context.
+
+**Rationale:** Qt 6 makes the process per-monitor aware without the manifest, but only once its platform plugin loads, and only while its default and any `qt.conf` beside the executable say so. Microsoft recommends the manifest over the API, so that the awareness holds before any window exists and depends on no library. PerMonitorV2 is the mode Qt is built for: Windows also scales the window frame, the title bar and the native dialogs to each monitor, which the first per-monitor mode leaves unscaled, and a system-aware process is stretched, and blurry, on a monitor whose scale differs from the primary's. It needs Windows 10 1703, below the project's 2004. Windows ignores `dpiAware` when `dpiAwareness` is present, so it would be dead configuration. The test reads the manifest rather than the process's awareness, because Qt would make that PerMonitorV2 without the manifest too.
+
+**Consequences:** Qt's `dpiawareness` platform option, and the same setting in `qt.conf`, no longer change the awareness: Qt logs that `SetProcessDpiAwarenessContext()` was denied, and the process stays PerMonitorV2. Another awareness needs a change to the manifest.
+
+**History:** Phase 6, DPI awareness.
 
 ---
 

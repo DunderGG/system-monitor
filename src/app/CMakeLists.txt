@@ -59,8 +59,9 @@ target_link_libraries(sysmon_app_collectors
         sysmon_platform_windows
 )
 
-# The manifest sets the process code page to UTF-8. MSVC merges it with the
-# linker-generated manifest. system_monitor_tests embeds the same file.
+# The manifest sets the process code page to UTF-8 and makes the process
+# per-monitor DPI aware. MSVC merges it with the linker-generated manifest.
+# system_monitor_tests and the benchmarks embed the same file.
 qt_add_executable(system_monitor
     main.cpp
     system_monitor.manifest

@@ -1,17 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-  Application manifest, merged by the MSVC linker into system_monitor.exe and
-  system_monitor_tests.exe.
+  Application manifest, merged by the MSVC linker into system_monitor.exe,
+  system_monitor_tests.exe and the benchmarks.
 
   activeCodePage UTF-8 (Windows 10 1903+) makes the process ANSI code page UTF-8,
   so narrow strings passed to Windows and the CRT (for example
   std::filesystem::path::string() and spdlog's log file name) are UTF-8 and can
   represent any path. See DC-22 in docs/design_decisions.md.
+
+  dpiAwareness PerMonitorV2 (Windows 10 1703+) makes the process per-monitor DPI
+  aware from its start, the awareness Qt 6 also asks for, so Qt keeps it and
+  scales each window to its monitor. Windows ignores the older dpiAware element
+  when dpiAwareness is present, so it is left out. See DC-128.
 -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
     </windowsSettings>
   </application>
 </assembly>

@@ -309,7 +309,7 @@ When elevated process termination is added, launch a small helper executable via
 
 ## High-DPI support
 
-Enable per-monitor DPI awareness in the application manifest. Qt 6 handles most scaling automatically, but verify icon and resource sizing. Test on 100%, 125%, 150%, and 200% scaling. This is a build-time configuration item, not a runtime feature toggle.
+Enable per-monitor DPI awareness in the application manifest. `src/app/system_monitor.manifest` declares `PerMonitorV2`, the awareness Qt 6 asks for, so Qt keeps it and scales each window to its monitor ([DC-128](design_decisions.md#dc-128)). Qt 6 handles most scaling automatically, but verify icon and resource sizing. Test on 100%, 125%, 150%, and 200% scaling. This is a build-time configuration item, not a runtime feature toggle.
 
 ## Sleep and resume handling
 
