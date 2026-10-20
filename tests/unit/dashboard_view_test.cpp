@@ -1,13 +1,17 @@
 #include <cstddef>
 #include <optional>
+#include <utility>
 
 #include <gtest/gtest.h>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QGridLayout>
 #include <QLabel>
+#include <QLayout>
 #include <QObject>
 
 #include "domain/health_status.h"
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "support/snapshots.h"
 #include "support/text_contrast.h"
@@ -46,6 +50,26 @@ protected:
         return false;
     }
 };
+
+// Returns the row and column of card in the dashboard's grid of cards, or
+// std::nullopt when the grid does not hold it.
+std::optional<std::pair<int, int>> gridCell(const DashboardView& dashboard, ResourceCard* card)
+{
+    const QLayout* layout = dashboard.layout();
+    for (int item = 0; item < layout->count(); ++item) {
+        auto* grid = qobject_cast<QGridLayout*>(layout->itemAt(item)->layout());
+        const int index = grid != nullptr ? grid->indexOf(card) : -1;
+        if (index >= 0) {
+            int row = 0;
+            int column = 0;
+            int rowSpan = 0;
+            int columnSpan = 0;
+            grid->getItemPosition(index, &row, &column, &rowSpan, &columnSpan);
+            return std::pair{row, column};
+        }
+    }
+    return std::nullopt;
+}
 
 // Returns the card's label that currently shows text, or nullptr.
 QLabel* findLabel(const ResourceCard& card, const QString& text)
@@ -249,6 +273,63 @@ TEST(DashboardView, UpdateSnapshot_HistoryCappedAtCapacity)
     const auto samples = dashboard.cpuSparkline()->samples();
     ASSERT_EQ(samples.size(), DashboardView::kHistoryCapacity);
     EXPECT_EQ(samples.back(), static_cast<float>(DashboardView::kHistoryCapacity + 9));
+}
+
+TEST(DashboardView, SetPanels_CardsShownFillTheGridInOrderFromItsFirstCell)
+{
+    DashboardView dashboard;
+    EXPECT_EQ(gridCell(dashboard, dashboard.cpuCard()), (std::pair{0, 0}));
+    EXPECT_EQ(gridCell(dashboard, dashboard.uptimeCard()), (std::pair{1, 1}));
+    constexpr DashboardPanels kPanels{.cpu = false, .memory = true, .disk = false, .network = true, .uptime = true};
+
+    dashboard.setPanels(kPanels);
+
+    EXPECT_EQ(dashboard.panels(), kPanels);
+    EXPECT_TRUE(dashboard.cpuCard()->isHidden());
+    EXPECT_TRUE(dashboard.diskCard()->isHidden());
+    EXPECT_EQ(gridCell(dashboard, dashboard.cpuCard()), std::nullopt);
+    EXPECT_EQ(gridCell(dashboard, dashboard.diskCard()), std::nullopt);
+    for (const ResourceCard* card : {dashboard.memoryCard(), dashboard.networkCard(), dashboard.uptimeCard()}) {
+        EXPECT_FALSE(card->isHidden()) << card->title().toStdString();
+    }
+    EXPECT_EQ(gridCell(dashboard, dashboard.memoryCard()), (std::pair{0, 0}));
+    EXPECT_EQ(gridCell(dashboard, dashboard.networkCard()), (std::pair{0, 1}));
+    EXPECT_EQ(gridCell(dashboard, dashboard.uptimeCard()), (std::pair{0, 2}));
+    EXPECT_TRUE(dashboard.noCardsLabel()->isHidden());
+}
+
+TEST(DashboardView, SetPanels_EveryCardOff_SaysWhereToTurnThemOnUntilOneIs)
+{
+    DashboardView dashboard;
+    EXPECT_TRUE(dashboard.noCardsLabel()->isHidden());
+
+    dashboard.setPanels({.cpu = false, .memory = false, .disk = false, .network = false, .uptime = false});
+
+    EXPECT_FALSE(dashboard.noCardsLabel()->isHidden());
+    for (const ResourceCard* card : {dashboard.cpuCard(), dashboard.memoryCard(), dashboard.diskCard(),
+                                     dashboard.networkCard(), dashboard.uptimeCard()}) {
+        EXPECT_TRUE(card->isHidden()) << card->title().toStdString();
+    }
+
+    dashboard.setPanels({.cpu = false, .memory = false, .disk = false, .network = false, .uptime = true});
+
+    EXPECT_TRUE(dashboard.noCardsLabel()->isHidden());
+    EXPECT_EQ(gridCell(dashboard, dashboard.uptimeCard()), (std::pair{0, 0}));
+}
+
+TEST(DashboardView, SetPanels_HiddenCardKeepsRecording)
+{
+    DashboardView dashboard;
+    dashboard.setPanels({.cpu = false});
+    const SystemSnapshot snapshot = populatedSnapshot();
+    dashboard.updateSnapshot(snapshot);
+    dashboard.updateSnapshot(snapshot);
+
+    dashboard.setPanels({});
+
+    EXPECT_FALSE(dashboard.cpuCard()->isHidden());
+    EXPECT_EQ(dashboard.cpuSparkline()->samples().size(), 2u);
+    EXPECT_EQ(dashboard.cpuCard()->valueText(), formatPercent(snapshot.cpu->totalUsagePercent));
 }
 
 TEST(DashboardView, Sparklines_PercentFixedRangeNetworkAutoRange)

@@ -1,6 +1,7 @@
 #include "ui/dashboard_view.h"
 
 #include <array>
+#include <utility>
 
 #include <QFont>
 #include <QGridLayout>
@@ -79,17 +80,46 @@ DashboardView::DashboardView(QWidget* parent) : QWidget(parent)
     m_diskSparkline = addSparkline(m_diskCard, charts::kPercentRange);
     m_networkSparkline = addSparkline(m_networkCard, std::nullopt); // Throughput has no natural maximum.
 
-    auto* grid = new QGridLayout();
-    grid->setSpacing(kSectionSpacing);
-    const std::array cards{m_cpuCard, m_memoryCard, m_diskCard, m_networkCard, m_uptimeCard};
-    for (int index = 0; index < static_cast<int>(cards.size()); ++index) {
-        grid->addWidget(cards[static_cast<std::size_t>(index)], index / kCardColumns, index % kCardColumns);
-    }
+    m_cardGrid = new QGridLayout();
+    m_cardGrid->setSpacing(kSectionSpacing);
     for (int column = 0; column < kCardColumns; ++column) {
-        grid->setColumnStretch(column, 1);
+        m_cardGrid->setColumnStretch(column, 1);
     }
-    layout->addLayout(grid);
+    layout->addLayout(m_cardGrid);
+
+    m_noCardsLabel = new QLabel("Every card is turned off. Choose the cards to show in File > Settings.", this);
+    m_noCardsLabel->setWordWrap(true);
+    layout->addWidget(m_noCardsLabel);
     layout->addStretch();
+
+    setPanels(m_panels);
+}
+
+void DashboardView::setPanels(const domain::DashboardPanels& panels)
+{
+    m_panels = panels;
+    const std::array cards{
+        std::pair{m_cpuCard, panels.cpu},       std::pair{m_memoryCard, panels.memory},
+        std::pair{m_diskCard, panels.disk},     std::pair{m_networkCard, panels.network},
+        std::pair{m_uptimeCard, panels.uptime},
+    };
+
+    // The cards shown take the grid's cells in order, so a hidden card leaves no hole.
+    int cell = 0;
+    for (const auto& [card, isShown] : cards) {
+        m_cardGrid->removeWidget(card);
+        card->setVisible(isShown);
+        if (isShown) {
+            m_cardGrid->addWidget(card, cell / kCardColumns, cell % kCardColumns);
+            ++cell;
+        }
+    }
+    m_noCardsLabel->setVisible(cell == 0);
+}
+
+const domain::DashboardPanels& DashboardView::panels() const
+{
+    return m_panels;
 }
 
 void DashboardView::updateSnapshot(const domain::SystemSnapshot& snapshot)
@@ -233,6 +263,11 @@ charts::SparklineWidget* DashboardView::networkSparkline() const
 QString DashboardView::overallStatusText() const
 {
     return m_overallStatusLabel->text();
+}
+
+QLabel* DashboardView::noCardsLabel() const
+{
+    return m_noCardsLabel;
 }
 
 } // namespace sysmon::ui

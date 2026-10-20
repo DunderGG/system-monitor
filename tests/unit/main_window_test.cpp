@@ -150,13 +150,14 @@ TEST(MainWindow, SettingsAction_OpensWindowModalDialogWithTheSettings)
     EXPECT_EQ(dialog->settings(), nonDefaultSettings());
 }
 
-TEST(MainWindow, SetSettings_ChartsTellTimeAtTheRefreshInterval)
+TEST(MainWindow, SetSettings_AppliesWhatTheViewsShow)
 {
     MainWindow mainWindow;
 
     mainWindow.setSettings(nonDefaultSettings());
 
     EXPECT_EQ(mainWindow.settings(), nonDefaultSettings());
+    EXPECT_EQ(mainWindow.dashboardView()->panels(), nonDefaultSettings().dashboardPanels);
     EXPECT_EQ(mainWindow.performanceView()->sampleInterval(), nonDefaultSettings().refreshInterval);
     EXPECT_EQ(mainWindow.networkView()->sampleInterval(), nonDefaultSettings().refreshInterval);
 }

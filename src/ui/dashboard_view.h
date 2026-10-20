@@ -7,9 +7,11 @@
 #include <QWidget>
 
 #include "domain/ring_buffer.h"
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "ui/sample_history.h"
 
+class QGridLayout;
 class QLabel;
 
 namespace sysmon::ui
@@ -29,6 +31,10 @@ class SparklineWidget;
  * CPU, memory, disk, and network cards also show a mini sparkline of the last
  * kHistoryCapacity samples, kept in RingBuffers owned by this view (missing
  * samples appear as gaps).
+ *
+ * The settings choose which cards are shown (setPanels(), DC-125). The cards
+ * shown fill the grid in that order from its first cell, and a card that is
+ * hidden keeps recording, so its sparkline is whole when it is shown again.
  */
 class DashboardView : public QWidget
 {
@@ -44,6 +50,14 @@ public:
     /** Updates all cards from a newly received system snapshot. */
     void updateSnapshot(const domain::SystemSnapshot& snapshot);
 
+    /**
+     * Shows the cards that panels turns on and hides the others. When every
+     * card is off, a line in their place says where to turn them on. Every
+     * card is shown until set.
+     */
+    void setPanels(const domain::DashboardPanels& panels);
+    [[nodiscard]] const domain::DashboardPanels& panels() const;
+
     [[nodiscard]] ResourceCard* cpuCard() const;
     [[nodiscard]] ResourceCard* memoryCard() const;
     [[nodiscard]] ResourceCard* diskCard() const;
@@ -58,6 +72,9 @@ public:
     /** Returns the overall status line text, e.g. "System status: Healthy". */
     [[nodiscard]] QString overallStatusText() const;
 
+    /** The line shown in place of the cards while every card is off. */
+    [[nodiscard]] QLabel* noCardsLabel() const;
+
 private:
     void updateCpuCard(const domain::SystemSnapshot& snapshot);
     void updateMemoryCard(const domain::SystemSnapshot& snapshot);
@@ -66,6 +83,9 @@ private:
     void updateUptimeCard(const domain::SystemSnapshot& snapshot);
 
     QLabel* m_overallStatusLabel{nullptr};
+    QGridLayout* m_cardGrid{nullptr};
+    QLabel* m_noCardsLabel{nullptr};
+    domain::DashboardPanels m_panels{};
     ResourceCard* m_cpuCard{nullptr};
     ResourceCard* m_memoryCard{nullptr};
     ResourceCard* m_diskCard{nullptr};

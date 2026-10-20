@@ -97,6 +97,7 @@ QAction* MainWindow::exitAction() const
 void MainWindow::setSettings(const domain::Settings& settings)
 {
     m_settings = settings;
+    m_dashboardView->setPanels(settings.dashboardPanels);
     m_performanceView->setSampleInterval(settings.refreshInterval);
     m_networkView->setSampleInterval(settings.refreshInterval);
 }

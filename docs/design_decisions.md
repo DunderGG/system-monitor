@@ -95,6 +95,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 - [Dashboard tab](#dashboard-tab)
   - [DC-45](#dc-45): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
   - [DC-46](#dc-46): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
+  - [DC-125](#dc-125): Dashboard cards the settings turn off are hidden, the rest fill the grid in order, and every card keeps recording
 - [Performance tab](#performance-tab)
   - [DC-53](#dc-53): Performance view: a sidebar of resource pages that each own their history
   - [DC-57](#dc-57): Performance readouts: pure builders with stable names, shown in a `ReadoutGrid`
@@ -911,6 +912,17 @@ The resource cards and the health evaluation they show.
 **Rationale:** One card type keeps the five resources consistent, and a chart slot of the same height in every card keeps the uptime card in line. Pure formatting keeps `DashboardView` thin and its edge cases testable without widgets. Health comes precomputed in the snapshot ([DC-45](#dc-45)), so the UI only renders it. No single colour reaches WCAG's 4.5:1 contrast on both a light and a dark background, hence a shade for each. Binary units match how Windows reports sizes. A virtual adapter's traffic also crosses a hardware adapter, so counting it would count that traffic twice ([DC-35](#dc-35)), and a sum with a rate missing would understate it. Targets that link Qt compile with `/utf-8`, but `domain` and `platform/windows` do not, so a non-ASCII literal would be read in the system code page there.
 
 **History:** Phase 2, dashboard view; code review F-9 (only hardware adapters in the network total); code review F-19 (why literals are ASCII); code review F-37 (status colours that reach 4.5:1 in both colour schemes).
+
+---
+
+<a id="dc-125"></a>
+### DC-125: Dashboard cards the settings turn off are hidden, the rest fill the grid in order, and every card keeps recording
+
+**Decision:** `DashboardView::setPanels()` hides the cards that the settings turn off and lays out the others in their usual order from the grid's first cell, three to a row. A hidden card keeps recording its sparkline. When every card is off, a line in their place says to choose the cards in File > Settings. The "System status" line stays, and still sums up every resource.
+
+**Rationale:** Laying the grid out again keeps the cards shown together, where a hidden card left in its cell would leave a hole, such as an empty first cell with CPU off. Three columns whatever the number shown keep each card the same size. Recording while hidden follows [DC-54](#dc-54): a card turned back on shows its last minute at once rather than an empty chart, for the cost of a push into a ring buffer per sample. The status line sums up the system rather than the cards shown, so turning a card off does not hide a problem with its resource, which the Performance tab still shows. A line rather than an empty tab tells the user that nothing is broken, and where the cards went.
+
+**History:** Phase 6, settings at startup.
 
 ---
 
