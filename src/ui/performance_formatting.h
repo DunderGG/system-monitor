@@ -11,34 +11,41 @@
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 
 namespace sysmon::ui
 {
 
 // Pure presentation helpers for the Performance tab. Like the dashboard
 // helpers in dashboard_formatting.h, they take domain values and return
-// display text so they can be unit tested without widgets. Missing data is
+// display text so they can be unit tested without widgets, with byte
+// quantities and network throughput in the units given. Missing data is
 // "N/A", never a zero.
 
 /** Formats a chart axis or annotation value as a whole percentage, e.g. "42%". */
 [[nodiscard]] QString formatChartPercent(float percent);
 
-/** Formats a chart axis or annotation value as a byte rate, e.g. "1.5 MiB/s". Negative values show as 0 B/s. */
-[[nodiscard]] QString formatChartByteRate(float bytesPerSecond);
+/**
+ * Formats a chart axis or annotation value as network throughput in units,
+ * as formatNetworkRate() does, e.g. "1.5 MiB/s" or "12.6 Mbps". Negative
+ * values show as zero.
+ */
+[[nodiscard]] QString formatChartNetworkRate(float bytesPerSecond, domain::DisplayUnits units);
 
 /**
- * Returns the widest texts formatChartByteRate() produces in each unit up to
- * GiB/s, e.g. "1024.0 MiB/s" (a value just below the next unit rounds up), for
- * SparklineWidget::setAxisLabelTemplates(). Byte-rate charts that share them
+ * Returns the widest texts formatChartNetworkRate() produces in units, in
+ * each unit up to the giga multiple, e.g. "1024.0 MiB/s" or "1000.0 Mbps" (a
+ * value just below the next unit rounds up), for
+ * SparklineWidget::setAxisLabelTemplates(). Throughput charts that share them
  * keep a fixed plot position and line up with each other.
  */
-[[nodiscard]] QStringList chartByteRateAxisTemplates();
+[[nodiscard]] QStringList chartNetworkRateAxisTemplates(domain::DisplayUnits units);
 
 /**
- * Formats a used and a total byte count in the total's binary unit, e.g.
- * "8.0/16.0 GiB", so the pair reads as one quantity.
+ * Formats a used and a total byte count in the total's byteUnitFor() unit,
+ * e.g. "8.0/16.0 GiB", so the pair reads as one quantity.
  */
-[[nodiscard]] QString formatBytesOfTotal(uint64_t used, uint64_t total);
+[[nodiscard]] QString formatBytesOfTotal(uint64_t used, uint64_t total, domain::ByteUnits units);
 
 /**
  * Returns the percentage of the commit limit that is committed, or
@@ -61,7 +68,7 @@ chartedAdapters(const std::vector<domain::NetworkSample>& networks);
 [[nodiscard]] QString cpuSummary(const std::optional<domain::CpuSample>& cpu);
 
 /** Sidebar summary for the memory page, e.g. "8.0/16.0 GiB (50.0%)". */
-[[nodiscard]] QString memorySummary(const std::optional<domain::MemorySample>& memory);
+[[nodiscard]] QString memorySummary(const std::optional<domain::MemorySample>& memory, domain::ByteUnits units);
 
 /** Sidebar summary for the disk page: the fullest volume, e.g. "C:\ 75.0% used". */
 [[nodiscard]] QString diskSummary(const std::optional<std::vector<domain::DiskSample>>& disks);
@@ -70,6 +77,7 @@ chartedAdapters(const std::vector<domain::NetworkSample>& networks);
  * Sidebar summary for the network page: receive and send throughput over
  * active hardware adapters on two lines, e.g. "Receive 1.2 MiB/s\nSend 30.0 KiB/s".
  */
-[[nodiscard]] QString networkSummary(const std::optional<std::vector<domain::NetworkSample>>& networks);
+[[nodiscard]] QString networkSummary(const std::optional<std::vector<domain::NetworkSample>>& networks,
+                                     domain::DisplayUnits units);
 
 } // namespace sysmon::ui

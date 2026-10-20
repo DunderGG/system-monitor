@@ -15,6 +15,7 @@
 
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
+#include "domain/settings.h"
 
 namespace sysmon::ui
 {
@@ -115,6 +116,14 @@ public:
     void setTreeMode(bool enabled);
     [[nodiscard]] bool isTreeMode() const;
 
+    /**
+     * Sets the units of the memory and I/O columns and their tooltips, binary
+     * until set. A change signals those columns of every row as one refresh's
+     * value changes do.
+     */
+    void setByteUnits(domain::ByteUnits units);
+    [[nodiscard]] domain::ByteUnits byteUnits() const;
+
     /** Returns the process shown at index, or nullptr for an invalid index. */
     [[nodiscard]] const domain::ProcessInfo* process(const QModelIndex& index) const;
 
@@ -187,6 +196,7 @@ private:
     std::unordered_multimap<uint32_t, Node*> m_nodesByPid;
     std::vector<Node*> m_topLevel;
     bool m_treeMode{false};
+    domain::ByteUnits m_byteUnits{domain::ByteUnits::Binary};
     // False until the first list, whose processes are not highlighted as new.
     bool m_hasList{false};
     // The name column's icon for each ProcessDetailsStatus, indexed by its value.

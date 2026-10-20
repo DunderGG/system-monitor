@@ -135,6 +135,19 @@ std::chrono::milliseconds NetworkView::sampleInterval() const
     return m_sampleInterval;
 }
 
+void NetworkView::setDisplayUnits(domain::DisplayUnits units)
+{
+    m_displayUnits = units;
+    for (auto* card : m_cards) {
+        card->setDisplayUnits(units);
+    }
+}
+
+domain::DisplayUnits NetworkView::displayUnits() const
+{
+    return m_displayUnits;
+}
+
 const std::vector<uint64_t>& NetworkView::listedInterfaceIds() const
 {
     return m_listedIds;
@@ -231,6 +244,7 @@ void NetworkView::arrangeCards(const std::vector<uint64_t>& interfaceIds, std::s
         } else {
             auto* card = new AdapterCard(kHistoryCapacity, m_scrollArea->widget());
             card->setSampleInterval(m_sampleInterval);
+            card->setDisplayUnits(m_displayUnits);
             cards.push_back(card);
         }
     }

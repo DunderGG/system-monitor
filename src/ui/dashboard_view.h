@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <vector>
 
 #include <QString>
 #include <QWidget>
@@ -35,6 +36,7 @@ class SparklineWidget;
  * The settings choose which cards are shown (setPanels(), DC-125). The cards
  * shown fill the grid in that order from its first cell, and a card that is
  * hidden keeps recording, so its sparkline is whole when it is shown again.
+ * They also choose the units of sizes and rates (setDisplayUnits(), DC-126).
  */
 class DashboardView : public QWidget
 {
@@ -57,6 +59,14 @@ public:
      */
     void setPanels(const domain::DashboardPanels& panels);
     [[nodiscard]] const domain::DashboardPanels& panels() const;
+
+    /**
+     * Sets the units of the memory, disk and network cards' sizes and rates,
+     * and shows the latest snapshot's in them at once. Binary bytes and bytes
+     * per second until set.
+     */
+    void setDisplayUnits(domain::DisplayUnits units);
+    [[nodiscard]] domain::DisplayUnits displayUnits() const;
 
     [[nodiscard]] ResourceCard* cpuCard() const;
     [[nodiscard]] ResourceCard* memoryCard() const;
@@ -82,10 +92,16 @@ private:
     void updateNetworkCard(const domain::SystemSnapshot& snapshot);
     void updateUptimeCard(const domain::SystemSnapshot& snapshot);
 
+    // Show the latest snapshot's values on the cards whose text has units.
+    void showMemoryValue();
+    void showDiskValue();
+    void showNetworkValue();
+
     QLabel* m_overallStatusLabel{nullptr};
     QGridLayout* m_cardGrid{nullptr};
     QLabel* m_noCardsLabel{nullptr};
     domain::DashboardPanels m_panels{};
+    domain::DisplayUnits m_displayUnits{};
     ResourceCard* m_cpuCard{nullptr};
     ResourceCard* m_memoryCard{nullptr};
     ResourceCard* m_diskCard{nullptr};
@@ -101,6 +117,13 @@ private:
     domain::RingBuffer<std::optional<float>> m_memoryHistory{kHistoryCapacity};
     domain::RingBuffer<std::optional<float>> m_diskHistory{kHistoryCapacity};
     domain::RingBuffer<std::optional<float>> m_networkHistory{kHistoryCapacity};
+
+    // What the cards with units show of the latest snapshot, kept for setDisplayUnits().
+    bool m_hasSnapshot{false};
+    std::optional<domain::MemorySample> m_latestMemory;
+    std::optional<std::vector<domain::DiskSample>> m_latestDisks;
+    std::optional<std::vector<domain::NetworkSample>> m_latestNetworks;
+    domain::ConnectivityStatus m_latestConnectivity;
 };
 
 } // namespace sysmon::ui

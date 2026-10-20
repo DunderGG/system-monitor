@@ -11,6 +11,7 @@
 
 #include "domain/network_profile.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 #include "ui/adapter_throughput_history.h"
 
 class QLabel;
@@ -31,7 +32,7 @@ class SparklineWidget;
  * with its operational status, the device description below it when that
  * differs from the name, readouts for the connected network, type, link
  * speed, addresses, and DNS servers (see adapterDetailReadouts()), and a chart
- * of its receive and send throughput on an auto-scaled byte-rate axis.
+ * of its receive and send throughput on an auto-scaled axis in the display units.
  *
  * While the adapter is not Up, the chart is collapsed to a line saying that
  * it is charted while the adapter is Up. The view keeps recording the
@@ -63,6 +64,9 @@ public:
 
     /** Sets the time between the chart's samples, from which its X-axis label tells the time they cover. */
     void setSampleInterval(std::chrono::milliseconds interval);
+
+    /** Sets the units of the chart's throughput: binary bytes per second until set. */
+    void setDisplayUnits(domain::DisplayUnits units);
 
     [[nodiscard]] QString title() const;
     /** The device description shown below the name; empty when it is hidden. */

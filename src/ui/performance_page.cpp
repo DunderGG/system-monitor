@@ -76,6 +76,16 @@ std::chrono::milliseconds PerformancePage::sampleInterval() const
     return m_sampleInterval;
 }
 
+void PerformancePage::setDisplayUnits(domain::DisplayUnits units)
+{
+    m_displayUnits = units;
+}
+
+domain::DisplayUnits PerformancePage::displayUnits() const
+{
+    return m_displayUnits;
+}
+
 QVBoxLayout* PerformancePage::contentLayout() const
 {
     return m_contentLayout;

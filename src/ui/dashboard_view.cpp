@@ -124,12 +124,34 @@ const domain::DashboardPanels& DashboardView::panels() const
 
 void DashboardView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
+    m_hasSnapshot = true;
+    m_latestMemory = snapshot.memory;
+    m_latestDisks = snapshot.disks;
+    m_latestNetworks = snapshot.networks;
+    m_latestConnectivity = snapshot.connectivity;
+
     m_overallStatusLabel->setText(overallStatusLine(snapshot.health.overall));
     updateCpuCard(snapshot);
     updateMemoryCard(snapshot);
     updateDiskCard(snapshot);
     updateNetworkCard(snapshot);
     updateUptimeCard(snapshot);
+}
+
+void DashboardView::setDisplayUnits(domain::DisplayUnits units)
+{
+    m_displayUnits = units;
+    // The latest sizes and rates are shown in the new units at once, not at the next snapshot.
+    if (m_hasSnapshot) {
+        showMemoryValue();
+        showDiskValue();
+        showNetworkValue();
+    }
+}
+
+domain::DisplayUnits DashboardView::displayUnits() const
+{
+    return m_displayUnits;
 }
 
 void DashboardView::updateCpuCard(const domain::SystemSnapshot& snapshot)
@@ -148,32 +170,46 @@ void DashboardView::updateCpuCard(const domain::SystemSnapshot& snapshot)
 void DashboardView::updateMemoryCard(const domain::SystemSnapshot& snapshot)
 {
     m_memoryCard->setStatus(snapshot.health.memory);
-    if (!snapshot.memory) {
-        recordSample(m_memoryHistory, m_memorySparkline, std::nullopt);
+    recordSample(m_memoryHistory, m_memorySparkline,
+                 snapshot.memory ? std::optional<float>{snapshot.memory->usagePercent} : std::nullopt);
+    showMemoryValue();
+}
+
+void DashboardView::showMemoryValue()
+{
+    if (!m_latestMemory) {
         m_memoryCard->setValue(kNotAvailable);
         return;
     }
-    const auto& memory = *snapshot.memory;
-    recordSample(m_memoryHistory, m_memorySparkline, memory.usagePercent);
+    const auto& memory = *m_latestMemory;
     const uint64_t usedBytes = usedMemoryBytes(memory);
-    m_memoryCard->setValue(formatPercent(memory.usagePercent),
-                           QString("%1 of %2 used").arg(formatBytes(usedBytes), formatBytes(memory.totalBytes)));
+    m_memoryCard->setValue(
+        formatPercent(memory.usagePercent),
+        QString("%1 of %2 used")
+            .arg(formatBytes(usedBytes, m_displayUnits.bytes), formatBytes(memory.totalBytes, m_displayUnits.bytes)));
 }
 
 void DashboardView::updateDiskCard(const domain::SystemSnapshot& snapshot)
 {
     m_diskCard->setStatus(snapshot.health.disk);
     const auto* fullest = snapshot.disks ? fullestVolume(*snapshot.disks) : nullptr;
+    recordSample(m_diskHistory, m_diskSparkline,
+                 fullest != nullptr ? std::optional<float>{fullest->usagePercent} : std::nullopt);
+    showDiskValue();
+}
+
+void DashboardView::showDiskValue()
+{
+    const auto* fullest = m_latestDisks ? fullestVolume(*m_latestDisks) : nullptr;
     if (fullest == nullptr) {
-        recordSample(m_diskHistory, m_diskSparkline, std::nullopt);
         m_diskCard->setValue(kNotAvailable);
         return;
     }
-    recordSample(m_diskHistory, m_diskSparkline, fullest->usagePercent);
     QString detail =
-        QString("%1 %2 free").arg(QString::fromStdString(fullest->volumeName), formatBytes(fullest->freeBytes));
-    if (snapshot.disks->size() > 1) {
-        detail += QString(" (fullest of %1 volumes)").arg(snapshot.disks->size());
+        QString("%1 %2 free")
+            .arg(QString::fromStdString(fullest->volumeName), formatBytes(fullest->freeBytes, m_displayUnits.bytes));
+    if (m_latestDisks->size() > 1) {
+        detail += QString(" (fullest of %1 volumes)").arg(m_latestDisks->size());
     }
     m_diskCard->setValue(formatPercent(fullest->usagePercent), detail);
 }
@@ -181,33 +217,37 @@ void DashboardView::updateDiskCard(const domain::SystemSnapshot& snapshot)
 void DashboardView::updateNetworkCard(const domain::SystemSnapshot& snapshot)
 {
     m_networkCard->setStatus(snapshot.health.network);
-    const QString connectivity = connectivityText(snapshot.connectivity);
-
-    // No adapter data at all (no collector, or the query failed): nothing is known
-    // about the adapters, so do not claim that none is active.
-    if (!snapshot.networks) {
-        recordSample(m_networkHistory, m_networkSparkline, std::nullopt);
-        m_networkCard->setValue(kNotAvailable, connectivity);
-        return;
-    }
-
-    const auto totals = sumActiveThroughput(*snapshot.networks);
     // The sparkline charts combined (in + out) throughput.
+    const auto totals = snapshot.networks ? sumActiveThroughput(*snapshot.networks) : std::nullopt;
     recordSample(m_networkHistory, m_networkSparkline,
                  totals ? std::optional<float>{static_cast<float>(totals->inBytesPerSec + totals->outBytesPerSec)}
                         : std::nullopt);
+    showNetworkValue();
+}
 
-    if (!hasActiveAdapter(*snapshot.networks)) {
+void DashboardView::showNetworkValue()
+{
+    const QString connectivity = connectivityText(m_latestConnectivity);
+
+    // No adapter data at all (no collector, or the query failed): nothing is known
+    // about the adapters, so do not claim that none is active.
+    if (!m_latestNetworks) {
+        m_networkCard->setValue(kNotAvailable, connectivity);
+        return;
+    }
+    if (!hasActiveAdapter(*m_latestNetworks)) {
         m_networkCard->setValue("No active adapter", connectivity);
         return;
     }
+    const auto totals = sumActiveThroughput(*m_latestNetworks);
     if (!totals) {
         m_networkCard->setValue(kNotAvailable, connectivity);
         return;
     }
-    m_networkCard->setValue(
-        QString("In %1\nOut %2").arg(formatByteRate(totals->inBytesPerSec), formatByteRate(totals->outBytesPerSec)),
-        connectivity);
+    m_networkCard->setValue(QString("In %1\nOut %2")
+                                .arg(formatNetworkRate(totals->inBytesPerSec, m_displayUnits),
+                                     formatNetworkRate(totals->outBytesPerSec, m_displayUnits)),
+                            connectivity);
 }
 
 void DashboardView::updateUptimeCard(const domain::SystemSnapshot& snapshot)

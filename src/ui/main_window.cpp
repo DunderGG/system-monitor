@@ -11,6 +11,7 @@
 #include "ui/dashboard_view.h"
 #include "ui/network_view.h"
 #include "ui/performance_view.h"
+#include "ui/process_model.h"
 #include "ui/processes_view.h"
 #include "ui/settings_dialog.h"
 
@@ -98,8 +99,12 @@ void MainWindow::setSettings(const domain::Settings& settings)
 {
     m_settings = settings;
     m_dashboardView->setPanels(settings.dashboardPanels);
+    m_dashboardView->setDisplayUnits(settings.displayUnits);
     m_performanceView->setSampleInterval(settings.refreshInterval);
+    m_performanceView->setDisplayUnits(settings.displayUnits);
+    m_processesView->model()->setByteUnits(settings.displayUnits.bytes);
     m_networkView->setSampleInterval(settings.refreshInterval);
+    m_networkView->setDisplayUnits(settings.displayUnits);
 }
 
 const domain::Settings& MainWindow::settings() const

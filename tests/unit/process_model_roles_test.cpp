@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -6,10 +7,12 @@
 #include <gtest/gtest.h>
 #include <QIcon>
 #include <QImage>
+#include <QModelIndex>
 #include <QString>
 #include <QVariant>
 
 #include "domain/process_info.h"
+#include "domain/settings.h"
 #include "support/process_model_harness.h"
 #include "support/process_samples.h"
 #include "ui/dashboard_formatting.h"
@@ -115,12 +118,12 @@ TEST(ProcessModel, Data_ValueColumns_ShowLatestValuesFormatted)
     model.updateProcesses({explorer}, kNow);
 
     EXPECT_EQ(firstRowText(model, Column::Cpu), formatPercent(12.54f));
-    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(explorer.privateWorkingSetBytes));
-    EXPECT_EQ(firstRowText(model, Column::Io), formatByteRate(2048));
+    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(explorer.privateWorkingSetBytes, ByteUnits::Binary));
+    EXPECT_EQ(firstRowText(model, Column::Io), formatByteRate(2048, ByteUnits::Binary));
     EXPECT_EQ(firstRowText(model, Column::Threads), formatCount(1234));
     EXPECT_EQ(firstRowText(model, Column::Handles), formatCount(56'789));
-    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), processIoToolTip(explorer));
-    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(explorer));
+    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), processIoToolTip(explorer, ByteUnits::Binary));
+    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(explorer, ByteUnits::Binary));
 }
 
 TEST(ProcessModel, Data_Memory_ShowsPrivateWorkingSetNotSharedPages)
@@ -132,8 +135,41 @@ TEST(ProcessModel, Data_Memory_ShowsPrivateWorkingSetNotSharedPages)
 
     model.updateProcesses({browser}, kNow);
 
-    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(browser.privateWorkingSetBytes));
-    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(browser));
+    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(browser.privateWorkingSetBytes, ByteUnits::Binary));
+    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(browser, ByteUnits::Binary));
+}
+
+TEST(ProcessModel, SetByteUnits_MemoryAndIoInThemAndSignalledForEveryRow)
+{
+    ProcessModel model;
+    model.setTreeMode(true);
+    ProcessInfo services = child(400, "services.exe", 0);
+    services.privateWorkingSetBytes = 1'572'864;
+    ProcessInfo svchost = child(500, "svchost.exe", 400);
+    svchost.ioReadBytesPerSec = 1024;
+    svchost.ioWriteBytesPerSec = 1024;
+    model.updateProcesses({services, svchost, child(800, "explorer.exe", 0)}, kNow);
+    ModelSignalLog log(model);
+    constexpr int kMemory = static_cast<int>(Column::Memory);
+    constexpr int kIo = static_cast<int>(Column::Io);
+
+    model.setByteUnits(ByteUnits::Decimal);
+    model.setByteUnits(ByteUnits::Decimal);
+
+    EXPECT_EQ(model.byteUnits(), ByteUnits::Decimal);
+    EXPECT_EQ(firstRowText(model, Column::Memory), formatBytes(services.privateWorkingSetBytes, ByteUnits::Decimal));
+    EXPECT_EQ(firstRowText(model, Column::Memory, Qt::ToolTipRole), processMemoryToolTip(services, ByteUnits::Decimal));
+    const QModelIndex svchostIo = model.index(0, kIo, model.index(0, 0));
+    EXPECT_EQ(svchostIo.data().toString(), formatByteRate(2048, ByteUnits::Decimal));
+    EXPECT_EQ(svchostIo.data(Qt::ToolTipRole).toString(), processIoToolTip(svchost, ByteUnits::Decimal));
+    // One block for each parent's rows, the top level's two and services.exe's one, and none for the repeat.
+    ASSERT_EQ(log.changed.size(), 2u);
+    EXPECT_NE(std::ranges::find(log.changed,
+                                CellRange{.firstRow = 0, .lastRow = 1, .firstColumn = kMemory, .lastColumn = kIo}),
+              log.changed.end());
+    EXPECT_NE(std::ranges::find(log.changed,
+                                CellRange{.firstRow = 0, .lastRow = 0, .firstColumn = kMemory, .lastColumn = kIo}),
+              log.changed.end());
 }
 
 TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
@@ -147,7 +183,7 @@ TEST(ProcessModel, Data_ZeroRates_ShowZeroNotMissing)
     model.updateProcesses({idle}, kNow);
 
     EXPECT_EQ(firstRowText(model, Column::Cpu), formatPercent(0.0f));
-    EXPECT_EQ(firstRowText(model, Column::Io), formatByteRate(0));
+    EXPECT_EQ(firstRowText(model, Column::Io), formatByteRate(0, ByteUnits::Binary));
     EXPECT_FALSE(model.index(0, static_cast<int>(Column::Cpu)).data(Qt::ForegroundRole).isValid());
 }
 
@@ -164,7 +200,7 @@ TEST(ProcessModel, Data_MissingValues_ShowNotAvailableInPlaceholderColour)
         EXPECT_TRUE(model.index(0, static_cast<int>(column)).data(Qt::ForegroundRole).isValid())
             << static_cast<int>(column);
     }
-    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), processIoToolTip(firstSeen));
+    EXPECT_EQ(firstRowText(model, Column::Io, Qt::ToolTipRole), processIoToolTip(firstSeen, ByteUnits::Binary));
     EXPECT_FALSE(model.index(0, static_cast<int>(Column::Name)).data(Qt::ForegroundRole).isValid());
 }
 

@@ -29,7 +29,7 @@ MemoryPerformancePage::MemoryPerformancePage(QWidget* parent) : PerformancePage(
     contentLayout()->addWidget(m_commitChart, 1);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);
-    m_readouts->setReadouts(placeholderReadouts(memoryReadouts(std::nullopt)));
+    m_readouts->setReadouts(placeholderReadouts(memoryReadouts(std::nullopt, displayUnits().bytes)));
     contentLayout()->addWidget(m_readouts);
 }
 
@@ -45,13 +45,13 @@ void MemoryPerformancePage::refresh()
     showHistory(m_usageChart, 0, m_usageHistory);
     showHistory(m_commitChart, 0, m_commitHistory);
     if (recordedCount() > 0) {
-        m_readouts->setReadouts(memoryReadouts(m_latest));
+        m_readouts->setReadouts(memoryReadouts(m_latest, displayUnits().bytes));
     }
 }
 
 QString MemoryPerformancePage::summary() const
 {
-    return recordedCount() == 0 ? QString("--") : memorySummary(m_latest);
+    return recordedCount() == 0 ? QString("--") : memorySummary(m_latest, displayUnits().bytes);
 }
 
 charts::SparklineWidget* MemoryPerformancePage::usageChart() const

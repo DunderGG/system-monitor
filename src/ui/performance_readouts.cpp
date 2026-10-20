@@ -90,7 +90,7 @@ std::vector<Readout> cpuReadouts(const std::optional<domain::CpuSample>& cpu,
     };
 }
 
-std::vector<Readout> memoryReadouts(const std::optional<domain::MemorySample>& memory)
+std::vector<Readout> memoryReadouts(const std::optional<domain::MemorySample>& memory, domain::ByteUnits units)
 {
     if (!memory) {
         return {
@@ -99,19 +99,20 @@ std::vector<Readout> memoryReadouts(const std::optional<domain::MemorySample>& m
             {"Non-paged pool", kNotAvailable},
         };
     }
+    const auto bytes = [units](uint64_t count) { return formatBytes(count, units); };
     const uint64_t usedBytes = usedMemoryBytes(*memory);
     return {
-        {"Used", QString("%1 (%2)").arg(formatBytes(usedBytes), formatPercent(memory->usagePercent))},
-        {"Available", formatBytes(memory->availableBytes)},
-        {"Total", formatBytes(memory->totalBytes)},
-        {"Committed", formatBytesOfTotal(memory->commitCurrent, memory->commitLimit)},
-        {"System cache", valueOr(memory->systemCacheBytes, formatBytes)},
-        {"Paged pool", valueOr(memory->pagedPoolBytes, formatBytes)},
-        {"Non-paged pool", valueOr(memory->nonPagedPoolBytes, formatBytes)},
+        {"Used", QString("%1 (%2)").arg(bytes(usedBytes), formatPercent(memory->usagePercent))},
+        {"Available", bytes(memory->availableBytes)},
+        {"Total", bytes(memory->totalBytes)},
+        {"Committed", formatBytesOfTotal(memory->commitCurrent, memory->commitLimit, units)},
+        {"System cache", valueOr(memory->systemCacheBytes, bytes)},
+        {"Paged pool", valueOr(memory->pagedPoolBytes, bytes)},
+        {"Non-paged pool", valueOr(memory->nonPagedPoolBytes, bytes)},
     };
 }
 
-std::vector<Readout> diskReadouts(const std::optional<std::vector<domain::DiskSample>>& disks)
+std::vector<Readout> diskReadouts(const std::optional<std::vector<domain::DiskSample>>& disks, domain::ByteUnits units)
 {
     if (!disks) {
         return {{"Volumes", kNotAvailable}};
@@ -132,14 +133,14 @@ std::vector<Readout> diskReadouts(const std::optional<std::vector<domain::DiskSa
         readouts.push_back({
             QString::fromStdString(volume->volumeName),
             QString("%1 used (%2)\n%3 free")
-                .arg(formatBytesOfTotal(usedBytes, volume->totalBytes), formatPercent(volume->usagePercent),
-                     formatBytes(volume->freeBytes)),
+                .arg(formatBytesOfTotal(usedBytes, volume->totalBytes, units), formatPercent(volume->usagePercent),
+                     formatBytes(volume->freeBytes, units)),
         });
     }
     return readouts;
 }
 
-std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>& adapter)
+std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>& adapter, domain::DisplayUnits units)
 {
     if (!adapter) {
         return {
@@ -152,17 +153,18 @@ std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>&
 
     // A link speed of 0 means the adapter did not report one.
     const auto linkSpeed = adapter->linkSpeedBps > 0 ? std::optional<uint64_t>{adapter->linkSpeedBps} : std::nullopt;
+    const auto rate = [units](uint64_t bytesPerSecond) { return formatNetworkRate(bytesPerSecond, units); };
     return {
-        {"Receive", valueOr(adapter->inBytesPerSec, formatByteRate)},
-        {"Send", valueOr(adapter->outBytesPerSec, formatByteRate)},
+        {"Receive", valueOr(adapter->inBytesPerSec, rate)},
+        {"Send", valueOr(adapter->outBytesPerSec, rate)},
         {"Link speed", valueOr(linkSpeed, formatLinkSpeed), linkSpeed ? linkSpeedToolTip(*adapter) : QString{}},
         {"Type", adapterTypeText(*adapter)},
         {"Adapter", adapter->description.empty() ? kNotAvailable : QString::fromStdString(adapter->description)},
         {"IPv4 address", ipv4AddressText(*adapter)},
         {"IPv6 address", ipv6AddressText(*adapter)},
         {"DNS servers", formatAddressList(adapter->dnsServers)},
-        {"Received", formatBytes(adapter->inBytesTotal)},
-        {"Sent", formatBytes(adapter->outBytesTotal)},
+        {"Received", formatBytes(adapter->inBytesTotal, units.bytes)},
+        {"Sent", formatBytes(adapter->outBytesTotal, units.bytes)},
     };
 }
 

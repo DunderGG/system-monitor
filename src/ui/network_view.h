@@ -78,6 +78,10 @@ public:
     void setSampleInterval(std::chrono::milliseconds interval);
     [[nodiscard]] std::chrono::milliseconds sampleInterval() const;
 
+    /** Sets the units of the cards' throughput charts. Binary bytes per second until set. */
+    void setDisplayUnits(domain::DisplayUnits units);
+    [[nodiscard]] domain::DisplayUnits displayUnits() const;
+
     /** Interface IDs of the listed adapters, in display order, as of the last update of the widgets. */
     [[nodiscard]] const std::vector<uint64_t>& listedInterfaceIds() const;
     [[nodiscard]] AdapterCard* adapterCard(std::size_t index) const;
@@ -113,6 +117,7 @@ private:
     std::size_t m_hiddenStart{0};
     std::vector<AdapterCard*> m_cards;
     std::chrono::milliseconds m_sampleInterval{domain::kDefaultRefreshInterval};
+    domain::DisplayUnits m_displayUnits{};
 
     std::uint64_t m_recordedCount{0};
     domain::ConnectivityStatus m_connectivity;

@@ -1,4 +1,6 @@
 #include <chrono>
+#include <cstdint>
+#include <limits>
 #include <optional>
 #include <vector>
 
@@ -9,6 +11,7 @@
 #include "domain/health_status.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 #include "support/network_samples.h"
 #include "ui/dashboard_formatting.h"
 
@@ -43,24 +46,99 @@ TEST(DashboardFormatting, FormatCount_GroupsThousands)
     EXPECT_EQ(formatCount(1'234'567), "1,234,567");
 }
 
-TEST(DashboardFormatting, FormatBytes_BelowOneKiB_UsesBytes)
+TEST(DashboardFormatting, ByteUnitFor_LargestUnitNotAboveTheCount)
 {
-    EXPECT_EQ(formatBytes(0), "0 B");
-    EXPECT_EQ(formatBytes(1023), "1023 B");
+    struct Case
+    {
+        const char* name;
+        uint64_t bytes;
+        ByteUnits units;
+        uint64_t expectedSize;
+        const char* expectedName;
+    };
+    const std::vector<Case> cases{
+        {"below a KiB", 1023, ByteUnits::Binary, 1, "B"},
+        {"a KiB", 1024, ByteUnits::Binary, 1024, "KiB"},
+        {"just below a MiB", 1'048'575, ByteUnits::Binary, 1024, "KiB"},
+        {"16 GiB", 16ULL << 30, ByteUnits::Binary, 1ULL << 30, "GiB"},
+        {"beyond the largest", 2048ULL << 50, ByteUnits::Binary, 1ULL << 50, "PiB"},
+        {"below a KB", 999, ByteUnits::Decimal, 1, "B"},
+        {"a KB", 1000, ByteUnits::Decimal, 1000, "KB"},
+        {"16 GiB in decimal units", 16ULL << 30, ByteUnits::Decimal, 1'000'000'000, "GB"},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        const ByteUnit unit = byteUnitFor(testCase.bytes, testCase.units);
+        EXPECT_EQ(unit.bytes, testCase.expectedSize);
+        EXPECT_EQ(unit.name, testCase.expectedName);
+    }
 }
 
-TEST(DashboardFormatting, FormatBytes_LargerValues_UseBinaryUnits)
+TEST(DashboardFormatting, FormatBytes_WholeBytesOrOneDecimalOfTheUnit)
 {
-    EXPECT_EQ(formatBytes(1024), "1.0 KiB");
-    EXPECT_EQ(formatBytes(1536), "1.5 KiB");
-    EXPECT_EQ(formatBytes(16ULL * 1024 * 1024 * 1024), "16.0 GiB");
-    EXPECT_EQ(formatBytes(2ULL * 1024 * 1024 * 1024 * 1024), "2.0 TiB");
+    struct Case
+    {
+        const char* name;
+        uint64_t bytes;
+        ByteUnits units;
+        const char* expected;
+    };
+    const std::vector<Case> cases{
+        {"zero", 0, ByteUnits::Binary, "0 B"},
+        {"below a KiB", 1023, ByteUnits::Binary, "1023 B"},
+        {"a KiB", 1024, ByteUnits::Binary, "1.0 KiB"},
+        {"a KiB and a half", 1536, ByteUnits::Binary, "1.5 KiB"},
+        {"just below a MiB rounds up", 1'048'575, ByteUnits::Binary, "1024.0 KiB"},
+        {"16 GiB", 16ULL << 30, ByteUnits::Binary, "16.0 GiB"},
+        {"2 TiB", 2ULL << 40, ByteUnits::Binary, "2.0 TiB"},
+        {"beyond the largest unit", 2048ULL << 50, ByteUnits::Binary, "2048.0 PiB"},
+        {"below a KB", 999, ByteUnits::Decimal, "999 B"},
+        {"a KB and a half", 1500, ByteUnits::Decimal, "1.5 KB"},
+        {"a KiB in decimal units", 1024, ByteUnits::Decimal, "1.0 KB"},
+        {"16 GiB in decimal units", 16ULL << 30, ByteUnits::Decimal, "17.2 GB"},
+        {"2 TB", 2'000'000'000'000, ByteUnits::Decimal, "2.0 TB"},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        EXPECT_EQ(formatBytes(testCase.bytes, testCase.units), testCase.expected);
+    }
 }
 
 TEST(DashboardFormatting, FormatByteRate_AppendsPerSecond)
 {
-    EXPECT_EQ(formatByteRate(0), "0 B/s");
-    EXPECT_EQ(formatByteRate(1'258'291), "1.2 MiB/s");
+    EXPECT_EQ(formatByteRate(0, ByteUnits::Binary), "0 B/s");
+    EXPECT_EQ(formatByteRate(1'258'291, ByteUnits::Binary), "1.2 MiB/s");
+    EXPECT_EQ(formatByteRate(1'258'291, ByteUnits::Decimal), "1.3 MB/s");
+}
+
+TEST(DashboardFormatting, FormatNetworkRate_BytesInTheByteUnitsOrDecimalBits)
+{
+    constexpr DisplayUnits kBinaryBytes{.bytes = ByteUnits::Binary, .networkRates = NetworkRateUnits::BytesPerSecond};
+    constexpr DisplayUnits kDecimalBytes{.bytes = ByteUnits::Decimal, .networkRates = NetworkRateUnits::BytesPerSecond};
+    constexpr DisplayUnits kBinaryBits{.bytes = ByteUnits::Binary, .networkRates = NetworkRateUnits::BitsPerSecond};
+    constexpr DisplayUnits kDecimalBits{.bytes = ByteUnits::Decimal, .networkRates = NetworkRateUnits::BitsPerSecond};
+    struct Case
+    {
+        const char* name;
+        uint64_t bytesPerSecond;
+        DisplayUnits units;
+        const char* expected;
+    };
+    const std::vector<Case> cases{
+        {"bytes in binary units", 2048, kBinaryBytes, "2.0 KiB/s"},
+        {"bytes in decimal units", 2048, kDecimalBytes, "2.0 KB/s"},
+        {"no bits", 0, kBinaryBits, "0 bps"},
+        {"bits below a Kbps", 100, kBinaryBits, "800 bps"},
+        {"a Kbps", 125, kBinaryBits, "1.0 Kbps"},
+        {"bits whatever the byte units", 1'262'500, kBinaryBits, "10.1 Mbps"},
+        {"bits with decimal byte units", 1'262'500, kDecimalBits, "10.1 Mbps"},
+        {"a Tbps", 125'000'000'000, kBinaryBits, "1.0 Tbps"},
+        {"beyond any link saturates", std::numeric_limits<uint64_t>::max(), kBinaryBits, "18446.7 Pbps"},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        EXPECT_EQ(formatNetworkRate(testCase.bytesPerSecond, testCase.units), testCase.expected);
+    }
 }
 
 TEST(DashboardFormatting, FormatUptime_UnderOneHour_MinutesAndSeconds)

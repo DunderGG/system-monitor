@@ -23,6 +23,12 @@ namespace
 constexpr int kAdapterChartMinimumHeight = 160;
 constexpr int kReadoutColumns = 5;
 
+// Formats a chart's values as throughput in units, as the readouts show it.
+charts::SparklineWidget::ValueFormatter throughputFormatter(domain::DisplayUnits units)
+{
+    return [units](float bytesPerSecond) { return formatChartNetworkRate(bytesPerSecond, units); };
+}
+
 } // namespace
 
 NetworkPerformancePage::NetworkPerformancePage(QWidget* parent) : PerformancePage("Network", parent)
@@ -48,6 +54,15 @@ void NetworkPerformancePage::recordSamples(const domain::SystemSnapshot& snapsho
 
 void NetworkPerformancePage::refresh()
 {
+    if (m_chartUnits != displayUnits()) {
+        m_chartUnits = displayUnits();
+        for (auto* chart : m_charts) {
+            chart->setValueFormatter(throughputFormatter(m_chartUnits));
+            chart->setAnnotationFormatter(throughputFormatter(m_chartUnits));
+            chart->setAxisLabelTemplates(chartNetworkRateAxisTemplates(m_chartUnits));
+        }
+    }
+
     // Without a successful read, keep charting the adapters from the last one;
     // their histories show gaps for this tick.
     if (m_latest) {
@@ -67,11 +82,11 @@ void NetworkPerformancePage::refresh()
         m_chartedNames = std::move(names);
         for (std::size_t index = 0; index < charted.size(); ++index) {
             m_chartTitles[index]->setText(adapterDisplayName(*charted[index]));
-            m_readoutGrids[index]->setReadouts(adapterReadouts(*charted[index]));
+            m_readoutGrids[index]->setReadouts(adapterReadouts(*charted[index], m_chartUnits));
         }
     } else {
         for (auto* readoutGrid : m_readoutGrids) {
-            readoutGrid->setReadouts(adapterReadouts(std::nullopt));
+            readoutGrid->setReadouts(adapterReadouts(std::nullopt, m_chartUnits));
         }
     }
 
@@ -111,12 +126,13 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& i
         title->setFont(titleFont);
         listLayout->addWidget(title);
 
-        auto* chart = createHistoryChart(std::nullopt, formatChartByteRate, formatChartByteRate, list);
+        auto* chart = createHistoryChart(std::nullopt, throughputFormatter(m_chartUnits),
+                                         throughputFormatter(m_chartUnits), list);
         chart->setMinimumHeight(kAdapterChartMinimumHeight);
         chart->setSeriesCount(2);
         chart->setSeriesLabel(0, "Receive");
         chart->setSeriesLabel(1, "Send");
-        chart->setAxisLabelTemplates(chartByteRateAxisTemplates());
+        chart->setAxisLabelTemplates(chartNetworkRateAxisTemplates(m_chartUnits));
         listLayout->addWidget(chart, 1);
 
         auto* readoutGrid = new ReadoutGrid(kReadoutColumns, list);
@@ -140,7 +156,7 @@ void NetworkPerformancePage::rebuildAdapterCharts(const std::vector<uint64_t>& i
 
 QString NetworkPerformancePage::summary() const
 {
-    return recordedCount() == 0 ? QString("--") : networkSummary(m_latest);
+    return recordedCount() == 0 ? QString("--") : networkSummary(m_latest, displayUnits());
 }
 
 const std::vector<uint64_t>& NetworkPerformancePage::chartedInterfaceIds() const

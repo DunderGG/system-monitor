@@ -70,8 +70,7 @@ AdapterCard::AdapterCard(std::size_t chartCapacity, QWidget* parent) : QFrame(pa
     m_chart->setSeriesCount(2);
     m_chart->setSeriesLabel(0, "Receive");
     m_chart->setSeriesLabel(1, "Send");
-    m_chart->setValueFormatter(formatChartByteRate);
-    m_chart->setAxisLabelTemplates(chartByteRateAxisTemplates());
+    setDisplayUnits(domain::DisplayUnits{});
     m_chart->setGridVisible(true);
     m_chart->setAxisLabelsVisible(true);
     m_chart->setAnnotationsVisible(true);
@@ -131,6 +130,12 @@ void AdapterCard::setThroughput(const AdapterThroughputHistory::Adapter* history
 void AdapterCard::setSampleInterval(std::chrono::milliseconds interval)
 {
     m_chart->setSampleInterval(interval);
+}
+
+void AdapterCard::setDisplayUnits(domain::DisplayUnits units)
+{
+    m_chart->setValueFormatter([units](float bytesPerSecond) { return formatChartNetworkRate(bytesPerSecond, units); });
+    m_chart->setAxisLabelTemplates(chartNetworkRateAxisTemplates(units));
 }
 
 QString AdapterCard::title() const

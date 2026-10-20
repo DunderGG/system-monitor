@@ -7,6 +7,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 
 class QComboBox;
@@ -77,6 +78,14 @@ public:
      */
     void setSampleInterval(std::chrono::milliseconds interval);
     [[nodiscard]] std::chrono::milliseconds sampleInterval() const;
+
+    /**
+     * Sets the units of every page's sizes and rates, in its readouts,
+     * sidebar summary and charts, and shows them in the new units at once if
+     * the view is visible. Binary bytes and bytes per second until set.
+     */
+    void setDisplayUnits(domain::DisplayUnits units);
+    [[nodiscard]] domain::DisplayUnits displayUnits() const;
 
     /** Returns the sidebar entry for page: its title and summary on separate lines. */
     [[nodiscard]] QString sidebarText(Page page) const;

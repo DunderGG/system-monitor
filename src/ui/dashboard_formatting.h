@@ -12,14 +12,17 @@
 #include "domain/health_status.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 
 namespace sysmon::ui
 {
 
 // Pure presentation helpers for the dashboard. They take domain values and
 // return display text, so they can be unit tested without widgets. Byte
-// quantities use binary (IEC) units: KiB, MiB, GiB, TiB. The Performance tab's
-// helpers build on them.
+// quantities are in the byte units the settings choose (DC-126): binary (IEC)
+// units, KiB, MiB, GiB, TiB, or decimal (SI) units, KB, MB, GB, TB. Network
+// throughput is in bytes per second in those units, or in bits per second,
+// which are always decimal. The Performance tab's helpers build on them.
 
 /** Text shown for a value that could not be read, everywhere in the UI. Never shown as zero. */
 inline const QString kNotAvailable = QStringLiteral("N/A");
@@ -36,11 +39,36 @@ inline const QString kNotAvailable = QStringLiteral("N/A");
 /** Formats a count with comma thousands separators, e.g. "200,157", whatever the locale. */
 [[nodiscard]] QString formatCount(uint64_t count);
 
-/** Formats a byte count with binary units, e.g. "512 B", "1.5 KiB", "16.0 GiB". */
-[[nodiscard]] QString formatBytes(uint64_t bytes);
+/** A unit that byte counts are shown in, such as "KiB" or "MB", and its size in bytes. "B" is one byte. */
+struct ByteUnit
+{
+    uint64_t bytes{1};
+    QString name{};
+};
 
-/** Formats a byte rate with binary units, e.g. "1.2 MiB/s". */
-[[nodiscard]] QString formatByteRate(uint64_t bytesPerSecond);
+/**
+ * Returns the unit that formatBytes() shows bytes in: the largest of B and
+ * the multiples that units names, up to PiB or PB, that is not above bytes.
+ */
+[[nodiscard]] ByteUnit byteUnitFor(uint64_t bytes, domain::ByteUnits units);
+
+/**
+ * Formats a byte count in its byteUnitFor() unit: a whole number of bytes,
+ * e.g. "512 B", and otherwise to one decimal, e.g. "1.5 KiB" or "16.0 GiB" in
+ * binary units, and "1.5 KB" in decimal units.
+ */
+[[nodiscard]] QString formatBytes(uint64_t bytes, domain::ByteUnits units);
+
+/** Formats a byte rate as formatBytes() does, per second, e.g. "1.2 MiB/s". */
+[[nodiscard]] QString formatByteRate(uint64_t bytesPerSecond, domain::ByteUnits units);
+
+/**
+ * Formats network throughput in the units' network rate units: bytes per
+ * second as formatByteRate() does in the units' byte units, e.g. "1.2 MiB/s",
+ * or bits per second, whole below 1 Kbps and otherwise to one decimal in
+ * powers of 1,000, e.g. "800 bps" or "10.1 Mbps".
+ */
+[[nodiscard]] QString formatNetworkRate(uint64_t bytesPerSecond, domain::DisplayUnits units);
 
 /**
  * Formats uptime compactly: "3d 4h 12m" from one day, "4h 12m" from one hour,

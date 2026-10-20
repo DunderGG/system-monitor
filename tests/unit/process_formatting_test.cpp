@@ -9,6 +9,8 @@
 
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
+#include "domain/settings.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 
 using namespace sysmon::domain;
@@ -42,9 +44,12 @@ TEST(ProcessFormatting, ProcessIoBytesPerSec_EitherRateMissing_Nullopt)
 
 TEST(ProcessFormatting, ProcessIoToolTip_ShowsEachRate)
 {
-    EXPECT_EQ(processIoToolTip(ProcessInfo{.ioReadBytesPerSec = 2048, .ioWriteBytesPerSec = 0}),
-              "Read: 2.0 KiB/s\nWrite: 0 B/s");
-    EXPECT_EQ(processIoToolTip(ProcessInfo{}), "Read: N/A\nWrite: N/A");
+    const ProcessInfo process{.ioReadBytesPerSec = 2048, .ioWriteBytesPerSec = 0};
+
+    EXPECT_EQ(processIoToolTip(process, ByteUnits::Binary), "Read: 2.0 KiB/s\nWrite: 0 B/s");
+    EXPECT_EQ(processIoToolTip(process, ByteUnits::Decimal),
+              "Read: " + formatByteRate(2048, ByteUnits::Decimal) + "\nWrite: 0 B/s");
+    EXPECT_EQ(processIoToolTip(ProcessInfo{}, ByteUnits::Binary), "Read: N/A\nWrite: N/A");
 }
 
 TEST(ProcessFormatting, ProcessMemoryToolTip_ShowsEachFigureWithWhatItCounts)
@@ -55,10 +60,12 @@ TEST(ProcessFormatting, ProcessMemoryToolTip_ShowsEachFigureWithWhatItCounts)
         .privateBytes = 262'144'000,           // 250.0 MiB
     };
 
-    EXPECT_EQ(processMemoryToolTip(browser),
+    EXPECT_EQ(processMemoryToolTip(browser, ByteUnits::Binary),
               "Private working set: 207.0 MiB\n"
               "Working set: 378.7 MiB (includes memory shared with other processes)\n"
               "Commit size: 250.0 MiB (private memory committed, which counts toward the commit limit)");
+    EXPECT_TRUE(processMemoryToolTip(browser, ByteUnits::Decimal)
+                    .startsWith("Private working set: " + formatBytes(217'055'232, ByteUnits::Decimal) + "\n"));
 }
 
 TEST(ProcessFormatting, ProcessListSummary_WithList_CountsProcesses)

@@ -158,6 +158,10 @@ TEST(MainWindow, SetSettings_AppliesWhatTheViewsShow)
 
     EXPECT_EQ(mainWindow.settings(), nonDefaultSettings());
     EXPECT_EQ(mainWindow.dashboardView()->panels(), nonDefaultSettings().dashboardPanels);
+    EXPECT_EQ(mainWindow.dashboardView()->displayUnits(), nonDefaultSettings().displayUnits);
+    EXPECT_EQ(mainWindow.performanceView()->displayUnits(), nonDefaultSettings().displayUnits);
+    EXPECT_EQ(mainWindow.processesView()->model()->byteUnits(), nonDefaultSettings().displayUnits.bytes);
+    EXPECT_EQ(mainWindow.networkView()->displayUnits(), nonDefaultSettings().displayUnits);
     EXPECT_EQ(mainWindow.performanceView()->sampleInterval(), nonDefaultSettings().refreshInterval);
     EXPECT_EQ(mainWindow.networkView()->sampleInterval(), nonDefaultSettings().refreshInterval);
 }

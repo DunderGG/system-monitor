@@ -9,6 +9,7 @@
 #include <QString>
 
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 #include "ui/adapter_throughput_history.h"
 #include "ui/performance_page.h"
 
@@ -23,7 +24,7 @@ class ReadoutGrid;
 /**
  * Network page of the Performance tab: a throughput chart per active adapter
  * that can carry traffic (see chartedAdapters()), each with a receive and a send series on an
- * auto-scaled byte-rate axis. History is recorded for every adapter in the
+ * auto-scaled throughput axis in the display units. History is recorded for every adapter in the
  * snapshots (see AdapterThroughputHistory), so an adapter that comes up shows
  * what it did while it was down. Each chart has the adapter's readouts below
  * it (see adapterReadouts()).
@@ -63,6 +64,8 @@ private:
     std::vector<QLabel*> m_chartTitles;
     std::vector<charts::SparklineWidget*> m_charts;
     std::vector<ReadoutGrid*> m_readoutGrids;
+    // The units the charts format their values in, which refresh() keeps at displayUnits().
+    domain::DisplayUnits m_chartUnits{};
 
     AdapterThroughputHistory m_history{kHistoryCapacity};
     std::optional<std::vector<domain::NetworkSample>> m_latest;

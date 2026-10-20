@@ -74,6 +74,14 @@ public:
     void setSampleInterval(std::chrono::milliseconds interval);
     [[nodiscard]] std::chrono::milliseconds sampleInterval() const;
 
+    /**
+     * Sets the units of the page's sizes and rates: its readouts, summary and
+     * charts. Binary bytes and bytes per second until set. Takes effect on
+     * the next refresh() and summary().
+     */
+    void setDisplayUnits(domain::DisplayUnits units);
+    [[nodiscard]] domain::DisplayUnits displayUnits() const;
+
 protected:
     /** Appends the snapshot's samples to the subclass's history. */
     virtual void recordSamples(const domain::SystemSnapshot& snapshot) = 0;
@@ -106,6 +114,7 @@ private:
     std::uint64_t m_recordedCount{0};
     std::size_t m_visibleWindow{kDefaultVisibleWindow};
     std::chrono::milliseconds m_sampleInterval{domain::kDefaultRefreshInterval};
+    domain::DisplayUnits m_displayUnits{};
 };
 
 } // namespace sysmon::ui

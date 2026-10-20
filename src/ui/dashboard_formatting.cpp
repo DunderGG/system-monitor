@@ -2,9 +2,60 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <limits>
 
 namespace sysmon::ui
 {
+
+namespace
+{
+
+// A unit and its multiples, from the unit up, and the step from each to the next.
+struct UnitScale
+{
+    uint64_t step{};
+    std::array<const char*, 6> names{};
+};
+
+constexpr UnitScale kBinaryBytes{1024, {"B", "KiB", "MiB", "GiB", "TiB", "PiB"}};
+constexpr UnitScale kDecimalBytes{1000, {"B", "KB", "MB", "GB", "TB", "PB"}};
+constexpr UnitScale kBitsPerSecond{1000, {"bps", "Kbps", "Mbps", "Gbps", "Tbps", "Pbps"}};
+
+constexpr uint64_t kBitsPerByte = 8;
+
+const UnitScale& byteScale(domain::ByteUnits units)
+{
+    return units == domain::ByteUnits::Decimal ? kDecimalBytes : kBinaryBytes;
+}
+
+// The largest of scale's units that is not above count, and its size in the first unit.
+struct ScaledUnit
+{
+    uint64_t size{1};
+    const char* name{};
+};
+
+ScaledUnit unitFor(uint64_t count, const UnitScale& scale)
+{
+    ScaledUnit unit{.size = 1, .name = scale.names.front()};
+    for (std::size_t index = 1; index < scale.names.size() && count / unit.size >= scale.step; ++index) {
+        unit = {.size = unit.size * scale.step, .name = scale.names[index]};
+    }
+    return unit;
+}
+
+// Formats count in its unitFor() unit: a whole number of the first unit, or else to one decimal.
+QString formatScaled(uint64_t count, const UnitScale& scale)
+{
+    const ScaledUnit unit = unitFor(count, scale);
+    if (unit.size == 1) {
+        return QString("%1 %2").arg(count).arg(unit.name);
+    }
+    return QString("%1 %2").arg(static_cast<double>(count) / static_cast<double>(unit.size), 0, 'f', 1).arg(unit.name);
+}
+
+} // namespace
 
 uint64_t usedMemoryBytes(const domain::MemorySample& memory)
 {
@@ -25,27 +76,31 @@ QString formatCount(uint64_t count)
     return digits;
 }
 
-QString formatBytes(uint64_t bytes)
+ByteUnit byteUnitFor(uint64_t bytes, domain::ByteUnits units)
 {
-    constexpr std::array kUnits{"KiB", "MiB", "GiB", "TiB", "PiB"};
-    constexpr double kStep = 1024.0;
-
-    if (bytes < 1024) {
-        return QString("%1 B").arg(bytes);
-    }
-
-    double value = static_cast<double>(bytes) / kStep;
-    std::size_t unitIndex = 0;
-    while (value >= kStep && unitIndex + 1 < kUnits.size()) {
-        value /= kStep;
-        ++unitIndex;
-    }
-    return QString("%1 %2").arg(value, 0, 'f', 1).arg(kUnits[unitIndex]);
+    const ScaledUnit unit = unitFor(bytes, byteScale(units));
+    return ByteUnit{.bytes = unit.size, .name = QString::fromLatin1(unit.name)};
 }
 
-QString formatByteRate(uint64_t bytesPerSecond)
+QString formatBytes(uint64_t bytes, domain::ByteUnits units)
 {
-    return formatBytes(bytesPerSecond) + "/s";
+    return formatScaled(bytes, byteScale(units));
+}
+
+QString formatByteRate(uint64_t bytesPerSecond, domain::ByteUnits units)
+{
+    return formatBytes(bytesPerSecond, units) + "/s";
+}
+
+QString formatNetworkRate(uint64_t bytesPerSecond, domain::DisplayUnits units)
+{
+    if (units.networkRates == domain::NetworkRateUnits::BytesPerSecond) {
+        return formatByteRate(bytesPerSecond, units.bytes);
+    }
+    // A rate beyond any link saturates rather than wraps.
+    constexpr uint64_t kLargestInBits = std::numeric_limits<uint64_t>::max() / kBitsPerByte;
+    const uint64_t bitsPerSecond = std::min(bytesPerSecond, kLargestInBits) * kBitsPerByte;
+    return formatScaled(bitsPerSecond, kBitsPerSecond);
 }
 
 QString formatUptime(std::chrono::milliseconds uptime)

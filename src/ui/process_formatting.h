@@ -9,13 +9,15 @@
 
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
+#include "domain/settings.h"
 
 namespace sysmon::ui
 {
 
 // Pure presentation helpers for the Processes tab. Like the dashboard helpers
 // in dashboard_formatting.h, they take domain values and return display text,
-// so they can be unit tested without widgets.
+// so they can be unit tested without widgets. Byte quantities are in the
+// units given.
 
 /** Name shown for the Idle process (PID 0), which has no image name in the process list. */
 inline constexpr std::string_view kIdleProcessName = "System Idle Process";
@@ -33,7 +35,7 @@ inline constexpr std::string_view kIdleProcessName = "System Idle Process";
 [[nodiscard]] std::optional<uint64_t> processIoBytesPerSec(const domain::ProcessInfo& process);
 
 /** Tooltip for the I/O column: the read and write rates on their own, e.g. "Read: 1.0 KiB/s\nWrite: N/A". */
-[[nodiscard]] QString processIoToolTip(const domain::ProcessInfo& process);
+[[nodiscard]] QString processIoToolTip(const domain::ProcessInfo& process, domain::ByteUnits units);
 
 /**
  * Tooltip for the Memory column: the private working set that the cell shows,
@@ -41,7 +43,7 @@ inline constexpr std::string_view kIdleProcessName = "System Idle Process";
  * "Private working set: 207.0 MiB\nWorking set: 378.7 MiB (includes memory
  * shared with other processes)\nCommit size: …".
  */
-[[nodiscard]] QString processMemoryToolTip(const domain::ProcessInfo& process);
+[[nodiscard]] QString processMemoryToolTip(const domain::ProcessInfo& process, domain::ByteUnits units);
 
 /** Most characters of a path or command line a tooltip shows; the rest is cut off with an ellipsis. */
 inline constexpr qsizetype kToolTipDetailLength = 2000;

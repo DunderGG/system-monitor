@@ -27,7 +27,7 @@ DiskPerformancePage::DiskPerformancePage(QWidget* parent) : PerformancePage("Dis
     contentLayout()->addWidget(m_usageChart, 1);
 
     m_readouts = new ReadoutGrid(kReadoutColumns, this);
-    m_readouts->setReadouts(placeholderReadouts(diskReadouts(std::nullopt)));
+    m_readouts->setReadouts(placeholderReadouts(diskReadouts(std::nullopt, displayUnits().bytes)));
     contentLayout()->addWidget(m_readouts);
 }
 
@@ -73,7 +73,7 @@ DiskPerformancePage::VolumeHistory& DiskPerformancePage::volumeHistory(const std
 void DiskPerformancePage::refresh()
 {
     if (recordedCount() > 0) {
-        m_readouts->setReadouts(diskReadouts(m_latest));
+        m_readouts->setReadouts(diskReadouts(m_latest, displayUnits().bytes));
     }
     m_usageChart->setSeriesCount(std::max<std::size_t>(1, m_volumes.size()));
     if (m_volumes.empty()) {

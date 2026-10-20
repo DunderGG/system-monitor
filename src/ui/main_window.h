@@ -43,8 +43,9 @@ public:
 
     /**
      * Sets the settings that the Settings dialog opens with, and applies what
-     * the views show of them: the dashboard cards shown, and the refresh
-     * interval, from which the charts tell the time they cover.
+     * the views show of them: the dashboard cards shown, the units of sizes
+     * and rates, and the refresh interval, from which the charts tell the time
+     * they cover.
      */
     void setSettings(const domain::Settings& settings);
     [[nodiscard]] const domain::Settings& settings() const;

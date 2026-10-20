@@ -26,11 +26,14 @@ using namespace sysmon::domain;
 using sysmon::tests::populatedSnapshot;
 using sysmon::ui::connectivityText;
 using sysmon::ui::DashboardView;
+using sysmon::ui::formatBytes;
+using sysmon::ui::formatNetworkRate;
 using sysmon::ui::formatPercent;
 using sysmon::ui::formatUptime;
 using sysmon::ui::healthLevelText;
 using sysmon::ui::kNotAvailable;
 using sysmon::ui::ResourceCard;
+using sysmon::ui::usedMemoryBytes;
 
 namespace
 {
@@ -330,6 +333,38 @@ TEST(DashboardView, SetPanels_HiddenCardKeepsRecording)
     EXPECT_FALSE(dashboard.cpuCard()->isHidden());
     EXPECT_EQ(dashboard.cpuSparkline()->samples().size(), 2u);
     EXPECT_EQ(dashboard.cpuCard()->valueText(), formatPercent(snapshot.cpu->totalUsagePercent));
+}
+
+TEST(DashboardView, SetDisplayUnits_ShowsTheLatestSizesAndRatesInThemAtOnce)
+{
+    DashboardView dashboard;
+    const SystemSnapshot snapshot = populatedSnapshot();
+    dashboard.updateSnapshot(snapshot);
+    constexpr DisplayUnits kUnits{.bytes = ByteUnits::Decimal, .networkRates = NetworkRateUnits::BitsPerSecond};
+
+    dashboard.setDisplayUnits(kUnits);
+
+    EXPECT_EQ(dashboard.displayUnits(), kUnits);
+    EXPECT_EQ(dashboard.memoryCard()->detailText(),
+              formatBytes(usedMemoryBytes(*snapshot.memory), kUnits.bytes) + " of " +
+                  formatBytes(snapshot.memory->totalBytes, kUnits.bytes) + " used");
+    EXPECT_EQ(dashboard.diskCard()->detailText(),
+              "C:\\ " + formatBytes(250, kUnits.bytes) + " free (fullest of 2 volumes)");
+    EXPECT_EQ(dashboard.networkCard()->valueText(),
+              "In " + formatNetworkRate(2048, kUnits) + "\nOut " + formatNetworkRate(1024, kUnits));
+    // The units change what is shown, not what is recorded.
+    EXPECT_EQ(dashboard.networkSparkline()->samples().size(), 1u);
+}
+
+TEST(DashboardView, SetDisplayUnits_BeforeTheFirstSnapshot_KeepsThePlaceholders)
+{
+    DashboardView dashboard;
+
+    dashboard.setDisplayUnits({.bytes = ByteUnits::Decimal});
+
+    EXPECT_EQ(dashboard.memoryCard()->valueText(), "--");
+    EXPECT_EQ(dashboard.diskCard()->valueText(), "--");
+    EXPECT_EQ(dashboard.networkCard()->valueText(), "--");
 }
 
 TEST(DashboardView, Sparklines_PercentFixedRangeNetworkAutoRange)

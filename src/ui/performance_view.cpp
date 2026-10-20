@@ -146,6 +146,21 @@ std::chrono::milliseconds PerformanceView::sampleInterval() const
     return m_cpuPage->sampleInterval();
 }
 
+void PerformanceView::setDisplayUnits(domain::DisplayUnits units)
+{
+    for (auto* page : m_pages) {
+        page->setDisplayUnits(units);
+    }
+    if (isVisible()) {
+        refreshVisible();
+    }
+}
+
+domain::DisplayUnits PerformanceView::displayUnits() const
+{
+    return m_cpuPage->displayUnits();
+}
+
 void PerformanceView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
     for (auto* page : m_pages) {

@@ -13,6 +13,7 @@
 #include <QSize>
 #include <QTabWidget>
 
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "support/network_samples.h"
 #include "support/readouts.h"
@@ -413,6 +414,28 @@ TEST(NetworkView, SetSampleInterval_ChartsOfListedAndNewCardsTellTheTimeTheSampl
     ASSERT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
     EXPECT_EQ(view.adapterCard(0)->chart()->sampleInterval(), kInterval);
     EXPECT_EQ(view.adapterCard(1)->chart()->sampleInterval(), kInterval);
+}
+
+TEST(NetworkView, SetDisplayUnits_ChartsOfListedAndNewCardsFormatThroughputInThem)
+{
+    ShownNetworkView view;
+    const NetworkSample ethernet = adapter(1, "Ethernet", OperationalStatus::Up);
+    view.updateSnapshot(snapshotWithNetworks(std::vector<NetworkSample>{ethernet}));
+    EXPECT_EQ(view.adapterCard(0)->chart()->formatValue(2048.0f), formatChartNetworkRate(2048.0f, DisplayUnits{}));
+    constexpr DisplayUnits kBits{.networkRates = NetworkRateUnits::BitsPerSecond};
+
+    view.setDisplayUnits(kBits);
+    view.updateSnapshot(
+        snapshotWithNetworks(std::vector<NetworkSample>{ethernet, adapter(2, "Wi-Fi", OperationalStatus::Up)}));
+
+    EXPECT_EQ(view.displayUnits(), kBits);
+    ASSERT_EQ(view.listedInterfaceIds(), (std::vector<uint64_t>{1, 2}));
+    for (std::size_t index = 0; index < 2; ++index) {
+        SCOPED_TRACE(index);
+        const auto* chart = view.adapterCard(index)->chart();
+        EXPECT_EQ(chart->formatValue(2048.0f), formatChartNetworkRate(2048.0f, kBits));
+        EXPECT_EQ(chart->axisLabelTemplates(), chartNetworkRateAxisTemplates(kBits));
+    }
 }
 
 TEST(NetworkView, Connectivity_PlaceholderBeforeFirstSnapshotThenReadouts)

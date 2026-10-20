@@ -73,7 +73,7 @@ std::optional<std::pair<int, int>> changedColumns(const domain::ProcessInfo& bef
     return columns;
 }
 
-QString displayText(const domain::ProcessInfo& process, Column column)
+QString displayText(const domain::ProcessInfo& process, Column column, domain::ByteUnits byteUnits)
 {
     switch (column) {
         case Column::Name:
@@ -83,10 +83,10 @@ QString displayText(const domain::ProcessInfo& process, Column column)
         case Column::Cpu:
             return process.cpuUsagePercent ? formatPercent(*process.cpuUsagePercent) : kNotAvailable;
         case Column::Memory:
-            return formatBytes(process.privateWorkingSetBytes);
+            return formatBytes(process.privateWorkingSetBytes, byteUnits);
         case Column::Io: {
             const auto bytesPerSec = processIoBytesPerSec(process);
-            return bytesPerSec ? formatByteRate(*bytesPerSec) : kNotAvailable;
+            return bytesPerSec ? formatByteRate(*bytesPerSec, byteUnits) : kNotAvailable;
         }
         case Column::Network:
             return kNotAvailable;
@@ -299,6 +299,38 @@ bool ProcessModel::isTreeMode() const
     return m_treeMode;
 }
 
+void ProcessModel::setByteUnits(domain::ByteUnits units)
+{
+    if (units == m_byteUnits) {
+        return;
+    }
+    m_byteUnits = units;
+
+    // Every row's memory and I/O text changes, and nothing else does: its
+    // values, and with them the order of a sorted view, stay as they were.
+    constexpr int kFirstColumn = static_cast<int>(Column::Memory);
+    constexpr int kLastColumn = static_cast<int>(Column::Io);
+    ChangedBlocks changed;
+    const auto coverRows = [&changed](Node* parent, const std::vector<Node*>& rows) {
+        if (!rows.empty()) {
+            changed.emplace(parent, ChangedBlock{.firstRow = 0,
+                                                 .lastRow = static_cast<int>(rows.size()) - 1,
+                                                 .firstColumn = kFirstColumn,
+                                                 .lastColumn = kLastColumn});
+        }
+    };
+    coverRows(nullptr, m_topLevel);
+    for (const auto& [identity, node] : m_nodes) {
+        coverRows(node.get(), node->children);
+    }
+    signalValuesChanged(changed);
+}
+
+domain::ByteUnits ProcessModel::byteUnits() const
+{
+    return m_byteUnits;
+}
+
 const domain::ProcessInfo* ProcessModel::process(const QModelIndex& index) const
 {
     const Node* node = nodeAt(index);
@@ -361,7 +393,7 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
     const auto column = static_cast<Column>(index.column());
     switch (role) {
         case Qt::DisplayRole:
-            return displayText(node->process, column);
+            return displayText(node->process, column, m_byteUnits);
         case Qt::TextAlignmentRole:
             if (column == Column::Name) {
                 return {};
@@ -374,10 +406,10 @@ QVariant ProcessModel::data(const QModelIndex& index, int role) const
             return {};
         case Qt::ToolTipRole:
             if (column == Column::Memory) {
-                return processMemoryToolTip(node->process);
+                return processMemoryToolTip(node->process, m_byteUnits);
             }
             if (column == Column::Io) {
-                return processIoToolTip(node->process);
+                return processIoToolTip(node->process, m_byteUnits);
             }
             if (column == Column::Name) {
                 QString toolTip = processDetailsToolTip(node->process);

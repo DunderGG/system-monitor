@@ -28,22 +28,22 @@ std::optional<uint64_t> processIoBytesPerSec(const domain::ProcessInfo& process)
     return *process.ioReadBytesPerSec + *process.ioWriteBytesPerSec;
 }
 
-QString processIoToolTip(const domain::ProcessInfo& process)
+QString processIoToolTip(const domain::ProcessInfo& process, domain::ByteUnits units)
 {
-    const auto rateText = [](const std::optional<uint64_t>& rate) {
-        return rate ? formatByteRate(*rate) : kNotAvailable;
+    const auto rateText = [units](const std::optional<uint64_t>& rate) {
+        return rate ? formatByteRate(*rate, units) : kNotAvailable;
     };
     return QString("Read: %1\nWrite: %2")
         .arg(rateText(process.ioReadBytesPerSec), rateText(process.ioWriteBytesPerSec));
 }
 
-QString processMemoryToolTip(const domain::ProcessInfo& process)
+QString processMemoryToolTip(const domain::ProcessInfo& process, domain::ByteUnits units)
 {
     return QString("Private working set: %1\n"
                    "Working set: %2 (includes memory shared with other processes)\n"
                    "Commit size: %3 (private memory committed, which counts toward the commit limit)")
-        .arg(formatBytes(process.privateWorkingSetBytes), formatBytes(process.workingSetBytes),
-             formatBytes(process.privateBytes));
+        .arg(formatBytes(process.privateWorkingSetBytes, units), formatBytes(process.workingSetBytes, units),
+             formatBytes(process.privateBytes, units));
 }
 
 namespace

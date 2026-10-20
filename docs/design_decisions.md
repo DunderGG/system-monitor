@@ -92,6 +92,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-68](#dc-68): Retired, the headers say what they hold
   - [DC-102](#dc-102): Retired, the rule is in the coding guidelines
   - [DC-105](#dc-105): Retired, the rule is in the coding guidelines
+  - [DC-126](#dc-126): Display units: every formatter of a size or a rate takes them, and every view shows the latest values in new units at once
 - [Dashboard tab](#dashboard-tab)
   - [DC-45](#dc-45): Health evaluation: domain types, a pure evaluator in `monitoring`, and the result carried in the snapshot
   - [DC-46](#dc-46): Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
@@ -889,6 +890,17 @@ The rule and its reasons are in [coding_guidelines.md — Text colours](coding_g
 
 ---
 
+<a id="dc-126"></a>
+### DC-126: Display units: every formatter of a size or a rate takes them, and every view shows the latest values in new units at once
+
+**Decision:** Each function that formats a byte count or a rate takes the units, with no default: `formatBytes()` and `formatByteRate()` a `domain::ByteUnits`, and `formatNetworkRate()` the `domain::DisplayUnits`, for bytes per second in the byte units or bits per second in powers of 1,000, such as "10.1 Mbps". Every adapter rate is network throughput: the dashboard's network card, the Performance tab's network page and summary, and the Network tab's charts. Memory, disks and a process's I/O are in bytes, and link speeds always in bits. `MainWindow::setSettings()` gives each view the units, and each shows its latest values in them at once: the Performance and Network views refresh from what they keep, the dashboard keeps the latest snapshot's memory, disks, adapters and connectivity for it, and the process model signals every row's memory and I/O cells as one refresh's changes do.
+
+**Rationale:** A default would let a caller that forgets the units show binary sizes beside decimal ones. Bits are decimal because link speeds are, and a user who picks them wants throughput to compare with the link. Process I/O counts files and pipes as well as the network, so it stays in bytes. Showing a change at once matters at a 10 s interval, where the next snapshot can be ten seconds away; sending the views the last snapshot again would record it twice. Keeping the dashboard's values costs a copy of the disks and adapters per snapshot, as the other views already make. A change of units keeps the model's values, so a sorted view keeps its order.
+
+**History:** Phase 6, settings at startup.
+
+---
+
 ## Dashboard tab
 
 The resource cards and the health evaluation they show.
@@ -907,11 +919,11 @@ The resource cards and the health evaluation they show.
 <a id="dc-46"></a>
 ### DC-46: Dashboard cards: `ResourceCard` widgets fed by pure formatting helpers
 
-**Decision:** The dashboard is a "System status" line and five `ResourceCard`s, CPU, memory, disk, network and uptime, in a three-column grid. Each card has a title, a large value, a detail line, a health status, and a fixed-height slot for its one-minute sparkline ([DC-48](#dc-48)), which stays empty on the uptime card. The status is a `TonedLabel`, with a light and a dark shade of each tone ([coding guidelines](coding_guidelines.md#text-colours)). All text comes from pure functions in `ui/dashboard_formatting.h`, with sizes in binary units. Disk shows the fullest volume. Network shows the total throughput of the hardware adapters that are Up, or "N/A" while any of them has no rate yet, with connectivity as its detail line. String literals are ASCII.
+**Decision:** The dashboard is a "System status" line and five `ResourceCard`s, CPU, memory, disk, network and uptime, in a three-column grid. Each card has a title, a large value, a detail line, a health status, and a fixed-height slot for its one-minute sparkline ([DC-48](#dc-48)), which stays empty on the uptime card. The status is a `TonedLabel`, with a light and a dark shade of each tone ([coding guidelines](coding_guidelines.md#text-colours)). All text comes from pure functions in `ui/dashboard_formatting.h`, with sizes and rates in the units the settings choose ([DC-126](#dc-126)). Disk shows the fullest volume. Network shows the total throughput of the hardware adapters that are Up, or "N/A" while any of them has no rate yet, with connectivity as its detail line. String literals are ASCII.
 
-**Rationale:** One card type keeps the five resources consistent, and a chart slot of the same height in every card keeps the uptime card in line. Pure formatting keeps `DashboardView` thin and its edge cases testable without widgets. Health comes precomputed in the snapshot ([DC-45](#dc-45)), so the UI only renders it. No single colour reaches WCAG's 4.5:1 contrast on both a light and a dark background, hence a shade for each. Binary units match how Windows reports sizes. A virtual adapter's traffic also crosses a hardware adapter, so counting it would count that traffic twice ([DC-35](#dc-35)), and a sum with a rate missing would understate it. Targets that link Qt compile with `/utf-8`, but `domain` and `platform/windows` do not, so a non-ASCII literal would be read in the system code page there.
+**Rationale:** One card type keeps the five resources consistent, and a chart slot of the same height in every card keeps the uptime card in line. Pure formatting keeps `DashboardView` thin and its edge cases testable without widgets. Health comes precomputed in the snapshot ([DC-45](#dc-45)), so the UI only renders it. No single colour reaches WCAG's 4.5:1 contrast on both a light and a dark background, hence a shade for each. Binary units, the default, match how Windows counts sizes. A virtual adapter's traffic also crosses a hardware adapter, so counting it would count that traffic twice ([DC-35](#dc-35)), and a sum with a rate missing would understate it. Targets that link Qt compile with `/utf-8`, but `domain` and `platform/windows` do not, so a non-ASCII literal would be read in the system code page there.
 
-**History:** Phase 2, dashboard view; code review F-9 (only hardware adapters in the network total); code review F-19 (why literals are ASCII); code review F-37 (status colours that reach 4.5:1 in both colour schemes).
+**History:** Phase 2, dashboard view; code review F-9 (only hardware adapters in the network total); code review F-19 (why literals are ASCII); code review F-37 (status colours that reach 4.5:1 in both colour schemes); Phase 6, settings at startup (sizes and rates in the units the settings choose).
 
 ---
 

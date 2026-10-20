@@ -9,8 +9,11 @@
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 #include "domain/system_activity_sample.h"
 #include "support/readouts.h"
+#include "ui/dashboard_formatting.h"
+#include "ui/performance_formatting.h"
 #include "ui/performance_readouts.h"
 
 using namespace sysmon::domain;
@@ -115,7 +118,8 @@ TEST(PerformanceReadouts, MemoryReadouts_AllValues)
         .nonPagedPoolBytes = kGiB / 2,
     };
 
-    const auto readouts = memoryReadouts(memory);
+    const auto readouts = memoryReadouts(memory, ByteUnits::Binary);
+    const auto decimal = memoryReadouts(memory, ByteUnits::Decimal);
 
     EXPECT_EQ(valueOf(readouts, "Used"), "20.0 GiB (62.5%)");
     EXPECT_EQ(valueOf(readouts, "Available"), "12.0 GiB");
@@ -124,14 +128,17 @@ TEST(PerformanceReadouts, MemoryReadouts_AllValues)
     EXPECT_EQ(valueOf(readouts, "System cache"), "9.0 GiB");
     EXPECT_EQ(valueOf(readouts, "Paged pool"), "1.5 GiB");
     EXPECT_EQ(valueOf(readouts, "Non-paged pool"), "512.0 MiB");
+    EXPECT_EQ(valueOf(decimal, "Total"), formatBytes(32 * kGiB, ByteUnits::Decimal));
+    EXPECT_EQ(valueOf(decimal, "Committed"), formatBytesOfTotal(20 * kGiB, 40 * kGiB, ByteUnits::Decimal));
+    EXPECT_EQ(valueOf(decimal, "Non-paged pool"), formatBytes(kGiB / 2, ByteUnits::Decimal));
 }
 
 TEST(PerformanceReadouts, MemoryReadouts_MissingDetailOrSample_NotAvailable)
 {
     const MemorySample memory{.totalBytes = 32 * kGiB, .availableBytes = 12 * kGiB, .usagePercent = 62.5f};
 
-    const auto withoutDetail = memoryReadouts(memory);
-    const auto missing = memoryReadouts(std::nullopt);
+    const auto withoutDetail = memoryReadouts(memory, ByteUnits::Binary);
+    const auto missing = memoryReadouts(std::nullopt, ByteUnits::Binary);
 
     EXPECT_EQ(valueOf(withoutDetail, "System cache"), "N/A");
     EXPECT_EQ(valueOf(withoutDetail, "Non-paged pool"), "N/A");
@@ -146,18 +153,22 @@ TEST(PerformanceReadouts, DiskReadouts_OnePerVolumeInNameOrder)
         DiskSample{.volumeName = "C:\\", .totalBytes = 1000 * kGiB, .freeBytes = 250 * kGiB, .usagePercent = 75.0f},
     };
 
-    const auto readouts = diskReadouts(disks);
+    const auto readouts = diskReadouts(disks, ByteUnits::Binary);
+    const auto decimal = diskReadouts(disks, ByteUnits::Decimal);
 
     ASSERT_EQ(readouts.size(), 2u);
     EXPECT_EQ(readouts[0].name, "C:\\");
     EXPECT_EQ(readouts[0].value, "750.0/1000.0 GiB used (75.0%)\n250.0 GiB free");
     EXPECT_EQ(readouts[1].name, "D:\\");
+    ASSERT_EQ(decimal.size(), 2u);
+    EXPECT_EQ(decimal[0].value, formatBytesOfTotal(750 * kGiB, 1000 * kGiB, ByteUnits::Decimal) + " used (75.0%)\n" +
+                                    formatBytes(250 * kGiB, ByteUnits::Decimal) + " free");
 }
 
 TEST(PerformanceReadouts, DiskReadouts_FailedOrEmpty_SaySo)
 {
-    EXPECT_EQ(diskReadouts(std::nullopt), (std::vector<Readout>{{"Volumes", "N/A"}}));
-    EXPECT_EQ(diskReadouts(std::vector<DiskSample>{}), (std::vector<Readout>{{"Volumes", "None"}}));
+    EXPECT_EQ(diskReadouts(std::nullopt, ByteUnits::Binary), (std::vector<Readout>{{"Volumes", "N/A"}}));
+    EXPECT_EQ(diskReadouts(std::vector<DiskSample>{}, ByteUnits::Binary), (std::vector<Readout>{{"Volumes", "None"}}));
 }
 
 TEST(PerformanceReadouts, AdapterReadouts_SplitsAddressesAndFormatsRates)
@@ -178,7 +189,9 @@ TEST(PerformanceReadouts, AdapterReadouts_SplitsAddressesAndFormatsRates)
         .isHardwareInterface = true,
     };
 
-    const auto readouts = adapterReadouts(adapter);
+    const auto readouts = adapterReadouts(adapter, DisplayUnits{});
+    constexpr DisplayUnits kDecimalBits{.bytes = ByteUnits::Decimal, .networkRates = NetworkRateUnits::BitsPerSecond};
+    const auto inBits = adapterReadouts(adapter, kDecimalBits);
 
     EXPECT_EQ(valueOf(readouts, "Receive"), "2.0 KiB/s");
     EXPECT_EQ(valueOf(readouts, "Send"), "N/A");
@@ -190,16 +203,20 @@ TEST(PerformanceReadouts, AdapterReadouts_SplitsAddressesAndFormatsRates)
     EXPECT_EQ(valueOf(readouts, "DNS servers"), "192.168.1.1");
     EXPECT_EQ(valueOf(readouts, "Received"), "3.0 GiB");
     EXPECT_EQ(valueOf(readouts, "Sent"), "512 B");
+    // The rates follow the network rate units and the totals the byte units; a link speed is always in bits.
+    EXPECT_EQ(valueOf(inBits, "Receive"), formatNetworkRate(2048, kDecimalBits));
+    EXPECT_EQ(valueOf(inBits, "Link speed"), "2.5 Gbps");
+    EXPECT_EQ(valueOf(inBits, "Received"), formatBytes(3 * kGiB, ByteUnits::Decimal));
 }
 
 TEST(PerformanceReadouts, AdapterReadouts_UnknownLinkSpeedAndNoAddresses)
 {
     const NetworkSample adapter{.adapterName = "{GUID}", .isHardwareInterface = false};
 
-    const auto readouts = adapterReadouts(adapter);
+    const auto readouts = adapterReadouts(adapter, DisplayUnits{});
 
     EXPECT_EQ(valueOf(readouts, "Link speed"), "N/A");
     EXPECT_EQ(valueOf(readouts, "Type"), "Virtual");
     EXPECT_EQ(valueOf(readouts, "IPv4 address"), "None");
-    EXPECT_EQ(namesOf(adapterReadouts(std::nullopt)), namesOf(readouts));
+    EXPECT_EQ(namesOf(adapterReadouts(std::nullopt, DisplayUnits{})), namesOf(readouts));
 }

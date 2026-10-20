@@ -11,8 +11,10 @@
 #include "domain/disk_sample.h"
 #include "domain/memory_sample.h"
 #include "domain/network_sample.h"
+#include "domain/settings.h"
 #include "support/adapter_lists.h"
 #include "support/network_samples.h"
+#include "ui/dashboard_formatting.h"
 #include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
 
@@ -41,24 +43,44 @@ TEST(PerformanceFormatting, FormatChartPercent_RoundsToWholePercent)
     EXPECT_EQ(formatChartPercent(100.0f), "100%");
 }
 
-TEST(PerformanceFormatting, FormatChartByteRate_UsesBinaryUnitsAndClampsNegative)
+TEST(PerformanceFormatting, FormatChartNetworkRate_RoundsAndClampsNegativeInTheUnits)
 {
-    EXPECT_EQ(formatChartByteRate(1536.0f), "1.5 KiB/s");
-    EXPECT_EQ(formatChartByteRate(-5.0f), "0 B/s");
+    constexpr DisplayUnits kBits{.networkRates = NetworkRateUnits::BitsPerSecond};
+
+    EXPECT_EQ(formatChartNetworkRate(1536.4f, DisplayUnits{}), formatNetworkRate(1536, DisplayUnits{}));
+    EXPECT_EQ(formatChartNetworkRate(-5.0f, DisplayUnits{}), formatNetworkRate(0, DisplayUnits{}));
+    EXPECT_EQ(formatChartNetworkRate(1536.0f, kBits), formatNetworkRate(1536, kBits));
 }
 
-TEST(PerformanceFormatting, ChartByteRateAxisTemplates_WidestTextPerUnit)
+TEST(PerformanceFormatting, ChartNetworkRateAxisTemplates_WidestTextPerUnitInTheUnits)
 {
-    EXPECT_EQ(chartByteRateAxisTemplates(), (QStringList{"1023 B/s", "1024.0 KiB/s", "1024.0 MiB/s", "1024.0 GiB/s"}));
-    // A value just below a unit boundary rounds up to "1024.0" in the unit below.
-    EXPECT_EQ(formatChartByteRate(1'048'575.0f), "1024.0 KiB/s");
+    struct Case
+    {
+        const char* name;
+        DisplayUnits units;
+        QStringList expected;
+    };
+    const std::vector<Case> cases{
+        {"binary bytes", DisplayUnits{}, {"1023 B/s", "1024.0 KiB/s", "1024.0 MiB/s", "1024.0 GiB/s"}},
+        {"decimal bytes", {.bytes = ByteUnits::Decimal}, {"999 B/s", "1000.0 KB/s", "1000.0 MB/s", "1000.0 GB/s"}},
+        // A rate in bits is a multiple of eight, so the widest below 1 Kbps is 992 bps.
+        {"bits",
+         {.networkRates = NetworkRateUnits::BitsPerSecond},
+         {"992 bps", "1000.0 Kbps", "1000.0 Mbps", "1000.0 Gbps"}},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        EXPECT_EQ(chartNetworkRateAxisTemplates(testCase.units), testCase.expected);
+    }
 }
 
 TEST(PerformanceFormatting, FormatBytesOfTotal_UsesTotalsUnitForBoth)
 {
-    EXPECT_EQ(formatBytesOfTotal(8 * kGiB, 16 * kGiB), "8.0/16.0 GiB");
-    EXPECT_EQ(formatBytesOfTotal(512ULL * 1024ULL * 1024ULL, 16 * kGiB), "0.5/16.0 GiB");
-    EXPECT_EQ(formatBytesOfTotal(100, 1000), "100/1000 B");
+    EXPECT_EQ(formatBytesOfTotal(8 * kGiB, 16 * kGiB, ByteUnits::Binary), "8.0/16.0 GiB");
+    EXPECT_EQ(formatBytesOfTotal(512ULL * 1024ULL * 1024ULL, 16 * kGiB, ByteUnits::Binary), "0.5/16.0 GiB");
+    EXPECT_EQ(formatBytesOfTotal(100, 1000, ByteUnits::Binary), "100/1000 B");
+    EXPECT_EQ(formatBytesOfTotal(8 * kGiB, 16 * kGiB, ByteUnits::Decimal), "8.6/17.2 GB");
+    EXPECT_EQ(formatBytesOfTotal(100, 999, ByteUnits::Decimal), "100/999 B");
 }
 
 TEST(PerformanceFormatting, CommitPercent_PercentOfLimit)
@@ -136,9 +158,9 @@ TEST(PerformanceFormatting, ChartedAdapters_InIsListedBeforeOrder)
 TEST(PerformanceFormatting, Summaries_MissingData_NotAvailable)
 {
     EXPECT_EQ(cpuSummary(std::nullopt), "N/A");
-    EXPECT_EQ(memorySummary(std::nullopt), "N/A");
+    EXPECT_EQ(memorySummary(std::nullopt, ByteUnits::Binary), "N/A");
     EXPECT_EQ(diskSummary(std::nullopt), "N/A");
-    EXPECT_EQ(networkSummary(std::nullopt), "N/A");
+    EXPECT_EQ(networkSummary(std::nullopt, DisplayUnits{}), "N/A");
 }
 
 TEST(PerformanceFormatting, CpuSummary_TotalPercent)
@@ -150,7 +172,9 @@ TEST(PerformanceFormatting, MemorySummary_UsedOfTotalAndPercent)
 {
     const MemorySample memory{.totalBytes = 16 * kGiB, .availableBytes = 8 * kGiB, .usagePercent = 50.0f};
 
-    EXPECT_EQ(memorySummary(memory), "8.0/16.0 GiB (50.0%)");
+    EXPECT_EQ(memorySummary(memory, ByteUnits::Binary), "8.0/16.0 GiB (50.0%)");
+    EXPECT_EQ(memorySummary(memory, ByteUnits::Decimal),
+              formatBytesOfTotal(8 * kGiB, 16 * kGiB, ByteUnits::Decimal) + " (50.0%)");
 }
 
 TEST(PerformanceFormatting, DiskSummary_FullestVolumeOrNoVolumes)
@@ -168,12 +192,16 @@ TEST(PerformanceFormatting, NetworkSummary_ReceiveAndSendOnTwoLines)
 {
     const std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Up)};
 
-    EXPECT_EQ(networkSummary(networks), "Receive 2.0 KiB/s\nSend 1.0 KiB/s");
+    constexpr DisplayUnits kBits{.networkRates = NetworkRateUnits::BitsPerSecond};
+
+    EXPECT_EQ(networkSummary(networks, DisplayUnits{}), "Receive 2.0 KiB/s\nSend 1.0 KiB/s");
+    EXPECT_EQ(networkSummary(networks, kBits),
+              "Receive " + formatNetworkRate(2048, kBits) + "\nSend " + formatNetworkRate(1024, kBits));
 }
 
 TEST(PerformanceFormatting, NetworkSummary_NoActiveAdapter_SaysSo)
 {
     const std::vector<NetworkSample> networks{adapter(1, "Ethernet", OperationalStatus::Down)};
 
-    EXPECT_EQ(networkSummary(networks), "No active adapter");
+    EXPECT_EQ(networkSummary(networks, DisplayUnits{}), "No active adapter");
 }

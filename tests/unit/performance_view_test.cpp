@@ -20,6 +20,7 @@
 #include <QString>
 #include <QTabWidget>
 
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "support/network_samples.h"
 #include "support/readouts.h"
@@ -93,9 +94,11 @@ TEST(PerformanceView, UpdateSnapshotWhileVisible_RefreshesCurrentPageAndSidebar)
     ASSERT_EQ(view.cpuPage()->totalChart()->samples().size(), 1u);
     EXPECT_EQ(view.cpuPage()->totalChart()->samples()[0], 42.5f);
     EXPECT_EQ(view.sidebarText(PerformanceView::Page::Cpu), "CPU\n" + cpuSummary(snapshot.cpu));
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Memory), "Memory\n" + memorySummary(snapshot.memory));
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Memory),
+              "Memory\n" + memorySummary(snapshot.memory, ByteUnits::Binary));
     EXPECT_EQ(view.sidebarText(PerformanceView::Page::Disk), "Disk\n" + diskSummary(snapshot.disks));
-    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Network), "Network\n" + networkSummary(snapshot.networks));
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Network),
+              "Network\n" + networkSummary(snapshot.networks, DisplayUnits{}));
 }
 
 TEST(PerformanceView, UpdateSnapshotWhileHidden_RecordsWithoutRefreshing)
@@ -447,7 +450,7 @@ TEST(NetworkPerformancePage, ReadFails_KeepsChartsAndRecordsGap)
     const auto receive = page.adapterChart(0)->seriesSamples(0);
     ASSERT_EQ(receive.size(), 2u);
     EXPECT_FALSE(receive[1].has_value());
-    EXPECT_EQ(page.summary(), networkSummary(std::nullopt));
+    EXPECT_EQ(page.summary(), networkSummary(std::nullopt, DisplayUnits{}));
 }
 
 TEST(MainWindow, OnSnapshotReady_ForwardsToPerformanceView)
@@ -540,7 +543,7 @@ TEST(MemoryPerformancePage, Readouts_ShowLatestSample)
     page.recordSnapshot(snapshot);
     page.refresh();
 
-    EXPECT_EQ(page.readouts()->readouts(), memoryReadouts(snapshot.memory));
+    EXPECT_EQ(page.readouts()->readouts(), memoryReadouts(snapshot.memory, ByteUnits::Binary));
 }
 
 TEST(DiskPerformancePage, Readouts_ShowLatestSample)
@@ -551,7 +554,7 @@ TEST(DiskPerformancePage, Readouts_ShowLatestSample)
     page.recordSnapshot(snapshot);
     page.refresh();
 
-    EXPECT_EQ(page.readouts()->readouts(), diskReadouts(snapshot.disks));
+    EXPECT_EQ(page.readouts()->readouts(), diskReadouts(snapshot.disks, ByteUnits::Binary));
 }
 
 TEST(NetworkPerformancePage, Readouts_PerChartedAdapter)
@@ -563,7 +566,7 @@ TEST(NetworkPerformancePage, Readouts_PerChartedAdapter)
     page.refresh();
 
     ASSERT_EQ(page.chartedInterfaceIds(), (std::vector<uint64_t>{1}));
-    EXPECT_EQ(page.adapterReadoutGrid(0)->readouts(), adapterReadouts(snapshot.networks->front()));
+    EXPECT_EQ(page.adapterReadoutGrid(0)->readouts(), adapterReadouts(snapshot.networks->front(), DisplayUnits{}));
 }
 
 TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)
@@ -575,7 +578,7 @@ TEST(NetworkPerformancePage, ReadFails_ReadoutsNotAvailable)
     page.recordSnapshot(SystemSnapshot{});
     page.refresh();
 
-    EXPECT_EQ(page.adapterReadoutGrid(0)->readouts(), adapterReadouts(std::nullopt));
+    EXPECT_EQ(page.adapterReadoutGrid(0)->readouts(), adapterReadouts(std::nullopt, DisplayUnits{}));
 }
 
 TEST(PerformanceView, HistoryWindow_DefaultsToOneMinuteAndOffersFiveAndThirty)
@@ -650,4 +653,47 @@ TEST(PerformanceView, SetSampleInterval_SelectorAndChartsTellTheTimeTheSamplesCo
     // A page that is not shown gives its charts the interval when it is.
     view.setCurrentPage(PerformanceView::Page::Network);
     EXPECT_EQ(view.networkPage()->adapterChart(0)->sampleInterval(), kInterval);
+}
+
+TEST(PerformanceView, SetDisplayUnits_ShownPageAndSidebarAtOnceOtherPagesWhenShown)
+{
+    ShownPerformanceView view;
+    view.setCurrentPage(PerformanceView::Page::Network);
+    const SystemSnapshot snapshot = populatedSnapshot();
+    view.updateSnapshot(snapshot);
+    constexpr DisplayUnits kUnits{.bytes = ByteUnits::Decimal, .networkRates = NetworkRateUnits::BitsPerSecond};
+
+    view.setDisplayUnits(kUnits);
+
+    EXPECT_EQ(view.displayUnits(), kUnits);
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Memory),
+              "Memory\n" + memorySummary(snapshot.memory, kUnits.bytes));
+    EXPECT_EQ(view.sidebarText(PerformanceView::Page::Network),
+              "Network\n" + networkSummary(snapshot.networks, kUnits));
+    const NetworkPerformancePage* networkPage = view.networkPage();
+    EXPECT_EQ(networkPage->adapterReadoutGrid(0)->readouts(), adapterReadouts(snapshot.networks->front(), kUnits));
+    const auto* chart = networkPage->adapterChart(0);
+    EXPECT_EQ(chart->formatValue(2048.0f), formatChartNetworkRate(2048.0f, kUnits));
+    EXPECT_EQ(chart->formatAnnotationValue(2048.0f), formatChartNetworkRate(2048.0f, kUnits));
+    EXPECT_EQ(chart->axisLabelTemplates(), chartNetworkRateAxisTemplates(kUnits));
+
+    view.setCurrentPage(PerformanceView::Page::Memory);
+    EXPECT_EQ(view.memoryPage()->readouts()->readouts(), memoryReadouts(snapshot.memory, kUnits.bytes));
+    view.setCurrentPage(PerformanceView::Page::Disk);
+    EXPECT_EQ(view.diskPage()->readouts()->readouts(), diskReadouts(snapshot.disks, kUnits.bytes));
+}
+
+TEST(NetworkPerformancePage, SetDisplayUnitsBeforeTheFirstRefresh_NewChartsFormatInThem)
+{
+    NetworkPerformancePage page;
+    constexpr DisplayUnits kBits{.networkRates = NetworkRateUnits::BitsPerSecond};
+    page.setDisplayUnits(kBits);
+    page.recordSnapshot(populatedSnapshot());
+
+    page.refresh();
+
+    const auto* chart = page.adapterChart(0);
+    EXPECT_EQ(chart->formatValue(2048.0f), formatChartNetworkRate(2048.0f, kBits));
+    EXPECT_EQ(chart->formatAnnotationValue(2048.0f), formatChartNetworkRate(2048.0f, kBits));
+    EXPECT_EQ(chart->axisLabelTemplates(), chartNetworkRateAxisTemplates(kBits));
 }
