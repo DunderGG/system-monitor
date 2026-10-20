@@ -256,7 +256,7 @@ Implement Task Manager-style rolling charts as custom `QWidget` subclasses:
 
 Store small user preferences in a JSON settings file. It holds:
 
-- the refresh interval, from 0.5 to 10 seconds;
+- the refresh interval, from 0.5 to 10 seconds in steps of half a second;
 - the display units: binary (KiB) or decimal (KB) byte units, and network throughput in bytes or bits per second;
 - which dashboard panels are shown;
 - the log level.

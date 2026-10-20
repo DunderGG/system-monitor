@@ -38,9 +38,10 @@ struct SettingsReadResult
 
 /**
  * Reads settings from the JSON text of a settings file, one setting at a time
- * (DC-123). A setting that is missing keeps its default. A refresh interval
- * outside its limits takes the nearer limit, and any other value that is not
- * valid keeps its default. A key that is not a setting is ignored. Text that
+ * (DC-123). A setting that is missing keeps its default. A whole number of
+ * milliseconds that is not a refresh interval a user can choose takes the
+ * nearest that is (domain::nearestRefreshInterval()), and any other value that
+ * is not valid keeps its default. A key that is not a setting is ignored. Text that
  * is not a JSON object gives the defaults. Every value not used as it stood,
  * and every key ignored, is reported as a problem.
  */

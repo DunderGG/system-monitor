@@ -1,4 +1,5 @@
 #include <chrono>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -8,6 +9,7 @@
 #include "domain/network_sample.h"
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 
 using namespace sysmon::domain;
@@ -120,4 +122,31 @@ TEST(SystemSnapshot, DefaultConstruction_NoOptionalData)
     EXPECT_EQ(snapshot.health, SystemHealth{});
     EXPECT_FALSE(snapshot.processes.has_value());
     EXPECT_FALSE(snapshot.activity.has_value());
+}
+
+TEST(Settings, NearestRefreshInterval_NearestHalfSecondWithinTheLimits)
+{
+    using std::chrono::milliseconds;
+    struct Case
+    {
+        const char* name;
+        milliseconds interval;
+        milliseconds expected;
+    };
+    const std::vector<Case> cases{
+        {"the shortest", milliseconds{500}, milliseconds{500}},
+        {"a step", milliseconds{2500}, milliseconds{2500}},
+        {"the longest", milliseconds{10'000}, milliseconds{10'000}},
+        {"nearer the step below", milliseconds{1249}, milliseconds{1000}},
+        {"halfway rounds up", milliseconds{1250}, milliseconds{1500}},
+        {"nearer the step above", milliseconds{1300}, milliseconds{1500}},
+        {"below the shortest", milliseconds{100}, milliseconds{500}},
+        {"negative", milliseconds{-1000}, milliseconds{500}},
+        {"above the longest", milliseconds{10'249}, milliseconds{10'000}},
+        {"far above the longest", milliseconds::max(), milliseconds{10'000}},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        EXPECT_EQ(nearestRefreshInterval(testCase.interval), testCase.expected);
+    }
 }

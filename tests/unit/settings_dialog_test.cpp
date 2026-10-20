@@ -108,21 +108,19 @@ TEST(SettingsDialog, SetSettings_EachLogLevelAndUnit_SettingsReturnsIt)
     }
 }
 
-TEST(SettingsDialog, IntervalLeftAsShown_KeepsTheMillisecondsItWasGiven)
+TEST(SettingsDialog, IntervalTypedBetweenSteps_NearerStepReturnedAndShownWhenEditingEnds)
 {
-    const SettingsDialog dialog(Settings{.refreshInterval = milliseconds{1234}});
+    const SettingsDialog dialog(Settings{});
+    auto* spinBox = dialog.refreshIntervalSpinBox();
 
-    EXPECT_DOUBLE_EQ(dialog.refreshIntervalSpinBox()->value(), 1.2);
-    EXPECT_EQ(dialog.settings().refreshInterval, milliseconds{1234});
-}
+    spinBox->setValue(1.3);
+    const milliseconds beforeEditingEnds = dialog.settings().refreshInterval;
+    emit spinBox->editingFinished();
 
-TEST(SettingsDialog, IntervalChanged_ReturnsTheIntervalShown)
-{
-    const SettingsDialog dialog(Settings{.refreshInterval = milliseconds{1234}});
-
-    dialog.refreshIntervalSpinBox()->setValue(1.5);
-
+    EXPECT_EQ(beforeEditingEnds, milliseconds{1500});
+    EXPECT_DOUBLE_EQ(spinBox->value(), 1.5);
     EXPECT_EQ(dialog.settings().refreshInterval, milliseconds{1500});
+    EXPECT_DOUBLE_EQ(spinBox->singleStep(), 0.5);
 }
 
 TEST(SettingsDialog, IntervalUnderACommaLocale_ShownWithADecimalPoint)
@@ -136,7 +134,7 @@ TEST(SettingsDialog, IntervalUnderACommaLocale_ShownWithADecimalPoint)
     EXPECT_EQ(text, "2.5 s");
 }
 
-TEST(SettingsDialog, SetSettings_IntervalOutsideLimits_TakesTheNearerLimit)
+TEST(SettingsDialog, SetSettings_IntervalThatCannotBeChosen_ShowsTheNearestThatCan)
 {
     struct Case
     {
@@ -147,6 +145,7 @@ TEST(SettingsDialog, SetSettings_IntervalOutsideLimits_TakesTheNearerLimit)
     const std::array cases{
         Case{"BelowMinimum", milliseconds{100}, kMinRefreshInterval},
         Case{"AboveMaximum", milliseconds{20'000}, kMaxRefreshInterval},
+        Case{"BetweenSteps", milliseconds{1234}, milliseconds{1000}},
     };
     SettingsDialog dialog(Settings{});
 
@@ -154,15 +153,13 @@ TEST(SettingsDialog, SetSettings_IntervalOutsideLimits_TakesTheNearerLimit)
         SCOPED_TRACE(name);
         dialog.setSettings(Settings{.refreshInterval = interval});
         EXPECT_EQ(dialog.settings().refreshInterval, expected);
+        EXPECT_DOUBLE_EQ(dialog.refreshIntervalSpinBox()->value(), static_cast<double>(expected.count()) / 1000.0);
     }
 }
 
 TEST(SettingsDialog, RestoreDefaults_ShowsTheDefaultsAndStaysOpen)
 {
-    Settings settings = nonDefaultSettings();
-    // Shown as the default's 1.0 s, so only Restore Defaults makes it exactly 1,000 ms.
-    settings.refreshInterval = milliseconds{1040};
-    SettingsDialog dialog(settings);
+    SettingsDialog dialog(nonDefaultSettings());
     dialog.setAttribute(Qt::WA_DontShowOnScreen);
     dialog.show();
 

@@ -22,9 +22,10 @@ namespace sysmon::ui
  * defaults without closing the dialog. The dialog changes nothing itself:
  * whoever opened it reads settings() once it is accepted.
  *
- * The interval is shown to a tenth of a second. One that the user leaves as
- * shown keeps the value it was shown from, so a settings file's 1,234 ms is
- * not rewritten as 1,200 ms when only another setting changes.
+ * The interval is chosen in steps of half a second
+ * (domain::nearestRefreshInterval()): setSettings() shows a given interval as
+ * the nearest step, a value typed between two steps moves to the nearer one
+ * when editing ends, and settings() returns the step the spin box is nearest.
  *
  * Each combo box's items hold their enumerator, cast to int, as item data.
  */
@@ -55,7 +56,7 @@ public:
     [[nodiscard]] QDialogButtonBox* buttonBox() const;
 
 private:
-    // The interval the spin box shows, rounded to whole milliseconds.
+    // The interval that can be chosen nearest to the one the spin box shows.
     [[nodiscard]] std::chrono::milliseconds shownRefreshInterval() const;
 
     QDoubleSpinBox* m_refreshIntervalSpinBox{nullptr};
@@ -68,9 +69,6 @@ private:
     QCheckBox* m_networkPanelCheckBox{nullptr};
     QCheckBox* m_uptimePanelCheckBox{nullptr};
     QDialogButtonBox* m_buttonBox{nullptr};
-    // The interval setSettings() was last given, and what the spin box showed for it.
-    std::chrono::milliseconds m_givenRefreshInterval{domain::kDefaultRefreshInterval};
-    std::chrono::milliseconds m_givenRefreshIntervalShown{domain::kDefaultRefreshInterval};
 };
 
 } // namespace sysmon::ui

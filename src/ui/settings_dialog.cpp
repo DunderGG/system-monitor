@@ -55,10 +55,9 @@ constexpr std::array kNetworkRateUnitsItems{
 };
 
 constexpr double kMillisecondsPerSecond = 1000.0;
-// The spin box shows the interval to a tenth of a second and steps by half a
-// second, which reaches each of Process Explorer's update speeds.
+// One decimal shows every half-second step, which reaches each of Process
+// Explorer's update speeds.
 constexpr int kRefreshIntervalDecimals = 1;
-constexpr double kRefreshIntervalStep = 0.5;
 
 double toSeconds(std::chrono::milliseconds interval)
 {
@@ -119,9 +118,13 @@ SettingsDialog::SettingsDialog(const domain::Settings& settings, QWidget* parent
     m_refreshIntervalSpinBox->setLocale(QLocale::c());
     m_refreshIntervalSpinBox->setDecimals(kRefreshIntervalDecimals);
     m_refreshIntervalSpinBox->setRange(toSeconds(domain::kMinRefreshInterval), toSeconds(domain::kMaxRefreshInterval));
-    m_refreshIntervalSpinBox->setSingleStep(kRefreshIntervalStep);
+    m_refreshIntervalSpinBox->setSingleStep(toSeconds(domain::kRefreshIntervalStep));
     m_refreshIntervalSpinBox->setSuffix(" s");
-    m_refreshIntervalSpinBox->setToolTip("How often CPU, memory, disk and network use are read and shown");
+    m_refreshIntervalSpinBox->setToolTip(
+        "How often CPU, memory, disk and network use are read and shown, in steps of half a second");
+    // A value typed between two steps shows the step that OK would save.
+    connect(m_refreshIntervalSpinBox, &QDoubleSpinBox::editingFinished, this,
+            [this] { m_refreshIntervalSpinBox->setValue(toSeconds(shownRefreshInterval())); });
     m_logLevelComboBox = createComboBox(kLogLevelItems, this);
     m_logLevelComboBox->setToolTip("The least severe messages that the log file keeps");
 
@@ -177,11 +180,7 @@ SettingsDialog::SettingsDialog(const domain::Settings& settings, QWidget* parent
 
 void SettingsDialog::setSettings(const domain::Settings& settings)
 {
-    // The spin box keeps its value within the limits, and so does the interval it was given.
-    m_givenRefreshInterval =
-        std::clamp(settings.refreshInterval, domain::kMinRefreshInterval, domain::kMaxRefreshInterval);
-    m_refreshIntervalSpinBox->setValue(toSeconds(m_givenRefreshInterval));
-    m_givenRefreshIntervalShown = shownRefreshInterval();
+    m_refreshIntervalSpinBox->setValue(toSeconds(domain::nearestRefreshInterval(settings.refreshInterval)));
 
     selectValue(m_logLevelComboBox, settings.logLevel);
     selectValue(m_byteUnitsComboBox, settings.displayUnits.bytes);
@@ -196,9 +195,8 @@ void SettingsDialog::setSettings(const domain::Settings& settings)
 
 domain::Settings SettingsDialog::settings() const
 {
-    const std::chrono::milliseconds shownInterval = shownRefreshInterval();
     return domain::Settings{
-        .refreshInterval = shownInterval == m_givenRefreshIntervalShown ? m_givenRefreshInterval : shownInterval,
+        .refreshInterval = shownRefreshInterval(),
         .displayUnits =
             {
                 .bytes = selectedValue<domain::ByteUnits>(m_byteUnitsComboBox),
@@ -218,7 +216,8 @@ domain::Settings SettingsDialog::settings() const
 
 std::chrono::milliseconds SettingsDialog::shownRefreshInterval() const
 {
-    return std::chrono::milliseconds{std::lround(m_refreshIntervalSpinBox->value() * kMillisecondsPerSecond)};
+    return domain::nearestRefreshInterval(
+        std::chrono::milliseconds{std::lround(m_refreshIntervalSpinBox->value() * kMillisecondsPerSecond)});
 }
 
 QDoubleSpinBox* SettingsDialog::refreshIntervalSpinBox() const

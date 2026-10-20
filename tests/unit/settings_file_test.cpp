@@ -133,7 +133,7 @@ TEST(SettingsFile, ParseSettings_MissingSettings_KeepTheirDefaults)
     EXPECT_TRUE(partial.problems.empty());
 }
 
-TEST(SettingsFile, ParseSettings_RefreshInterval_OutsideTheLimitsTakesTheNearerLimit)
+TEST(SettingsFile, ParseSettings_RefreshInterval_TakesTheNearestThatCanBeChosen)
 {
     struct Case
     {
@@ -150,6 +150,7 @@ TEST(SettingsFile, ParseSettings_RefreshInterval_OutsideTheLimitsTakesTheNearerL
         {"zero", R"({"refreshIntervalMs": 0})", milliseconds{500}, {"refreshIntervalMs"}},
         {"negative", R"({"refreshIntervalMs": -1000})", milliseconds{500}, {"refreshIntervalMs"}},
         {"above the maximum", R"({"refreshIntervalMs": 10001})", milliseconds{10'000}, {"refreshIntervalMs"}},
+        {"between two steps", R"({"refreshIntervalMs": 1234})", milliseconds{1000}, {"refreshIntervalMs"}},
         {"beyond 64-bit signed",
          R"({"refreshIntervalMs": 18446744073709551615})",
          milliseconds{10'000},
@@ -164,6 +165,10 @@ TEST(SettingsFile, ParseSettings_RefreshInterval_OutsideTheLimitsTakesTheNearerL
         EXPECT_EQ(result.settings.refreshInterval, expected);
         EXPECT_EQ(problemKeys(result), keys);
     }
+    const SettingsReadResult betweenSteps = parseSettings(R"({"refreshIntervalMs": 1234})");
+    ASSERT_EQ(betweenSteps.problems.size(), 1u);
+    EXPECT_EQ(betweenSteps.problems.front().description,
+              "refreshIntervalMs is 1234, not a multiple of 500; using 1000");
 }
 
 TEST(SettingsFile, ParseSettings_InvalidValue_KeepsItsDefaultAndIsReported)

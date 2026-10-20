@@ -177,13 +177,17 @@ void readRefreshInterval(const json& value, std::chrono::milliseconds& interval,
                                        : value.get<std::int64_t>();
     const std::int64_t minimum = domain::kMinRefreshInterval.count();
     const std::int64_t maximum = domain::kMaxRefreshInterval.count();
-    const std::int64_t used = std::clamp(requested, minimum, maximum);
-    if (used != requested) {
+    const std::chrono::milliseconds used = domain::nearestRefreshInterval(std::chrono::milliseconds{requested});
+    if (requested < minimum || requested > maximum) {
         report(problems, kRefreshIntervalKey,
                std::format("{} is {}, outside {} to {}; using {}", kRefreshIntervalKey, describe(value), minimum,
-                           maximum, used));
+                           maximum, used.count()));
+    } else if (used.count() != requested) {
+        report(problems, kRefreshIntervalKey,
+               std::format("{} is {}, not a multiple of {}; using {}", kRefreshIntervalKey, describe(value),
+                           domain::kRefreshIntervalStep.count(), used.count()));
     }
-    interval = std::chrono::milliseconds{used};
+    interval = used;
 }
 
 void readDisplayUnits(const json& value, domain::DisplayUnits& units, std::vector<SettingsProblem>& problems)

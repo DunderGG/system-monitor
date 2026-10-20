@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 
 namespace sysmon::domain
@@ -61,17 +62,39 @@ enum class LogLevel
     Off,
 };
 
-/** The shortest and the longest refresh interval a user can choose, and the default. */
+/**
+ * The shortest and the longest refresh interval a user can choose, the step
+ * between the intervals that can be chosen, and the default.
+ */
 inline constexpr std::chrono::milliseconds kMinRefreshInterval{500};
 inline constexpr std::chrono::milliseconds kMaxRefreshInterval{10'000};
+inline constexpr std::chrono::milliseconds kRefreshIntervalStep{500};
 inline constexpr std::chrono::milliseconds kDefaultRefreshInterval{1000};
+
+static_assert(kMinRefreshInterval % kRefreshIntervalStep == std::chrono::milliseconds::zero() &&
+                  kMaxRefreshInterval % kRefreshIntervalStep == std::chrono::milliseconds::zero() &&
+                  kDefaultRefreshInterval % kRefreshIntervalStep == std::chrono::milliseconds::zero(),
+              "the limits and the default are intervals that can be chosen");
+
+/**
+ * Returns the refresh interval that can be chosen nearest to interval: the
+ * nearest multiple of kRefreshIntervalStep, a half step rounded up, from
+ * kMinRefreshInterval to kMaxRefreshInterval (DC-123).
+ */
+[[nodiscard]] constexpr std::chrono::milliseconds nearestRefreshInterval(std::chrono::milliseconds interval)
+{
+    // Within the limits first, which are multiples of the step, so the rounding cannot leave them.
+    const std::chrono::milliseconds clamped = std::clamp(interval, kMinRefreshInterval, kMaxRefreshInterval);
+    return (clamped + kRefreshIntervalStep / 2) / kRefreshIntervalStep * kRefreshIntervalStep;
+}
 
 /**
  * The user's preferences, which persistence reads from and writes to the
  * settings file (DC-123). Default-constructed, they are what the monitor does
  * without a settings file.
  * refreshInterval — how often the fast collectors are sampled and a snapshot
- *                   is emitted, from kMinRefreshInterval to kMaxRefreshInterval.
+ *                   is emitted: a multiple of kRefreshIntervalStep from
+ *                   kMinRefreshInterval to kMaxRefreshInterval.
  */
 struct Settings
 {
