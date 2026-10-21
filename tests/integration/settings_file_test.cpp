@@ -41,7 +41,7 @@ std::ptrdiff_t entryCount(const std::filesystem::path& directory)
 TEST(SettingsFileIntegration, SaveThenLoad_NewDirectory_ReadsTheSettingsBack)
 {
     const TemporaryDirectory directory;
-    const auto path = directory.path() / "System Monitor" / "settings.json";
+    const auto path = directory.path() / "Verdandi" / "settings.json";
 
     const auto saveError = saveSettingsFile(path, nonDefaultSettings());
     const auto loaded = loadSettingsFile(path);
@@ -107,9 +107,9 @@ TEST(SettingsFileIntegration, LoadSettingsFile_Directory_GivesTheDefaultsAndOneP
 TEST(SettingsFileIntegration, SaveSettingsFile_FileInPlaceOfTheDirectory_ReturnsAnError)
 {
     const TemporaryDirectory directory;
-    writeFile(directory.path() / "System Monitor", "a file, not a directory");
+    writeFile(directory.path() / "Verdandi", "a file, not a directory");
 
-    const auto saveError = saveSettingsFile(directory.path() / "System Monitor" / "settings.json", Settings{});
+    const auto saveError = saveSettingsFile(directory.path() / "Verdandi" / "settings.json", Settings{});
 
     EXPECT_TRUE(saveError.has_value());
 }

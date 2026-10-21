@@ -12,7 +12,7 @@ namespace sysmon::app
 {
 
 /** Name of the logger configureLogging() installs as the default. */
-inline constexpr std::string_view kApplicationLoggerName = "system_monitor";
+inline constexpr std::string_view kApplicationLoggerName = "verdandi";
 
 /**
  * Returns the level that name names: trace, debug, info, warn, error,

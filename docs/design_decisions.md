@@ -130,6 +130,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-123](#dc-123): Settings: one JSON file, read one setting at a time, with its types in `domain`
   - [DC-124](#dc-124): Settings dialog: a window-modal `QDialog` from the File menu, which edits a copy and changes nothing until OK
   - [DC-127](#dc-127): Settings at startup: one file in the roaming folder, read before the logger, applied by `app` and saved on each change
+  - [DC-131](#dc-131): The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
@@ -1239,6 +1240,19 @@ The settings file and the settings dialog: what the file holds, how it is read a
 **Rationale:** Windows keeps a user's settings in the roaming folder, which follows the profile, and data that belongs to one machine, such as the log, in the local one. Reading first gives the file's level to every message; it is why reading returns problems rather than logging them ([DC-123](#dc-123)). Rewriting a file with problems at startup would discard a mistake the user could still correct. The option is for one session of debugging, and applying the level only when it changes keeps the option's level while other settings change. Writing a few hundred bytes takes no thread of its own. Slow collectors faster than the tick would enumerate processes for snapshots that are never sent, the largest cost a longer interval is chosen to save.
 
 **History:** Phase 6, settings at startup.
+
+---
+
+<a id="dc-131"></a>
+### DC-131: The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name
+
+**Decision:** `main.cpp` names the application "Verdandi" and gives it no organization name, so Qt's `AppDataLocation` is `%APPDATA%\Verdandi`, which holds `settings.json`, and its `AppLocalDataLocation` is `%LOCALAPPDATA%\Verdandi`, which holds `verdandi.log`. Nothing reads or moves a settings file left in the folder of the old name, `%APPDATA%\System Monitor\System Monitor`.
+
+**Rationale:** Qt puts an organization's folder above the application's, which suits a vendor of several applications. This project has one, so a folder named after its author would hold only it, as `%APPDATA%\System Monitor\System Monitor` did. Qt has no default organization name, and on Windows leaves the level out when the name is empty. No release had shipped before the rename, so the only files in the old folders were developers' own, and code to migrate them would serve no user.
+
+**Consequences:** The organization name is part of where the files are: setting one later moves them, and the monitor would then need to read the old folder once.
+
+**History:** General, the rename to Verdandi (the folders).
 
 ---
 

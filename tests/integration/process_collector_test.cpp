@@ -159,7 +159,7 @@ TEST(ProcessCollectorIntegration, RealHost_FileWritten_ReportsIoWriteRateForThis
 
     // Write 1 MiB to a file so the process's write transfer count grows.
     const auto path =
-        std::filesystem::temp_directory_path() / ("sysmon_io_rate_test_" + std::to_string(::GetCurrentProcessId()));
+        std::filesystem::temp_directory_path() / ("verdandi_io_rate_test_" + std::to_string(::GetCurrentProcessId()));
     {
         std::ofstream file(path, std::ios::binary);
         ASSERT_TRUE(file.is_open());

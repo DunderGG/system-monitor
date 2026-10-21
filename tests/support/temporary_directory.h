@@ -23,7 +23,7 @@ public:
         std::error_code error;
         m_path = std::filesystem::temp_directory_path(error);
         EXPECT_FALSE(error) << error.message();
-        std::wstring name = L"sysmon_settings_";
+        std::wstring name = L"verdandi_settings_";
         name += static_cast<wchar_t>(0x0416);
         m_path /= name;
         m_path += ::testing::UnitTest::GetInstance()->current_test_info()->name();

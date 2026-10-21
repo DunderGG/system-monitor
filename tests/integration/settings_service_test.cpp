@@ -29,7 +29,7 @@ using sysmon::tests::TemporaryDirectory;
 TEST(SettingsServiceIntegration, Change_AppliesTheIntervalAndSavesTheSettings)
 {
     const TemporaryDirectory directory;
-    const auto path = directory.path() / "System Monitor" / "settings.json";
+    const auto path = directory.path() / "Verdandi" / "settings.json";
     const ScopedLogCapture logCapture;
     SamplingScheduler scheduler;
     SettingsService service(path, Settings{}, scheduler);

@@ -131,7 +131,7 @@ private:
         systemDirectory.resize(::GetSystemDirectoryW(systemDirectory.data(), MAX_PATH));
         m_imagePath = systemDirectory + L"\\cmd.exe";
         m_commandLine =
-            L"\"" + m_imagePath + L"\" /c exit sysmon-test-child-" + std::to_wstring(::GetCurrentProcessId());
+            L"\"" + m_imagePath + L"\" /c exit verdandi-test-child-" + std::to_wstring(::GetCurrentProcessId());
 
         STARTUPINFOW startupInfo{};
         startupInfo.cb = sizeof(STARTUPINFOW);

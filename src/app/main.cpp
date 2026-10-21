@@ -74,8 +74,9 @@ int main(int argc, char* argv[])
 {
     QApplication application(argc, argv);
 
-    QCoreApplication::setApplicationName("System Monitor");
-    QCoreApplication::setOrganizationName("System Monitor");
+    // With no organization name, Qt's folders for the settings and the log are
+    // %APPDATA%\Verdandi and %LOCALAPPDATA%\Verdandi (DC-131).
+    QCoreApplication::setApplicationName("Verdandi");
 
     QCommandLineParser commandLineParser;
     commandLineParser.setApplicationDescription("A lightweight Windows desktop system monitor");
@@ -108,7 +109,7 @@ int main(int argc, char* argv[])
 
     const QString logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     QDir().mkpath(logDirectory);
-    const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "system_monitor.log";
+    const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "verdandi.log";
     const sysmon::domain::LogLevel logLevel = commandLineLogLevel.value_or(settings.logLevel);
     sysmon::app::configureLogging(logFilePath, sysmon::app::toSpdlogLevel(logLevel));
     spdlog::info("Application started with log level '{}' from {}", sysmon::app::logLevelName(logLevel),

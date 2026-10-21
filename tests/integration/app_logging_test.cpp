@@ -20,7 +20,7 @@ TEST(AppLoggingIntegration, ConfigureLogging_PathOutsideAnsiCodePage_WritesLogFi
     // U+65E5 U+5FD7 (CJK) and U+0416 (Cyrillic) cannot be represented in Western code
     // pages such as 1252. Without a UTF-8 process code page, path::string() inside
     // configureLogging throws. Written as code units so the source stays ASCII.
-    std::wstring directoryName = L"sysmon_log_";
+    std::wstring directoryName = L"verdandi_log_";
     directoryName += static_cast<wchar_t>(0x65E5);
     directoryName += static_cast<wchar_t>(0x5FD7);
     directoryName += static_cast<wchar_t>(0x0416);
@@ -29,7 +29,7 @@ TEST(AppLoggingIntegration, ConfigureLogging_PathOutsideAnsiCodePage_WritesLogFi
     ASSERT_FALSE(error) << error.message();
     std::filesystem::create_directories(directory, error);
     ASSERT_FALSE(error) << error.message();
-    const auto logFilePath = directory / "system_monitor.log";
+    const auto logFilePath = directory / "verdandi.log";
     const auto previousLogger = spdlog::default_logger();
 
     sysmon::app::configureLogging(logFilePath, spdlog::level::info);
