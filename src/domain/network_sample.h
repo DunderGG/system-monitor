@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -131,4 +131,4 @@ struct NetworkSample
     bool isHidden{false};
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

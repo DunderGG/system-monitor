@@ -12,7 +12,7 @@
 
 #include "platform/windows/unicast_address.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -92,4 +92,4 @@ private:
     std::optional<std::chrono::steady_clock::time_point> m_lastRefresh;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -3,7 +3,7 @@
 #include "domain/process_info.h"
 #include "platform/windows/process_identity_cache.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -32,4 +32,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] ProcessDetailsReader skippingNeverOpenedProcesses(ProcessDetailsReader reader);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

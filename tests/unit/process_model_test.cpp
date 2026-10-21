@@ -18,10 +18,10 @@
 // ProcessModel: rows added, kept and removed as process lists arrive, and the
 // signals that report each change.
 
-using namespace sysmon::domain;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::tests;
 using namespace std::chrono_literals;
-using sysmon::ui::ProcessModel;
+using verdandi::ui::ProcessModel;
 
 namespace
 {

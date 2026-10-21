@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** Returns true if this process's token is elevated, false if it is not or cannot be read. */
@@ -16,4 +16,4 @@ inline bool isCurrentProcessElevated()
     return elevation.TokenIsElevated != 0;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

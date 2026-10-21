@@ -17,7 +17,7 @@
 #include "domain/process_info.h"
 #include "domain/settings.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -203,4 +203,4 @@ private:
     std::array<QIcon, domain::kProcessDetailsStatusCount> m_detailsIcons;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

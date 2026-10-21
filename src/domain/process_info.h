@@ -8,7 +8,7 @@
 
 #include "process_identity.h"
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -105,4 +105,4 @@ struct ProcessInfo
     }
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

@@ -14,7 +14,7 @@
 #include "monitoring/collector.h"
 #include "support/snapshots.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -93,4 +93,4 @@ private:
     std::thread::id m_lastThread;
 };
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

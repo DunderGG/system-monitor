@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -19,4 +19,4 @@ struct DiskSample
     float usagePercent{0.0f};
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

@@ -10,7 +10,7 @@
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -123,4 +123,4 @@ std::vector<std::size_t> DiskPerformancePage::volumeColorSlots() const
     return colorSlots;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

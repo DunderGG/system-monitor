@@ -15,7 +15,7 @@
 // formatIpAddress() calls inet_ntop, a Windows API, so its tests are
 // integration tests. They need no particular host state.
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 namespace
 {

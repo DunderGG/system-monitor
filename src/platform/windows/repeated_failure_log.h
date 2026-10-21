@@ -6,7 +6,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -53,4 +53,4 @@ private:
     uint64_t m_consecutiveFailures{0};
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

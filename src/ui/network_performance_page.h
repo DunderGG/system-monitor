@@ -16,7 +16,7 @@
 class QLabel;
 class QScrollArea;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ReadoutGrid;
@@ -71,4 +71,4 @@ private:
     std::optional<std::vector<domain::NetworkSample>> m_latest;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

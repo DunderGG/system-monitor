@@ -14,7 +14,7 @@
 #include "ui/readout_grid.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -192,4 +192,4 @@ QString NetworkPerformancePage::placeholderText() const
     return m_placeholderLabel->text();
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

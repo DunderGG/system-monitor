@@ -15,7 +15,7 @@
 class QGridLayout;
 class QLabel;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ResourceCard;
@@ -126,4 +126,4 @@ private:
     domain::ConnectivityStatus m_latestConnectivity;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

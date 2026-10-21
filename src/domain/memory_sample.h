@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -38,4 +38,4 @@ struct MemorySample
     std::optional<uint64_t> nonPagedPoolBytes{};
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

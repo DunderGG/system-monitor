@@ -6,8 +6,8 @@
 #include "domain/process_info.h"
 #include "platform/windows/process_access_policy.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 TEST(ProcessAccessPolicy, IsNeverOpenedProcess_LsassCsrssAndNamelessProcessesButIdle)
 {

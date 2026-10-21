@@ -8,7 +8,7 @@
 #include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -168,4 +168,4 @@ std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>&
     };
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

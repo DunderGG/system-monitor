@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 ProcessIdentityCache::ProcessIdentityCache(ProcessDetailsReader reader) : m_reader(std::move(reader)) {}
@@ -35,4 +35,4 @@ std::size_t ProcessIdentityCache::size() const
     return m_entries.size();
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -5,8 +5,8 @@
 #include "domain/network_sample.h"
 #include "platform/windows/adapter_type_mapping.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 TEST(AdapterTypeMapping, ToAdapterType_PhysicalMediumFirstThenInterfaceType)
 {
@@ -15,7 +15,7 @@ TEST(AdapterTypeMapping, ToAdapterType_PhysicalMediumFirstThenInterfaceType)
         const char* name;
         IFTYPE interfaceType;
         NDIS_PHYSICAL_MEDIUM medium;
-        sysmon::domain::AdapterType expected;
+        verdandi::domain::AdapterType expected;
     };
     const std::array cases{
         Case{"Ethernet medium", IF_TYPE_ETHERNET_CSMACD, NdisPhysicalMedium802_3, AdapterType::Ethernet},

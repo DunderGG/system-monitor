@@ -14,7 +14,7 @@
 #include "domain/network_sample.h"
 #include "ui/performance_readouts.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 // Pure presentation helpers for the Network tab, and the adapter texts the
@@ -133,4 +133,4 @@ adapterDetailReadouts(const std::optional<domain::NetworkSample>& adapter,
 connectivityReadouts(const domain::ConnectivityStatus& status,
                      const std::optional<std::vector<domain::NetworkProfile>>& profiles);
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

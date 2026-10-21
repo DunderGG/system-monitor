@@ -8,13 +8,13 @@
 #include <QMetaType>
 #include <spdlog/spdlog.h>
 
-namespace sysmon::monitoring
+namespace verdandi::monitoring
 {
 
 SamplingScheduler::SamplingScheduler(std::chrono::milliseconds interval, QObject* parent)
     : QObject(parent), m_interval(interval)
 {
-    qRegisterMetaType<sysmon::domain::SystemSnapshot>();
+    qRegisterMetaType<verdandi::domain::SystemSnapshot>();
 }
 
 SamplingScheduler::~SamplingScheduler()
@@ -459,4 +459,4 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
     spdlog::info("SamplingScheduler slow-collector thread stopped");
 }
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring

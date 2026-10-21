@@ -7,7 +7,7 @@
 #include "domain/memory_sample.h"
 #include "ui/performance_page.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ReadoutGrid;
@@ -46,4 +46,4 @@ private:
     std::optional<domain::MemorySample> m_latest;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

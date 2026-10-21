@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <chrono>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -106,4 +106,4 @@ struct Settings
     bool operator==(const Settings&) const = default;
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

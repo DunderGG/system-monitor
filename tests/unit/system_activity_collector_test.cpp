@@ -4,7 +4,7 @@
 #include "platform/windows/performance_info_reader.h"
 #include "platform/windows/system_activity_collector.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(SystemActivityCollector, CalculateSystemActivity_CopiesCounts)
 {

@@ -3,7 +3,7 @@
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -32,4 +32,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] domain::ProcessTerminationResult terminateOwnedProcess(const domain::ProcessInfo& process);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

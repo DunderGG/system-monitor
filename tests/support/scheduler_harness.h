@@ -11,7 +11,7 @@
 #include "domain/system_snapshot.h"
 #include "monitoring/sampling_scheduler.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -53,4 +53,4 @@ waitForSnapshot(monitoring::SamplingScheduler& scheduler,
     return wanted;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

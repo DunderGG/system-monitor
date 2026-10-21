@@ -18,12 +18,12 @@
 #include "platform/windows/network_profile_collector.h"
 #include "support/scheduler_harness.h"
 
-using namespace sysmon::domain;
-using sysmon::monitoring::evaluateHealth;
-using sysmon::monitoring::HealthThresholds;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::platform::NetworkProfileCollector;
-using sysmon::tests::waitForSnapshot;
+using namespace verdandi::domain;
+using verdandi::monitoring::evaluateHealth;
+using verdandi::monitoring::HealthThresholds;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::platform::NetworkProfileCollector;
+using verdandi::tests::waitForSnapshot;
 
 namespace
 {
@@ -52,7 +52,7 @@ TEST(SchedulerPipelineIntegration, AppCollectors_SnapshotCarriesEveryField)
     const bool expectNetworkNames = networkListManagerAnswers();
     SamplingScheduler scheduler(std::chrono::milliseconds{50});
     scheduler.setSlowInterval(std::chrono::milliseconds{200});
-    sysmon::app::registerSystemCollectors(scheduler);
+    verdandi::app::registerSystemCollectors(scheduler);
     const auto started = std::chrono::steady_clock::now();
 
     // The first CPU sample only sets the baseline, and a tick in which some

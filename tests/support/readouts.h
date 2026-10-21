@@ -10,7 +10,7 @@
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /** Prints a readout in a failed expectation as {name, value, toolTip}. GoogleTest finds it by argument lookup. */
@@ -23,9 +23,9 @@ inline void PrintTo(const Readout& readout, std::ostream* stream)
     *stream << "}";
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** Returns the value of the readout called name, failing the test if there is none. */
@@ -49,4 +49,4 @@ inline void expectLabelsFit(const ui::ReadoutGrid& grid)
     }
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

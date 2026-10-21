@@ -8,7 +8,7 @@
 
 #include "domain/settings.h"
 
-namespace sysmon::persistence
+namespace verdandi::persistence
 {
 
 /** The format version that serializeSettings() writes as the file's "version". */
@@ -63,4 +63,4 @@ struct SettingsReadResult
 [[nodiscard]] std::optional<std::string> saveSettingsFile(const std::filesystem::path& path,
                                                           const domain::Settings& settings);
 
-} // namespace sysmon::persistence
+} // namespace verdandi::persistence

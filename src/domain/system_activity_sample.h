@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -16,4 +16,4 @@ struct SystemActivitySample
     uint32_t handleCount{0};
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

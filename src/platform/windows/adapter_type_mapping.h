@@ -7,7 +7,7 @@
 
 #include "domain/network_sample.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Pure conversion from GetIfTable2 interface types to domain types.
@@ -24,4 +24,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] domain::AdapterType toAdapterType(IFTYPE interfaceType, NDIS_PHYSICAL_MEDIUM physicalMedium) noexcept;
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

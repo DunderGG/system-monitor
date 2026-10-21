@@ -18,9 +18,9 @@
 #include "platform/windows/network_profile_collector.h"
 #include "support/fake_subscription.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
-using sysmon::tests::FakeSubscription;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
+using verdandi::tests::FakeSubscription;
 using namespace std::chrono_literals;
 
 namespace

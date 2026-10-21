@@ -18,7 +18,7 @@
 #include "platform/windows/connectivity_hint_mapping.h"
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -197,4 +197,4 @@ void ConnectivityCollector::storeNotifiedStatus(domain::ConnectivityStatus statu
     }
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

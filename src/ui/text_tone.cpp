@@ -4,7 +4,7 @@
 #include <QFont>
 #include <QPalette>
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -106,4 +106,4 @@ void TonedLabel::applyTone()
     }
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

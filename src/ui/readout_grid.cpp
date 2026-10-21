@@ -16,7 +16,7 @@
 
 #include "ui/text_tone.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -374,4 +374,4 @@ void ReadoutGrid::setToolTip(std::size_t index, const QString& toolTip)
     m_valueLabels[index]->setToolTip(shown);
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

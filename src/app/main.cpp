@@ -30,29 +30,29 @@ namespace
 // they are destroyed when it returns, before main() shuts the logger down:
 // their teardown can log, and spdlog's free functions dereference the default
 // logger without a check once spdlog::shutdown() has dropped it.
-int runMonitor(QApplication& application, const sysmon::domain::Settings& settings,
+int runMonitor(QApplication& application, const verdandi::domain::Settings& settings,
                const std::filesystem::path& settingsPath)
 {
-    sysmon::monitoring::SamplingScheduler scheduler;
-    sysmon::app::registerSystemCollectors(scheduler);
-    sysmon::app::applyRefreshInterval(scheduler, settings.refreshInterval);
-    sysmon::app::SettingsService settingsService(settingsPath, settings, scheduler);
+    verdandi::monitoring::SamplingScheduler scheduler;
+    verdandi::app::registerSystemCollectors(scheduler);
+    verdandi::app::applyRefreshInterval(scheduler, settings.refreshInterval);
+    verdandi::app::SettingsService settingsService(settingsPath, settings, scheduler);
     // Sampling pauses while the system sleeps, and no rate spans the sleep (DC-129).
-    sysmon::app::PowerEventFilter powerEventFilter(scheduler);
+    verdandi::app::PowerEventFilter powerEventFilter(scheduler);
     application.installNativeEventFilter(&powerEventFilter);
 
-    sysmon::ui::MainWindow mainWindow;
+    verdandi::ui::MainWindow mainWindow;
     mainWindow.setSettings(settings);
-    mainWindow.processesView()->setProcessTerminator(sysmon::platform::terminateOwnedProcess);
-    if (const auto monitor = sysmon::platform::currentProcessIdentity()) {
+    mainWindow.processesView()->setProcessTerminator(verdandi::platform::terminateOwnedProcess);
+    if (const auto monitor = verdandi::platform::currentProcessIdentity()) {
         mainWindow.processesView()->setMonitorIdentity(*monitor);
     }
 
-    QObject::connect(&scheduler, &sysmon::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
-                     &sysmon::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);
+    QObject::connect(&scheduler, &verdandi::monitoring::SamplingScheduler::snapshotReady, &mainWindow,
+                     &verdandi::ui::MainWindow::onSnapshotReady, Qt::QueuedConnection);
     // The window applies what its views show; the service applies the rest and saves the file (DC-127).
-    QObject::connect(&mainWindow, &sysmon::ui::MainWindow::settingsChanged, &mainWindow,
-                     [&settingsService, &mainWindow](const sysmon::domain::Settings& changed) {
+    QObject::connect(&mainWindow, &verdandi::ui::MainWindow::settingsChanged, &mainWindow,
+                     [&settingsService, &mainWindow](const verdandi::domain::Settings& changed) {
                          if (const auto error = settingsService.change(changed)) {
                              mainWindow.showSettingsNotSaved(QString::fromStdWString(settingsService.path().wstring()),
                                                              QString::fromStdString(*error));
@@ -89,9 +89,9 @@ int main(int argc, char* argv[])
     });
     commandLineParser.process(application);
 
-    std::optional<sysmon::domain::LogLevel> commandLineLogLevel;
+    std::optional<verdandi::domain::LogLevel> commandLineLogLevel;
     if (commandLineParser.isSet("log-level")) {
-        commandLineLogLevel = sysmon::app::parseLogLevel(commandLineParser.value("log-level").toStdString());
+        commandLineLogLevel = verdandi::app::parseLogLevel(commandLineParser.value("log-level").toStdString());
         if (!commandLineLogLevel) {
             commandLineParser.showHelp(EXIT_FAILURE);
         }
@@ -104,17 +104,18 @@ int main(int argc, char* argv[])
     const QString settingsDirectory =
         QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
     const auto settingsPath = std::filesystem::path{settingsDirectory.toStdWString()} / "settings.json";
-    const auto loadedSettings = sysmon::persistence::loadSettingsFile(settingsPath);
-    const sysmon::domain::Settings settings = loadedSettings ? loadedSettings->settings : sysmon::domain::Settings{};
+    const auto loadedSettings = verdandi::persistence::loadSettingsFile(settingsPath);
+    const verdandi::domain::Settings settings =
+        loadedSettings ? loadedSettings->settings : verdandi::domain::Settings{};
 
     const QString logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     QDir().mkpath(logDirectory);
     const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "verdandi.log";
-    const sysmon::domain::LogLevel logLevel = commandLineLogLevel.value_or(settings.logLevel);
-    sysmon::app::configureLogging(logFilePath, sysmon::app::toSpdlogLevel(logLevel));
-    spdlog::info("Application started with log level '{}' from {}", sysmon::app::logLevelName(logLevel),
+    const verdandi::domain::LogLevel logLevel = commandLineLogLevel.value_or(settings.logLevel);
+    verdandi::app::configureLogging(logFilePath, verdandi::app::toSpdlogLevel(logLevel));
+    spdlog::info("Application started with log level '{}' from {}", verdandi::app::logLevelName(logLevel),
                  commandLineLogLevel ? "the --log-level option" : "the settings");
-    sysmon::app::logSettingsRead(settingsPath, loadedSettings);
+    verdandi::app::logSettingsRead(settingsPath, loadedSettings);
 
     const int exitCode = runMonitor(application, settings, settingsPath);
 

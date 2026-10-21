@@ -17,7 +17,7 @@ These guidelines draw from the [C++ Core Guidelines](https://isocpp.github.io/Cp
 | Constants (`constexpr`, `const`) | `PascalCase` with a `k` prefix | `kMaxBufferSize`, `kDefaultInterval` |
 | Enum values | `PascalCase` | `ConnectivityLevel::InternetAccess` |
 | Macros (avoid if possible) | `UPPER_SNAKE_CASE` | `SYSTEM_MONITOR_VERSION` |
-| Namespaces | `lowercase` | `sysmon`, `sysmon::platform`, `sysmon::monitoring` |
+| Namespaces | `lowercase` | `verdandi`, `verdandi::platform`, `verdandi::monitoring` |
 | File names | `snake_case` | `cpu_collector.h`, `ring_buffer.h`, `system_snapshot.h` |
 | Test files | `snake_case` + `_test` suffix | `ring_buffer_test.cpp`, `cpu_collector_test.cpp` |
 
@@ -52,11 +52,11 @@ These guidelines draw from the [C++ Core Guidelines](https://isocpp.github.io/Cp
 #include "domain/cpu_sample.h"
 #include "domain/process_identity.h"
 
-namespace sysmon::monitoring {
+namespace verdandi::monitoring {
 
 // ...
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring
 ```
 
 Rules:
@@ -94,20 +94,20 @@ Small helper types (e.g., a struct used only by one class) may live in the same 
 
 ## Namespace structure
 
-All project code lives under the `sysmon` namespace, with sub-namespaces matching the module structure:
+All project code lives under the `verdandi` namespace, with sub-namespaces matching the module structure:
 
 ```cpp
-sysmon::domain       // Data types, process identity, metrics, RingBuffer container
-sysmon::monitoring   // Collectors, scheduler, health evaluation, snapshots
-sysmon::platform     // Windows API wrappers
-sysmon::persistence  // Settings, future data storage
-sysmon::ui           // Qt widgets, view models, charts
+verdandi::domain       // Data types, process identity, metrics, RingBuffer container
+verdandi::monitoring   // Collectors, scheduler, health evaluation, snapshots
+verdandi::platform     // Windows API wrappers
+verdandi::persistence  // Settings, future data storage
+verdandi::ui           // Qt widgets, view models, charts
 ```
 
 Rules:
 - Never use `using namespace` in headers.
-- `using namespace` is allowed in `.cpp` files for the file's own namespace (e.g., `using namespace sysmon::monitoring;` inside `sampling_scheduler.cpp`).
-- Test files have no namespace of their own, so they may use `using namespace` for the project namespaces under test (e.g. `using namespace sysmon::platform;` in `network_collector_test.cpp`). Standard library namespaces still use targeted `using` declarations.
+- `using namespace` is allowed in `.cpp` files for the file's own namespace (e.g., `using namespace verdandi::monitoring;` inside `sampling_scheduler.cpp`).
+- Test files have no namespace of their own, so they may use `using namespace` for the project namespaces under test (e.g. `using namespace verdandi::platform;` in `network_collector_test.cpp`). Standard library namespaces still use targeted `using` declarations.
 - Do not use `using namespace std;` anywhere. Qualify standard library names explicitly or use targeted `using` declarations (e.g., `using std::chrono::steady_clock;`).
 
 ---
@@ -333,7 +333,7 @@ All Windows API calls must be isolated in the `src/platform/windows/` module. No
 ### Rules
 
 1. **Define `WIN32_LEAN_AND_MEAN` and `NOMINMAX`** before including `<Windows.h>` (or define them project-wide in CMake). `NOMINMAX` prevents the Windows `min`/`max` macros from conflicting with `<algorithm>`.
-2. **Convert Windows types to domain types at the boundary.** A Windows wrapper returns `sysmon::domain::CpuSample`, never a `FILETIME` or `SYSTEM_PROCESS_INFORMATION`. A header that another module or `tests/unit/` includes, such as a collector's, includes no Windows headers either, so that the SDK's macros and declarations do not reach that module: `cpu_collector.h` declares its tick counts as `uint64_t`, and `cpu_collector.cpp` converts the `FILETIME`s. A header that needs Windows types, such as a mapping function's or `process_handle.h`, is internal: only `platform/windows` sources, `tests/platform/` and `tests/integration/` include it.
+2. **Convert Windows types to domain types at the boundary.** A Windows wrapper returns `verdandi::domain::CpuSample`, never a `FILETIME` or `SYSTEM_PROCESS_INFORMATION`. A header that another module or `tests/unit/` includes, such as a collector's, includes no Windows headers either, so that the SDK's macros and declarations do not reach that module: `cpu_collector.h` declares its tick counts as `uint64_t`, and `cpu_collector.cpp` converts the `FILETIME`s. A header that needs Windows types, such as a mapping function's or `process_handle.h`, is internal: only `platform/windows` sources, `tests/platform/` and `tests/integration/` include it.
 3. **Handle errors at the call site.** Check return values from every Windows API call. Convert error codes to domain error types.
 4. **Use RAII for all handles and resources** (see memory management section).
 5. **Use `W` (wide) variants of Windows APIs**, not `A` (ANSI). We target Unicode throughout.
@@ -384,7 +384,7 @@ The `*` and `&` bind to the type, not the name: `QWidget* parent`, `const System
 - Use **Allman style** (opening brace on its own line) for function, class, struct, enum, and namespace bodies:
 
 ```cpp
-namespace sysmon::monitoring
+namespace verdandi::monitoring
 {
 
 class SamplingScheduler : public QObject
@@ -408,7 +408,7 @@ private:
     std::chrono::milliseconds m_interval{1000};
 };
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring
 ```
 
 - Use **K&R style** (opening brace on same line) for control flow statements (`if`, `for`, `while`, `switch`):
@@ -556,7 +556,7 @@ Use `TEST_P` when a whole test, not one call, runs over different inputs, as `Sp
 
 ### Shared builders and harnesses
 
-Test data builders, fakes and harnesses that more than one test file uses live in `tests/support/`, as inline functions and classes in headers in namespace `sysmon::tests`, included as `"support/<name>.h"` ([DC-109](design_decisions.md#dc-109)). Look there before writing a builder, and move a helper there when a second file needs it rather than copying it. A helper that one file uses stays in that file's anonymous namespace.
+Test data builders, fakes and harnesses that more than one test file uses live in `tests/support/`, as inline functions and classes in headers in namespace `verdandi::tests`, included as `"support/<name>.h"` ([DC-109](design_decisions.md#dc-109)). Look there before writing a builder, and move a helper there when a second file needs it rather than copying it. A helper that one file uses stays in that file's anonymous namespace.
 
 - A builder returns a realistic default and takes only the values its callers' cases differ in, e.g. `adapter(1, "Wi-Fi", OperationalStatus::Down, kVirtualAdapter)` or `process(800, "explorer.exe")`. Set any other field on the result. Prefer named constants to positional `bool` arguments, and a type such as `std::chrono::seconds` to a plain number that another argument could be mistaken for.
 - `tests/support/` follows the rules of `tests/unit/`: no Windows headers. A helper that needs the Windows SDK, such as `SuspendedChildProcess`, stays beside the integration tests that use it.

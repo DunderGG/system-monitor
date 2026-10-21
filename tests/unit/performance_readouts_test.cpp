@@ -16,9 +16,9 @@
 #include "ui/performance_formatting.h"
 #include "ui/performance_readouts.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using sysmon::tests::valueOf;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using verdandi::tests::valueOf;
 
 namespace
 {

@@ -12,7 +12,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 SystemProcessInformationQuery resolveSystemProcessInformationQuery()
@@ -104,4 +104,4 @@ std::size_t SystemProcessInformationReader::bufferSize() const
     return m_buffer.size();
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

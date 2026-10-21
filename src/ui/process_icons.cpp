@@ -12,7 +12,7 @@
 #include <QRectF>
 #include <QSize>
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -102,4 +102,4 @@ QIcon detailsStatusIcon(domain::ProcessDetailsStatus status)
     return paintIcon(nullptr);
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

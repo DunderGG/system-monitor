@@ -30,9 +30,9 @@
 #include "ui/process_sort_filter_proxy_model.h"
 #include "ui/processes_view.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using namespace verdandi::tests;
 
 TEST(ProcessesView, Construction_TreeViewShowsTheModelThroughTheProxyAsAFlatTable)
 {

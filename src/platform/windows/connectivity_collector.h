@@ -8,7 +8,7 @@
 #include "domain/connectivity_status.h"
 #include "monitoring/collector.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -71,7 +71,7 @@ subscribeToConnectivityChanges(ConnectivityChangeHandler handler);
  * collect() logs each change of status at info level, so notification callbacks
  * only store the value.
  */
-class ConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
+class ConnectivityCollector : public verdandi::monitoring::IConnectivityCollector
 {
 public:
     /** Uses GetNetworkConnectivityHint and NotifyNetworkConnectivityHintChange. */
@@ -120,4 +120,4 @@ private:
     std::unique_ptr<ConnectivitySubscription> m_subscription;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -6,8 +6,8 @@
 #include "domain/connectivity_status.h"
 #include "platform/windows/connectivity_hint_mapping.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 namespace
 {

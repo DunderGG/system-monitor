@@ -22,8 +22,8 @@
 // collectors' baselines reset when it resumes (DC-129).
 
 using namespace std::chrono_literals;
-using sysmon::domain::SystemSnapshot;
-using sysmon::monitoring::SamplingScheduler;
+using verdandi::domain::SystemSnapshot;
+using verdandi::monitoring::SamplingScheduler;
 
 namespace
 {
@@ -60,15 +60,15 @@ private:
 
 // Reports the number of its collect() call as its CPU usage, so a test can
 // tell which collection a snapshot carries.
-class RecordingCpuCollector : public sysmon::monitoring::ICpuCollector
+class RecordingCpuCollector : public verdandi::monitoring::ICpuCollector
 {
 public:
     explicit RecordingCpuCollector(CallLog& log) : m_log(log) {}
 
-    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
+    [[nodiscard]] std::optional<verdandi::domain::CpuSample> collect() override
     {
         const int call = m_log.record("collect");
-        return sysmon::domain::CpuSample{.totalUsagePercent = static_cast<float>(call), .coreCount = 1};
+        return verdandi::domain::CpuSample{.totalUsagePercent = static_cast<float>(call), .coreCount = 1};
     }
 
     void resetBaselines() override
@@ -80,15 +80,15 @@ private:
     CallLog& m_log;
 };
 
-class RecordingNetworkCollector : public sysmon::monitoring::INetworkCollector
+class RecordingNetworkCollector : public verdandi::monitoring::INetworkCollector
 {
 public:
     explicit RecordingNetworkCollector(CallLog& log) : m_log(log) {}
 
-    [[nodiscard]] std::optional<std::vector<sysmon::domain::NetworkSample>> collect() override
+    [[nodiscard]] std::optional<std::vector<verdandi::domain::NetworkSample>> collect() override
     {
         m_log.record("collect");
-        return std::vector<sysmon::domain::NetworkSample>{};
+        return std::vector<verdandi::domain::NetworkSample>{};
     }
 
     void resetBaselines() override
@@ -100,15 +100,15 @@ private:
     CallLog& m_log;
 };
 
-class RecordingProcessCollector : public sysmon::monitoring::IProcessCollector
+class RecordingProcessCollector : public verdandi::monitoring::IProcessCollector
 {
 public:
     explicit RecordingProcessCollector(CallLog& log) : m_log(log) {}
 
-    [[nodiscard]] std::optional<std::vector<sysmon::domain::ProcessInfo>> collect() override
+    [[nodiscard]] std::optional<std::vector<verdandi::domain::ProcessInfo>> collect() override
     {
         m_log.record("collect");
-        return std::vector<sysmon::domain::ProcessInfo>{};
+        return std::vector<verdandi::domain::ProcessInfo>{};
     }
 
     void resetBaselines() override

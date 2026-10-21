@@ -18,7 +18,7 @@
 #include "platform/windows/process_handle.h"
 #include "platform/windows/utf8_conversion.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -234,4 +234,4 @@ ProcessDetailsReader makeWindowsProcessDetailsReader()
     return [query](const domain::ProcessInfo& process) { return readProcessDetails(query, process); };
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

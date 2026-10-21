@@ -10,7 +10,7 @@
 // Checks of the adapter lists that the Network tab and the Performance tab's
 // network page show (ui::listedAdapters() and ui::chartedAdapters()).
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** Returns the interface IDs of adapters in ascending order, to check which adapters a list keeps. */
@@ -32,4 +32,4 @@ namespace sysmon::tests
         [](const domain::NetworkSample* adapter) -> const domain::NetworkSample& { return *adapter; });
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

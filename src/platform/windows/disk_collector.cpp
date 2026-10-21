@@ -13,7 +13,7 @@
 
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -131,4 +131,4 @@ std::optional<std::vector<domain::DiskSample>> DiskCollector::collect()
     return samples;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

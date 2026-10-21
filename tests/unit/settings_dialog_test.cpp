@@ -15,10 +15,10 @@
 #include "support/settings_samples.h"
 #include "ui/settings_dialog.h"
 
-using namespace sysmon::domain;
+using namespace verdandi::domain;
 using std::chrono::milliseconds;
-using sysmon::tests::nonDefaultSettings;
-using sysmon::ui::SettingsDialog;
+using verdandi::tests::nonDefaultSettings;
+using verdandi::ui::SettingsDialog;
 
 namespace
 {

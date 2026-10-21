@@ -15,7 +15,7 @@ class QListWidget;
 class QShowEvent;
 class QStackedWidget;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class CpuPerformancePage;
@@ -113,4 +113,4 @@ private:
     std::array<PerformancePage*, kPageCount> m_pages{};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -14,12 +14,12 @@
 #include "ui/process_model.h"
 #include "ui/process_sort_filter_proxy_model.h"
 
-using namespace sysmon::domain;
-using sysmon::tests::kNow;
-using sysmon::tests::process;
-using sysmon::tests::withCpuUsage;
-using sysmon::ui::ProcessModel;
-using sysmon::ui::ProcessSortFilterProxyModel;
+using namespace verdandi::domain;
+using verdandi::tests::kNow;
+using verdandi::tests::process;
+using verdandi::tests::withCpuUsage;
+using verdandi::ui::ProcessModel;
+using verdandi::ui::ProcessSortFilterProxyModel;
 
 namespace
 {

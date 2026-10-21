@@ -5,8 +5,8 @@
 #include "domain/network_profile.h"
 #include "platform/windows/network_category_mapping.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 TEST(NetworkCategoryMapping, ToNetworkCategory_EveryCategory_Maps)
 {

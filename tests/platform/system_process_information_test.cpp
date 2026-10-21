@@ -15,8 +15,8 @@
 #include "domain/process_info.h"
 #include "platform/windows/system_process_information.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 namespace
 {

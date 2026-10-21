@@ -14,8 +14,8 @@
 #include "platform/windows/network_collector.h"
 #include "platform/windows/network_profile_collector.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 // These tests tolerate any host state: the host may be connected to any number
 // of networks, including none, and the Network List Manager may be unavailable.

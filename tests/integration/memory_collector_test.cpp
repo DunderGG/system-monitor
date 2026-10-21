@@ -7,7 +7,7 @@
 #include "domain/memory_sample.h"
 #include "platform/windows/memory_collector.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(MemoryCollectorIntegration, RealHostSampling_ProducesSensibleMetrics)
 {

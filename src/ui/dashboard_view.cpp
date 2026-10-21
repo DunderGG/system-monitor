@@ -13,7 +13,7 @@
 #include "ui/resource_card.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -310,4 +310,4 @@ QLabel* DashboardView::noCardsLabel() const
     return m_noCardsLabel;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

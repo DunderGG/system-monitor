@@ -9,7 +9,7 @@
 class QAction;
 class QTabWidget;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class DashboardView;
@@ -60,11 +60,11 @@ public:
 
 signals:
     /** Emitted when the Settings dialog is accepted with settings that differ from the previous settings(). */
-    void settingsChanged(const sysmon::domain::Settings& settings);
+    void settingsChanged(const verdandi::domain::Settings& settings);
 
 public slots:
     /** Slot receiving immutable system snapshots emitted from the sampling scheduler. */
-    void onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot);
+    void onSnapshotReady(const verdandi::domain::SystemSnapshot& snapshot);
 
 private:
     void openSettingsDialog();
@@ -79,4 +79,4 @@ private:
     domain::Settings m_settings{};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

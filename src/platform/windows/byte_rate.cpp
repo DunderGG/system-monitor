@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 std::optional<uint64_t> calculateByteRate(uint64_t previousBytes, uint64_t currentBytes, double elapsedSeconds)
@@ -14,4 +14,4 @@ std::optional<uint64_t> calculateByteRate(uint64_t previousBytes, uint64_t curre
     return static_cast<uint64_t>(std::round(deltaBytes / elapsedSeconds));
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

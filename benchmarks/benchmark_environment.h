@@ -6,7 +6,7 @@
 #include <QtGlobal>
 #include <spdlog/spdlog.h>
 
-namespace sysmon::benchmarks
+namespace verdandi::benchmarks
 {
 
 // Logs what a benchmark's timings depend on besides the code: the compiler
@@ -27,4 +27,4 @@ inline void logBenchmarkEnvironment()
                  std::thread::hardware_concurrency());
 }
 
-} // namespace sysmon::benchmarks
+} // namespace verdandi::benchmarks

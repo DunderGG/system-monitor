@@ -11,7 +11,7 @@
 #include "ui/process_formatting.h"
 #include "ui/process_model.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -159,4 +159,4 @@ bool ProcessSortFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIn
            expression.match(QString::number(process->pid)).hasMatch();
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

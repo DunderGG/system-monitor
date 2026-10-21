@@ -14,7 +14,7 @@
 
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -491,4 +491,4 @@ int CpuCollector::coreCount() const
     return m_coreCount;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -2,7 +2,7 @@
 
 #include "platform/windows/process_identity_cache.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -30,4 +30,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] ProcessDetailsReader makeWindowsProcessDetailsReader();
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

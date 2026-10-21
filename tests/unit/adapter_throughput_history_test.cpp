@@ -8,10 +8,10 @@
 #include "support/network_samples.h"
 #include "ui/adapter_throughput_history.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using sysmon::tests::adapter;
-using sysmon::tests::withRates;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using verdandi::tests::adapter;
+using verdandi::tests::withRates;
 
 namespace
 {

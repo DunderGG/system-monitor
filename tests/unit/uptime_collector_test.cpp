@@ -5,7 +5,7 @@
 
 #include "platform/windows/uptime_collector.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(UptimeCollector, Collect_ReaderValue_ReturnsSameMilliseconds)
 {

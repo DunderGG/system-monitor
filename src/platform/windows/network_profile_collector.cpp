@@ -28,7 +28,7 @@
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/utf8_conversion.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -300,4 +300,4 @@ void NetworkProfileCollector::run(std::stop_token stopToken)
     }
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

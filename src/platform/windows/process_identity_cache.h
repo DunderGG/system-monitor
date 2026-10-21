@@ -11,7 +11,7 @@
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /** The details of a process that can only be read by opening it. */
@@ -68,4 +68,4 @@ private:
     uint64_t m_generation{0};
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

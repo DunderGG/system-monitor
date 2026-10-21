@@ -10,7 +10,7 @@
 
 class QLabel;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ReadoutLayout;
@@ -63,4 +63,4 @@ private:
     std::vector<QString> m_toolTips;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

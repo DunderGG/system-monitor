@@ -16,7 +16,7 @@
 #include "platform/windows/process_elevation.h"
 #include "platform/windows/process_handle.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -273,4 +273,4 @@ ProcessTerminationResult terminateOwnedProcess(const domain::ProcessInfo& proces
     return ProcessTerminationResult::Terminated;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

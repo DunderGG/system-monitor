@@ -10,9 +10,9 @@
 #include "support/fake_subscription.h"
 #include "support/log_capture.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
-using sysmon::tests::FakeSubscription;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
+using verdandi::tests::FakeSubscription;
 
 namespace
 {
@@ -191,7 +191,7 @@ TEST(ConnectivityCollector, Notification_StoresOnlyAndCollectLogsTheChange)
     ConnectivityCollector collector(fixedReader(ConnectivityLevel::LocalAccess, false), fakeSubscriber(state));
     ASSERT_TRUE(state.handler);
     static_cast<void>(collector.collect()); // Logs the seeded status.
-    const sysmon::tests::ScopedLogCapture logCapture;
+    const verdandi::tests::ScopedLogCapture logCapture;
 
     // The notification runs on an OS thread in production and must not log.
     state.handler(status(ConnectivityLevel::InternetAccess));

@@ -14,7 +14,7 @@
 #include "process_info.h"
 #include "system_activity_sample.h"
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -56,4 +56,4 @@ struct SystemSnapshot
     std::optional<SystemActivitySample> activity{};
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

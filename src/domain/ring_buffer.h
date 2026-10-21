@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -152,4 +152,4 @@ private:
     std::vector<T> m_storage;
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

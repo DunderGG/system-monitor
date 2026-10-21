@@ -25,7 +25,7 @@
 #include "platform/windows/repeated_failure_log.h"
 #include "platform/windows/utf8_conversion.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -446,4 +446,4 @@ std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<Raw
     return samples;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

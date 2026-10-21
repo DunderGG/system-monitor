@@ -38,9 +38,9 @@
 #include "ui/performance_view.h"
 #include "ui/readout_grid.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using namespace verdandi::tests;
 
 namespace
 {

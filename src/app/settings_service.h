@@ -9,7 +9,7 @@
 #include "monitoring/sampling_scheduler.h"
 #include "persistence/settings_file.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 /**
@@ -67,4 +67,4 @@ private:
     monitoring::SamplingScheduler& m_scheduler;
 };
 
-} // namespace sysmon::app
+} // namespace verdandi::app

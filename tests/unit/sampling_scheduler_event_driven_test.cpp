@@ -27,9 +27,9 @@
 // SamplingScheduler: event-driven collectors, whose change listener wakes the
 // slow-collector thread to collect them again without a full slow refresh.
 
-using sysmon::domain::SystemSnapshot;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::tests::FakeProcessCollector;
+using verdandi::domain::SystemSnapshot;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::tests::FakeProcessCollector;
 
 namespace
 {
@@ -40,24 +40,24 @@ namespace
 struct EventDrivenState
 {
     std::mutex mutex;
-    sysmon::domain::ConnectivityStatus status{.level = sysmon::domain::ConnectivityLevel::InternetAccess};
-    sysmon::monitoring::ChangeListener listener;
+    verdandi::domain::ConnectivityStatus status{.level = verdandi::domain::ConnectivityLevel::InternetAccess};
+    verdandi::monitoring::ChangeListener listener;
     int collectCalls = 0;
 };
 
-class FakeEventDrivenConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
+class FakeEventDrivenConnectivityCollector : public verdandi::monitoring::IConnectivityCollector
 {
 public:
     explicit FakeEventDrivenConnectivityCollector(EventDrivenState& state) : m_state(state) {}
 
-    [[nodiscard]] sysmon::domain::ConnectivityStatus collect() override
+    [[nodiscard]] verdandi::domain::ConnectivityStatus collect() override
     {
         std::lock_guard lock(m_state.mutex);
         ++m_state.collectCalls;
         return m_state.status;
     }
 
-    void setChangeListener(sysmon::monitoring::ChangeListener listener) override
+    void setChangeListener(verdandi::monitoring::ChangeListener listener) override
     {
         std::lock_guard lock(m_state.mutex);
         m_state.listener = std::move(listener);
@@ -68,10 +68,10 @@ private:
 };
 
 // Stores a new status and calls the listener, as an OS notification does.
-void notifyChange(EventDrivenState& state, sysmon::domain::ConnectivityLevel level)
+void notifyChange(EventDrivenState& state, verdandi::domain::ConnectivityLevel level)
 {
     std::lock_guard lock(state.mutex);
-    state.status = sysmon::domain::ConnectivityStatus{.level = level};
+    state.status = verdandi::domain::ConnectivityStatus{.level = level};
     if (state.listener) {
         state.listener();
     }
@@ -104,12 +104,12 @@ TEST(SamplingScheduler, RefreshEventDrivenCollectors_UpdatesConnectivityAndKeeps
     scheduler.setProcessCollector(std::move(process));
     scheduler.setConnectivityCollector(std::make_unique<FakeEventDrivenConnectivityCollector>(state));
     scheduler.refreshSlowCollectors();
-    notifyChange(state, sysmon::domain::ConnectivityLevel::LocalAccess);
+    notifyChange(state, verdandi::domain::ConnectivityLevel::LocalAccess);
 
     scheduler.refreshEventDrivenCollectors();
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
-    EXPECT_EQ(snapshot.connectivity.level, sysmon::domain::ConnectivityLevel::LocalAccess);
+    EXPECT_EQ(snapshot.connectivity.level, verdandi::domain::ConnectivityLevel::LocalAccess);
     ASSERT_TRUE(snapshot.processes.has_value());
     EXPECT_EQ((*snapshot.processes)[0].pid, 1u);
     EXPECT_EQ(processPtr->calls(), 1);
@@ -117,7 +117,7 @@ TEST(SamplingScheduler, RefreshEventDrivenCollectors_UpdatesConnectivityAndKeeps
 
 TEST(SamplingScheduler, Running_ChangeNotification_ReachesNextSnapshotWithoutAFullSlowRefresh)
 {
-    using sysmon::domain::ConnectivityLevel;
+    using verdandi::domain::ConnectivityLevel;
     SamplingScheduler scheduler(std::chrono::milliseconds{10});
     scheduler.setSlowInterval(std::chrono::seconds{60});
     EventDrivenState state;
@@ -157,22 +157,23 @@ namespace
 struct EventDrivenProfileState
 {
     std::mutex mutex;
-    std::optional<std::vector<sysmon::domain::NetworkProfile>> profiles = std::vector<sysmon::domain::NetworkProfile>{};
-    sysmon::monitoring::ChangeListener listener;
+    std::optional<std::vector<verdandi::domain::NetworkProfile>> profiles =
+        std::vector<verdandi::domain::NetworkProfile>{};
+    verdandi::monitoring::ChangeListener listener;
 };
 
-class FakeEventDrivenNetworkProfileCollector : public sysmon::monitoring::INetworkProfileCollector
+class FakeEventDrivenNetworkProfileCollector : public verdandi::monitoring::INetworkProfileCollector
 {
 public:
     explicit FakeEventDrivenNetworkProfileCollector(EventDrivenProfileState& state) : m_state(state) {}
 
-    [[nodiscard]] std::optional<std::vector<sysmon::domain::NetworkProfile>> collect() override
+    [[nodiscard]] std::optional<std::vector<verdandi::domain::NetworkProfile>> collect() override
     {
         std::lock_guard lock(m_state.mutex);
         return m_state.profiles;
     }
 
-    void setChangeListener(sysmon::monitoring::ChangeListener listener) override
+    void setChangeListener(verdandi::monitoring::ChangeListener listener) override
     {
         std::lock_guard lock(m_state.mutex);
         m_state.listener = std::move(listener);
@@ -186,7 +187,7 @@ private:
 void notifyProfiles(EventDrivenProfileState& state, std::string name)
 {
     std::lock_guard lock(state.mutex);
-    state.profiles = std::vector<sysmon::domain::NetworkProfile>{{.name = std::move(name), .interfaceIds = {1}}};
+    state.profiles = std::vector<verdandi::domain::NetworkProfile>{{.name = std::move(name), .interfaceIds = {1}}};
     if (state.listener) {
         state.listener();
     }
@@ -202,12 +203,12 @@ std::optional<std::string> firstProfileName(const SystemSnapshot& snapshot)
 
 // Records, for each call, how many times the connectivity collector had been
 // collected when it began. Its first call waits until the test releases it.
-class GatedProcessCollector : public sysmon::monitoring::IProcessCollector
+class GatedProcessCollector : public verdandi::monitoring::IProcessCollector
 {
 public:
     explicit GatedProcessCollector(EventDrivenState& connectivity) : m_connectivity(connectivity) {}
 
-    [[nodiscard]] std::optional<std::vector<sysmon::domain::ProcessInfo>> collect() override
+    [[nodiscard]] std::optional<std::vector<verdandi::domain::ProcessInfo>> collect() override
     {
         int connectivityCalls = 0;
         {
@@ -220,7 +221,7 @@ public:
         if (m_connectivityCallsAtEachCall.size() == 1) {
             m_changed.wait(lock, [this] { return m_isReleased; });
         }
-        return std::vector<sysmon::domain::ProcessInfo>{};
+        return std::vector<verdandi::domain::ProcessInfo>{};
     }
 
     void resetBaselines() override {}
@@ -284,7 +285,7 @@ TEST(SamplingScheduler, Running_NetworkNamesChange_ReachNextSnapshotWithoutAFull
         }
         return false;
     };
-    state.profiles = std::vector<sysmon::domain::NetworkProfile>{{.name = "Home", .interfaceIds = {1}}};
+    state.profiles = std::vector<verdandi::domain::NetworkProfile>{{.name = "Home", .interfaceIds = {1}}};
     scheduler.start();
     const bool firstRefresh = waitForName("Home");
 
@@ -311,7 +312,7 @@ TEST(SamplingScheduler, Running_ChangeWhileAFullRefreshIsDue_AnsweredByTheFullRe
     // The first full refresh is held in the process collector while a change
     // arrives, until the next full refresh is due.
     const bool firstRefresh = processPtr->waitForCalls(1);
-    notifyChange(state, sysmon::domain::ConnectivityLevel::LocalAccess);
+    notifyChange(state, verdandi::domain::ConnectivityLevel::LocalAccess);
     std::this_thread::sleep_for(std::chrono::milliseconds{150});
     processPtr->release();
     const bool secondRefresh = processPtr->waitForCalls(2);
@@ -349,8 +350,8 @@ TEST(SamplingScheduler, Teardown_WhileNotificationsArrive_NoDeadlock)
         int count = 0;
         while (!stopToken.stop_requested()) {
             ++count;
-            notifyChange(connectivity, count % 2 == 0 ? sysmon::domain::ConnectivityLevel::LocalAccess
-                                                      : sysmon::domain::ConnectivityLevel::InternetAccess);
+            notifyChange(connectivity, count % 2 == 0 ? verdandi::domain::ConnectivityLevel::LocalAccess
+                                                      : verdandi::domain::ConnectivityLevel::InternetAccess);
             notifyProfiles(profiles, count % 2 == 0 ? "Home" : "Office");
         }
     });

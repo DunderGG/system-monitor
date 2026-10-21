@@ -6,7 +6,7 @@
 
 #include "monitoring/collector.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -40,4 +40,4 @@ private:
     TickCountReader m_reader;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

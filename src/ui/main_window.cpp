@@ -16,7 +16,7 @@
 #include "ui/processes_view.h"
 #include "ui/settings_dialog.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -138,7 +138,7 @@ void MainWindow::openSettingsDialog()
     dialog->open();
 }
 
-void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
+void MainWindow::onSnapshotReady(const verdandi::domain::SystemSnapshot& snapshot)
 {
     // Every view records every snapshot so its history has no holes when it is
     // shown; each view skips repainting its own widgets while it is hidden.
@@ -156,4 +156,4 @@ void MainWindow::onSnapshotReady(const sysmon::domain::SystemSnapshot& snapshot)
     }
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

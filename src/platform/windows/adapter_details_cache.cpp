@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 const AdapterDetails* AdapterDetailsTable::find(uint64_t luid, uint32_t ifIndex) const
@@ -59,4 +59,4 @@ const AdapterDetailsTable& AdapterDetailsCache::table() const
     return m_table;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

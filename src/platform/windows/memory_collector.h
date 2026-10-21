@@ -8,7 +8,7 @@
 #include "monitoring/collector.h"
 #include "platform/windows/performance_info_reader.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -56,4 +56,4 @@ private:
     PerformanceInfoReader m_performanceReader;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -2,7 +2,7 @@
 
 #include "platform/windows/byte_rate.h"
 
-using sysmon::platform::calculateByteRate;
+using verdandi::platform::calculateByteRate;
 
 TEST(ByteRate, CalculateByteRate_CounterGrew_BytesPerSecondRounded)
 {

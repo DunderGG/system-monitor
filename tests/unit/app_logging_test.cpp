@@ -8,10 +8,10 @@
 #include "app/app_logging.h"
 #include "domain/settings.h"
 
-using sysmon::app::logLevelName;
-using sysmon::app::parseLogLevel;
-using sysmon::app::toSpdlogLevel;
-using sysmon::domain::LogLevel;
+using verdandi::app::logLevelName;
+using verdandi::app::parseLogLevel;
+using verdandi::app::toSpdlogLevel;
+using verdandi::domain::LogLevel;
 
 TEST(AppLogging, LogLevels_NameAndSpdlogLevelOfEach)
 {

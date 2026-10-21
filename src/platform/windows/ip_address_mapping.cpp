@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -94,4 +94,4 @@ bool isPlaceholderDnsServer(const SOCKADDR* address) noexcept
            lastByte >= 1 && lastByte <= 3;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -15,9 +15,9 @@
 #include "support/network_samples.h"
 #include "ui/dashboard_formatting.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using namespace verdandi::tests;
 
 TEST(DashboardFormatting, UsedMemoryBytes_TotalMinusAvailableNeverNegative)
 {

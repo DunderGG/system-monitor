@@ -9,7 +9,7 @@
 #include "platform/windows/adapter_details_cache.h"
 #include "platform/windows/unicast_address.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 namespace
 {

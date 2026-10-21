@@ -12,12 +12,12 @@
 #include "support/log_capture.h"
 
 using namespace std::chrono_literals;
-using sysmon::app::applyRefreshInterval;
-using sysmon::app::logSettingsRead;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::persistence::SettingsProblem;
-using sysmon::persistence::SettingsReadResult;
-using sysmon::tests::ScopedLogCapture;
+using verdandi::app::applyRefreshInterval;
+using verdandi::app::logSettingsRead;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::persistence::SettingsProblem;
+using verdandi::persistence::SettingsReadResult;
+using verdandi::tests::ScopedLogCapture;
 
 TEST(SettingsService, ApplyRefreshInterval_SlowCollectorsNeverMoreOftenThanTheTickOrEveryTwoSeconds)
 {

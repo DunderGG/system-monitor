@@ -6,7 +6,7 @@
 #include "domain/health_status.h"
 #include "domain/system_snapshot.h"
 
-namespace sysmon::monitoring
+namespace verdandi::monitoring
 {
 
 /**
@@ -49,4 +49,4 @@ struct HealthThresholds
 [[nodiscard]] domain::SystemHealth evaluateHealth(const domain::SystemSnapshot& snapshot,
                                                   const HealthThresholds& thresholds);
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring

@@ -10,7 +10,7 @@
 
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 std::optional<domain::MemorySample> calculateMemorySample(const MemoryStatusData& data,
@@ -81,4 +81,4 @@ std::optional<domain::MemorySample> MemoryCollector::collect()
     return calculateMemorySample(data, performance);
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

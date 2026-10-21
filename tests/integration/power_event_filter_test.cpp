@@ -10,8 +10,8 @@
 // app::PowerEventFilter, given WM_POWERBROADCAST as Windows sends it to each
 // top-level window: through the window procedure that Qt gives its windows.
 
-using sysmon::app::PowerEventFilter;
-using sysmon::monitoring::SamplingScheduler;
+using verdandi::app::PowerEventFilter;
+using verdandi::monitoring::SamplingScheduler;
 
 TEST(PowerEventFilterIntegration, PowerBroadcastToAWindow_SuspendsAndResumesTheScheduler)
 {

@@ -7,7 +7,7 @@
 
 #include <windows.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Internal header: it exposes Windows types to the platform/windows sources
@@ -34,4 +34,4 @@ using ScopedHandle = std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleCloser
  */
 [[nodiscard]] std::optional<std::chrono::system_clock::time_point> processCreationTime(HANDLE process);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

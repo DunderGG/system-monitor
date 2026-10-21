@@ -28,15 +28,15 @@
 #include "ui/resource_card.h"
 #include "ui/settings_dialog.h"
 
-using sysmon::domain::Settings;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::tests::FakeCpuCollector;
-using sysmon::tests::FakeMemoryCollector;
-using sysmon::tests::nonDefaultSettings;
-using sysmon::tests::populatedSnapshot;
-using sysmon::ui::formatPercent;
-using sysmon::ui::MainWindow;
-using sysmon::ui::SettingsDialog;
+using verdandi::domain::Settings;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::tests::FakeCpuCollector;
+using verdandi::tests::FakeMemoryCollector;
+using verdandi::tests::nonDefaultSettings;
+using verdandi::tests::populatedSnapshot;
+using verdandi::ui::formatPercent;
+using verdandi::ui::MainWindow;
+using verdandi::ui::SettingsDialog;
 
 namespace
 {
@@ -85,9 +85,9 @@ TEST(MainWindow, Construction_InitializesFourTabsInExpectedOrder)
 TEST(MainWindow, OnSnapshotReady_ForwardsProcessListToProcessesView)
 {
     MainWindow mainWindow;
-    sysmon::domain::SystemSnapshot snapshot;
-    snapshot.processes = std::vector<sysmon::domain::ProcessInfo>{
-        sysmon::domain::ProcessInfo{.pid = 4, .imageName = "System"},
+    verdandi::domain::SystemSnapshot snapshot;
+    snapshot.processes = std::vector<verdandi::domain::ProcessInfo>{
+        verdandi::domain::ProcessInfo{.pid = 4, .imageName = "System"},
     };
 
     mainWindow.onSnapshotReady(snapshot);
@@ -100,9 +100,9 @@ TEST(MainWindow, NetworkTabSelected_ListsAdaptersRecordedWhileHidden)
     MainWindow mainWindow;
     mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
     mainWindow.show();
-    sysmon::domain::SystemSnapshot snapshot;
-    snapshot.networks = std::vector<sysmon::domain::NetworkSample>{
-        sysmon::domain::NetworkSample{.interfaceId = 7, .friendlyName = "Ethernet", .isHardwareInterface = true},
+    verdandi::domain::SystemSnapshot snapshot;
+    snapshot.networks = std::vector<verdandi::domain::NetworkSample>{
+        verdandi::domain::NetworkSample{.interfaceId = 7, .friendlyName = "Ethernet", .isHardwareInterface = true},
     };
 
     mainWindow.onSnapshotReady(snapshot);

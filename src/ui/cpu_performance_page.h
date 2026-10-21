@@ -14,7 +14,7 @@
 class QLabel;
 class QScrollArea;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ReadoutGrid;
@@ -61,4 +61,4 @@ private:
     std::optional<std::chrono::milliseconds> m_latestUptime;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

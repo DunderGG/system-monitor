@@ -16,14 +16,14 @@
 // segments, grid lines, summary, history window names, series colours and
 // the fill's envelope.
 
-using namespace sysmon::ui::charts;
-using sysmon::tests::kChartArea;
-using sysmon::tests::sineSamples;
+using namespace verdandi::ui::charts;
+using verdandi::tests::kChartArea;
+using verdandi::tests::sineSamples;
 
 namespace
 {
 
-using Samples = sysmon::tests::SparklineSamples;
+using Samples = verdandi::tests::SparklineSamples;
 
 // 60 slots one pixel apart, so grid line positions equal slot numbers.
 const QRectF kSlotArea{0.0, 0.0, 59.0, 50.0};

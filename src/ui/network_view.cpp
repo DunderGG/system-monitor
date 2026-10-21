@@ -22,7 +22,7 @@
 #include "ui/readout_grid.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -278,4 +278,4 @@ std::optional<std::size_t> NetworkView::hiddenAdaptersHeadingPosition() const
     return static_cast<std::size_t>(position);
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

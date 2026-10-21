@@ -25,10 +25,10 @@
 // ProcessModel: the tree of parent and child processes, built from parent PIDs
 // and creation times, and its consistency with the proxy under random change.
 
-using namespace sysmon::domain;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::tests;
 using namespace std::chrono_literals;
-using sysmon::ui::ProcessModel;
+using verdandi::ui::ProcessModel;
 
 namespace
 {
@@ -273,7 +273,7 @@ bool isKept(const ProcessModel& model, const QModelIndex& index, const std::stri
 // it maps to, ordered as a sort by CPU, largest first, orders them: by CPU
 // usage (missing lowest), then name, PID and creation time, all reversed.
 // Then checks each child's level in turn.
-void expectSortedAndFiltered(const ProcessModel& model, const sysmon::ui::ProcessSortFilterProxyModel& proxy,
+void expectSortedAndFiltered(const ProcessModel& model, const verdandi::ui::ProcessSortFilterProxyModel& proxy,
                              const QModelIndex& proxyParent, const std::string& filter, int step)
 {
     const QModelIndex sourceParent = proxy.mapToSource(proxyParent);
@@ -312,7 +312,7 @@ TEST(ProcessModel, RandomChurnWithFilterAndModeChanges_ModelAndSortedFilteredPro
     ProcessModel model;
     model.setTreeMode(true);
     // A sorted, filtered proxy on top, as in the view, checks that the signals are consistent.
-    sysmon::ui::ProcessSortFilterProxyModel proxy;
+    verdandi::ui::ProcessSortFilterProxyModel proxy;
     proxy.setSourceModel(&model);
     proxy.sort(static_cast<int>(Column::Cpu), Qt::DescendingOrder);
     // The filter changes every 40 refreshes, and the mode every 25, as a user would change them.

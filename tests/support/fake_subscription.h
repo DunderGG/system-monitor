@@ -5,7 +5,7 @@
 
 #include "platform/windows/connectivity_collector.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -33,4 +33,4 @@ private:
     std::function<void()> m_onCancel;
 };
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

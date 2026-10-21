@@ -10,7 +10,7 @@
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
 
-using namespace sysmon::ui;
+using namespace verdandi::ui;
 
 namespace
 {

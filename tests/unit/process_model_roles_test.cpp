@@ -22,17 +22,17 @@
 // ProcessModel: what each column shows in each role, from the header titles
 // and tooltips to the cells' text, alignment, icons and tooltips.
 
-using namespace sysmon::domain;
-using namespace sysmon::tests;
-using sysmon::ui::formatByteRate;
-using sysmon::ui::formatBytes;
-using sysmon::ui::formatCount;
-using sysmon::ui::formatPercent;
-using sysmon::ui::kNotAvailable;
-using sysmon::ui::processDetailsToolTip;
-using sysmon::ui::processIoToolTip;
-using sysmon::ui::processMemoryToolTip;
-using sysmon::ui::ProcessModel;
+using namespace verdandi::domain;
+using namespace verdandi::tests;
+using verdandi::ui::formatByteRate;
+using verdandi::ui::formatBytes;
+using verdandi::ui::formatCount;
+using verdandi::ui::formatPercent;
+using verdandi::ui::kNotAvailable;
+using verdandi::ui::processDetailsToolTip;
+using verdandi::ui::processIoToolTip;
+using verdandi::ui::processMemoryToolTip;
+using verdandi::ui::ProcessModel;
 
 namespace
 {

@@ -10,7 +10,7 @@
 #include "ui/dashboard_formatting.h"
 #include "ui/performance_formatting.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -323,4 +323,4 @@ std::vector<Readout> connectivityReadouts(const domain::ConnectivityStatus& stat
     };
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

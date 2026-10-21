@@ -31,10 +31,10 @@
 namespace
 {
 
-using sysmon::domain::ProcessInfo;
-using sysmon::domain::SystemSnapshot;
-using sysmon::ui::ProcessesView;
-using Column = sysmon::ui::ProcessModel::Column;
+using verdandi::domain::ProcessInfo;
+using verdandi::domain::SystemSnapshot;
+using verdandi::ui::ProcessesView;
+using Column = verdandi::ui::ProcessModel::Column;
 
 constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 800;
@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
     spdlog::warn("Warning: this is a Debug build, whose Qt libraries are many times slower. "
                  "Run .\\scripts\\build.ps1 -Benchmark for representative numbers.\n");
 #endif
-    sysmon::benchmarks::logBenchmarkEnvironment();
+    verdandi::benchmarks::logBenchmarkEnvironment();
 
     spdlog::info("Processes tab tick cost in a {}x{} window, as mean time per tick with a new process list",
                  kWindowWidth, kWindowHeight);

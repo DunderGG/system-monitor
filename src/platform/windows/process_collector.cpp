@@ -18,7 +18,7 @@
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/system_process_information_reader.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -135,4 +135,4 @@ void ProcessCollector::resetBaselines()
     m_rateBaselines.clear();
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

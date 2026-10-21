@@ -11,7 +11,7 @@
 #include "monitoring/collector.h"
 #include "platform/windows/steady_clock_reader.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -105,4 +105,4 @@ private:
     bool m_hasBaseline{false};
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

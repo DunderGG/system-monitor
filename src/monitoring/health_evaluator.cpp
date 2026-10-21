@@ -6,7 +6,7 @@
 #include <optional>
 #include <vector>
 
-namespace sysmon::monitoring
+namespace verdandi::monitoring
 {
 
 namespace
@@ -114,4 +114,4 @@ domain::SystemHealth evaluateHealth(const domain::SystemSnapshot& snapshot, cons
     return health;
 }
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring

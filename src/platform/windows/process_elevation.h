@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Internal to platform/windows: exposed in a header only so the rule can be
@@ -19,4 +19,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] bool runsElevated(const TOKEN_ELEVATION& elevation, DWORD integrityRid) noexcept;
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

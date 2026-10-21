@@ -9,7 +9,7 @@
 
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -85,4 +85,4 @@ private:
     RepeatedFailureLog m_failureLog{"NtQuerySystemInformation(SystemProcessInformation)"};
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

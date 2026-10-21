@@ -8,7 +8,7 @@
 
 #include "domain/process_info.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -42,4 +42,4 @@ namespace sysmon::tests
     return info;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

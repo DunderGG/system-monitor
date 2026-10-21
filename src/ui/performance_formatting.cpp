@@ -6,7 +6,7 @@
 #include "ui/dashboard_formatting.h"
 #include "ui/network_formatting.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -147,4 +147,4 @@ QString networkSummary(const std::optional<std::vector<domain::NetworkSample>>& 
         .arg(formatNetworkRate(totals->inBytesPerSec, units), formatNetworkRate(totals->outBytesPerSec, units));
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

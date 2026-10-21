@@ -22,7 +22,7 @@
 #include "ui/process_icons.h"
 #include "ui/text_tone.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -638,4 +638,4 @@ void ProcessModel::signalValuesChanged(const ChangedBlocks& changed)
     emit valueChangesEnded();
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

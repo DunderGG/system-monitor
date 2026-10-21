@@ -14,7 +14,7 @@
 
 #include "platform/windows/utf8_conversion.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -104,4 +104,4 @@ std::optional<std::vector<domain::ProcessInfo>> parseSystemProcessInformation(st
     }
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

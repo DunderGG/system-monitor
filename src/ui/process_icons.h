@@ -4,7 +4,7 @@
 
 #include "domain/process_info.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -20,4 +20,4 @@ namespace sysmon::ui
  */
 [[nodiscard]] QIcon detailsStatusIcon(domain::ProcessDetailsStatus status);
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -7,7 +7,7 @@
 
 #include "app_logging.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 void logSettingsRead(const std::filesystem::path& path, const std::optional<persistence::SettingsReadResult>& result)
@@ -64,4 +64,4 @@ const std::filesystem::path& SettingsService::path() const
     return m_path;
 }
 
-} // namespace sysmon::app
+} // namespace verdandi::app

@@ -7,7 +7,7 @@
 
 #include "domain/network_sample.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** What an adapter is, beside its name and status. */
@@ -58,4 +58,4 @@ withRates(domain::NetworkSample sample, std::optional<uint64_t> inBytesPerSec, s
     return sample;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

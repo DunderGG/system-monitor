@@ -7,7 +7,7 @@
 #include "domain/disk_sample.h"
 #include "platform/windows/disk_collector.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(DiskCollector, CalculateDiskSample_NormalDrive_CalculatesUsage)
 {

@@ -19,10 +19,10 @@
 // ProcessModel: started and exited processes highlighted for a time, and
 // exited rows removed when their highlight ends.
 
-using namespace sysmon::domain;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::tests;
 using namespace std::chrono_literals;
-using sysmon::ui::ProcessModel;
+using verdandi::ui::ProcessModel;
 
 namespace
 {

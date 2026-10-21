@@ -8,7 +8,7 @@
 
 #include "domain/settings.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 /** Name of the logger configureLogging() installs as the default. */
@@ -29,4 +29,4 @@ inline constexpr std::string_view kApplicationLoggerName = "verdandi";
 
 void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::level_enum logLevel);
 
-} // namespace sysmon::app
+} // namespace verdandi::app

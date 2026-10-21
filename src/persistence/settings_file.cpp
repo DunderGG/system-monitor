@@ -16,7 +16,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace sysmon::persistence
+namespace verdandi::persistence
 {
 
 namespace
@@ -423,4 +423,4 @@ std::optional<std::string> saveSettingsFile(const std::filesystem::path& path, c
     return std::nullopt;
 }
 
-} // namespace sysmon::persistence
+} // namespace verdandi::persistence

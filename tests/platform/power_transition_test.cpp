@@ -7,8 +7,8 @@
 
 #include "platform/windows/power_transition.h"
 
-using sysmon::platform::PowerTransition;
-using sysmon::platform::powerTransitionFromMessage;
+using verdandi::platform::PowerTransition;
+using verdandi::platform::powerTransitionFromMessage;
 
 TEST(PowerTransition, PowerTransitionFromMessage_OnlySuspendAndAutomaticResume)
 {

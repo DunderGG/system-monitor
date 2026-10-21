@@ -6,7 +6,7 @@
 
 #include "monitoring/sampling_scheduler.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 /**
@@ -27,4 +27,4 @@ private:
     monitoring::SamplingScheduler& m_scheduler;
 };
 
-} // namespace sysmon::app
+} // namespace verdandi::app

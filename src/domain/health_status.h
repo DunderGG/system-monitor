@@ -1,6 +1,6 @@
 #pragma once
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -36,4 +36,4 @@ struct SystemHealth
     bool operator==(const SystemHealth&) const = default;
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

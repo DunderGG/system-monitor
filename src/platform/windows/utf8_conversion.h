@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -14,4 +14,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] std::string wideToUtf8(std::wstring_view text);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

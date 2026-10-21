@@ -2,7 +2,7 @@
 
 #include <optional>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -44,4 +44,4 @@ struct ConnectivityStatus
     bool operator==(const ConnectivityStatus&) const = default;
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

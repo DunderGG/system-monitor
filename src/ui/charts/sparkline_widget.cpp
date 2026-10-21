@@ -14,7 +14,7 @@
 #include <QPalette>
 #include <QPen>
 
-namespace sysmon::ui::charts
+namespace verdandi::ui::charts
 {
 
 namespace
@@ -757,4 +757,4 @@ void SparklineWidget::paintAnnotations(QPainter& painter, const QRectF& area, YR
     }
 }
 
-} // namespace sysmon::ui::charts
+} // namespace verdandi::ui::charts

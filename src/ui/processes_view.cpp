@@ -30,7 +30,7 @@
 #include "ui/process_sort_filter_proxy_model.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -376,4 +376,4 @@ QString ProcessesView::summaryText() const
     return m_summaryLabel->text();
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

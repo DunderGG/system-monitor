@@ -8,9 +8,9 @@
 #include "monitoring/sampling_scheduler.h"
 #include "platform/windows/uptime_collector.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::monitoring;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::monitoring;
+using namespace verdandi::platform;
 
 namespace
 {

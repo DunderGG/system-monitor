@@ -14,7 +14,7 @@
 #include "platform/windows/process_handle.h"
 #include "platform/windows/utf8_conversion.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -195,4 +195,4 @@ private:
     domain::ProcessIdentity m_identity;
 };
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

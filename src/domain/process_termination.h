@@ -1,6 +1,6 @@
 #pragma once
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -38,4 +38,4 @@ enum class ProcessTerminationResult
     Failed,
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

@@ -13,7 +13,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 namespace
@@ -82,4 +82,4 @@ void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::l
     spdlog::set_default_logger(std::move(logger));
 }
 
-} // namespace sysmon::app
+} // namespace verdandi::app

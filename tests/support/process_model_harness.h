@@ -13,7 +13,7 @@
 
 // Checks of a ui::ProcessModel that the process model, proxy and view tests share.
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** The monotonic time of each refresh, unless a test moves it on. */
@@ -97,4 +97,4 @@ inline std::vector<QString> rowNames(const ui::ProcessModel& model)
     return names;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

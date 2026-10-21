@@ -16,14 +16,14 @@
 #include "support/sparkline_samples.h"
 #include "ui/charts/sparkline_widget.h"
 
-using namespace sysmon::ui::charts;
-using sysmon::tests::kChartArea;
-using sysmon::tests::sineSamples;
+using namespace verdandi::ui::charts;
+using verdandi::tests::kChartArea;
+using verdandi::tests::sineSamples;
 
 namespace
 {
 
-using Samples = sysmon::tests::SparklineSamples;
+using Samples = verdandi::tests::SparklineSamples;
 
 // Plain digits, so label widths depend only on the number of digits.
 QString wholeNumber(float value)

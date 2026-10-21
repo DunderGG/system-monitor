@@ -12,7 +12,7 @@
 
 #include "domain/process_info.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -109,4 +109,4 @@ static_assert(offsetof(FullSystemProcessInformation, ReadOperationCount) ==
 [[nodiscard]] std::optional<std::vector<domain::ProcessInfo>>
 parseSystemProcessInformation(std::span<const std::byte> buffer);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

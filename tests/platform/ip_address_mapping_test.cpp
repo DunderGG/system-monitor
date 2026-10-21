@@ -12,7 +12,7 @@
 #include "platform/windows/ip_address_mapping.h"
 #include "platform/windows/unicast_address.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 namespace
 {

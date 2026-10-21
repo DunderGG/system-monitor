@@ -6,7 +6,7 @@
 
 #include "platform/windows/process_handle.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 std::optional<domain::ProcessIdentity> currentProcessIdentity()
@@ -20,4 +20,4 @@ std::optional<domain::ProcessIdentity> currentProcessIdentity()
     return domain::ProcessIdentity{.pid = ::GetCurrentProcessId(), .creationTime = *creationTime};
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

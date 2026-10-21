@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -38,4 +38,4 @@ struct UnicastAddress
     bool operator==(const UnicastAddress&) const = default;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -16,9 +16,9 @@
 #include "monitoring/collector.h"
 #include "monitoring/health_evaluator.h"
 
-Q_DECLARE_METATYPE(sysmon::domain::SystemSnapshot)
+Q_DECLARE_METATYPE(verdandi::domain::SystemSnapshot)
 
-namespace sysmon::monitoring
+namespace verdandi::monitoring
 {
 
 /**
@@ -151,7 +151,7 @@ public:
 
 signals:
     /** Emitted on each sampling tick with the newly assembled snapshot. */
-    void snapshotReady(const sysmon::domain::SystemSnapshot& snapshot);
+    void snapshotReady(const verdandi::domain::SystemSnapshot& snapshot);
 
 private:
     // The latest results of the slow collectors. Defaults mean "no data yet".
@@ -209,4 +209,4 @@ private:
     std::unique_ptr<IProcessCollector> m_processCollector;
 };
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring

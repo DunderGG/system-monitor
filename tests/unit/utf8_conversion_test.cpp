@@ -5,7 +5,7 @@
 
 #include "platform/windows/utf8_conversion.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(Utf8Conversion, WideToUtf8_Empty_ReturnsEmpty)
 {

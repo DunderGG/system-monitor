@@ -11,7 +11,7 @@ class QComboBox;
 class QDialogButtonBox;
 class QDoubleSpinBox;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -71,4 +71,4 @@ private:
     QDialogButtonBox* m_buttonBox{nullptr};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

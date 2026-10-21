@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <limits>
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -212,4 +212,4 @@ const domain::DiskSample* fullestVolume(const std::vector<domain::DiskSample>& d
     return it != disks.end() ? &*it : nullptr;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -9,7 +9,7 @@
 #include "ui/text_tone.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -152,4 +152,4 @@ TonedLabel* ResourceCard::statusLabel() const
     return m_statusLabel;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

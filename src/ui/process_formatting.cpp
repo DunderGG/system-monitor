@@ -6,7 +6,7 @@
 
 #include "ui/dashboard_formatting.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 QString processDisplayName(const domain::ProcessInfo& process)
@@ -172,4 +172,4 @@ std::optional<ProcessTerminationMessage> processTerminationMessage(const domain:
     return std::nullopt;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

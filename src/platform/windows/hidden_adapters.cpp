@@ -14,7 +14,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -112,4 +112,4 @@ std::optional<std::vector<GUID>> queryHiddenAdapterGuids(RepeatedFailureLog& fai
     return hidden;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

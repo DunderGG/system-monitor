@@ -22,18 +22,18 @@
 #include "ui/resource_card.h"
 #include "ui/text_tone.h"
 
-using namespace sysmon::domain;
-using sysmon::tests::populatedSnapshot;
-using sysmon::ui::connectivityText;
-using sysmon::ui::DashboardView;
-using sysmon::ui::formatBytes;
-using sysmon::ui::formatNetworkRate;
-using sysmon::ui::formatPercent;
-using sysmon::ui::formatUptime;
-using sysmon::ui::healthLevelText;
-using sysmon::ui::kNotAvailable;
-using sysmon::ui::ResourceCard;
-using sysmon::ui::usedMemoryBytes;
+using namespace verdandi::domain;
+using verdandi::tests::populatedSnapshot;
+using verdandi::ui::connectivityText;
+using verdandi::ui::DashboardView;
+using verdandi::ui::formatBytes;
+using verdandi::ui::formatNetworkRate;
+using verdandi::ui::formatPercent;
+using verdandi::ui::formatUptime;
+using verdandi::ui::healthLevelText;
+using verdandi::ui::kNotAvailable;
+using verdandi::ui::ResourceCard;
+using verdandi::ui::usedMemoryBytes;
 
 namespace
 {
@@ -379,8 +379,8 @@ TEST(DashboardView, Sparklines_PercentFixedRangeNetworkAutoRange)
 TEST(DashboardView, CardStatuses_ReadableInBothColourSchemes)
 {
     for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark}) {
-        const sysmon::tests::ScopedColorScheme colorScheme(scheme);
-        sysmon::ui::MainWindow mainWindow;
+        const verdandi::tests::ScopedColorScheme colorScheme(scheme);
+        verdandi::ui::MainWindow mainWindow;
         mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
         mainWindow.resize(1024, 720);
         mainWindow.show();
@@ -399,11 +399,11 @@ TEST(DashboardView, CardStatuses_ReadableInBothColourSchemes)
         const DashboardView* dashboard = mainWindow.dashboardView();
         for (const ResourceCard* card :
              {dashboard->cpuCard(), dashboard->memoryCard(), dashboard->diskCard(), dashboard->networkCard()}) {
-            EXPECT_GE(sysmon::tests::renderedTextContrast(mainWindow, *card->statusLabel()),
-                      sysmon::tests::kMinimumTextContrast)
+            EXPECT_GE(verdandi::tests::renderedTextContrast(mainWindow, *card->statusLabel()),
+                      verdandi::tests::kMinimumTextContrast)
                 << (scheme == Qt::ColorScheme::Dark ? "dark: " : "light: ") << card->statusText().toStdString();
         }
-        EXPECT_EQ(dashboard->networkCard()->statusLabel()->tone(), sysmon::ui::TextTone::Dimmed);
+        EXPECT_EQ(dashboard->networkCard()->statusLabel()->tone(), verdandi::ui::TextTone::Dimmed);
         EXPECT_TRUE(dashboard->networkCard()->statusLabel()->font().italic());
         EXPECT_FALSE(dashboard->diskCard()->statusLabel()->font().italic());
     }

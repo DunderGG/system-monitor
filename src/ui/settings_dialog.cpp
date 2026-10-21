@@ -21,7 +21,7 @@
 
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -270,4 +270,4 @@ QDialogButtonBox* SettingsDialog::buttonBox() const
     return m_buttonBox;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

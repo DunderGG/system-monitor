@@ -5,7 +5,7 @@
 
 class QEvent;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -68,4 +68,4 @@ private:
     TextTone m_tone;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

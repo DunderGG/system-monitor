@@ -7,7 +7,7 @@
 #include "domain/cpu_sample.h"
 #include "platform/windows/cpu_collector.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(CpuCollector, CalculateCpuUsage_ZeroOrNegativeElapsed_ReturnsNullopt)
 {

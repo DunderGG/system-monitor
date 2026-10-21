@@ -5,7 +5,7 @@
 
 #include <windows.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 std::optional<PowerTransition> powerTransitionFromMessage(const void* message)
@@ -26,4 +26,4 @@ std::optional<PowerTransition> powerTransitionFromMessage(const void* message)
     }
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

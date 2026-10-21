@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -36,4 +36,4 @@ struct NetworkProfile
     bool operator==(const NetworkProfile&) const = default;
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

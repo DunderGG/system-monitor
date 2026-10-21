@@ -6,7 +6,7 @@
 #include "platform/windows/repeated_failure_log.h"
 #include "support/log_capture.h"
 
-using sysmon::platform::RepeatedFailureLog;
+using verdandi::platform::RepeatedFailureLog;
 
 namespace
 {
@@ -20,7 +20,7 @@ protected:
     }
 
 private:
-    sysmon::tests::ScopedLogCapture m_logCapture;
+    verdandi::tests::ScopedLogCapture m_logCapture;
 };
 
 } // namespace

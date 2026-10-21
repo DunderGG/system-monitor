@@ -1,6 +1,6 @@
 #include "platform/windows/adapter_type_mapping.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 domain::AdapterType toAdapterType(IFTYPE interfaceType, NDIS_PHYSICAL_MEDIUM physicalMedium) noexcept
@@ -36,4 +36,4 @@ domain::AdapterType toAdapterType(IFTYPE interfaceType, NDIS_PHYSICAL_MEDIUM phy
     }
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

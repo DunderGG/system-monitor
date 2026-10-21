@@ -11,7 +11,7 @@
 #include "domain/process_termination.h"
 #include "domain/settings.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 // Pure presentation helpers for the Processes tab. Like the dashboard helpers
@@ -97,4 +97,4 @@ struct ProcessTerminationMessage
 [[nodiscard]] std::optional<ProcessTerminationMessage>
 processTerminationMessage(const domain::ProcessInfo& process, domain::ProcessTerminationResult result);
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

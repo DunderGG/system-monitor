@@ -9,7 +9,7 @@
 #include "domain/disk_sample.h"
 #include "monitoring/collector.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -55,4 +55,4 @@ private:
     DiskSpaceReader m_reader;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

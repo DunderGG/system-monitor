@@ -13,7 +13,7 @@
 #include "platform/windows/process_identity_cache.h"
 #include "platform/windows/steady_clock_reader.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -108,4 +108,4 @@ private:
     ProcessRateBaselines m_rateBaselines;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

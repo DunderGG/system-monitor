@@ -2,7 +2,7 @@
 
 #include "platform/windows/power_transition.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 PowerEventFilter::PowerEventFilter(monitoring::SamplingScheduler& scheduler) : m_scheduler(scheduler) {}
@@ -26,4 +26,4 @@ bool PowerEventFilter::nativeEventFilter(const QByteArray& eventType, void* mess
     return false;
 }
 
-} // namespace sysmon::app
+} // namespace verdandi::app

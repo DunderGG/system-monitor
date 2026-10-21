@@ -9,7 +9,7 @@
 #include "domain/system_snapshot.h"
 #include "support/network_samples.h"
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 inline constexpr uint64_t kGiB = 1024ULL * 1024ULL * 1024ULL;
@@ -121,4 +121,4 @@ snapshotWithNetworks(std::optional<std::vector<domain::NetworkSample>> networks)
     return snapshot;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

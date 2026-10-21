@@ -13,7 +13,7 @@
 #include "domain/network_sample.h"
 #include "domain/settings.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 // Pure presentation helpers for the Performance tab. Like the dashboard
@@ -80,4 +80,4 @@ chartedAdapters(const std::vector<domain::NetworkSample>& networks);
 [[nodiscard]] QString networkSummary(const std::optional<std::vector<domain::NetworkSample>>& networks,
                                      domain::DisplayUnits units);
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

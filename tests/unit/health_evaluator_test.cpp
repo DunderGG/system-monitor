@@ -11,8 +11,8 @@
 #include "domain/system_snapshot.h"
 #include "monitoring/health_evaluator.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::monitoring;
+using namespace verdandi::domain;
+using namespace verdandi::monitoring;
 
 namespace
 {

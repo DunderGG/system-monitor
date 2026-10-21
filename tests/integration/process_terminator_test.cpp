@@ -16,11 +16,11 @@
 #include "platform/windows/system_process_information_reader.h"
 #include "suspended_child_process.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
-using sysmon::tests::isCurrentProcessElevated;
-using sysmon::tests::SuspendedChildProcess;
-using sysmon::tests::UnelevatedToken;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
+using verdandi::tests::isCurrentProcessElevated;
+using verdandi::tests::SuspendedChildProcess;
+using verdandi::tests::UnelevatedToken;
 
 namespace
 {

@@ -6,7 +6,7 @@
 #include "domain/settings.h"
 #include "persistence/settings_file.h"
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /** Prints settings in a failed expectation as a settings file's JSON. GoogleTest finds it by argument lookup. */
@@ -15,9 +15,9 @@ inline void PrintTo(const Settings& settings, std::ostream* stream)
     *stream << persistence::serializeSettings(settings);
 }
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** Settings in which every value differs from its default. */
@@ -31,4 +31,4 @@ namespace sysmon::tests
     };
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

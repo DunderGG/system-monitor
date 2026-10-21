@@ -16,11 +16,11 @@
 // SamplingScheduler: the tick, which runs the fast collectors, assembles each
 // snapshot with its health, and emits it; and starting and stopping.
 
-using sysmon::domain::SystemSnapshot;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::tests::FakeCpuCollector;
-using sysmon::tests::FakeMemoryCollector;
-using sysmon::tests::populatedSnapshot;
+using verdandi::domain::SystemSnapshot;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::tests::FakeCpuCollector;
+using verdandi::tests::FakeMemoryCollector;
+using verdandi::tests::populatedSnapshot;
 
 TEST(SamplingScheduler, SampleOnce_AssemblesRegisteredCollectors)
 {
@@ -128,19 +128,19 @@ TEST(SamplingScheduler, FastShutdown_RespondsImmediatelyToStop)
 namespace
 {
 
-class MutexReentryProbeCollector : public sysmon::monitoring::ICpuCollector
+class MutexReentryProbeCollector : public verdandi::monitoring::ICpuCollector
 {
 public:
     explicit MutexReentryProbeCollector(SamplingScheduler& scheduler) : m_scheduler(scheduler) {}
 
-    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
+    [[nodiscard]] std::optional<verdandi::domain::CpuSample> collect() override
     {
         // Calling setDiskCollector acquires m_collectorMutex.
         // If sampleOnce() held m_collectorMutex during collect(), this non-recursive mutex would deadlock.
         m_scheduler.setDiskCollector(nullptr);
         m_called = true;
 
-        sysmon::domain::CpuSample sample;
+        verdandi::domain::CpuSample sample;
         sample.coreCount = 8;
         return sample;
     }
@@ -176,7 +176,7 @@ TEST(SamplingScheduler, SampleOnce_ReleasesCollectorMutexBeforeCollection)
 namespace
 {
 
-class FakeUptimeCollector : public sysmon::monitoring::IUptimeCollector
+class FakeUptimeCollector : public verdandi::monitoring::IUptimeCollector
 {
 public:
     explicit FakeUptimeCollector(std::chrono::milliseconds uptime) : m_uptime(uptime) {}
@@ -214,14 +214,14 @@ TEST(SamplingScheduler, SampleOnce_NoUptimeCollector_UptimeIsNullopt)
 namespace
 {
 
-class FixedCpuCollector : public sysmon::monitoring::ICpuCollector
+class FixedCpuCollector : public verdandi::monitoring::ICpuCollector
 {
 public:
     explicit FixedCpuCollector(float usagePercent) : m_usagePercent(usagePercent) {}
 
-    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
+    [[nodiscard]] std::optional<verdandi::domain::CpuSample> collect() override
     {
-        return sysmon::domain::CpuSample{.totalUsagePercent = m_usagePercent, .coreCount = 1};
+        return verdandi::domain::CpuSample{.totalUsagePercent = m_usagePercent, .coreCount = 1};
     }
 
     void resetBaselines() override {}
@@ -238,31 +238,31 @@ TEST(SamplingScheduler, SampleOnce_NoCollectors_HealthAllUnknown)
 
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
-    EXPECT_EQ(snapshot.health, sysmon::domain::SystemHealth{});
+    EXPECT_EQ(snapshot.health, verdandi::domain::SystemHealth{});
 }
 
 TEST(SamplingScheduler, SampleOnce_EvaluatesHealthWithConfiguredThresholds)
 {
     SamplingScheduler scheduler;
     scheduler.setCpuCollector(std::make_unique<FixedCpuCollector>(50.0f));
-    scheduler.setHealthThresholds(sysmon::monitoring::HealthThresholds{
-        .cpu = sysmon::monitoring::UsageThresholds{.warningPercent = 40.0f, .criticalPercent = 60.0f},
+    scheduler.setHealthThresholds(verdandi::monitoring::HealthThresholds{
+        .cpu = verdandi::monitoring::UsageThresholds{.warningPercent = 40.0f, .criticalPercent = 60.0f},
     });
 
     const SystemSnapshot snapshot = scheduler.sampleOnce();
 
-    EXPECT_EQ(snapshot.health.cpu, sysmon::domain::HealthLevel::Warning);
+    EXPECT_EQ(snapshot.health.cpu, verdandi::domain::HealthLevel::Warning);
 }
 
 namespace
 {
 
-class FakeSystemActivityCollector : public sysmon::monitoring::ISystemActivityCollector
+class FakeSystemActivityCollector : public verdandi::monitoring::ISystemActivityCollector
 {
 public:
-    [[nodiscard]] std::optional<sysmon::domain::SystemActivitySample> collect() override
+    [[nodiscard]] std::optional<verdandi::domain::SystemActivitySample> collect() override
     {
-        return sysmon::domain::SystemActivitySample{.processCount = 3, .threadCount = 30, .handleCount = 300};
+        return verdandi::domain::SystemActivitySample{.processCount = 3, .threadCount = 30, .handleCount = 300};
     }
 };
 

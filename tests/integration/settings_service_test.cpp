@@ -16,15 +16,15 @@
 #include "support/settings_samples.h"
 #include "support/temporary_directory.h"
 
-using sysmon::app::SettingsService;
-using sysmon::domain::ByteUnits;
-using sysmon::domain::LogLevel;
-using sysmon::domain::Settings;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::persistence::loadSettingsFile;
-using sysmon::tests::nonDefaultSettings;
-using sysmon::tests::ScopedLogCapture;
-using sysmon::tests::TemporaryDirectory;
+using verdandi::app::SettingsService;
+using verdandi::domain::ByteUnits;
+using verdandi::domain::LogLevel;
+using verdandi::domain::Settings;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::persistence::loadSettingsFile;
+using verdandi::tests::nonDefaultSettings;
+using verdandi::tests::ScopedLogCapture;
+using verdandi::tests::TemporaryDirectory;
 
 TEST(SettingsServiceIntegration, Change_AppliesTheIntervalAndSavesTheSettings)
 {

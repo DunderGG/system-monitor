@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -31,4 +31,4 @@ using PerformanceInfoReader = std::function<bool(PerformanceInfoData&)>;
  */
 [[nodiscard]] PerformanceInfoReader makePerformanceInfoReader();
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

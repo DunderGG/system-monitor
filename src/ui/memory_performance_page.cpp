@@ -8,7 +8,7 @@
 #include "ui/performance_readouts.h"
 #include "ui/readout_grid.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -69,4 +69,4 @@ ReadoutGrid* MemoryPerformancePage::readouts() const
     return m_readouts;
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

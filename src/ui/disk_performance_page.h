@@ -10,7 +10,7 @@
 #include "domain/disk_sample.h"
 #include "ui/performance_page.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ReadoutGrid;
@@ -65,4 +65,4 @@ private:
     std::optional<std::vector<domain::DiskSample>> m_latest;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

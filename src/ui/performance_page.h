@@ -15,7 +15,7 @@
 
 class QVBoxLayout;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -117,4 +117,4 @@ private:
     domain::DisplayUnits m_displayUnits{};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

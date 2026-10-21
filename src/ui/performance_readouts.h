@@ -14,7 +14,7 @@
 #include "domain/settings.h"
 #include "domain/system_activity_sample.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 // Pure builders for the numeric readouts shown beside the Performance tab's
@@ -71,4 +71,4 @@ struct Readout
 [[nodiscard]] std::vector<Readout> adapterReadouts(const std::optional<domain::NetworkSample>& adapter,
                                                    domain::DisplayUnits units);
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -15,7 +15,7 @@
 #include "ui/text_tone.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -179,4 +179,4 @@ void AdapterCard::setStatus(const QString& text, bool isUp)
     m_statusLabel->setTone(isUp ? TextTone::Good : TextTone::Dimmed);
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

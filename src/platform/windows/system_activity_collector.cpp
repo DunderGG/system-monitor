@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 std::optional<domain::SystemActivitySample> calculateSystemActivity(const PerformanceInfoData& data)
@@ -30,4 +30,4 @@ std::optional<domain::SystemActivitySample> SystemActivityCollector::collect()
     return calculateSystemActivity(data);
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

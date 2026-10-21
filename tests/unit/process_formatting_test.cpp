@@ -13,8 +13,8 @@
 #include "ui/dashboard_formatting.h"
 #include "ui/process_formatting.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
 
 TEST(ProcessFormatting, ProcessDisplayName_NamedProcess_IsImageName)
 {

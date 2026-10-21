@@ -15,7 +15,7 @@
 #include <QStringList>
 #include <QWidget>
 
-namespace sysmon::ui::charts
+namespace verdandi::ui::charts
 {
 
 /** Vertical value range mapped to the chart's height. Invariant: min < max. */
@@ -287,4 +287,4 @@ private:
     bool m_annotationsVisible{false};
 };
 
-} // namespace sysmon::ui::charts
+} // namespace verdandi::ui::charts

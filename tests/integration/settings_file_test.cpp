@@ -13,10 +13,10 @@
 #include "support/settings_samples.h"
 #include "support/temporary_directory.h"
 
-using namespace sysmon::persistence;
-using sysmon::domain::Settings;
-using sysmon::tests::nonDefaultSettings;
-using sysmon::tests::TemporaryDirectory;
+using namespace verdandi::persistence;
+using verdandi::domain::Settings;
+using verdandi::tests::nonDefaultSettings;
+using verdandi::tests::TemporaryDirectory;
 
 namespace
 {

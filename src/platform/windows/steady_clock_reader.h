@@ -3,7 +3,7 @@
 #include <chrono>
 #include <functional>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -13,4 +13,4 @@ namespace sysmon::platform
  */
 using SteadyClockReader = std::function<std::chrono::steady_clock::time_point()>;
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -10,8 +10,8 @@
 #include "domain/process_info.h"
 #include "platform/windows/process_collector.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 TEST(ProcessCollector, Collect_ListRead_ReturnsProcesses)
 {

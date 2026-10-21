@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -67,4 +67,4 @@ std::string wideToUtf8(std::wstring_view text)
     return output;
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

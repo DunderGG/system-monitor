@@ -8,7 +8,7 @@
 #include "domain/network_sample.h"
 #include "ui/sample_history.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -53,4 +53,4 @@ private:
     std::vector<Adapter> m_adapters;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

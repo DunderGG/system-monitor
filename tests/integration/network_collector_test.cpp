@@ -10,8 +10,8 @@
 #include "domain/network_sample.h"
 #include "platform/windows/network_collector.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 TEST(NetworkCollectorIntegration, RealHostSampling_DetectsAdaptersWithSensibleMetrics)
 {

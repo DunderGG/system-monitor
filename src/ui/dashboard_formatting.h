@@ -14,7 +14,7 @@
 #include "domain/network_sample.h"
 #include "domain/settings.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 // Pure presentation helpers for the dashboard. They take domain values and
@@ -111,4 +111,4 @@ struct ThroughputTotals
 /** Returns the volume with the highest usage percent, or nullptr when there are none. */
 [[nodiscard]] const domain::DiskSample* fullestVolume(const std::vector<domain::DiskSample>& disks);
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

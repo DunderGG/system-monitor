@@ -3,7 +3,7 @@
 #include "domain/system_activity_sample.h"
 #include "platform/windows/system_activity_collector.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(SystemActivityCollectorIntegration, RealHost_CountsArePlausible)
 {

@@ -5,7 +5,7 @@
 #include <QModelIndex>
 #include <QSortFilterProxyModel>
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 /**
@@ -51,4 +51,4 @@ private:
     bool m_isSortDeferred{false};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -16,4 +16,4 @@ namespace sysmon::platform
 [[nodiscard]] std::optional<uint64_t> calculateByteRate(uint64_t previousBytes, uint64_t currentBytes,
                                                         double elapsedSeconds);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

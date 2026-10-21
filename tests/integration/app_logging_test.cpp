@@ -32,11 +32,11 @@ TEST(AppLoggingIntegration, ConfigureLogging_PathOutsideAnsiCodePage_WritesLogFi
     const auto logFilePath = directory / "verdandi.log";
     const auto previousLogger = spdlog::default_logger();
 
-    sysmon::app::configureLogging(logFilePath, spdlog::level::info);
+    verdandi::app::configureLogging(logFilePath, spdlog::level::info);
     spdlog::warn("Log file path test"); // The logger flushes on warn.
     spdlog::set_default_logger(previousLogger);
     // set_default_logger() keeps the replaced logger registered; dropping it closes the file.
-    spdlog::drop(std::string{sysmon::app::kApplicationLoggerName});
+    spdlog::drop(std::string{verdandi::app::kApplicationLoggerName});
     const bool isLogFileWritten = std::filesystem::exists(logFilePath, error);
     const auto removedCount = std::filesystem::remove_all(directory, error);
 

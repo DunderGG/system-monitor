@@ -2,7 +2,7 @@
 
 #include "monitoring/sampling_scheduler.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 /**
@@ -14,4 +14,4 @@ namespace sysmon::app
  */
 void registerSystemCollectors(monitoring::SamplingScheduler& scheduler);
 
-} // namespace sysmon::app
+} // namespace verdandi::app

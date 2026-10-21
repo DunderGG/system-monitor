@@ -1,6 +1,6 @@
 #include "platform/windows/network_category_mapping.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 std::optional<domain::NetworkCategory> toNetworkCategory(NLM_NETWORK_CATEGORY category) noexcept
@@ -17,4 +17,4 @@ std::optional<domain::NetworkCategory> toNetworkCategory(NLM_NETWORK_CATEGORY ca
     }
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

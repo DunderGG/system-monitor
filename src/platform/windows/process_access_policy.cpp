@@ -8,7 +8,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 namespace
@@ -62,4 +62,4 @@ ProcessDetailsReader skippingNeverOpenedProcesses(ProcessDetailsReader reader)
     };
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

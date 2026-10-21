@@ -22,24 +22,24 @@
 // connectivity and network-name collectors at their own interval, and how
 // their latest results reach each tick's snapshot.
 
-using sysmon::domain::SystemSnapshot;
-using sysmon::monitoring::SamplingScheduler;
-using sysmon::tests::FakeProcessCollector;
+using verdandi::domain::SystemSnapshot;
+using verdandi::monitoring::SamplingScheduler;
+using verdandi::tests::FakeProcessCollector;
 
 namespace
 {
 
-class FakeConnectivityCollector : public sysmon::monitoring::IConnectivityCollector
+class FakeConnectivityCollector : public verdandi::monitoring::IConnectivityCollector
 {
 public:
-    [[nodiscard]] sysmon::domain::ConnectivityStatus collect() override
+    [[nodiscard]] verdandi::domain::ConnectivityStatus collect() override
     {
         ++m_calls;
-        return sysmon::domain::ConnectivityStatus{.level = sysmon::domain::ConnectivityLevel::InternetAccess,
-                                                  .isMetered = false};
+        return verdandi::domain::ConnectivityStatus{.level = verdandi::domain::ConnectivityLevel::InternetAccess,
+                                                    .isMetered = false};
     }
 
-    void setChangeListener(sysmon::monitoring::ChangeListener /*listener*/) override {}
+    void setChangeListener(verdandi::monitoring::ChangeListener /*listener*/) override {}
 
     [[nodiscard]] int calls() const
     {
@@ -50,18 +50,18 @@ private:
     std::atomic<int> m_calls{0};
 };
 
-class FakeNetworkProfileCollector : public sysmon::monitoring::INetworkProfileCollector
+class FakeNetworkProfileCollector : public verdandi::monitoring::INetworkProfileCollector
 {
 public:
-    [[nodiscard]] std::optional<std::vector<sysmon::domain::NetworkProfile>> collect() override
+    [[nodiscard]] std::optional<std::vector<verdandi::domain::NetworkProfile>> collect() override
     {
         ++m_calls;
-        return std::vector<sysmon::domain::NetworkProfile>{
-            {.name = "Home", .category = sysmon::domain::NetworkCategory::Private, .interfaceIds = {7}},
+        return std::vector<verdandi::domain::NetworkProfile>{
+            {.name = "Home", .category = verdandi::domain::NetworkCategory::Private, .interfaceIds = {7}},
         };
     }
 
-    void setChangeListener(sysmon::monitoring::ChangeListener /*listener*/) override {}
+    void setChangeListener(verdandi::monitoring::ChangeListener /*listener*/) override {}
 
     [[nodiscard]] int calls() const
     {
@@ -73,14 +73,14 @@ private:
 };
 
 // Records the thread each tick runs on.
-class ThreadRecordingCpuCollector : public sysmon::monitoring::ICpuCollector
+class ThreadRecordingCpuCollector : public verdandi::monitoring::ICpuCollector
 {
 public:
-    [[nodiscard]] std::optional<sysmon::domain::CpuSample> collect() override
+    [[nodiscard]] std::optional<verdandi::domain::CpuSample> collect() override
     {
         std::lock_guard lock(m_mutex);
         m_lastThread = std::this_thread::get_id();
-        return sysmon::domain::CpuSample{.totalUsagePercent = 10.0f, .coreCount = 1};
+        return verdandi::domain::CpuSample{.totalUsagePercent = 10.0f, .coreCount = 1};
     }
 
     void resetBaselines() override {}
@@ -113,7 +113,7 @@ TEST(SamplingScheduler, SampleOnce_DoesNotRunSlowCollectors)
     EXPECT_EQ(processPtr->calls(), 0);
     EXPECT_EQ(connectivityPtr->calls(), 0);
     EXPECT_FALSE(snapshot.processes.has_value());
-    EXPECT_EQ(snapshot.connectivity.level, sysmon::domain::ConnectivityLevel::Unknown);
+    EXPECT_EQ(snapshot.connectivity.level, verdandi::domain::ConnectivityLevel::Unknown);
 }
 
 TEST(SamplingScheduler, RefreshSlowCollectors_NetworkProfilesCarriedIntoSnapshots)
@@ -151,7 +151,7 @@ TEST(SamplingScheduler, RefreshSlowCollectors_NextSnapshotsCarryLatestResults)
     ASSERT_TRUE(first.processes.has_value());
     ASSERT_EQ(first.processes->size(), 1u);
     EXPECT_EQ((*first.processes)[0].pid, 1u);
-    EXPECT_EQ(first.connectivity.level, sysmon::domain::ConnectivityLevel::InternetAccess);
+    EXPECT_EQ(first.connectivity.level, verdandi::domain::ConnectivityLevel::InternetAccess);
     ASSERT_TRUE(second.processes.has_value());
     EXPECT_EQ((*second.processes)[0].pid, 1u);
 }
@@ -178,7 +178,7 @@ TEST(SamplingScheduler, RefreshSlowCollectors_NoSlowCollectors_NoDataAndUnknownC
 
     EXPECT_FALSE(snapshot.processes.has_value());
     EXPECT_FALSE(snapshot.networkProfiles.has_value());
-    EXPECT_EQ(snapshot.connectivity, sysmon::domain::ConnectivityStatus{});
+    EXPECT_EQ(snapshot.connectivity, verdandi::domain::ConnectivityStatus{});
 }
 
 TEST(SamplingScheduler, SlowInterval_DefaultAndSetter)
@@ -230,13 +230,13 @@ TEST(SamplingScheduler, Running_SlowCollectorsRunOnTheirOwnThreadAtTheirOwnCaden
 namespace
 {
 
-class SlowProcessCollector : public sysmon::monitoring::IProcessCollector
+class SlowProcessCollector : public verdandi::monitoring::IProcessCollector
 {
 public:
-    [[nodiscard]] std::optional<std::vector<sysmon::domain::ProcessInfo>> collect() override
+    [[nodiscard]] std::optional<std::vector<verdandi::domain::ProcessInfo>> collect() override
     {
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
-        return std::vector<sysmon::domain::ProcessInfo>{};
+        return std::vector<verdandi::domain::ProcessInfo>{};
     }
 
     void resetBaselines() override {}

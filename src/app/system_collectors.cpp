@@ -12,7 +12,7 @@
 #include "platform/windows/system_activity_collector.h"
 #include "platform/windows/uptime_collector.h"
 
-namespace sysmon::app
+namespace verdandi::app
 {
 
 void registerSystemCollectors(monitoring::SamplingScheduler& scheduler)
@@ -28,4 +28,4 @@ void registerSystemCollectors(monitoring::SamplingScheduler& scheduler)
     scheduler.setProcessCollector(std::make_unique<platform::ProcessCollector>());
 }
 
-} // namespace sysmon::app
+} // namespace verdandi::app

@@ -2,7 +2,7 @@
 
 #include <optional>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /** A change of the system's power state that the monitor acts on (DC-129). */
@@ -24,4 +24,4 @@ enum class PowerTransition
  */
 [[nodiscard]] std::optional<PowerTransition> powerTransitionFromMessage(const void* message);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

@@ -9,7 +9,7 @@
 
 class QLabel;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class TonedLabel;
@@ -60,4 +60,4 @@ private:
     std::optional<domain::HealthLevel> m_status;
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

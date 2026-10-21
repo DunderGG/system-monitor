@@ -18,9 +18,9 @@
 #include "ui/network_formatting.h"
 #include "ui/performance_formatting.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using namespace verdandi::tests;
 
 namespace
 {

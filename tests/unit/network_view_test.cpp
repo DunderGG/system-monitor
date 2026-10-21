@@ -29,9 +29,9 @@
 #include "ui/readout_grid.h"
 #include "ui/text_tone.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::ui;
-using namespace sysmon::tests;
+using namespace verdandi::domain;
+using namespace verdandi::ui;
+using namespace verdandi::tests;
 
 namespace
 {
@@ -561,7 +561,7 @@ TEST(NetworkView, Card_StatusDescriptionAndReadoutNamesReadableInBothColourSchem
     mainWindow.onSnapshotReady(snapshotWithNetworks(std::vector<NetworkSample>{ethernet, wifi}));
 
     for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark}) {
-        const sysmon::tests::ScopedColorScheme colorScheme(scheme);
+        const verdandi::tests::ScopedColorScheme colorScheme(scheme);
         QCoreApplication::processEvents();
 
         const NetworkView* view = mainWindow.networkView();
@@ -573,7 +573,8 @@ TEST(NetworkView, Card_StatusDescriptionAndReadoutNamesReadableInBothColourSchem
             for (const QWidget* label : {static_cast<const QWidget*>(card->statusLabel()),
                                          static_cast<const QWidget*>(card->descriptionLabel()),
                                          static_cast<const QWidget*>(readoutNames.front())}) {
-                EXPECT_GE(sysmon::tests::renderedTextContrast(mainWindow, *label), sysmon::tests::kMinimumTextContrast)
+                EXPECT_GE(verdandi::tests::renderedTextContrast(mainWindow, *label),
+                          verdandi::tests::kMinimumTextContrast)
                     << (scheme == Qt::ColorScheme::Dark ? "dark: " : "light: ")
                     << qobject_cast<const QLabel*>(label)->text().toStdString();
             }

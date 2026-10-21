@@ -8,13 +8,13 @@
 #include "support/text_contrast.h"
 #include "ui/text_tone.h"
 
-using sysmon::tests::blendedOver;
-using sysmon::tests::contrastRatio;
-using sysmon::tests::kMinimumTextContrast;
-using sysmon::ui::dimmedTextColor;
-using sysmon::ui::TextTone;
-using sysmon::ui::textToneColor;
-using sysmon::ui::TonedLabel;
+using verdandi::tests::blendedOver;
+using verdandi::tests::contrastRatio;
+using verdandi::tests::kMinimumTextContrast;
+using verdandi::ui::dimmedTextColor;
+using verdandi::ui::TextTone;
+using verdandi::ui::textToneColor;
+using verdandi::ui::TonedLabel;
 
 namespace
 {
@@ -68,7 +68,7 @@ TEST(TextTone, DimmedTextColor_TextColourAtReducedOpacity)
     const QColor dimmed = dimmedTextColor(QColor(0x12, 0x34, 0x56));
 
     EXPECT_EQ(dimmed.rgb(), QColor(0x12, 0x34, 0x56).rgb());
-    EXPECT_NEAR(dimmed.alphaF(), sysmon::ui::kDimmedTextAlpha, 0.01);
+    EXPECT_NEAR(dimmed.alphaF(), verdandi::ui::kDimmedTextAlpha, 0.01);
 }
 
 TEST(TextTone, TextToneColor_StatusTonesLighterOnDarkBackground)

@@ -15,7 +15,7 @@
 #include "monitoring/collector.h"
 #include "platform/windows/connectivity_collector.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -131,4 +131,4 @@ private:
     std::unique_ptr<ConnectivitySubscription> m_subscription;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

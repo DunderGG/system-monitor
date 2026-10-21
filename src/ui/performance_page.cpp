@@ -10,7 +10,7 @@
 
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -126,4 +126,4 @@ void PerformancePage::showHistory(charts::SparklineWidget* chart, std::size_t se
     chart->setSampleIndex(m_recordedCount);
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

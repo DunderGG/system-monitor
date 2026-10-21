@@ -14,7 +14,7 @@
 #include "domain/process_info.h"
 #include "domain/system_activity_sample.h"
 
-namespace sysmon::monitoring
+namespace verdandi::monitoring
 {
 
 /**
@@ -95,4 +95,4 @@ using IUptimeCollector = ICollector<std::chrono::milliseconds>;
 using IProcessCollector = IRateCollector<std::optional<std::vector<domain::ProcessInfo>>>;
 using ISystemActivityCollector = ICollector<std::optional<domain::SystemActivitySample>>;
 
-} // namespace sysmon::monitoring
+} // namespace verdandi::monitoring

@@ -34,20 +34,20 @@
 namespace
 {
 
-using sysmon::domain::AdapterType;
-using sysmon::domain::CpuSample;
-using sysmon::domain::DiskSample;
-using sysmon::domain::MemorySample;
-using sysmon::domain::NetworkCategory;
-using sysmon::domain::NetworkProfile;
-using sysmon::domain::NetworkSample;
-using sysmon::domain::OperationalStatus;
-using sysmon::domain::SystemActivitySample;
-using sysmon::domain::SystemSnapshot;
-using sysmon::ui::MainWindow;
-using sysmon::ui::NetworkView;
-using sysmon::ui::PerformancePage;
-using sysmon::ui::PerformanceView;
+using verdandi::domain::AdapterType;
+using verdandi::domain::CpuSample;
+using verdandi::domain::DiskSample;
+using verdandi::domain::MemorySample;
+using verdandi::domain::NetworkCategory;
+using verdandi::domain::NetworkProfile;
+using verdandi::domain::NetworkSample;
+using verdandi::domain::OperationalStatus;
+using verdandi::domain::SystemActivitySample;
+using verdandi::domain::SystemSnapshot;
+using verdandi::ui::MainWindow;
+using verdandi::ui::NetworkView;
+using verdandi::ui::PerformancePage;
+using verdandi::ui::PerformanceView;
 
 constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 800;
@@ -260,7 +260,7 @@ int main(int argc, char* argv[])
     spdlog::warn("Warning: this is a Debug build, whose Qt libraries paint many times slower. "
                  "Run .\\scripts\\build.ps1 -Benchmark for representative numbers.\n");
 #endif
-    sysmon::benchmarks::logBenchmarkEnvironment();
+    verdandi::benchmarks::logBenchmarkEnvironment();
 
     spdlog::info("Performance tab tick cost: a forwarded snapshot plus a repaint of a {}x{} window,", kWindowWidth,
                  kWindowHeight);

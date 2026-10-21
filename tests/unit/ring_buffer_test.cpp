@@ -5,7 +5,7 @@
 
 #include "domain/ring_buffer.h"
 
-using sysmon::domain::RingBuffer;
+using verdandi::domain::RingBuffer;
 
 TEST(RingBuffer, DefaultState_IsEmptyAndCorrectCapacity)
 {

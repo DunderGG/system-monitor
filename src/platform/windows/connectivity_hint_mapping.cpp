@@ -1,6 +1,6 @@
 #include "platform/windows/connectivity_hint_mapping.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 domain::ConnectivityLevel toConnectivityLevel(NL_NETWORK_CONNECTIVITY_LEVEL_HINT level) noexcept
@@ -53,4 +53,4 @@ domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HI
     };
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

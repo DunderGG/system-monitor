@@ -20,7 +20,7 @@
 #include "ui/network_performance_page.h"
 #include "ui/view_metrics.h"
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -227,4 +227,4 @@ void PerformanceView::refreshVisible()
     }
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

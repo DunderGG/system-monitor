@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cassert>
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 namespace
@@ -67,4 +67,4 @@ std::size_t AdapterThroughputHistory::adapterCount() const
     return m_adapters.size();
 }
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -2,7 +2,7 @@
 
 #include "platform/windows/system_process_information_reader.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 TEST(SystemProcessInformationReaderIntegration, RealHost_SmallInitialBuffer_GrowsAndReads)
 {

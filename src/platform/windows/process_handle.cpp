@@ -4,7 +4,7 @@
 
 #include "platform/windows/system_process_information.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 void HandleCloser::operator()(HANDLE handle) const noexcept
@@ -29,4 +29,4 @@ std::optional<std::chrono::system_clock::time_point> processCreationTime(HANDLE 
     return fileTimeToSystemClock(creationTicks);
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

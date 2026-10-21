@@ -7,7 +7,7 @@
 
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 PerformanceInfoReader makePerformanceInfoReader()
@@ -31,4 +31,4 @@ PerformanceInfoReader makePerformanceInfoReader()
     };
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

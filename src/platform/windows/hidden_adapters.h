@@ -7,7 +7,7 @@
 
 #include "platform/windows/repeated_failure_log.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Internal to platform/windows: exposes Windows types. Do not include from
@@ -27,4 +27,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] std::optional<std::vector<GUID>> queryHiddenAdapterGuids(RepeatedFailureLog& failureLog);
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

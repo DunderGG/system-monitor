@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 UptimeCollector::UptimeCollector() : m_reader([] { return static_cast<uint64_t>(::GetTickCount64()); }) {}
@@ -16,4 +16,4 @@ std::chrono::milliseconds UptimeCollector::collect()
     return std::chrono::milliseconds{static_cast<std::chrono::milliseconds::rep>(m_reader())};
 }
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

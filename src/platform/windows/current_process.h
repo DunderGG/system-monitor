@@ -4,7 +4,7 @@
 
 #include "domain/process_identity.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -14,4 +14,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] std::optional<domain::ProcessIdentity> currentProcessIdentity();
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

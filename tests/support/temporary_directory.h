@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -52,4 +52,4 @@ private:
     std::filesystem::path m_path;
 };
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

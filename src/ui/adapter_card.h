@@ -16,7 +16,7 @@
 
 class QLabel;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ReadoutGrid;
@@ -88,4 +88,4 @@ private:
     TonedLabel* m_chartPlaceholder{nullptr};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

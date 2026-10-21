@@ -8,10 +8,10 @@
 #include "platform/windows/process_identity_cache.h"
 #include "support/process_samples.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 using namespace std::chrono_literals;
-using sysmon::tests::process;
+using verdandi::tests::process;
 
 namespace
 {

@@ -8,7 +8,7 @@
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /**
@@ -57,4 +57,4 @@ private:
     std::shared_ptr<spdlog::logger> m_previousLogger;
 };
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

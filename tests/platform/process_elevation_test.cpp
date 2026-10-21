@@ -6,7 +6,7 @@
 
 #include "platform/windows/process_elevation.h"
 
-using namespace sysmon::platform;
+using namespace verdandi::platform;
 
 namespace
 {

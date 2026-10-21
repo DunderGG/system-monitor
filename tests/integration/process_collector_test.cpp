@@ -18,8 +18,8 @@
 #include "platform/windows/system_process_information.h"
 #include "platform/windows/utf8_conversion.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::platform;
+using namespace verdandi::domain;
+using namespace verdandi::platform;
 
 namespace
 {

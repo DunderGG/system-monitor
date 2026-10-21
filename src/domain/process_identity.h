@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -33,4 +33,4 @@ struct ProcessIdentityHash
     }
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain

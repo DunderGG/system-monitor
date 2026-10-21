@@ -9,10 +9,10 @@
 #include "persistence/settings_file.h"
 #include "support/settings_samples.h"
 
-using namespace sysmon::domain;
-using namespace sysmon::persistence;
+using namespace verdandi::domain;
+using namespace verdandi::persistence;
 using std::chrono::milliseconds;
-using sysmon::tests::nonDefaultSettings;
+using verdandi::tests::nonDefaultSettings;
 
 namespace
 {

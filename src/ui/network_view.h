@@ -23,7 +23,7 @@ class QScrollArea;
 class QShowEvent;
 class QVBoxLayout;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class AdapterCard;
@@ -126,4 +126,4 @@ private:
     AdapterThroughputHistory m_history{kHistoryCapacity};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

@@ -18,7 +18,7 @@ class QLineEdit;
 class QPushButton;
 class QTreeView;
 
-namespace sysmon::ui
+namespace verdandi::ui
 {
 
 class ProcessModel;
@@ -124,4 +124,4 @@ private:
     bool m_hasProcessList{false};
 };
 
-} // namespace sysmon::ui
+} // namespace verdandi::ui

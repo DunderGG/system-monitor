@@ -8,7 +8,7 @@
 
 #include "domain/connectivity_status.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Pure conversions from GetNetworkConnectivityHint types to domain types.
@@ -34,4 +34,4 @@ namespace sysmon::platform
 
 [[nodiscard]] domain::ConnectivityStatus toConnectivityStatus(const NL_NETWORK_CONNECTIVITY_HINT& hint) noexcept;
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

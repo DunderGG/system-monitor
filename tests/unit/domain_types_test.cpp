@@ -12,7 +12,7 @@
 #include "domain/settings.h"
 #include "domain/system_snapshot.h"
 
-using namespace sysmon::domain;
+using namespace verdandi::domain;
 
 // Default values that encode decisions: missing data is std::nullopt or
 // Unknown, never a zero that would read as a measurement (DC-12, DC-39).

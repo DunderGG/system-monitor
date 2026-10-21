@@ -10,7 +10,7 @@
 
 #include "platform/windows/unicast_address.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Pure conversions of the addresses GetAdaptersAddresses reports.
@@ -52,4 +52,4 @@ namespace sysmon::platform
  */
 [[nodiscard]] bool isTemporaryAddress(IP_SUFFIX_ORIGIN suffixOrigin) noexcept;
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

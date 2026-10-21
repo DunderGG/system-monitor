@@ -7,7 +7,7 @@
 
 #include "domain/network_profile.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 // Pure conversion from Network List Manager types to domain types.
@@ -18,4 +18,4 @@ namespace sysmon::platform
 /** Maps a network category; a value outside NLM_NETWORK_CATEGORY maps to std::nullopt. */
 [[nodiscard]] std::optional<domain::NetworkCategory> toNetworkCategory(NLM_NETWORK_CATEGORY category) noexcept;
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

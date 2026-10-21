@@ -11,7 +11,7 @@
 
 // Sample histories and plot areas that the sparkline geometry and widget tests share.
 
-namespace sysmon::tests
+namespace verdandi::tests
 {
 
 /** One series of a sparkline, oldest first; std::nullopt is a gap. */
@@ -32,4 +32,4 @@ inline const QRectF kChartArea{0.0, 0.0, 100.0, 50.0};
     return samples;
 }
 
-} // namespace sysmon::tests
+} // namespace verdandi::tests

@@ -14,7 +14,7 @@
 #include "platform/windows/steady_clock_reader.h"
 #include "platform/windows/unicast_address.h"
 
-namespace sysmon::platform
+namespace verdandi::platform
 {
 
 /**
@@ -96,7 +96,7 @@ class WindowsAdapterReader;
  * adapter, the first sample after resetBaselines(), zero elapsed time, or a
  * counter reset.
  */
-class NetworkCollector : public sysmon::monitoring::INetworkCollector
+class NetworkCollector : public verdandi::monitoring::INetworkCollector
 {
 public:
     /** Default constructor using live Windows IP Helper APIs and std::chrono::steady_clock. */
@@ -121,4 +121,4 @@ private:
     std::unordered_map<uint64_t, NetworkBaseline> m_baselines;
 };
 
-} // namespace sysmon::platform
+} // namespace verdandi::platform

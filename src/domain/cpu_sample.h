@@ -4,7 +4,7 @@
 #include <optional>
 #include <vector>
 
-namespace sysmon::domain
+namespace verdandi::domain
 {
 
 /**
@@ -24,4 +24,4 @@ struct CpuSample
     std::optional<uint32_t> baseSpeedMhz{};
 };
 
-} // namespace sysmon::domain
+} // namespace verdandi::domain
