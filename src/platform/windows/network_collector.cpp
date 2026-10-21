@@ -377,6 +377,11 @@ std::optional<std::vector<domain::NetworkSample>> NetworkCollector::collect()
     return calculateNetworkSamples(*rawAdapters, m_baselines, now);
 }
 
+void NetworkCollector::resetBaselines()
+{
+    m_baselines.clear();
+}
+
 std::vector<domain::NetworkSample> calculateNetworkSamples(const std::vector<RawNetworkAdapter>& adapters,
                                                            std::unordered_map<uint64_t, NetworkBaseline>& baselines,
                                                            std::chrono::steady_clock::time_point currentTime)

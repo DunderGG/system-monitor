@@ -83,6 +83,8 @@ public:
         return sysmon::domain::CpuSample{.totalUsagePercent = 10.0f, .coreCount = 1};
     }
 
+    void resetBaselines() override {}
+
     [[nodiscard]] std::thread::id lastThread() const
     {
         std::lock_guard lock(m_mutex);
@@ -236,6 +238,8 @@ public:
         std::this_thread::sleep_for(std::chrono::milliseconds{50});
         return std::vector<sysmon::domain::ProcessInfo>{};
     }
+
+    void resetBaselines() override {}
 };
 
 } // namespace

@@ -130,4 +130,9 @@ std::optional<std::vector<domain::ProcessInfo>> ProcessCollector::collect()
     return processes;
 }
 
+void ProcessCollector::resetBaselines()
+{
+    m_rateBaselines.clear();
+}
+
 } // namespace sysmon::platform

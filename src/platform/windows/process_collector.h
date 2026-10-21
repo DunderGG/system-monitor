@@ -72,8 +72,8 @@ void calculateProcessRates(std::vector<domain::ProcessInfo>& processes, ProcessR
  *
  * CPU usage and I/O rates are computed against the previous successful
  * collect() with calculateProcessRates(), so the first collect() reports
- * none. A failed read keeps the baselines, and the next success measures over
- * the longer interval.
+ * none, nor does the first after resetBaselines(). A failed read keeps the
+ * baselines, and the next success measures over the longer interval.
  *
  * Not thread-safe; collect() must be called from one thread at a time.
  */
@@ -97,6 +97,8 @@ public:
     ~ProcessCollector() override = default;
 
     [[nodiscard]] std::optional<std::vector<domain::ProcessInfo>> collect() override;
+
+    void resetBaselines() override;
 
 private:
     ProcessListReader m_listReader;

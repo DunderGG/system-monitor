@@ -1,5 +1,5 @@
 find_package(spdlog CONFIG REQUIRED)
-find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
+find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Widgets)
 
 # Logging setup, in its own library so tests can exercise it.
 add_library(sysmon_app_logging STATIC
@@ -59,6 +59,26 @@ target_link_libraries(sysmon_app_collectors
         sysmon_platform_windows
 )
 
+# Passing the system's suspend and resume to the scheduler (DC-129), in its
+# own library so tests can exercise it.
+add_library(sysmon_app_power_events STATIC
+    power_event_filter.cpp
+    power_event_filter.h
+)
+
+target_include_directories(sysmon_app_power_events
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+target_link_libraries(sysmon_app_power_events
+    PUBLIC
+        Qt6::Core
+        sysmon_monitoring
+    PRIVATE
+        sysmon_platform_windows
+)
+
 # The manifest sets the process code page to UTF-8 and makes the process
 # per-monitor DPI aware. MSVC merges it with the linker-generated manifest.
 # system_monitor_tests and the benchmarks embed the same file.
@@ -73,6 +93,7 @@ target_link_libraries(system_monitor
         spdlog::spdlog
         sysmon_app_collectors
         sysmon_app_logging
+        sysmon_app_power_events
         sysmon_app_settings
         sysmon_domain
         sysmon_monitoring

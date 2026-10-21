@@ -365,3 +365,29 @@ TEST(ProcessCollector, Collect_FailedReadBetweenRefreshes_MeasuresOverLongerInte
     // 2000 ms of CPU time over the 4 s since the first read, on one processor.
     EXPECT_EQ((*third)[0].cpuUsagePercent, 50.0f);
 }
+
+TEST(ProcessCollector, ResetBaselines_NextCollectHasNoRatesAndTheOneAfterMeasuresFromIt)
+{
+    uint64_t userMs = 0;
+    auto now = kStart;
+    ProcessCollector collector([&] { return std::vector<ProcessInfo>{withCpuTimes(100, 1, userMs, 0)}; }, nullptr,
+                               [&now] { return now; }, 1);
+    const auto first = collector.collect();
+
+    // CPU time before the reset, as before a sleep; no rate may include it.
+    now += std::chrono::hours{8};
+    userMs += 2000;
+    collector.resetBaselines();
+    const auto afterReset = collector.collect();
+
+    now += std::chrono::seconds{2};
+    userMs += 500;
+    const auto next = collector.collect();
+
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(afterReset.has_value());
+    ASSERT_TRUE(next.has_value());
+    EXPECT_FALSE((*afterReset)[0].cpuUsagePercent.has_value());
+    // 500 ms of CPU time over the 2 s since the reset, on one processor.
+    EXPECT_EQ((*next)[0].cpuUsagePercent, 25.0f);
+}

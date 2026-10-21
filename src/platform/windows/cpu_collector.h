@@ -55,8 +55,9 @@ struct SystemTimesData
  * times instead. The same happens whenever GetSystemTimes fails.
  *
  * collect() returns std::nullopt when both queries fail or when no rate can be
- * computed yet (the first sample only establishes a baseline). Per-core values
- * are omitted (empty) rather than zero-filled when they cannot be computed.
+ * computed yet (the first sample only establishes a baseline, as does the first
+ * after resetBaselines()). Per-core values are omitted (empty) rather than
+ * zero-filled when they cannot be computed.
  *
  * The base speed does not change while the system runs, so the default
  * constructor reads it once with CallNtPowerInformation(ProcessorInformation)
@@ -75,6 +76,8 @@ public:
     ~CpuCollector() override = default;
 
     [[nodiscard]] std::optional<domain::CpuSample> collect() override;
+
+    void resetBaselines() override;
 
     [[nodiscard]] int coreCount() const;
 

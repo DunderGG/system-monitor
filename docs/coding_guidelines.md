@@ -574,7 +574,7 @@ Put deterministic tests of `platform/windows` code in `tests/unit/` when they ca
 
 ### Fakes over mocks
 
-Prefer hand-written fake implementations over mocking frameworks. Fakes are easier to understand and maintain. A collector returns a `std::optional` sample, and `std::nullopt` stands for a failed read, so a fake returns what the test gives it (`tests/support/fake_collectors.h`):
+Prefer hand-written fake implementations over mocking frameworks. Fakes are easier to understand and maintain. A collector returns a `std::optional` sample, and `std::nullopt` stands for a failed read, so a fake returns what the test gives it (`tests/support/fake_collectors.h`). A fake of a rate collector computes no rates, so it has no baselines to reset:
 
 ```cpp
 class FakeCpuCollector : public monitoring::ICpuCollector
@@ -588,6 +588,8 @@ public:
     {
         return m_sample;
     }
+
+    void resetBaselines() override {}
 
 private:
     const std::optional<domain::CpuSample> m_sample;

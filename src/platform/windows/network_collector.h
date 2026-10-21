@@ -93,7 +93,8 @@ class WindowsAdapterReader;
  * Computes instantaneous throughput (bytes/sec) from counter deltas across steady_clock ticks.
  * collect() returns std::nullopt when the interface table cannot be read.
  * A rate is std::nullopt (never 0) when it cannot be computed: first sample for an
- * adapter, zero elapsed time, or a counter reset.
+ * adapter, the first sample after resetBaselines(), zero elapsed time, or a
+ * counter reset.
  */
 class NetworkCollector : public sysmon::monitoring::INetworkCollector
 {
@@ -107,6 +108,8 @@ public:
     ~NetworkCollector() override;
 
     [[nodiscard]] std::optional<std::vector<domain::NetworkSample>> collect() override;
+
+    void resetBaselines() override;
 
 private:
     // Owns the Windows reader (and its change notifications) in production;

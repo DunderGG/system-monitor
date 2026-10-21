@@ -31,6 +31,8 @@ add_library(sysmon_platform_windows STATIC
     network_profile_collector.h
     performance_info_reader.cpp
     performance_info_reader.h
+    power_transition.cpp
+    power_transition.h
     process_access_policy.cpp
     process_access_policy.h
     process_collector.cpp

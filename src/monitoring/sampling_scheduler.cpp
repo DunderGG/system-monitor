@@ -97,6 +97,34 @@ std::chrono::milliseconds SamplingScheduler::slowInterval() const
     return m_slowInterval;
 }
 
+void SamplingScheduler::onSystemSuspending()
+{
+    {
+        // The threads see it before their next collection; neither needs waking.
+        std::lock_guard lock(m_sleepMutex);
+        m_isSystemSuspended = true;
+    }
+    spdlog::info("System is suspending: sampling paused until it resumes");
+}
+
+void SamplingScheduler::onSystemResumed()
+{
+    {
+        std::lock_guard lock(m_sleepMutex);
+        m_isSystemSuspended = false;
+        m_isFastBaselineResetPending = true;
+        m_isSlowBaselineResetPending = true;
+        m_sleepCv.notify_all();
+    }
+    spdlog::info("System resumed: sampling resumes with new rate baselines");
+}
+
+bool SamplingScheduler::isSystemSuspended() const
+{
+    std::lock_guard lock(m_sleepMutex);
+    return m_isSystemSuspended;
+}
+
 void SamplingScheduler::setCpuCollector(std::unique_ptr<ICpuCollector> collector)
 {
     assert(!m_isRunning.load() && "setCpuCollector must only be called when scheduler is stopped");
@@ -302,6 +330,37 @@ void SamplingScheduler::collectSlowResults()
     m_slowResults = std::move(results);
 }
 
+void SamplingScheduler::resetFastCollectorBaselines()
+{
+    ICpuCollector* cpu = nullptr;
+    INetworkCollector* network = nullptr;
+    {
+        std::lock_guard lock(m_collectorMutex);
+        cpu = m_cpuCollector.get();
+        network = m_networkCollector.get();
+    }
+
+    if (cpu) {
+        cpu->resetBaselines();
+    }
+    if (network) {
+        network->resetBaselines();
+    }
+}
+
+void SamplingScheduler::resetSlowCollectorBaselines()
+{
+    IProcessCollector* process = nullptr;
+    {
+        std::lock_guard lock(m_collectorMutex);
+        process = m_processCollector.get();
+    }
+
+    if (process) {
+        process->resetBaselines();
+    }
+}
+
 void SamplingScheduler::run(std::stop_token stopToken)
 {
     // Logged after the lock is released: a log line writes a file, and change
@@ -314,10 +373,29 @@ void SamplingScheduler::run(std::stop_token stopToken)
     spdlog::info("SamplingScheduler background thread started (interval: {}ms)", interval.count());
 
     while (!stopToken.stop_requested()) {
+        bool isFirstTickAfterResume = false;
+        {
+            // Nothing is collected while the system suspends, so that no
+            // sample taken before the sleep is the baseline of one after it.
+            std::unique_lock lock(m_sleepMutex);
+            m_sleepCv.wait(lock, stopToken, [this] { return !m_isSystemSuspended; });
+            if (stopToken.stop_requested()) {
+                break;
+            }
+            isFirstTickAfterResume = std::exchange(m_isFastBaselineResetPending, false);
+        }
+
         const auto tickStart = std::chrono::steady_clock::now();
+        if (isFirstTickAfterResume) {
+            resetFastCollectorBaselines();
+        }
 
         const domain::SystemSnapshot snapshot = sampleOnce();
-        emit snapshotReady(snapshot);
+        // After a resume, the rate collectors' first sample only records their
+        // new baselines, so the snapshot is discarded rather than shown without rates.
+        if (!isFirstTickAfterResume) {
+            emit snapshotReady(snapshot);
+        }
 
         std::unique_lock lock(m_sleepMutex);
         const auto nextTick = tickStart + m_interval;
@@ -339,20 +417,26 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
 
     // Waits for the next full refresh, or for an event-driven collector to
     // report a change, which collects only the event-driven collectors so the
-    // process list keeps its own cadence. The first wait ends at once.
+    // process list keeps its own cadence. The first wait ends at once, and so
+    // does the first after the system resumes, which starts a full refresh.
     auto nextRefresh = std::chrono::steady_clock::now();
     while (!stopToken.stop_requested()) {
         bool isEventRefresh = false;
+        bool isFirstRefreshAfterResume = false;
         {
             std::unique_lock lock(m_sleepMutex);
-            const bool isEventPending =
-                m_sleepCv.wait_until(lock, stopToken, nextRefresh, [this] { return m_isEventRefreshPending; });
+            m_sleepCv.wait_until(lock, stopToken, nextRefresh,
+                                 [this] { return m_isEventRefreshPending || m_isSlowBaselineResetPending; });
+            // Nothing is collected while the system suspends, as on the tick.
+            m_sleepCv.wait(lock, stopToken, [this] { return !m_isSystemSuspended; });
             if (stopToken.stop_requested()) {
                 break;
             }
+            isFirstRefreshAfterResume = std::exchange(m_isSlowBaselineResetPending, false);
             // A full refresh collects the event-driven collectors too, so it
             // also answers a change that is pending when it starts.
-            isEventRefresh = isEventPending && std::chrono::steady_clock::now() < nextRefresh;
+            isEventRefresh =
+                !isFirstRefreshAfterResume && m_isEventRefreshPending && std::chrono::steady_clock::now() < nextRefresh;
             m_isEventRefreshPending = false;
         }
 
@@ -361,6 +445,11 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
             continue;
         }
 
+        // Unlike the tick's first sample after a resume, this refresh is kept:
+        // the list is current, with no rates until the next refresh.
+        if (isFirstRefreshAfterResume) {
+            resetSlowCollectorBaselines();
+        }
         const auto refreshStart = std::chrono::steady_clock::now();
         collectSlowResults();
         std::lock_guard lock(m_sleepMutex);

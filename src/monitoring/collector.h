@@ -62,18 +62,37 @@ public:
     virtual void setChangeListener(ChangeListener listener) = 0;
 };
 
+/**
+ * Interface for collectors that compute rates, such as CPU usage or
+ * throughput, from the change in cumulative counters since their previous
+ * collect(), their baselines.
+ *
+ * @tparam T The sample type produced by this collector.
+ */
+template <typename T> class IRateCollector : public ICollector<T>
+{
+public:
+    /**
+     * Forgets the baselines, so that the next collect() only records new ones
+     * and reports no rates. The scheduler calls it after the system resumes
+     * from sleep, so that no rate spans the sleep (DC-129). Called on the
+     * thread that calls collect(), never during one.
+     */
+    virtual void resetBaselines() = 0;
+};
+
 // Collectors return std::nullopt when no valid sample is available
 // (query failure, or no baseline yet for rate-based metrics). For collections,
 // std::nullopt means the query failed and an empty vector means it succeeded
 // and found nothing.
-using ICpuCollector = ICollector<std::optional<domain::CpuSample>>;
+using ICpuCollector = IRateCollector<std::optional<domain::CpuSample>>;
 using IMemoryCollector = ICollector<std::optional<domain::MemorySample>>;
 using IDiskCollector = ICollector<std::optional<std::vector<domain::DiskSample>>>;
-using INetworkCollector = ICollector<std::optional<std::vector<domain::NetworkSample>>>;
+using INetworkCollector = IRateCollector<std::optional<std::vector<domain::NetworkSample>>>;
 using IConnectivityCollector = IEventDrivenCollector<domain::ConnectivityStatus>;
 using INetworkProfileCollector = IEventDrivenCollector<std::optional<std::vector<domain::NetworkProfile>>>;
 using IUptimeCollector = ICollector<std::chrono::milliseconds>;
-using IProcessCollector = ICollector<std::optional<std::vector<domain::ProcessInfo>>>;
+using IProcessCollector = IRateCollector<std::optional<std::vector<domain::ProcessInfo>>>;
 using ISystemActivityCollector = ICollector<std::optional<domain::SystemActivitySample>>;
 
 } // namespace sysmon::monitoring

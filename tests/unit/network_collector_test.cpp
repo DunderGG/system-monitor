@@ -533,6 +533,40 @@ TEST(NetworkCollector, Collect_InjectedReader_InvokedAndReturnsSamples)
     EXPECT_EQ((*samples)[0].outBytesTotal, 5678u);
 }
 
+TEST(NetworkCollector, ResetBaselines_NextCollectHasNoRatesAndTheOneAfterMeasuresFromIt)
+{
+    uint64_t inBytes = 100'000;
+    uint64_t outBytes = 50'000;
+    auto now = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    NetworkCollector collector(
+        [&]() -> std::optional<std::vector<RawNetworkAdapter>> {
+            return std::vector<RawNetworkAdapter>{RawNetworkAdapter{
+                .luid = 200, .adapterName = "Wi-Fi", .inBytesTotal = inBytes, .outBytesTotal = outBytes}};
+        },
+        [&now]() { return now; });
+    const auto first = collector.collect();
+
+    // Traffic before the reset, as before a sleep; no rate may include it.
+    now += std::chrono::hours{8};
+    inBytes += 1'000'000;
+    outBytes += 1'000'000;
+    collector.resetBaselines();
+    const auto afterReset = collector.collect();
+
+    now += std::chrono::seconds{2};
+    inBytes += 20'000;
+    outBytes += 10'000;
+    const auto next = collector.collect();
+
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(afterReset.has_value());
+    ASSERT_TRUE(next.has_value());
+    EXPECT_FALSE((*afterReset)[0].inBytesPerSec.has_value());
+    EXPECT_FALSE((*afterReset)[0].outBytesPerSec.has_value());
+    EXPECT_EQ((*next)[0].inBytesPerSec, std::optional<uint64_t>{10'000});
+    EXPECT_EQ((*next)[0].outBytesPerSec, std::optional<uint64_t>{5'000});
+}
+
 TEST(NetworkCollector, Collect_ReaderReturnsNullopt_ReturnsNullopt)
 {
     auto failingReader = []() -> std::optional<std::vector<RawNetworkAdapter>> { return std::nullopt; };

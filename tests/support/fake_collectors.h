@@ -17,7 +17,10 @@
 namespace sysmon::tests
 {
 
-/** A CPU collector that returns the same sample, by default populatedSnapshot()'s, from every collect(). */
+/**
+ * A CPU collector that returns the same sample, by default populatedSnapshot()'s,
+ * from every collect(), and so has no baselines to reset.
+ */
 class FakeCpuCollector : public monitoring::ICpuCollector
 {
 public:
@@ -29,6 +32,8 @@ public:
     {
         return m_sample;
     }
+
+    void resetBaselines() override {}
 
 private:
     const std::optional<domain::CpuSample> m_sample;
@@ -68,6 +73,8 @@ public:
         return std::vector<domain::ProcessInfo>{
             domain::ProcessInfo{.pid = static_cast<uint32_t>(call), .imageName = "app.exe"}};
     }
+
+    void resetBaselines() override {}
 
     [[nodiscard]] int calls() const
     {

@@ -223,6 +223,8 @@ public:
         return std::vector<sysmon::domain::ProcessInfo>{};
     }
 
+    void resetBaselines() override {}
+
     // Waits until the collector has been called count times. Returns false on a timeout.
     bool waitForCalls(std::size_t count)
     {

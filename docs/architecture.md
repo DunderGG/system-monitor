@@ -94,6 +94,7 @@ Windows integration layer (platform/windows)
   ├─ SetupDiGetClassDevsW                        (hidden adapters, on a new interface)
   ├─ GetNetworkConnectivityHint                  (connectivity status)
   ├─ INetworkListManager                         (network names, lazy, on its own thread)
+  ├─ WM_POWERBROADCAST                           (sleep and resume, through the UI's windows)
   └─ WMI/CIM one-shot queries at startup only    (hardware inventory)
 ```
 
@@ -166,6 +167,7 @@ Key threading rules:
 - Fast collectors (CPU, memory, disk, network counters) run synchronously on the scheduler tick. They complete in about 1 ms combined; `GetIfTable2` dominates, and its cost grows with the number of interfaces (about 0.7 ms for 42 rows on a desktop). Adapter names, addresses, and DNS servers (`GetAdaptersAddresses`, about 2 ms) are cached and re-read only on change.
 - Slow collectors (process enumeration, connectivity, and network names) run on the scheduler's slow-collector `std::jthread`, every 2 seconds, or every refresh interval when the settings choose a longer one (`SamplingScheduler::setSlowInterval()`, [DC-127](design_decisions.md#dc-127)). Each run stores its results under a mutex, and every tick copies the latest ones into the snapshot. The scheduler always emits the latest available data, even if a slow collector has not refreshed yet. Until the first slow refresh, the snapshot has no process list, no network names, and `ConnectivityLevel::Unknown`. The network names come from a COM query into the Network List Service, which has no time limit. `NetworkProfileCollector` makes it on a worker thread of its own, only after a connectivity change or once its answer is a minute old, and at most once a second, so the slow refreshes only copy its latest answer. A stuck service then delays only the names, not the process list or connectivity, although shutdown still waits for a read in progress ([DC-100](design_decisions.md#dc-100)).
 - Event-driven collectors receive changes from the OS instead of polling (see below), so their `collect()` returns a cached value. Connectivity and the network names are event-driven, and are still registered as slow collectors so that their queries and the connectivity polling fallback never run on the tick. When one of them stores a change, it calls its change listener, which wakes the slow-collector thread to collect only these two at once. The change reaches the next tick's snapshot, about a second after the notification at most, instead of waiting for the next slow refresh. The process list keeps its own cadence, and no extra snapshot is emitted, so every history keeps one sample per tick ([DC-77](design_decisions.md#dc-77)).
+- While the system suspends, neither scheduler thread collects. After it resumes, each resets the baselines of its rate collectors before it collects again, and the tick discards its first snapshot ([Sleep and resume handling](#sleep-and-resume-handling)).
 - Snapshots cross from the scheduler thread to the UI thread via `Qt::QueuedConnection`. The snapshot is an immutable value type; no shared mutable state crosses the boundary.
 - All background threads the application creates are `std::jthread`s and use `std::stop_token` for cooperative cancellation at shutdown.
 
@@ -226,6 +228,7 @@ When the value is costly to read, a notification can instead mark a cache stale,
 | Process elevation (before termination) | `GetTokenInformation(TokenElevation)` + `GetTokenInformation(TokenIntegrityLevel)` |
 | Process termination | `TerminateProcess` (unelevated processes the current user owns only) |
 | Network profile names | `INetworkListManager` (COM, lazy: after a connectivity change, or once a minute, and at most once a second, on the collector's own thread) |
+| Sleep and resume | `WM_POWERBROADCAST` (`PBT_APMSUSPEND`, `PBT_APMRESUMEAUTOMATIC`), seen by a Qt native event filter on the UI thread |
 | Hardware inventory | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
 | Per-disk I/O rates | PDH (only where no direct Win32 alternative exists) |
 
@@ -313,9 +316,12 @@ Enable per-monitor DPI awareness in the application manifest. `src/app/system_mo
 
 ## Sleep and resume handling
 
-After system sleep or hibernate, the first sample will have a large elapsed-time delta, producing incorrect rate calculations (CPU %, network throughput).
+A rate measured from a sample before a sleep or hibernation to one after it is not the current rate (CPU %, network throughput, a process's CPU and I/O). Windows sends `WM_POWERBROADCAST` to every top-level window: `PBT_APMSUSPEND` before the system suspends, and `PBT_APMRESUMEAUTOMATIC` on every resume. `app::PowerEventFilter`, a Qt native event filter that `main.cpp` installs on the application, receives them on the UI thread through the monitor's windows, and `platform::powerTransitionFromMessage()` reads the message, so that only `platform/windows` includes Windows headers ([DC-129](design_decisions.md#dc-129)).
 
-Mitigation: listen for `WM_POWERBROADCAST` / `PBT_APMRESUMEAUTOMATIC` events. On resume, discard the first sample and reset all rate-calculation baselines in every collector.
+- On the suspend, `SamplingScheduler::onSystemSuspending()` pauses both scheduler threads before their next collection. Nothing is collected or emitted until the resume, so no sample from before the sleep becomes the baseline of one after it, even if a thread runs again before the resume message arrives.
+- On the resume, `onSystemResumed()` ends the pause. Each thread then calls `resetBaselines()` on its rate collectors (`monitoring::IRateCollector`: CPU and network on the tick, processes on the slow-collector thread) before it collects again, so that their next collection only records new baselines. The tick discards that snapshot and emits the next, a refresh interval later, with rates measured wholly after the resume. The slow-collector thread refreshes at once and keeps the list, so the process table is current, with no CPU or I/O rates until its next refresh, as at startup. A resume without a suspend resets the baselines too.
+
+Until the first snapshot after the resume, the views keep showing the last one from before the sleep.
 
 ## Testing strategy
 
@@ -344,7 +350,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Unbounded memory or disk usage | Use fixed-size in-memory ring buffers and explicit persistence retention/downsampling policies. |
 | Excessive privilege or security risk | Run unelevated by default. Only request `PROCESS_QUERY_LIMITED_INFORMATION`, except that termination adds `PROCESS_TERMINATE` for unelevated processes the current user owns. Never open `lsass.exe` or `csrss.exe` handles. |
 | Antivirus/EDR false positives | Avoid dangerous access masks, sensitive process handles, API hooking, and process injection. Sign binaries. |
-| Sleep/hibernate causes rate calculation errors | Detect `WM_POWERBROADCAST` resume events. Discard first sample and reset rate baselines. |
+| Sleep/hibernate causes rate calculation errors | Pause sampling on `WM_POWERBROADCAST`'s suspend event. On resume, reset the rate baselines and discard the first sample. |
 | WMI service not running or repository corrupted | Use WMI only for optional startup hardware inventory. All core metrics use direct Win32 APIs. |
 | Qt event loop starvation | Keep snapshot emission at 1 Hz. Batch model updates. Profile early. |
 | ETW session exhaustion (future) | System has a hard 64-session limit shared with EDR. Defer ETW to post-MVP and handle `ERROR_NO_SYSTEM_RESOURCES` from `StartTrace`. |

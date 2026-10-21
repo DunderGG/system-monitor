@@ -257,6 +257,48 @@ TEST(CpuCollector, Collect_PopulatesCoreUsagePercents_UsingInjectedCoreReader)
     EXPECT_FLOAT_EQ(sample->coreUsagePercents[3], 100.0f);
 }
 
+TEST(CpuCollector, ResetBaselines_NextCollectRecordsNewBaselinesAndTheOneAfterMeasuresFromThem)
+{
+    SystemTimesData simulatedTimes{.idleTime = 10'000, .kernelTime = 20'000, .userTime = 5'000};
+    std::vector<SystemTimesData> simulatedCoreTimes = {
+        SystemTimesData{.idleTime = 5'000, .kernelTime = 10'000, .userTime = 2'500},
+        SystemTimesData{.idleTime = 5'000, .kernelTime = 10'000, .userTime = 2'500},
+    };
+    std::chrono::steady_clock::time_point simulatedNow{std::chrono::milliseconds{1000}};
+    auto timesReader = [&](SystemTimesData& out) {
+        out = simulatedTimes;
+        return true;
+    };
+    auto coreReader = [&](std::vector<SystemTimesData>& out) {
+        out = simulatedCoreTimes;
+        return true;
+    };
+    CpuCollector collector(timesReader, coreReader, [&]() { return simulatedNow; }, 2);
+
+    // Fully busy before the reset, as before a sleep; no rate may include it.
+    simulatedNow += std::chrono::hours{8};
+    simulatedTimes.userTime += 1000;
+    simulatedCoreTimes[0].userTime += 500;
+    simulatedCoreTimes[1].userTime += 500;
+    collector.resetBaselines();
+    const auto afterReset = collector.collect();
+
+    // Fully idle after it.
+    simulatedNow += std::chrono::milliseconds{1000};
+    simulatedTimes.idleTime += 1000;
+    simulatedTimes.kernelTime += 1000;
+    simulatedCoreTimes[0].idleTime += 500;
+    simulatedCoreTimes[0].kernelTime += 500;
+    simulatedCoreTimes[1].idleTime += 500;
+    simulatedCoreTimes[1].kernelTime += 500;
+    const auto next = collector.collect();
+
+    EXPECT_FALSE(afterReset.has_value());
+    ASSERT_TRUE(next.has_value());
+    EXPECT_FLOAT_EQ(next->totalUsagePercent, 0.0f);
+    EXPECT_EQ(next->coreUsagePercents, (std::vector<float>{0.0f, 0.0f}));
+}
+
 TEST(CpuCollector, Collect_CoreReaderFails_GracefullyRetainsEmptyCoreUsages)
 {
     SystemTimesData simulatedTimes{.idleTime = 1000, .kernelTime = 2000, .userTime = 500};

@@ -480,6 +480,12 @@ std::optional<domain::CpuSample> CpuCollector::collect()
     };
 }
 
+void CpuCollector::resetBaselines()
+{
+    // The next successful collect() replaces the total and per-core baselines.
+    m_hasBaseline = false;
+}
+
 int CpuCollector::coreCount() const
 {
     return m_coreCount;

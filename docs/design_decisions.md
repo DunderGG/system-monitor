@@ -44,6 +44,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-37](#dc-37): Repeated collector failures logged once, with the recovery
   - [DC-77](#dc-77): A slow-collector thread for processes, connectivity and network names, woken when an event-driven collector stores a change
   - [DC-101](#dc-101): Merged into DC-77
+  - [DC-129](#dc-129): Sleep and resume: `WM_POWERBROADCAST` through a native event filter, sampling paused until the resume, then rate baselines reset
 - [CPU, memory, disk and uptime collectors](#cpu-memory-disk-and-uptime-collectors)
   - [DC-25](#dc-25): Total CPU utilization formula: `(deltaKernel + deltaUser - deltaIdle) / (deltaKernel + deltaUser)`
   - [DC-28](#dc-28): Per-core CPU utilization: `NtQuerySystemInformation(SystemProcessorPerformanceInformation)` dynamic resolution and resizing-buffer pattern
@@ -477,6 +478,19 @@ The optional collections are described in [DC-12](#dc-12).
 ### DC-101: Merged into DC-77
 
 Event-driven collectors waking the slow-collector thread are described in [DC-77](#dc-77).
+
+---
+
+<a id="dc-129"></a>
+### DC-129: Sleep and resume: `WM_POWERBROADCAST` through a native event filter, sampling paused until the resume, then rate baselines reset
+
+**Decision:** `app::PowerEventFilter`, a Qt native event filter, passes `WM_POWERBROADCAST`'s `PBT_APMSUSPEND` and `PBT_APMRESUMEAUTOMATIC` (`platform::powerTransitionFromMessage()`) to `SamplingScheduler::onSystemSuspending()` and `onSystemResumed()`. Between the two, neither scheduler thread collects. After the resume, each thread first calls `resetBaselines()` on its `IRateCollector`s: the tick on the CPU and network collectors, and then discards its next snapshot, which only records the new baselines; the slow-collector thread on the process collector, and then refreshes at once and keeps the list. A resume without a suspend resets them too.
+
+**Rationale:** A rate measured across the sleep is not the current rate: it averages the moments around the sleep, or spreads them over its hours if `steady_clock` counts the sleep. Nothing makes the resume message arrive before the threads run again, so pausing at the suspend keeps every sample from before the sleep out of a later rate. Each thread resets its own collectors, so they need no lock. The message comes on the UI thread, and a test can send it to a window; `RegisterSuspendResumeNotification`'s callback would run on an OS thread that unregistering is not documented to wait for. Emitting the tick's first sample would show the CPU as unavailable for a tick, and discarding the first process list would leave processes that exited during the sleep listed.
+
+**Consequences:** Sampling stays paused if no resume comes, which Windows documents it always sends. A resume reaches each of the monitor's top-level windows, so with the Settings dialog open the tick may discard one more sample.
+
+**History:** Phase 6, sleep and resume detection.
 
 ---
 

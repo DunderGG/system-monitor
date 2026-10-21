@@ -40,6 +40,10 @@ namespace sysmon::monitoring
  *   wakes and collects those two again, without waiting for its next refresh
  *   and without running the process collector. The change reaches the next
  *   tick's snapshot; no extra snapshot is emitted.
+ * - While the system suspends, neither thread collects (DC-129). After it
+ *   resumes, each thread resets the baselines of its rate collectors before
+ *   it collects again, so no rate spans the sleep. The tick discards its first
+ *   snapshot, which only records the new baselines.
  * - Clean shutdown is coordinated using std::stop_token and std::condition_variable_any.
  */
 class SamplingScheduler : public QObject
@@ -78,6 +82,25 @@ public:
 
     /** Returns the current interval of the slow collectors. */
     [[nodiscard]] std::chrono::milliseconds slowInterval() const;
+
+    /**
+     * Pauses both threads before their next collection, because the system
+     * is about to sleep or hibernate, until onSystemResumed(). Thread-safe and
+     * non-blocking; may be called whether or not the scheduler is running.
+     */
+    void onSystemSuspending();
+
+    /**
+     * Ends the pause of onSystemSuspending(), if any. Each thread then resets
+     * the baselines of its rate collectors before it collects again: the tick
+     * at its next tick, whose snapshot it discards, and the slow-collector
+     * thread at once, with a full refresh. A resume without a suspend resets
+     * them too. Thread-safe and non-blocking.
+     */
+    void onSystemResumed();
+
+    /** Returns true between onSystemSuspending() and onSystemResumed(). */
+    [[nodiscard]] bool isSystemSuspended() const;
 
     /**
      * Collector registration.
@@ -143,6 +166,8 @@ private:
     void runSlowCollectors(std::stop_token stopToken);
     void collectSlowResults();
     void collectEventDrivenResults();
+    void resetFastCollectorBaselines();
+    void resetSlowCollectorBaselines();
 
     // The change listener of the event-driven collectors: marks an event
     // refresh as due and wakes the slow-collector thread. Thread-safe and
@@ -157,6 +182,12 @@ private:
     std::condition_variable_any m_sleepCv;
     // Set by requestEventRefresh(), cleared by the slow-collector thread. Guarded by m_sleepMutex.
     bool m_isEventRefreshPending{false};
+    // Set by onSystemSuspending(), cleared by onSystemResumed(). Guarded by m_sleepMutex.
+    bool m_isSystemSuspended{false};
+    // Set by onSystemResumed(), each cleared by its thread when it resets its
+    // rate collectors' baselines. Guarded by m_sleepMutex.
+    bool m_isFastBaselineResetPending{false};
+    bool m_isSlowBaselineResetPending{false};
 
     std::jthread m_thread;
     std::jthread m_slowThread;

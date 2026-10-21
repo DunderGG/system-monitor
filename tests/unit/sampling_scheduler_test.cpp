@@ -145,6 +145,8 @@ public:
         return sample;
     }
 
+    void resetBaselines() override {}
+
     [[nodiscard]] bool wasCalled() const
     {
         return m_called;
@@ -221,6 +223,8 @@ public:
     {
         return sysmon::domain::CpuSample{.totalUsagePercent = m_usagePercent, .coreCount = 1};
     }
+
+    void resetBaselines() override {}
 
 private:
     float m_usagePercent;

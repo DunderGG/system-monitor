@@ -16,6 +16,7 @@
 #include "persistence/settings_file.h"
 #include "platform/windows/current_process.h"
 #include "platform/windows/process_terminator.h"
+#include "power_event_filter.h"
 #include "settings_service.h"
 #include "system_collectors.h"
 #include "ui/main_window.h"
@@ -36,6 +37,9 @@ int runMonitor(QApplication& application, const sysmon::domain::Settings& settin
     sysmon::app::registerSystemCollectors(scheduler);
     sysmon::app::applyRefreshInterval(scheduler, settings.refreshInterval);
     sysmon::app::SettingsService settingsService(settingsPath, settings, scheduler);
+    // Sampling pauses while the system sleeps, and no rate spans the sleep (DC-129).
+    sysmon::app::PowerEventFilter powerEventFilter(scheduler);
+    application.installNativeEventFilter(&powerEventFilter);
 
     sysmon::ui::MainWindow mainWindow;
     mainWindow.setSettings(settings);

@@ -53,6 +53,7 @@ add_executable(system_monitor_tests
     unit/sampling_scheduler_test.cpp
     unit/sampling_scheduler_event_driven_test.cpp
     unit/sampling_scheduler_slow_collectors_test.cpp
+    unit/sampling_scheduler_power_test.cpp
     unit/main_window_test.cpp
     unit/dashboard_view_test.cpp
     unit/dashboard_formatting_test.cpp
@@ -116,6 +117,7 @@ add_executable(system_monitor_tests
     integration/ip_address_formatting_test.cpp
     integration/settings_file_test.cpp
     integration/settings_service_test.cpp
+    integration/power_event_filter_test.cpp
     # Same manifest as the app, so tests run with its UTF-8 process code page
     # and its DPI awareness.
     ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
@@ -133,6 +135,7 @@ target_link_libraries(system_monitor_tests
         GTest::gtest
         sysmon_app_collectors
         sysmon_app_logging
+        sysmon_app_power_events
         sysmon_app_settings
         sysmon_domain
         sysmon_monitoring
@@ -158,6 +161,7 @@ add_executable(system_monitor_platform_tests
     platform/connectivity_hint_mapping_test.cpp
     platform/ip_address_mapping_test.cpp
     platform/network_category_mapping_test.cpp
+    platform/power_transition_test.cpp
     platform/system_process_information_test.cpp
     platform/process_elevation_test.cpp
 )
