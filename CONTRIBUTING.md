@@ -31,8 +31,8 @@ The repository provides PowerShell scripts that automate tool detection, install
 
 1. **Clone the repository:**
    ```powershell
-   git clone https://github.com/DunderGG/system-monitor.git
-   cd system-monitor
+   git clone https://github.com/DunderGG/verdandi.git
+   cd verdandi
    ```
 
 2. **Run the bootstrap script:**
@@ -61,7 +61,7 @@ The repository provides PowerShell scripts that automate tool detection, install
 
 5. **Measure UI performance** (optional): `.\scripts\build.ps1 -Benchmark` builds the Release configuration and prints the Performance tab's cost per tick for each page and chart window, and the Network tab's for 2 to 20 adapters, then the Processes tab's for flat and tree views of 400 to 2,000 processes. Run it before and after changes to charts, pages, the Network tab, or the process table, and compare with the baseline in [performance.md](docs/performance.md). It also prints the compiler, Qt and Windows versions, the processor and the power settings; record them there with any figures, so a change in the machine can be told apart from a regression.
 
-6. **Build with coverage** (optional): `.\scripts\build.ps1 -Coverage` builds a Debug configuration in `build\coverage` with Visual Studio's clang-cl, instrumented for LLVM source-based coverage of lines and branches, and runs the tests. It then prints the line and branch coverage of each directory under `src\` and in total, writes every file of `src\`, with each line's and branch's counts, to `build\coverage\html\index.html`, and writes a dashboard to `build\coverage\index.html`: the tests by kind and suite, the failed, skipped and slowest tests, the least-covered files, and the trend of the test count, time and coverage over the runs whose tests passed, which `build\coverage\history.jsonl` keeps. The integration tests call real Windows APIs, so the coverage of `platform/windows` can differ between runs and machines. clang-cl warns about things MSVC accepts, such as a designated initializer that leaves out a member without a default member initializer, so run it after adding a struct or a Windows API call ([coding guidelines](docs/coding_guidelines.md#default-member-initializers)). CI runs the same build on each push to `main` and publishes its dashboard, with the trend of the runs on `main`, at <https://dundergg.github.io/system-monitor/>; on a pull request, the `Coverage` job's summary compares the coverage with `main`'s, and the job's `coverage-dashboard` artifact holds the dashboard ([DC-121](docs/design_decisions.md#dc-121)).
+6. **Build with coverage** (optional): `.\scripts\build.ps1 -Coverage` builds a Debug configuration in `build\coverage` with Visual Studio's clang-cl, instrumented for LLVM source-based coverage of lines and branches, and runs the tests. It then prints the line and branch coverage of each directory under `src\` and in total, writes every file of `src\`, with each line's and branch's counts, to `build\coverage\html\index.html`, and writes a dashboard to `build\coverage\index.html`: the tests by kind and suite, the failed, skipped and slowest tests, the least-covered files, and the trend of the test count, time and coverage over the runs whose tests passed, which `build\coverage\history.jsonl` keeps. The integration tests call real Windows APIs, so the coverage of `platform/windows` can differ between runs and machines. clang-cl warns about things MSVC accepts, such as a designated initializer that leaves out a member without a default member initializer, so run it after adding a struct or a Windows API call ([coding guidelines](docs/coding_guidelines.md#default-member-initializers)). CI runs the same build on each push to `main` and publishes its dashboard, with the trend of the runs on `main`, at <https://dundergg.github.io/verdandi/>; on a pull request, the `Coverage` job's summary compares the coverage with `main`'s, and the job's `coverage-dashboard` artifact holds the dashboard ([DC-121](docs/design_decisions.md#dc-121)).
 
 ---
 
@@ -186,7 +186,7 @@ cmake --preset default -DCMAKE_PREFIX_PATH="C:/Qt/6.8.0/msvc2022_64"
 ## Project structure
 
 ```
-system-monitor/
+verdandi/
   CMakeLists.txt           # Root CMake configuration
   CMakePresets.json         # Build presets for consistent environments
   vcpkg.json                # Dependency manifest

@@ -319,7 +319,7 @@ resolution aligned.
 A `Coverage` job runs `.\scripts\build.ps1 -Coverage` on each push to `main`
 and each pull request, and keeps the history of the runs on `main` on the
 `gh-pages` branch, which GitHub Pages serves at
-<https://dundergg.github.io/system-monitor/>
+<https://dundergg.github.io/verdandi/>
 ([DC-121](design_decisions.md#dc-121)). It has no `msvc-dev-cmd` step: the
 script imports the developer environment of a Visual Studio installation with
 "C++ Clang tools for Windows", which the `windows-latest` runner's has (on

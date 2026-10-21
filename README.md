@@ -46,7 +46,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InstallMissing
 .\scripts\build.ps1 -Test
 ```
 
-The tests' results and coverage on `main`, and their trend, are on the [test and coverage dashboard](https://dundergg.github.io/system-monitor/), which CI publishes after each push to `main`.
+The tests' results and coverage on `main`, and their trend, are on the [test and coverage dashboard](https://dundergg.github.io/verdandi/), which CI publishes after each push to `main`.
 
 ### Manual build
 

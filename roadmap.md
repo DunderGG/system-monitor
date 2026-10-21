@@ -505,7 +505,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 - [x] Draw the application icon.
 
   Done: `resources/verdandi.ico` holds the V-trace design, chosen on 2026-10-21 from four concepts: a chart line that runs flat, dips into a V and runs flat again, amber on a dark indigo tile. `scripts/generate_icon.ps1` draws it with GDI+ at 16, 20, 24, 32, 40, 48, 64, 96 and 256 px, with the 16, 20 and 24 px images placed on the pixel grid. It also writes the 256 px design as `resources/verdandi.svg` and `resources/verdandi_256.png`, and `resources/social_preview.png`, a 1280 x 640 px banner for GitHub's social preview, which is uploaded by hand in the repository's settings ([DC-130](docs/design_decisions.md#dc-130)). Windows' `LoadImageW` loads every size, and `DrawIconEx` blends their edges over light and dark taskbar colours as expected. On the dark taskbar the tile shows little contrast, but the amber V stands out. Nothing builds the icon into the executable yet; the item below does.
-- [ ] Rename the application to Verdandi, and give the executable and its windows the icon and the new title.
+- [x] Rename the application to Verdandi, and give the executable and its windows the icon and the new title.
 
   Verdandi (Old Norse *Verðandi*) is the Norn of the present, "what is happening now". It replaces "System Monitor", which is generic, and whose short form `sysmon` is also the name of Sysinternals' Sysmon. On 2026-10-21 searches found no software trademark or monitor named Verdandi. Each step below is a commit of its own, in this order. A step renames its names everywhere they appear: in the code, the tests, the scripts and every doc, the module AGENTS.md files included, so that no commit leaves a doc naming what no longer exists. The code reviews under `docs/code_reviews/` and the Done notes in this roadmap are records of their time and keep the old names.
 
@@ -537,7 +537,9 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
     Done: the docs' titles and opening lines name Verdandi, and README.md's "The name" section explains it. "System Monitor" is left only where a text names the old name: DC-131's old folder, this item and the Done notes.
 
-  - [ ] Rename the GitHub repository `DunderGG/system-monitor` to `DunderGG/verdandi`, by hand in its settings. Then update the clone steps and layout in CONTRIBUTING.md, the coverage dashboard's address in README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md` and build_system.md, and the local clone's remote. GitHub redirects a renamed repository, but not its Pages site, so the dashboard moves from <https://dundergg.github.io/system-monitor/> to <https://dundergg.github.io/verdandi/>. The `gh-pages` branch, and with it the dashboard's trend, moves with the repository.
+  - [x] Rename the GitHub repository `DunderGG/system-monitor` to `DunderGG/verdandi`, by hand in its settings. Then update the clone steps and layout in CONTRIBUTING.md, the coverage dashboard's address in README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md` and build_system.md, and the local clone's remote. GitHub redirects a renamed repository, but not its Pages site, so the dashboard moves from <https://dundergg.github.io/system-monitor/> to <https://dundergg.github.io/verdandi/>. The `gh-pages` branch, and with it the dashboard's trend, moves with the repository.
+
+    Done: the repository is `DunderGG/verdandi`, with its `main` and `gh-pages` branches. CONTRIBUTING.md clones it into `verdandi`, the docs link to the dashboard at <https://dundergg.github.io/verdandi/>, which the next coverage run on `main` publishes, and the local clone's `origin` is the new address. CI needs no change, because `coverage_pages.ps1` takes the repository from `GITHUB_REPOSITORY`.
 
 ### Considered and not planned
 
