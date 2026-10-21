@@ -503,44 +503,25 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 > Whatever does not fit into the above categories
 
 - [ ] Add a Release badge when we have released a first release. Also update the README with a download section.
+- [ ] Simplify the "Building from source".
 - [x] Draw the application icon.
-
-  Done: `resources/verdandi.ico` holds the V-trace design, chosen on 2026-10-21 from four concepts: a chart line that runs flat, dips into a V and runs flat again, amber on a dark indigo tile. `scripts/generate_icon.ps1` draws it with GDI+ at 16, 20, 24, 32, 40, 48, 64, 96 and 256 px, with the 16, 20 and 24 px images placed on the pixel grid. It also writes the 256 px design as `resources/verdandi.svg` and `resources/verdandi_256.png`, and `resources/social_preview.png`, a 1280 x 640 px banner for GitHub's social preview, which is uploaded by hand in the repository's settings ([DC-130](docs/design_decisions.md#dc-130)). Windows' `LoadImageW` loads every size, and `DrawIconEx` blends their edges over light and dark taskbar colours as expected. On the dark taskbar the tile shows little contrast, but the amber V stands out. Nothing builds the icon into the executable yet; the item below does.
 - [x] Rename the application to Verdandi, and give the executable and its windows the icon and the new title.
-
-  Verdandi (Old Norse *Verðandi*) is the Norn of the present, "what is happening now". It replaces "System Monitor", which is generic, and whose short form `sysmon` is also the name of Sysinternals' Sysmon. On 2026-10-21 searches found no software trademark or monitor named Verdandi. Each step below is a commit of its own, in this order. A step renames its names everywhere they appear: in the code, the tests, the scripts and every doc, the module AGENTS.md files included, so that no commit leaves a doc naming what no longer exists. The code reviews under `docs/code_reviews/` and the Done notes in this roadmap are records of their time and keep the old names.
 
   - [x] Show the new name: the window title, the save-failure message box, "Close System Monitor" and "... is System Monitor itself" in the Processes tab, with their tests and doc comments, and the coverage report's `-project-title` in `build.ps1`.
 
-    Done: the texts say "Verdandi". The window title and the save-failure message have no tests. The executable is still `system_monitor.exe` until the step after next, so the close question's examples keep that name.
-
   - [x] Keep the settings and the log under the new name: `QCoreApplication`'s application and organization names, which choose the folders that hold `settings.json` and the log, now `%APPDATA%\System Monitor\System Monitor` and its `%LOCALAPPDATA%` twin; the log file `system_monitor.log` and the logger's name; and the folder names in the settings integration tests. Choose the organization name: an empty one gives `%APPDATA%\Verdandi`. No release has shipped, so a settings file in the old folder need not be moved.
-
-    Done: the application is named "Verdandi" and has no organization name, so `settings.json` is in `%APPDATA%\Verdandi` and the log, `verdandi.log`, from the logger `verdandi`, in `%LOCALAPPDATA%\Verdandi` ([DC-131](docs/design_decisions.md#dc-131)). The temporary folders, file and child process command line that the tests create are named after Verdandi too.
 
   - [x] Rename the executable from `system_monitor.exe` to `verdandi.exe` and its manifest to `verdandi.manifest`, with the manifest's paths in the test and benchmark CMake files, the application's path in `build.ps1`, and the tests and comments that name the executable.
 
-    Done: the CMake target that builds the application is `verdandi`, and `build.ps1 -Run` and the coverage report use `verdandi.exe`. The docs name `verdandi.manifest`; those that name the test and benchmark executables keep their names until the build is renamed.
-
   - [x] Compile `resources/verdandi.ico` into the executable from a `.rc` file, so that Explorer and the taskbar show it. Qt's Windows platform plugin gives its windows the executable's icon resource named `IDI_ICON1`, if there is one; check that it reaches the title bar, or call `QApplication::setWindowIcon()`.
-
-    Done: `src/app/verdandi.rc` compiles the icon, with its nine sizes, into `verdandi.exe` as `IDI_ICON1` ([DC-132](docs/design_decisions.md#dc-132)). It reaches the title bar without `setWindowIcon()`: the running window's class has the 32 and 16 px icons from the resource, no icon is set on the window itself, and Explorer shows the same 32 px icon.
 
   - [x] Rename the `sysmon::` namespace to `verdandi::`. The diff only renames, apart from the lines that `build.ps1 -Format` rewraps because the name is longer.
 
-    Done: 688 lines in 234 source files, and the namespace in AGENTS.md, GEMINI.md, coding_guidelines.md and design_decisions.md. `-Format` rewrapped three lines. With the rename reversed, every changed file matches the previous commit, whitespace aside.
-
   - [x] Rename the build: the `sysmon_*` CMake targets and functions, the `SYSMON_COVERAGE` option and its preset, the CMake project and its messages, the test and benchmark executables (`system_monitor_tests`, `system_monitor_platform_tests`, `system_monitor_benchmark`, `system_monitor_process_benchmark`), `vcpkg.json`'s `name`, and the paths and help in `build.ps1` and `bootstrap.ps1`. Like the namespace's, this diff only renames.
-
-    Done: the targets and functions are `verdandi_*` and `add_verdandi_*`, the option is `VERDANDI_COVERAGE`, the project and `vcpkg.json`'s package are `Verdandi` and `verdandi`, and the executables are `verdandi_tests`, `verdandi_platform_tests`, `verdandi_benchmark` and `verdandi_process_benchmark`. The integration test that names its own process now names `verdandi_tests.exe`.
 
   - [x] Name the application Verdandi in the docs' prose (README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md`, CONTRIBUTING.md, architecture.md, build_system.md, coding_guidelines.md and this roadmap's title), and explain the name in README.md: Verdandi as the Norn of the present, and why it replaced System Monitor.
 
-    Done: the docs' titles and opening lines name Verdandi, and README.md's "The name" section explains it. "System Monitor" is left only where a text names the old name: DC-131's old folder, this item and the Done notes.
-
   - [x] Rename the GitHub repository `DunderGG/system-monitor` to `DunderGG/verdandi`, by hand in its settings. Then update the clone steps and layout in CONTRIBUTING.md, the coverage dashboard's address in README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md` and build_system.md, and the local clone's remote. GitHub redirects a renamed repository, but not its Pages site, so the dashboard moves from <https://dundergg.github.io/system-monitor/> to <https://dundergg.github.io/verdandi/>. The `gh-pages` branch, and with it the dashboard's trend, moves with the repository.
-
-    Done: the repository is `DunderGG/verdandi`, with its `main` and `gh-pages` branches. CONTRIBUTING.md clones it into `verdandi`, the docs link to the dashboard at <https://dundergg.github.io/verdandi/>, which the next coverage run on `main` publishes, and the local clone's `origin` is the new address. CI needs no change, because `coverage_pages.ps1` takes the repository from `GITHUB_REPOSITORY`.
 
 ### Considered and not planned
 
