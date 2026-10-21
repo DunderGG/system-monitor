@@ -6,12 +6,6 @@ A lightweight Windows desktop system monitor. Provides a clear view of system he
 
 Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monitoring.
 
-## The name
-
-Verdandi (Old Norse *Verðandi*) is one of the three Norns of Norse mythology. Her name comes from the verb *verða*, "to become", and is often read as "what is happening now": the present, beside Urd, what has been, and Skuld, what shall be. A monitor shows what a system is doing now, so it carries her name, and its icon draws her V as a chart line.
-
-The project began as System Monitor. That name described the program without naming it, and its short form, `sysmon`, is already the name of Sysinternals' Sysmon. In October 2026 the application, its executable, its files and its code took the name Verdandi.
-
 ## Features (MVP)
 
 - **Dashboard** — At-a-glance CPU, memory, disk, and network usage with health indicators and uptime.
@@ -98,6 +92,10 @@ See [roadmap.md](roadmap.md) for the detailed implementation plan. Upcoming feat
 - GPU monitoring
 - ETW-powered diagnostics
 - Data export (CSV/JSON)
+
+## The name
+
+Verdandi (Old Norse *Verðandi*) is one of the three Norns of Norse mythology. Her name comes from the verb *verða*, "to become", and is often read as "what is happening now": the present, beside Urd, what has been, and Skuld, what shall be. A monitor shows what a system is doing now, so it carries her name, and its icon draws her V as a chart line.
 
 ## Contributing
 
