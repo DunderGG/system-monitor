@@ -1,6 +1,6 @@
-# System Monitor — AI Agent Rules
+# Verdandi — AI Agent Rules
 
-You are working on a Windows desktop system monitor built with C++20 and Qt 6 Widgets.
+You are working on Verdandi, a Windows desktop system monitor built with C++20 and Qt 6 Widgets.
 The rules below are self-contained. For deeper rationale or design context, consult:
 
 - [architecture.md](docs/architecture.md) — System design, threading model, Windows API choices, and module boundaries.

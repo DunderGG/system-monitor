@@ -1,4 +1,4 @@
-# System Monitor Architecture
+# Verdandi Architecture
 
 ## Purpose
 

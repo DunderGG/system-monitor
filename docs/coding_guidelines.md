@@ -1,6 +1,6 @@
 # Coding Guidelines
 
-This document defines the coding conventions, patterns, and practices for the System Monitor project. The goal is a codebase that is consistent, readable, and easy to maintain for contributors with varying levels of C++ experience.
+This document defines the coding conventions, patterns, and practices for the Verdandi project. The goal is a codebase that is consistent, readable, and easy to maintain for contributors with varying levels of C++ experience.
 
 These guidelines draw from the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) (Stroustrup & Sutter) and [Qt Coding Style](https://wiki.qt.io/Coding_Conventions), adapted to the needs of this project.
 

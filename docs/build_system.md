@@ -1,6 +1,6 @@
 # Build system guide
 
-System Monitor uses CMake to describe how the application is built and vcpkg to
+Verdandi uses CMake to describe how the application is built and vcpkg to
 provide its third-party C++ dependencies. CMake presets make the command-line,
 VS Code, and CI builds use the same configuration.
 

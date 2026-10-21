@@ -1,4 +1,4 @@
-# System Monitor — Roadmap
+# Verdandi — Roadmap
 
 This roadmap expands the scope and milestones from [architecture.md](docs/architecture.md) into actionable implementation tasks. Each phase builds on the previous one. Tasks within a phase can often be worked on in parallel.
 
@@ -533,7 +533,10 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
     Done: the targets and functions are `verdandi_*` and `add_verdandi_*`, the option is `VERDANDI_COVERAGE`, the project and `vcpkg.json`'s package are `Verdandi` and `verdandi`, and the executables are `verdandi_tests`, `verdandi_platform_tests`, `verdandi_benchmark` and `verdandi_process_benchmark`. The integration test that names its own process now names `verdandi_tests.exe`.
 
-  - [ ] Name the application Verdandi in the docs' prose (README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md`, CONTRIBUTING.md, architecture.md, build_system.md, coding_guidelines.md and this roadmap's title), and explain the name in README.md: Verdandi as the Norn of the present, and why it replaced System Monitor.
+  - [x] Name the application Verdandi in the docs' prose (README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md`, CONTRIBUTING.md, architecture.md, build_system.md, coding_guidelines.md and this roadmap's title), and explain the name in README.md: Verdandi as the Norn of the present, and why it replaced System Monitor.
+
+    Done: the docs' titles and opening lines name Verdandi, and README.md's "The name" section explains it. "System Monitor" is left only where a text names the old name: DC-131's old folder, this item and the Done notes.
+
   - [ ] Rename the GitHub repository `DunderGG/system-monitor` to `DunderGG/verdandi`, by hand in its settings. Then update the clone steps and layout in CONTRIBUTING.md, the coverage dashboard's address in README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md` and build_system.md, and the local clone's remote. GitHub redirects a renamed repository, but not its Pages site, so the dashboard moves from <https://dundergg.github.io/system-monitor/> to <https://dundergg.github.io/verdandi/>. The `gh-pages` branch, and with it the dashboard's trend, moves with the repository.
 
 ### Considered and not planned

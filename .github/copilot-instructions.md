@@ -1,6 +1,6 @@
-# GitHub Copilot Instructions — System Monitor
+# GitHub Copilot Instructions — Verdandi
 
-This is a Windows desktop system monitor built with C++20 and Qt 6 Widgets.
+This is Verdandi, a Windows desktop system monitor built with C++20 and Qt 6 Widgets.
 The rules below are self-contained. For deeper context, see `docs/architecture.md`, `docs/coding_guidelines.md`, or `AGENTS.md`. Known departures from these rules are tracked in `docs/known_deviations.md`; record any new deviation there.
 
 ## Build & test commands

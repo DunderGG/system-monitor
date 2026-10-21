@@ -1,10 +1,10 @@
-# Contributing to System Monitor
+# Contributing to Verdandi
 
 Thank you for your interest in contributing! This guide will help you get set up and explain how to submit changes.
 
 ## Prerequisites
 
-System Monitor is built for Windows 10 (version 2004+) or Windows 11 using the **MSVC x64 compiler** (C++20), **CMake**, **Ninja**, and **vcpkg**.
+Verdandi is built for Windows 10 (version 2004+) or Windows 11 using the **MSVC x64 compiler** (C++20), **CMake**, **Ninja**, and **vcpkg**.
 
 | Prerequisite | Purpose | WinGet package ID |
 | --- | --- | --- |
