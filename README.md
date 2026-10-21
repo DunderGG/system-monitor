@@ -1,4 +1,6 @@
-# System Monitor
+<p align="center"><img src="resources/verdandi.svg" width="128" alt="Verdandi icon"></p>
+
+# VERDANDI
 
 A lightweight Windows desktop system monitor. Provides a clear view of system health, resource usage, network connectivity, and running processes while keeping its own footprint minimal.
 

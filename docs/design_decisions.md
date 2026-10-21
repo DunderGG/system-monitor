@@ -142,6 +142,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-120](#dc-120): The coverage dashboard is one self-contained page that a PowerShell script writes, with a history of the runs whose tests passed
   - [DC-121](#dc-121): CI keeps the coverage history on the `gh-pages` branch and publishes the dashboard with GitHub Pages
   - [DC-122](#dc-122): Coverage fails no build until CI's history shows how much it varies, and then only below a fixed minimum
+  - [DC-130](#dc-130): The application icon is drawn by a PowerShell script with GDI+, with the small sizes placed on the pixel grid
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1382,6 +1383,19 @@ The settings file and the settings dialog: what the file holds, how it is read a
 **Consequences:** A push that falls below the minimum cannot be stopped, only reported. The check has to follow publishing, so that such a run still enters the history.
 
 **History:** Maintenance, coverage and test statistics (whether coverage can fail the build).
+
+---
+
+<a id="dc-130"></a>
+### DC-130: The application icon is drawn by a PowerShell script with GDI+, with the small sizes placed on the pixel grid
+
+**Decision:** `scripts/generate_icon.ps1` holds the icon's geometry and draws it with GDI+ at 16, 20, 24, 32, 40, 48, 64, 96 and 256 px into `resources/verdandi.ico`. It also writes the 256 px design as `verdandi.svg` and `verdandi_256.png`, and `social_preview.png`, a 1280 × 640 px banner of the icon and the name for GitHub. The 16, 20 and 24 px images have geometry of their own, with the line's flat parts on whole rows of pixels and the tile's edges on pixel edges; the other sizes scale the 256 px design, with the tile's inset rounded to whole pixels. The images below 256 px are uncompressed 32-bit bitmaps with an alpha channel, and the 256 px one is a PNG.
+
+**Rationale:** The toolchain has no SVG renderer: vcpkg builds Qt without Qt SVG, while Windows PowerShell has GDI+ (System.Drawing). Inkscape or ImageMagick would be one more prerequisite for files that rarely change. Scaling one drawing down blurs the sizes that the title bar and the taskbar show: at 16 px the design's 1.5 px line covers parts of three rows of pixels. Drawing every file from one table of numbers keeps them from drifting apart. The sizes are the ones Microsoft's icon guidelines list, for display scales from 100% to 250%. Every reader of icons accepts uncompressed bitmaps, and PNG keeps the 256 px image small. GitHub's social preview, like other places that show a project's picture, takes no SVG.
+
+**Consequences:** The icon changes in the script, never in the files, and the script and the files it writes are committed together.
+
+**History:** General, the rename to Verdandi (drawing the icon; the 256 px PNG and the social preview).
 
 ---
 

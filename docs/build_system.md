@@ -186,6 +186,20 @@ by Git and can inherit from `default` to set machine-specific values, such as a
 local Qt path or a different build directory. Do not put those values in the
 shared `CMakePresets.json`.
 
+`resources/verdandi.ico` is the application icon. `resources/verdandi.svg` is
+the same design at 256 px, for pages and documents, and
+`resources/verdandi_256.png` the 256 px image, for places that take no SVG.
+`resources/social_preview.png` is a 1280 x 640 px banner of the icon and the
+name, which GitHub shows when a link to the repository is shared; it is
+uploaded by hand in the repository's settings (Settings, General, Social
+preview), which take no SVG. All four are generated:
+`.\scripts\generate_icon.ps1` holds the icon's geometry, draws each size that
+Windows picks from (16, 20, 24, 32, 40, 48, 64, 96 and 256 px) with GDI+, and
+writes the files ([DC-130](design_decisions.md#dc-130)). Change the icon in the
+script, not in the files, and commit the script with the files it writes.
+`-PngDirectory` also saves each size as a PNG, to look at. Nothing builds the
+icon into the executable yet.
+
 ## Required local setup
 
 The recommended setup is the repository bootstrap script:

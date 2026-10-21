@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>Verdandi</title>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#1B2340"/>
+  <path d="M36 82 H84 M172 82 H220" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="24" stroke-linecap="round"/>
+  <path d="M84 82 L128 180 L172 82" fill="none" stroke="#F4B740" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -374,6 +374,8 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Persistent event and metric history
 
+> **Name:** Urd (Old Norse *Urðr*). Verdandi, whose name the monitor takes, is the Norn of the present, "what is happening now"; her sisters are Urd, "what has happened", and Skuld, "what shall be". The history shows the past beside the live views, so it takes the Norn of the past's name, which keeps the feature's name within the app's own story. Urd's well, where the Norns live under the world tree, also suits the store that the history is kept in.
+
 - [ ] Add SQLite via vcpkg behind the `IMetricsStore` interface.
 - [ ] Batch-insert samples every 10–30 seconds on a background thread.
 - [ ] Implement retention policies: downsample older data, expire after configurable duration.
@@ -500,15 +502,19 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 ### General
 > Whatever does not fit into the above categories
 
-- [ ] Rename the application to Verdandi, and add an application icon and window title.
+- [x] Draw the application icon.
+
+  Done: `resources/verdandi.ico` holds the V-trace design, chosen on 2026-10-21 from four concepts: a chart line that runs flat, dips into a V and runs flat again, amber on a dark indigo tile. `scripts/generate_icon.ps1` draws it with GDI+ at 16, 20, 24, 32, 40, 48, 64, 96 and 256 px, with the 16, 20 and 24 px images placed on the pixel grid. It also writes the 256 px design as `resources/verdandi.svg` and `resources/verdandi_256.png`, and `resources/social_preview.png`, a 1280 x 640 px banner for GitHub's social preview, which is uploaded by hand in the repository's settings ([DC-130](docs/design_decisions.md#dc-130)). Windows' `LoadImageW` loads every size, and `DrawIconEx` blends their edges over light and dark taskbar colours as expected. On the dark taskbar the tile shows little contrast, but the amber V stands out. Nothing builds the icon into the executable yet; the item below does.
+- [ ] Rename the application to Verdandi, and give the executable and its windows the icon and the new title.
 
   Verdandi (Old Norse *Verðandi*) is the Norn of the present, "what is happening now". It replaces "System Monitor", which is generic, and whose short form `sysmon` is also the name of Sysinternals' Sysmon. On 2026-10-21 searches found no software trademark or monitor named Verdandi. The rename is complete, and covers:
   - what the user sees: the window title, `QCoreApplication`'s application and organization names, and the texts that name the monitor (the save-failure message box, "Close System Monitor" and "... is System Monitor itself" in the Processes tab, with their tests and doc comments), and the coverage report's `-project-title` in `build.ps1`;
   - the files it writes: the executable (`system_monitor.exe` to `verdandi.exe`), its manifest, the log file `system_monitor.log` and the logger's name, and the folders that hold them and `settings.json`, now `%APPDATA%\System Monitor\System Monitor` and its `%LOCALAPPDATA%` twin. Choose the organization name: an empty one gives `%APPDATA%\Verdandi`. No release has shipped, so a settings file in the old folder need not be moved;
   - the code and the build: the `sysmon::` namespace, the `sysmon_*` CMake targets and functions, the `SYSMON_COVERAGE` option and its preset, the CMake project and its messages, the test and benchmark executables (`system_monitor_tests`, `system_monitor_platform_tests`, `system_monitor_benchmark`, `system_monitor_process_benchmark`), `vcpkg.json`'s `name`, and the paths and help in `build.ps1` and `bootstrap.ps1`;
   - the repository and the docs: the GitHub repository `DunderGG/system-monitor`, which also moves the coverage dashboard from <https://dundergg.github.io/system-monitor/> (GitHub redirects a renamed repository, but not its Pages site), the clone steps and layout in CONTRIBUTING.md, and the name in README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md`, architecture.md, build_system.md, coding_guidelines.md, design_decisions.md and known_deviations.md. The code reviews under `docs/code_reviews/` are records of their time and keep the old names.
+  - Also explain the name in README.md, providing the context of Verdandi as the Norn of the present and the rationale for the rename from System Monitor.
 
-  The icon is a `.ico` with the sizes from 16 to 256 px, compiled into the executable from a `.rc` file so that Explorer and the taskbar show it, and set with `QApplication::setWindowIcon()` for the title bar. It must read at 16 px on light and dark taskbars. Rename the namespace and the CMake targets in a commit of their own, so that its diff only renames.
+  Compile `resources/verdandi.ico` into the executable from a `.rc` file, so that Explorer and the taskbar show it. Qt's Windows platform plugin gives its windows the executable's icon resource named `IDI_ICON1`, if there is one; check that it reaches the title bar, or call `QApplication::setWindowIcon()`. Rename the namespace and the CMake targets in a commit of their own, so that its diff only renames.
 
 ### Considered and not planned
 
