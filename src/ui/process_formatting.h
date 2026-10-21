@@ -73,8 +73,7 @@ inline constexpr qsizetype kToolTipDetailLength = 2000;
 /**
  * Question in the dialog that End process opens for the monitor's own row,
  * which offers to close the monitor rather than end its process:
- * "system_monitor.exe (PID 1234) is Verdandi itself. Do you want to close
- * Verdandi?"
+ * "verdandi.exe (PID 1234) is Verdandi itself. Do you want to close Verdandi?"
  */
 [[nodiscard]] QString monitorCloseQuestion(const domain::ProcessInfo& monitor);
 

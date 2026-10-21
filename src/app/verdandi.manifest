@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-  Application manifest, merged by the MSVC linker into system_monitor.exe,
+  Application manifest, merged by the MSVC linker into verdandi.exe,
   system_monitor_tests.exe and the benchmarks.
 
   activeCodePage UTF-8 (Windows 10 1903+) makes the process ANSI code page UTF-8,

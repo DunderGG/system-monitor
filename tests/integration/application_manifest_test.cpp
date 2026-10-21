@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-// src/app/system_monitor.manifest, which this test binary embeds like the app,
+// src/app/verdandi.manifest, which this test binary embeds like the app,
 // read back from the process's default activation context, where Windows reads
 // it at process start.
 

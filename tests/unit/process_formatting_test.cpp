@@ -98,8 +98,8 @@ TEST(ProcessFormatting, ProcessTerminationQuestion_NameWithPlaceholder_KeptLiter
 
 TEST(ProcessFormatting, MonitorCloseQuestion_OwnRow_NamesItAndOffersToClose)
 {
-    EXPECT_EQ(monitorCloseQuestion(ProcessInfo{.pid = 1234, .imageName = "system_monitor.exe"}),
-              "system_monitor.exe (PID 1234) is Verdandi itself. Do you want to close Verdandi?");
+    EXPECT_EQ(monitorCloseQuestion(ProcessInfo{.pid = 1234, .imageName = "verdandi.exe"}),
+              "verdandi.exe (PID 1234) is Verdandi itself. Do you want to close Verdandi?");
 }
 
 TEST(ProcessFormatting, ProcessTerminationMessage_Terminated_None)

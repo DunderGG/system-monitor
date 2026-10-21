@@ -10,7 +10,7 @@ function(add_sysmon_benchmark name source)
         ${source}
         # Same manifest as the app, so the benchmark runs with its UTF-8 process
         # code page and paints with its DPI awareness.
-        ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
+        ${PROJECT_SOURCE_DIR}/src/app/verdandi.manifest
     )
 
     target_link_libraries(${name}

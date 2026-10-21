@@ -11,7 +11,7 @@
 
 TEST(AppLoggingIntegration, ProcessCodePage_IsUtf8)
 {
-    // Set by src/app/system_monitor.manifest, which this test binary embeds like the app.
+    // Set by src/app/verdandi.manifest, which this test binary embeds like the app.
     EXPECT_EQ(::GetACP(), static_cast<UINT>(CP_UTF8));
 }
 

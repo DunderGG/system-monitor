@@ -597,7 +597,7 @@ namespace
 // The monitor's own process, as main.cpp tells the view.
 ProcessInfo monitorProcess()
 {
-    return process(1234, "system_monitor.exe");
+    return process(1234, "verdandi.exe");
 }
 
 QAbstractButton* closeMonitorButton(const QMessageBox& dialog)

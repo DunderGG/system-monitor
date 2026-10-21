@@ -82,12 +82,12 @@ target_link_libraries(sysmon_app_power_events
 # The manifest sets the process code page to UTF-8 and makes the process
 # per-monitor DPI aware. MSVC merges it with the linker-generated manifest.
 # system_monitor_tests and the benchmarks embed the same file.
-qt_add_executable(system_monitor
+qt_add_executable(verdandi
     main.cpp
-    system_monitor.manifest
+    verdandi.manifest
 )
 
-target_link_libraries(system_monitor
+target_link_libraries(verdandi
     PRIVATE
         Qt6::Widgets
         spdlog::spdlog
@@ -103,4 +103,4 @@ target_link_libraries(system_monitor
 )
 
 # VCPKG_APPLOCAL_DEPS copies the linked Qt DLLs; the plugins are copied here.
-sysmon_deploy_qt_plugins(system_monitor)
+sysmon_deploy_qt_plugins(verdandi)

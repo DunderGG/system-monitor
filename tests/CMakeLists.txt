@@ -120,7 +120,7 @@ add_executable(system_monitor_tests
     integration/power_event_filter_test.cpp
     # Same manifest as the app, so tests run with its UTF-8 process code page
     # and its DPI awareness.
-    ${PROJECT_SOURCE_DIR}/src/app/system_monitor.manifest
+    ${PROJECT_SOURCE_DIR}/src/app/verdandi.manifest
 )
 
 set_target_properties(system_monitor_tests PROPERTIES

@@ -318,7 +318,7 @@ $historyPath = if ($CoverageHistoryPath -eq "") { Join-Path $buildDirectory "his
 {
     $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($CoverageHistoryPath)
 }
-$applicationPath = Join-Path $buildDirectory "src\app\system_monitor.exe"
+$applicationPath = Join-Path $buildDirectory "src\app\verdandi.exe"
 # The coverage report reads the application as well as the test executables,
 # although no test runs it, so that code only the application compiles, such
 # as main.cpp, counts as not covered instead of being left out of the report.
