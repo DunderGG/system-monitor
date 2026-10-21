@@ -16,9 +16,10 @@ last run in it, and adds the run to it when the tests pass.
 -Publish, after a run on main whose tests passed, replaces the clone's files
 with the run's dashboard (build\coverage\index.html) and llvm-cov's annotated
 sources (build\coverage\html), keeps its history.jsonl, which the run has added
-to, commits them, and pushes the branch. An empty .nojekyll file makes GitHub
-Pages serve the files as they are. To push to GitHub, the script needs a token
-that may write the repository's contents in the GITHUB_TOKEN environment
+to, writes coverage_badge.json, the run's line coverage for the README's badge
+(DC-133), commits them, and pushes the branch. An empty .nojekyll file makes
+GitHub Pages serve the files as they are. To push to GitHub, the script needs a
+token that may write the repository's contents in the GITHUB_TOKEN environment
 variable, which it gives git for the push alone.
 
 .PARAMETER Fetch
@@ -56,6 +57,8 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $coverageDirectory = Join-Path $projectRoot "build\coverage"
 $branch = "gh-pages"
 $historyName = "history.jsonl"
+$badgeName = "coverage_badge.json"
+$utf8 = New-Object System.Text.UTF8Encoding $false
 $SiteDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($SiteDirectory)
 
 # Runs git, fails on a non-zero exit code, and returns what git writes to
@@ -187,6 +190,27 @@ Copy-Item -LiteralPath $dashboardPath -Destination $SiteDirectory
 Copy-Item -LiteralPath $annotatedSourceDirectory -Destination (Join-Path $SiteDirectory "html") -Recurse
 [System.IO.File]::WriteAllText((Join-Path $SiteDirectory ".nojekyll"), "")
 
+# The README's coverage badge reads this file as a shields.io endpoint badge
+# (DC-133): the line coverage of src\ in the run just added to the history,
+# rounded down as build.ps1 and the dashboard show it, so that only full coverage
+# reads 100%, in the colours that shields.io gives its own coverage badges.
+$lastRun = [System.IO.File]::ReadAllLines((Join-Path $SiteDirectory $historyName)) | Where-Object { $_.Trim() -ne "" } |
+    Select-Object -Last 1
+$lineCounts = ($lastRun | ConvertFrom-Json).lines
+$percent = [Math]::Floor(1000 * $lineCounts.covered / $lineCounts.count) / 10
+$color = if ($percent -ge 100) { "brightgreen" }
+elseif ($percent -ge 90) { "green" }
+elseif ($percent -ge 80) { "yellowgreen" }
+elseif ($percent -gt 0) { "yellow" }
+else { "red" }
+$badge = [ordered]@{
+    schemaVersion = 1
+    label = "coverage"
+    message = [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "{0:0.0}%", $percent)
+    color = $color
+}
+[System.IO.File]::WriteAllText((Join-Path $SiteDirectory $badgeName), ($badge | ConvertTo-Json -Compress), $utf8)
+
 Invoke-Git -Description "Staging the site" -Arguments @("-C", $SiteDirectory, "add", "--all") | Out-Null
 $previousPreference = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
@@ -211,7 +235,7 @@ $hash = (Invoke-Git -Description "Reading the commit" -Arguments @("-C", $projec
 $subject = (Invoke-Git -Description "Reading the commit's subject" `
         -Arguments @("-C", $projectRoot, "log", "-1", "--format=%s") | Out-String).Trim()
 $messagePath = Join-Path ([System.IO.Path]::GetTempPath()) "coverage_pages_message.txt"
-[System.IO.File]::WriteAllText($messagePath, "Coverage of ${hash}: $subject`n", (New-Object System.Text.UTF8Encoding $false))
+[System.IO.File]::WriteAllText($messagePath, "Coverage of ${hash}: $subject`n", $utf8)
 try
 {
     Invoke-Git -Description "Committing the site" -Arguments @("-C", $SiteDirectory,

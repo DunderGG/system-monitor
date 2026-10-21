@@ -145,6 +145,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-122](#dc-122): Coverage fails no build until CI's history shows how much it varies, and then only below a fixed minimum
   - [DC-130](#dc-130): The application icon is drawn by a PowerShell script with GDI+, with the small sizes placed on the pixel grid
   - [DC-132](#dc-132): The windows get the icon from the executable's `IDI_ICON1` resource, which Qt gives each window class, not from `setWindowIcon()`
+  - [DC-133](#dc-133): The README's badges read their values where they can, and the coverage badge reads a file that publishing writes to `gh-pages`
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1378,13 +1379,13 @@ The settings file and the settings dialog: what the file holds, how it is read a
 <a id="dc-121"></a>
 ### DC-121: CI keeps the coverage history on the `gh-pages` branch and publishes the dashboard with GitHub Pages
 
-**Decision:** CI's `Coverage` job runs `build.ps1 -Coverage` on each push to `main` and each pull request, with the history that `scripts/coverage_pages.ps1 -Fetch` clones from the `gh-pages` branch. After a passing run on `main`, `-Publish` pushes the dashboard, `llvm-cov`'s HTML and the extended history to the branch, which GitHub Pages serves; a pull request's dashboard becomes an artifact. The job summary compares the run with the history's last, for a pull request `main`'s. Local runs keep their own history.
+**Decision:** CI's `Coverage` job runs `build.ps1 -Coverage` on each push to `main` and each pull request, with the history that `scripts/coverage_pages.ps1 -Fetch` clones from the `gh-pages` branch. After a passing run on `main`, `-Publish` pushes the dashboard, `llvm-cov`'s HTML, the extended history and the README's coverage badge ([DC-133](#dc-133)) to the branch, which GitHub Pages serves; a pull request's dashboard becomes an artifact. The job summary compares the run with the history's last, for a pull request `main`'s. Local runs keep their own history.
 
 **Rationale:** The history in `build/` was lost with it, could be seen only where it was made, and mixed machines, uncommitted changes and repeated runs of a commit. CI adds one run per commit on `main`, from a clean checkout on one runner image, so its points compare. A branch versions the data without a commit on `main` for each run, and Pages serves it free for a public repository. Rejected: the history on `main` (those commits), workflow artifacts (they expire), and Codecov or Coveralls (an outside service and token, without the test counts or times). Only this job may write, and the checkout keeps no token, so only the publishing step can push. Runs on `main` share a concurrency group, so each extends the history its predecessor published. The steps use Windows PowerShell 5.1, which the scripts are tried with.
 
 **Consequences:** Pages is turned on once, for the branch. GitHub keeps only the newest of the runs waiting behind one in progress, so a commit can get no point. CI's times vary more than local ones.
 
-**History:** Maintenance, coverage and test statistics (where the history lives).
+**History:** Maintenance, coverage and test statistics (where the history lives); maintenance (the coverage badge, for [DC-133](#dc-133)).
 
 ---
 
@@ -1424,6 +1425,19 @@ The settings file and the settings dialog: what the file holds, how it is read a
 **Consequences:** Qt finds the resource by its name: renamed, Explorer would still show the icon, but the windows would get Windows' default one.
 
 **History:** General, the rename to Verdandi (the icon in the executable).
+
+---
+
+<a id="dc-133"></a>
+### DC-133: The README's badges read their values where they can, and the coverage badge reads a file that publishing writes to `gh-pages`
+
+**Decision:** `README.md` shows badges of the CI workflow on `main`, the line coverage of `src/`, the version, the license, the platform, C++20 and Qt 6. The CI badge is GitHub's. The version badge is a shields.io dynamic badge of `version-string` in `vcpkg.json` on `main`, and the license badge shows the license GitHub detects. The coverage badge is a shields.io endpoint badge: `coverage_pages.ps1 -Publish` writes `coverage_badge.json` to `gh-pages` from the run it publishes ([DC-121](#dc-121)), with the line coverage rounded down as `build.ps1` and the dashboard show it, in the colours shields.io gives its own coverage badges. The platform, language and Qt badges are static.
+
+**Rationale:** A badge that reads its value cannot fall behind the code, so only facts with nothing to read are static. The project has no tags or releases, so a release badge would read "no releases"; `vcpkg.json` and `CMakeLists.txt` both hold the version, and shields.io reads JSON but not CMake. The coverage history is JSON Lines, which shields.io's dynamic badges cannot query, so publishing writes the one small file that an endpoint badge needs, next to the dashboard the badge links to. Rejected: Codecov or Coveralls for the badge alone, the outside service and token that DC-121 turned down for the history, and a badge file that CI commits to `main`, a commit for each run.
+
+**Consequences:** The version is raised in `CMakeLists.txt` and `vcpkg.json` together, since the badge reads only `vcpkg.json`.
+
+**History:** Maintenance (the README's badges).
 
 ---
 

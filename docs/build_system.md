@@ -334,8 +334,10 @@ trend, and the job summary, which the job copies from
 job uploads the dashboard and `llvm-cov`'s HTML as the `coverage-dashboard`
 artifact, which opens from disk once extracted. After a push to `main` whose
 tests pass, `coverage_pages.ps1 -Publish` replaces the clone's files with the
-run's, keeps the history that the run added to, adds an empty `.nojekyll` so
-that Pages serves the files as they are, commits, and pushes the branch. A pull
+run's, keeps the history that the run added to, writes `coverage_badge.json`,
+the run's line coverage, which the README's coverage badge shows
+([DC-133](design_decisions.md#dc-133)), adds an empty `.nojekyll` so that Pages
+serves the files as they are, commits, and pushes the branch. A pull
 request's run publishes nothing; its line goes only into its own clone's
 history.
 

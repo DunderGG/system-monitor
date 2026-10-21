@@ -2,6 +2,25 @@
 
 # VERDANDI
 
+[![CI][ci-badge]][ci]
+[![Coverage][coverage-badge]][coverage]
+[![Version][version-badge]][roadmap]
+[![License: GPL-3.0][license-badge]](LICENSE)
+[![Platform: Windows 10 | 11][platform-badge]](#prerequisites)
+[![C++20][cpp-badge]](docs/architecture.md)
+[![Qt 6][qt-badge]](docs/architecture.md)
+
+[ci-badge]: https://github.com/DunderGG/verdandi/actions/workflows/ci.yml/badge.svg?branch=main
+[ci]: https://github.com/DunderGG/verdandi/actions/workflows/ci.yml?query=branch%3Amain
+[coverage-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fdundergg.github.io%2Fverdandi%2Fcoverage_badge.json
+[coverage]: https://dundergg.github.io/verdandi/
+[version-badge]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FDunderGG%2Fverdandi%2Fmain%2Fvcpkg.json&query=%24%5B%27version-string%27%5D&label=version&prefix=v&color=blue
+[roadmap]: roadmap.md
+[license-badge]: https://img.shields.io/github/license/DunderGG/verdandi
+[platform-badge]: https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6
+[cpp-badge]: https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white
+[qt-badge]: https://img.shields.io/badge/Qt-6-41CD52?logo=qt&logoColor=white
+
 A lightweight Windows desktop system monitor. Provides a clear view of system health, resource usage, network connectivity, and running processes while keeping its own footprint minimal.
 
 Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monitoring.
