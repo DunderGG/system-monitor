@@ -1,14 +1,20 @@
-<p align="center"><img src="resources/verdandi.svg" width="128" alt="Verdandi icon"></p>
+<div align="center">
+
+<img src="resources/verdandi.svg" width="128" alt="Verdandi icon">
 
 # VERDANDI
+
+**A lightweight Windows desktop system monitor**
 
 [![CI][ci-badge]][ci]
 [![Coverage][coverage-badge]][coverage]
 [![Version][version-badge]][roadmap]
 [![License: GPL-3.0][license-badge]](LICENSE)
-[![Platform: Windows 10 | 11][platform-badge]](#prerequisites)
+[![Platform: Windows 10 | 11][platform-badge]](#-prerequisites)
 [![C++20][cpp-badge]](docs/architecture.md)
 [![Qt 6][qt-badge]](docs/architecture.md)
+
+</div>
 
 [ci-badge]: https://github.com/DunderGG/verdandi/actions/workflows/ci.yml/badge.svg?branch=main
 [ci]: https://github.com/DunderGG/verdandi/actions/workflows/ci.yml?query=branch%3Amain
@@ -21,36 +27,36 @@
 [cpp-badge]: https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white
 [qt-badge]: https://img.shields.io/badge/Qt-6-41CD52?logo=qt&logoColor=white
 
-A lightweight Windows desktop system monitor. Provides a clear view of system health, resource usage, network connectivity, and running processes while keeping its own footprint minimal.
+Verdandi provides a clear view of system health, resource usage, network connectivity, and running processes while keeping its own footprint minimal.
 
 Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monitoring.
 
-## Features (MVP)
+## ✨ Features
 
-- **Dashboard** — At-a-glance CPU, memory, disk, and network usage with health indicators and uptime.
-- **Performance charts** — Live rolling sparkline charts for CPU (total and per-core), memory, disk, and network throughput.
-- **Process explorer** — Sortable, filterable process list with CPU, memory, I/O, threads, handles, and process tree view.
-- **Network view** — Adapter details, IP addresses, live throughput charts, and structured connectivity status.
-- **Process management** — Terminate processes with confirmation (user-owned processes).
+- **Dashboard** — At-a-glance cards for CPU, memory, disk, network, and uptime, with an overall system status. Choose which cards to show.
+- **Performance charts** — Live charts of CPU (total and per logical processor), memory (in use and committed), disk space used per volume, and network throughput per adapter, each with detailed readouts. Keep up to 1,800 samples of history: 30 minutes at the default refresh interval.
+- **Processes** — Sortable process list with CPU, memory, I/O rate, threads, and handles. Filter by name or PID, or show each process under its parent as a tree. New processes are highlighted, and ended ones are marked before they disappear.
+- **Network view** — Each adapter's type, status, link speed, IPv4 and IPv6 addresses, DNS servers, network name and category, with live send and receive charts. Connectivity level, metered and roaming status update as soon as Windows reports a change. "Show all adapters" also lists the adapters Windows hides.
+- **Process management** — End a process after confirming. Only your own processes that are not elevated can be ended.
+- **Settings** — Set the refresh interval (0.5 to 10 seconds), byte units (KiB or KB), network throughput in bytes or bits per second, the dashboard's cards, and the log level from File > Settings. Changes apply at once and are saved.
+- **Sleep and resume** — After the PC wakes up, rates start again from fresh readings instead of averaging over the time it slept.
 
-## Screenshots
+*Screenshots coming soon — the application is under active development.*
 
-*Coming soon — the application is under active development.*
+## 🔨 Building from source
 
-## Building from source
-
-### Prerequisites
+### 🧱 Prerequisites
 
 - **Windows 10** (version 2004+) or **Windows 11**
-- **Visual Studio 2022** with the "Desktop development with C++" workload, **or** the standalone [Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) (for VS Code users)
+- **Visual Studio 2022 or 2026** with the "Desktop development with C++" workload, **or** the standalone [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/) (for VS Code users)
+- **C++ Clang tools for Windows**, a component in the Visual Studio Installer. The coverage build needs it, and it brings the clang-format that `.\scripts\build.ps1 -Format` runs before each commit (CI fails on unformatted code).
 - **CMake 3.25+**
 - **Ninja**
 - **vcpkg** (bundled with Visual Studio or standalone) with `VCPKG_ROOT` set
-- **Git**
 
 All dependencies (Qt 6, spdlog, GoogleTest, nlohmann/json) are managed by vcpkg and downloaded automatically during project configuration.
 
-### Quick start (Automated)
+### 🚀 Quick start (Automated)
 
 The fastest way to get started is using the repository scripts. From PowerShell:
 
@@ -71,7 +77,7 @@ The tests' results and coverage on `main`, and their trend, are on the [test and
 
 If you prefer building manually without scripts:
 
-1. Open the **Developer PowerShell for VS 2022** or **x64 Native Tools Command Prompt for VS 2022** (so `cl.exe` is active on `PATH`).
+1. Open your Visual Studio version's **Developer PowerShell** or **x64 Native Tools Command Prompt** (so `cl.exe` is active on `PATH`).
 2. Ensure `VCPKG_ROOT` is set in your session (e.g. `$env:VCPKG_ROOT = "C:\vcpkg"` or to Visual Studio's `VC\vcpkg`).
 3. Run:
 
@@ -87,19 +93,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full manual setup details, IDE config
 
 ## How it works
 
-Verdandi uses direct Windows APIs for accurate, low-overhead data collection:
+Verdandi reads every metric directly from Windows' native APIs, with no PDH counters, WMI polling, or Tool Help snapshots in between. Background threads collect the metrics and hand the UI immutable snapshots, so the window stays responsive.
 
-| Data | API |
-| --- | --- |
-| CPU usage | `GetSystemTimes`, `NtQuerySystemInformation`, `CallNtPowerInformation` (base speed) |
-| Memory | `GlobalMemoryStatusEx`, `GetPerformanceInfo` (cache and kernel pools) |
-| Process, thread, and handle counts | `GetPerformanceInfo` |
-| Disk space | `GetDiskFreeSpaceExW` |
-| Processes | `NtQuerySystemInformation` (same API Task Manager uses) |
-| Network throughput | `GetIfTable2` (64-bit counters) |
-| Connectivity | `GetNetworkConnectivityHint` |
-
-Metrics are collected on background threads and delivered to the UI as immutable snapshots, keeping the interface responsive. See [architecture.md](docs/architecture.md) for the full technical design.
+See [architecture.md](docs/architecture.md) for the full technical design, including [the Windows API behind each metric](docs/architecture.md#windows-api-choices).
 
 ## Roadmap
 
@@ -116,11 +112,15 @@ See [roadmap.md](roadmap.md) for the detailed implementation plan. Upcoming feat
 
 Verdandi (Old Norse *Verðandi*) is one of the three Norns of Norse mythology. Her name comes from the verb *verða*, "to become", and is often read as "what is happening now": the present, beside Urd, what has been, and Skuld, what shall be. A monitor shows what a system is doing now, so it carries her name, and its icon draws her V as a chart line.
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, code style guidelines, and how to submit changes.
 
-## License
+## 👤 Author
+
+**David Bennehag** - [@DunderGG](https://github.com/DunderGG) - [dunder.gg](https://dunder.gg)
+
+## 📄 License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE). See the [LICENSE](LICENSE) file for the full text.
 

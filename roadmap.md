@@ -502,6 +502,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 ### General
 > Whatever does not fit into the above categories
 
+- [ ] Add a Release badge when we have released a first release. Also update the README with a download section.
 - [x] Draw the application icon.
 
   Done: `resources/verdandi.ico` holds the V-trace design, chosen on 2026-10-21 from four concepts: a chart line that runs flat, dips into a V and runs flat again, amber on a dark indigo tile. `scripts/generate_icon.ps1` draws it with GDI+ at 16, 20, 24, 32, 40, 48, 64, 96 and 256 px, with the 16, 20 and 24 px images placed on the pixel grid. It also writes the 256 px design as `resources/verdandi.svg` and `resources/verdandi_256.png`, and `resources/social_preview.png`, a 1280 x 640 px banner for GitHub's social preview, which is uploaded by hand in the repository's settings ([DC-130](docs/design_decisions.md#dc-130)). Windows' `LoadImageW` loads every size, and `DrawIconEx` blends their edges over light and dark taskbar colours as expected. On the dark taskbar the tile shows little contrast, but the amber V stands out. Nothing builds the icon into the executable yet; the item below does.
