@@ -127,7 +127,7 @@ QString processTerminationQuestion(const domain::ProcessInfo& process)
 
 QString monitorCloseQuestion(const domain::ProcessInfo& monitor)
 {
-    return QString("%1 is System Monitor itself. Do you want to close System Monitor?").arg(nameAndPid(monitor));
+    return QString("%1 is Verdandi itself. Do you want to close Verdandi?").arg(nameAndPid(monitor));
 }
 
 std::optional<ProcessTerminationMessage> processTerminationMessage(const domain::ProcessInfo& process,

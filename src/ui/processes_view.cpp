@@ -45,7 +45,7 @@ const QString kEndProcessText = QStringLiteral("End process");
 const QString kEndProcessWarning = QStringLiteral(
     "Ending a process stops it immediately. Any unsaved data in it is lost, and programs that depend on it may stop "
     "working.");
-const QString kCloseMonitorText = QStringLiteral("Close System Monitor");
+const QString kCloseMonitorText = QStringLiteral("Close Verdandi");
 const QString kCloseMonitorExplanation = QStringLiteral("It closes the same way as when you close its window.");
 
 // Sizes each value column to fit its widest expected text, so the columns stay

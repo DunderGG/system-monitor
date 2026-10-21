@@ -32,7 +32,7 @@ constexpr double kMaxScreenShare = 0.9;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
-    setWindowTitle("System Monitor");
+    setWindowTitle("Verdandi");
     QSize size = kDefaultSize;
     if (const QScreen* current = screen()) {
         size = size.boundedTo(current->availableGeometry().size() * kMaxScreenShare);
@@ -120,8 +120,7 @@ void MainWindow::showSettingsNotSaved(const QString& path, const QString& reason
     box->setAttribute(Qt::WA_DeleteOnClose);
     // The path and the reason come from the system; neither is rich text.
     box->setTextFormat(Qt::PlainText);
-    box->setInformativeText(
-        QString("%1\n%2\n\nThe changed settings apply until System Monitor closes.").arg(path, reason));
+    box->setInformativeText(QString("%1\n%2\n\nThe changed settings apply until Verdandi closes.").arg(path, reason));
     box->open();
 }
 

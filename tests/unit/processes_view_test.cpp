@@ -639,7 +639,7 @@ TEST(ProcessesView, EndProcessAction_MonitorsOwnRow_AsksToCloseTheMonitorInstead
     EXPECT_EQ(dialog->textFormat(), Qt::PlainText);
     EXPECT_TRUE(dialog->informativeText().contains("close its window"));
     ASSERT_NE(closeMonitorButton(*dialog), nullptr);
-    EXPECT_EQ(closeMonitorButton(*dialog)->text(), "Close System Monitor");
+    EXPECT_EQ(closeMonitorButton(*dialog)->text(), "Close Verdandi");
     EXPECT_EQ(endButton(*dialog), nullptr);
     EXPECT_EQ(dialog->defaultButton(), dialog->button(QMessageBox::Cancel));
     EXPECT_EQ(dialog->escapeButton(), dialog->button(QMessageBox::Cancel));

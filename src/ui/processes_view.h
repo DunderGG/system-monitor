@@ -64,8 +64,8 @@ using ProcessTerminator = std::function<domain::ProcessTerminationResult(const d
  * message; its row is marked as exited when the next list no longer has it.
  *
  * For the monitor's own row (setMonitorIdentity()), the dialog offers to
- * close System Monitor instead, and confirming closes the window that holds
- * the view, so the monitor shuts down the same way as when the user closes it.
+ * close Verdandi instead, and confirming closes the window that holds the
+ * view, so the monitor shuts down the same way as when the user closes it.
  */
 class ProcessesView : public QWidget
 {

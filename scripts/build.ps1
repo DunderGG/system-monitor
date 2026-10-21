@@ -1071,7 +1071,7 @@ function Write-CoverageReport
             ForEach-Object { $_.filename.Substring(0, $sourcePrefix.Length - 1) } |
             Sort-Object -Unique -CaseSensitive)
     Invoke-LlvmCov -Arguments (@("show", "-format=html", "-output-dir=$coverageHtmlDirectory",
-            "-show-branches=count", "-show-directory-coverage", "-project-title=System Monitor") +
+            "-show-branches=count", "-show-directory-coverage", "-project-title=Verdandi") +
         $coverageArguments + $recordedSourceDirectories) | Out-Null
     Write-Host "Annotated sources: build\$preset\html\index.html"
 }
