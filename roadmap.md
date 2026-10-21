@@ -521,7 +521,10 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
     Done: the CMake target that builds the application is `verdandi`, and `build.ps1 -Run` and the coverage report use `verdandi.exe`. The docs name `verdandi.manifest`; those that name the test and benchmark executables keep their names until the build is renamed.
 
-  - [ ] Compile `resources/verdandi.ico` into the executable from a `.rc` file, so that Explorer and the taskbar show it. Qt's Windows platform plugin gives its windows the executable's icon resource named `IDI_ICON1`, if there is one; check that it reaches the title bar, or call `QApplication::setWindowIcon()`.
+  - [x] Compile `resources/verdandi.ico` into the executable from a `.rc` file, so that Explorer and the taskbar show it. Qt's Windows platform plugin gives its windows the executable's icon resource named `IDI_ICON1`, if there is one; check that it reaches the title bar, or call `QApplication::setWindowIcon()`.
+
+    Done: `src/app/verdandi.rc` compiles the icon, with its nine sizes, into `verdandi.exe` as `IDI_ICON1` ([DC-132](docs/design_decisions.md#dc-132)). It reaches the title bar without `setWindowIcon()`: the running window's class has the 32 and 16 px icons from the resource, no icon is set on the window itself, and Explorer shows the same 32 px icon.
+
   - [ ] Rename the `sysmon::` namespace to `verdandi::`. The diff only renames, apart from the lines that `build.ps1 -Format` rewraps because the name is longer.
   - [ ] Rename the build: the `sysmon_*` CMake targets and functions, the `SYSMON_COVERAGE` option and its preset, the CMake project and its messages, the test and benchmark executables (`system_monitor_tests`, `system_monitor_platform_tests`, `system_monitor_benchmark`, `system_monitor_process_benchmark`), `vcpkg.json`'s `name`, and the paths and help in `build.ps1` and `bootstrap.ps1`. Like the namespace's, this diff only renames.
   - [ ] Name the application Verdandi in the docs' prose (README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md`, CONTRIBUTING.md, architecture.md, build_system.md, coding_guidelines.md and this roadmap's title), and explain the name in README.md: Verdandi as the Norn of the present, and why it replaced System Monitor.

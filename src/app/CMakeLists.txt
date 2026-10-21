@@ -81,10 +81,12 @@ target_link_libraries(sysmon_app_power_events
 
 # The manifest sets the process code page to UTF-8 and makes the process
 # per-monitor DPI aware. MSVC merges it with the linker-generated manifest.
-# system_monitor_tests and the benchmarks embed the same file.
+# system_monitor_tests and the benchmarks embed the same file. The resource
+# script compiles in the application icon (DC-132).
 qt_add_executable(verdandi
     main.cpp
     verdandi.manifest
+    verdandi.rc
 )
 
 target_link_libraries(verdandi

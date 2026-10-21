@@ -144,6 +144,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-121](#dc-121): CI keeps the coverage history on the `gh-pages` branch and publishes the dashboard with GitHub Pages
   - [DC-122](#dc-122): Coverage fails no build until CI's history shows how much it varies, and then only below a fixed minimum
   - [DC-130](#dc-130): The application icon is drawn by a PowerShell script with GDI+, with the small sizes placed on the pixel grid
+  - [DC-132](#dc-132): The windows get the icon from the executable's `IDI_ICON1` resource, which Qt gives each window class, not from `setWindowIcon()`
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1410,6 +1411,19 @@ The settings file and the settings dialog: what the file holds, how it is read a
 **Consequences:** The icon changes in the script, never in the files, and the script and the files it writes are committed together.
 
 **History:** General, the rename to Verdandi (drawing the icon; the 256 px PNG and the social preview).
+
+---
+
+<a id="dc-132"></a>
+### DC-132: The windows get the icon from the executable's `IDI_ICON1` resource, which Qt gives each window class, not from `setWindowIcon()`
+
+**Decision:** `src/app/verdandi.rc` compiles `resources/verdandi.ico`, with all its sizes, into `verdandi.exe` as the icon resource named `IDI_ICON1`. Explorer shows the executable's icon resource, and Qt's Windows platform plugin loads `IDI_ICON1` from the executable for each window class it registers, at the system's large and small icon sizes, so the title bar and the taskbar show it too. No code sets a window icon. The tests and the benchmarks do not compile in the resource.
+
+**Rationale:** Explorer, the Start menu and pinned taskbar buttons read the icon from the executable's resources, so it must be compiled in whatever the windows use. Qt already looks for a resource of that name, so the same resource gives the windows their icon with no code. `QApplication::setWindowIcon()` would need the `.ico` in a Qt resource file and Qt's ICO image plugin next to the executable, which `sysmon_deploy_qt_plugins()` does not copy ([DC-104](#dc-104)), to give the windows the images Windows already picks from the resource. No user sees a test's or a benchmark's icon.
+
+**Consequences:** Qt finds the resource by its name: renamed, Explorer would still show the icon, but the windows would get Windows' default one.
+
+**History:** General, the rename to Verdandi (the icon in the executable).
 
 ---
 

@@ -197,8 +197,10 @@ preview), which take no SVG. All four are generated:
 Windows picks from (16, 20, 24, 32, 40, 48, 64, 96 and 256 px) with GDI+, and
 writes the files ([DC-130](design_decisions.md#dc-130)). Change the icon in the
 script, not in the files, and commit the script with the files it writes.
-`-PngDirectory` also saves each size as a PNG, to look at. Nothing builds the
-icon into the executable yet.
+`-PngDirectory` also saves each size as a PNG, to look at. `src/app/verdandi.rc`
+compiles `verdandi.ico` into `verdandi.exe` as the resource `IDI_ICON1`, which
+Explorer and the taskbar show and Qt gives every window
+([DC-132](design_decisions.md#dc-132)).
 
 ## Required local setup
 

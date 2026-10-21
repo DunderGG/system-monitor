@@ -1,0 +1,5 @@
+// The application icon, compiled into verdandi.exe, where Explorer and the
+// taskbar find it. Qt's Windows platform plugin loads the resource by this name
+// for each window class it registers, so every window has the icon too
+// (DC-132).
+IDI_ICON1 ICON "../../resources/verdandi.ico"
