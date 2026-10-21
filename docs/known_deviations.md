@@ -69,7 +69,7 @@ When you introduce a deviation, add an entry here and reference its ID in a code
 
 **Plan:** Either clarify the guidelines to allow unit tests of `platform/windows` mapping code to include SDK headers (no API calls), or move these tests to a platform-specific test target.
 
-**Status:** Resolved (2026-09-25). The test moved to `tests/platform/connectivity_hint_mapping_test.cpp` in a separate `system_monitor_platform_tests` target (GoogleTest only, no Qt). `tests/unit/` no longer includes Windows headers. The rules now define the test layout: `tests/unit/` never includes Windows headers; `tests/platform/` may include SDK headers for types and constants but must not call Windows APIs; `tests/integration/` may call Windows APIs. They also allow internal `platform/windows` headers that expose Windows types to `tests/platform/` only. Updated: AGENTS.md, GEMINI.md, copilot-instructions.md, coding_guidelines.md (new "Test layout" section), architecture.md, CONTRIBUTING.md, and platform/windows/AGENTS.md.
+**Status:** Resolved (2026-09-25). The test moved to `tests/platform/connectivity_hint_mapping_test.cpp` in a separate `verdandi_platform_tests` target (GoogleTest only, no Qt). `tests/unit/` no longer includes Windows headers. The rules now define the test layout: `tests/unit/` never includes Windows headers; `tests/platform/` may include SDK headers for types and constants but must not call Windows APIs; `tests/integration/` may call Windows APIs. They also allow internal `platform/windows` headers that expose Windows types to `tests/platform/` only. Updated: AGENTS.md, GEMINI.md, copilot-instructions.md, coding_guidelines.md (new "Test layout" section), architecture.md, CONTRIBUTING.md, and platform/windows/AGENTS.md.
 
 ---
 

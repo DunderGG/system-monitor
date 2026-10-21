@@ -494,7 +494,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Code organization
 
-- [ ] Create a header-only `src/common/` module (`sysmon_common`) for dependency-free utilities shared across modules, and move `RingBuffer<T>` there from `domain`. Trigger: do this when a second general-purpose utility (e.g. a thread-safe latest-value holder for collectors, or shared RAII helpers) needs to be shared across modules, so `domain` stays limited to data types. Update the module rules and architecture module table accordingly.
+- [ ] Create a header-only `src/common/` module (`verdandi_common`) for dependency-free utilities shared across modules, and move `RingBuffer<T>` there from `domain`. Trigger: do this when a second general-purpose utility (e.g. a thread-safe latest-value holder for collectors, or shared RAII helpers) needs to be shared across modules, so `domain` stays limited to data types. Update the module rules and architecture module table accordingly.
 
 ### DevEnv
 - [x] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.
@@ -529,7 +529,10 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
     Done: 688 lines in 234 source files, and the namespace in AGENTS.md, GEMINI.md, coding_guidelines.md and design_decisions.md. `-Format` rewrapped three lines. With the rename reversed, every changed file matches the previous commit, whitespace aside.
 
-  - [ ] Rename the build: the `sysmon_*` CMake targets and functions, the `SYSMON_COVERAGE` option and its preset, the CMake project and its messages, the test and benchmark executables (`system_monitor_tests`, `system_monitor_platform_tests`, `system_monitor_benchmark`, `system_monitor_process_benchmark`), `vcpkg.json`'s `name`, and the paths and help in `build.ps1` and `bootstrap.ps1`. Like the namespace's, this diff only renames.
+  - [x] Rename the build: the `sysmon_*` CMake targets and functions, the `SYSMON_COVERAGE` option and its preset, the CMake project and its messages, the test and benchmark executables (`system_monitor_tests`, `system_monitor_platform_tests`, `system_monitor_benchmark`, `system_monitor_process_benchmark`), `vcpkg.json`'s `name`, and the paths and help in `build.ps1` and `bootstrap.ps1`. Like the namespace's, this diff only renames.
+
+    Done: the targets and functions are `verdandi_*` and `add_verdandi_*`, the option is `VERDANDI_COVERAGE`, the project and `vcpkg.json`'s package are `Verdandi` and `verdandi`, and the executables are `verdandi_tests`, `verdandi_platform_tests`, `verdandi_benchmark` and `verdandi_process_benchmark`. The integration test that names its own process now names `verdandi_tests.exe`.
+
   - [ ] Name the application Verdandi in the docs' prose (README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md`, CONTRIBUTING.md, architecture.md, build_system.md, coding_guidelines.md and this roadmap's title), and explain the name in README.md: Verdandi as the Norn of the present, and why it replaced System Monitor.
   - [ ] Rename the GitHub repository `DunderGG/system-monitor` to `DunderGG/verdandi`, by hand in its settings. Then update the clone steps and layout in CONTRIBUTING.md, the coverage dashboard's address in README.md, AGENTS.md, GEMINI.md, `.github/copilot-instructions.md` and build_system.md, and the local clone's remote. GitHub redirects a renamed repository, but not its Pages site, so the dashboard moves from <https://dundergg.github.io/system-monitor/> to <https://dundergg.github.io/verdandi/>. The `gh-pages` branch, and with it the dashboard's trend, moves with the repository.
 

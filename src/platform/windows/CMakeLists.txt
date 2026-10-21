@@ -1,6 +1,6 @@
 find_package(spdlog CONFIG REQUIRED)
 
-add_library(sysmon_platform_windows STATIC
+add_library(verdandi_platform_windows STATIC
     adapter_details_cache.cpp
     adapter_details_cache.h
     adapter_type_mapping.cpp
@@ -62,17 +62,17 @@ add_library(sysmon_platform_windows STATIC
     utf8_conversion.h
 )
 
-target_include_directories(sysmon_platform_windows
+target_include_directories(verdandi_platform_windows
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/../.."
 )
 
 # The collectors implement the interfaces in monitoring/collector.h. That header
 # is the only part of monitoring this module may use.
-target_link_libraries(sysmon_platform_windows
+target_link_libraries(verdandi_platform_windows
     PUBLIC
-        sysmon_collector_interfaces
-        sysmon_domain
+        verdandi_collector_interfaces
+        verdandi_domain
     PRIVATE
         spdlog::spdlog
         iphlpapi

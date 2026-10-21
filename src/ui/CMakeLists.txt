@@ -1,6 +1,6 @@
 find_package(Qt6 CONFIG REQUIRED COMPONENTS Widgets)
 
-add_library(sysmon_ui STATIC
+add_library(verdandi_ui STATIC
     adapter_card.cpp
     adapter_card.h
     adapter_throughput_history.cpp
@@ -54,19 +54,19 @@ add_library(sysmon_ui STATIC
     view_metrics.h
 )
 
-set_target_properties(sysmon_ui PROPERTIES
+set_target_properties(verdandi_ui PROPERTIES
     AUTOMOC ON
 )
 
-target_include_directories(sysmon_ui
+target_include_directories(verdandi_ui
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 
-target_link_libraries(sysmon_ui
+target_link_libraries(verdandi_ui
     PUBLIC
         Qt6::Widgets
-        sysmon_domain
-        sysmon_ui_charts
+        verdandi_domain
+        verdandi_ui_charts
 )
 

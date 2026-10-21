@@ -9,9 +9,9 @@ find_package(spdlog CONFIG REQUIRED)
 # (build.ps1 passes --parallel). GoogleTest deals the tests out round-robin,
 # so twice as many shards as logical processors keeps the processors busy
 # while the slowest shards finish. Run a single test with the executable's
-# --gtest_filter, e.g. system_monitor_tests --gtest_filter=RingBuffer.*.
-cmake_host_system_information(RESULT sysmonLogicalProcessors QUERY NUMBER_OF_LOGICAL_CORES)
-math(EXPR sysmonTestShards "2 * ${sysmonLogicalProcessors}")
+# --gtest_filter, e.g. verdandi_tests --gtest_filter=RingBuffer.*.
+cmake_host_system_information(RESULT verdandiLogicalProcessors QUERY NUMBER_OF_LOGICAL_CORES)
+math(EXPR verdandiTestShards "2 * ${verdandiLogicalProcessors}")
 
 # Adds the tests of target as shardCount CTest tests named
 # <target>_shard_<index>_of_<shardCount>. Each shard writes GoogleTest's JSON
@@ -20,7 +20,7 @@ math(EXPR sysmonTestShards "2 * ${sysmonLogicalProcessors}")
 # run in parallel, so each names its own file: given only a directory,
 # GoogleTest picks a name that no file has yet when the process starts, and
 # writes the file when it ends, so shards running together pick the same name.
-function(sysmon_add_sharded_tests target shardCount)
+function(verdandi_add_sharded_tests target shardCount)
     math(EXPR lastShard "${shardCount} - 1")
     foreach(shard RANGE ${lastShard})
         set(testName "${target}_shard_${shard}_of_${shardCount}")
@@ -32,7 +32,7 @@ function(sysmon_add_sharded_tests target shardCount)
     endforeach()
 endfunction()
 
-add_executable(system_monitor_tests
+add_executable(verdandi_tests
     test_main.cpp
     support/adapter_lists.h
     support/fake_collectors.h
@@ -123,40 +123,40 @@ add_executable(system_monitor_tests
     ${PROJECT_SOURCE_DIR}/src/app/verdandi.manifest
 )
 
-set_target_properties(system_monitor_tests PROPERTIES
+set_target_properties(verdandi_tests PROPERTIES
     AUTOMOC ON
 )
 
 # Shared test builders and harnesses are included as "support/<name>.h".
-target_include_directories(system_monitor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(verdandi_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(system_monitor_tests
+target_link_libraries(verdandi_tests
     PRIVATE
         GTest::gtest
-        sysmon_app_collectors
-        sysmon_app_logging
-        sysmon_app_power_events
-        sysmon_app_settings
-        sysmon_domain
-        sysmon_monitoring
-        sysmon_persistence
-        sysmon_platform_windows
-        sysmon_ui
+        verdandi_app_collectors
+        verdandi_app_logging
+        verdandi_app_power_events
+        verdandi_app_settings
+        verdandi_domain
+        verdandi_monitoring
+        verdandi_persistence
+        verdandi_platform_windows
+        verdandi_ui
         Qt6::Core
         Qt6::Widgets
         spdlog::spdlog
 )
 
 # The same plugins as the app, so the tests run with the app's style.
-sysmon_deploy_qt_plugins(system_monitor_tests)
+verdandi_deploy_qt_plugins(verdandi_tests)
 
-sysmon_add_sharded_tests(system_monitor_tests ${sysmonTestShards})
+verdandi_add_sharded_tests(verdandi_tests ${verdandiTestShards})
 
 # Platform unit tests: deterministic tests of platform/windows code that need
 # Windows SDK types or constants (e.g. Windows-to-domain mapping functions).
 # They may include Windows headers but must not call Windows APIs. Kept in a
 # separate target so tests/unit/ stays free of Windows headers. No Qt needed.
-add_executable(system_monitor_platform_tests
+add_executable(verdandi_platform_tests
     platform/adapter_type_mapping_test.cpp
     platform/connectivity_hint_mapping_test.cpp
     platform/ip_address_mapping_test.cpp
@@ -166,12 +166,12 @@ add_executable(system_monitor_platform_tests
     platform/process_elevation_test.cpp
 )
 
-target_link_libraries(system_monitor_platform_tests
+target_link_libraries(verdandi_platform_tests
     PRIVATE
         GTest::gtest_main
-        sysmon_domain
-        sysmon_platform_windows
+        verdandi_domain
+        verdandi_platform_windows
 )
 
 # Without Qt to start, all of these run in a fraction of a second in one process.
-sysmon_add_sharded_tests(system_monitor_platform_tests 1)
+verdandi_add_sharded_tests(verdandi_platform_tests 1)

@@ -30,7 +30,7 @@ installed dependency packages ──> CMake find_package() calls and targets
 standard, common warning flags, Windows preprocessor definitions, testing, and
 the module build hierarchy. Module `CMakeLists.txt` files, added as their
 modules are implemented, define the application, library, and test targets.
-The root file also defines `sysmon_deploy_qt_plugins()`, which the app, the
+The root file also defines `verdandi_deploy_qt_plugins()`, which the app, the
 tests, and the benchmarks call. It copies the Qt plugins that Qt loads at run
 time rather than links next to each executable: the Windows platform plugin
 into `platforms/`, and the Windows 11 and Vista styles into `styles/`. Without
@@ -58,11 +58,11 @@ A `release` configure, build, and test preset inherits everything from
 Use it to measure performance: the Debug Qt libraries that `default` links are
 many times slower, especially for painting. `.\scripts\build.ps1 -Release`
 selects it. `.\scripts\build.ps1 -Benchmark` also selects it, then runs the
-two executables in `benchmarks/`: `system_monitor_benchmark`, which prints the
+two executables in `benchmarks/`: `verdandi_benchmark`, which prints the
 Performance tab's cost per tick for each page and chart window and the Network
 tab's for 2 to 20 adapters, including a list with "Show all adapters" and an
 adapter that changes state, and
-`system_monitor_process_benchmark`, which prints the Processes tab's cost per
+`verdandi_process_benchmark`, which prints the Processes tab's cost per
 tick for flat and tree views of 400 to 2,000 processes. The benchmarks are
 built with every preset so they keep compiling, but they are not registered
 with CTest and CI does not run them, because their timings depend on the
@@ -78,7 +78,7 @@ is a Debug build, but builds in `build/coverage` with clang-cl instead of MSVC
 environment is active, which the preset finds through `VCINSTALLDIR`. Its
 version matches that installation's STL, and another LLVM on `PATH`, such as
 the standalone LLVM on GitHub's Windows runners, need not. The preset sets
-`SYSMON_COVERAGE`, which the root `CMakeLists.txt` turns into
+`VERDANDI_COVERAGE`, which the root `CMakeLists.txt` turns into
 `-fprofile-instr-generate -fcoverage-mapping` for every target of the project,
 tests and benchmarks included; configuring fails if it is on and the compiler
 is not clang-cl. vcpkg still builds the dependencies with MSVC and its own
@@ -234,13 +234,13 @@ app; pass `-Run` to launch it after the build, and after the tests when they
 pass. Pass `-Test` to run CTest after the build
 (`.\scripts\build.ps1 -Test`). Each test executable runs as GoogleTest shards,
 one CTest test per shard (about two per logical processor for
-`system_monitor_tests`), and CTest runs one shard per logical processor at a
+`verdandi_tests`), and CTest runs one shard per logical processor at a
 time. A failed shard's output lists the tests that failed. To run one test,
 or a suite, start the executable with a filter, e.g.
-`build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*`.
+`build\default\tests\verdandi_tests.exe --gtest_filter=RingBuffer.*`.
 Each shard also writes GoogleTest's JSON report of the tests it ran to
 `test_results\<executable>_shard_<index>.json` in the build directory, such as
-`build\default\test_results\system_monitor_tests_shard_0.json`
+`build\default\test_results\verdandi_tests_shard_0.json`
 ([DC-119](design_decisions.md#dc-119)). It gives each test's suite, name,
 result and failures, time, and source file and line, and the directory of the
 file tells unit, platform and integration tests apart. `tests/CMakeLists.txt`

@@ -40,7 +40,7 @@
       "description": "Debug build with Visual Studio's clang-cl that instruments the project's targets for LLVM source-based coverage; vcpkg still builds the dependencies with MSVC.",
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "$env{VCINSTALLDIR}Tools/Llvm/x64/bin/clang-cl.exe",
-        "SYSMON_COVERAGE": "ON"
+        "VERDANDI_COVERAGE": "ON"
       }
     }
   ],

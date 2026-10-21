@@ -37,7 +37,7 @@ ProcessInfo thisProcess()
     return ProcessInfo{
         .pid = ::GetCurrentProcessId(),
         .creationTime = fileTimeToSystemClock(creationTicks),
-        .imageName = "system_monitor_tests.exe",
+        .imageName = "verdandi_tests.exe",
     };
 }
 

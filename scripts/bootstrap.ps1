@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Prepares a Windows development environment for building System Monitor.
+Prepares a Windows development environment for building Verdandi.
 
 .DESCRIPTION
 Checks whether the required command-line tools, Visual C++ Build Tools, and

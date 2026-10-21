@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Configures, builds, and optionally runs the System Monitor desktop application.
+Configures, builds, and optionally runs the Verdandi desktop application.
 
 .DESCRIPTION
 Runs CMake's default (Debug) preset, the release preset with -Release, or the
@@ -29,7 +29,7 @@ Runs the test suite with CTest after a successful build. Each test executable
 runs as GoogleTest shards, one CTest test each, and CTest runs one shard per
 logical processor at a time. A failed shard's output names the tests that
 failed; run one test with the executable's --gtest_filter, for example
-build\default\tests\system_monitor_tests.exe --gtest_filter=RingBuffer.*.
+build\default\tests\verdandi_tests.exe --gtest_filter=RingBuffer.*.
 The script fails if any test fails. Combine with -Run to launch the
 application after the tests pass.
 
@@ -323,13 +323,13 @@ $applicationPath = Join-Path $buildDirectory "src\app\verdandi.exe"
 # although no test runs it, so that code only the application compiles, such
 # as main.cpp, counts as not covered instead of being left out of the report.
 $coverageObjectPaths = @(
-    (Join-Path $buildDirectory "tests\system_monitor_tests.exe"),
-    (Join-Path $buildDirectory "tests\system_monitor_platform_tests.exe"),
+    (Join-Path $buildDirectory "tests\verdandi_tests.exe"),
+    (Join-Path $buildDirectory "tests\verdandi_platform_tests.exe"),
     $applicationPath
 )
 $benchmarkPaths = @(
-    (Join-Path $buildDirectory "benchmarks\system_monitor_benchmark.exe"),
-    (Join-Path $buildDirectory "benchmarks\system_monitor_process_benchmark.exe")
+    (Join-Path $buildDirectory "benchmarks\verdandi_benchmark.exe"),
+    (Join-Path $buildDirectory "benchmarks\verdandi_process_benchmark.exe")
 )
 
 # Refresh process PATH from User and Machine values so that any tools installed

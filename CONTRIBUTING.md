@@ -291,7 +291,7 @@ Run a specific test or suite (after building). CTest runs the tests as
 GoogleTest shards, not one by one, so start the test executable with a filter:
 
 ```powershell
-.\build\default\tests\system_monitor_tests.exe --gtest_filter="RingBuffer.*"
+.\build\default\tests\verdandi_tests.exe --gtest_filter="RingBuffer.*"
 ```
 
 Each shard writes GoogleTest's JSON report of its tests, with each test's

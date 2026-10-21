@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(SystemMonitor
+project(Verdandi
     VERSION 0.1.0
     DESCRIPTION "A lightweight Windows desktop system monitor"
     LANGUAGES CXX
@@ -17,7 +17,7 @@ if(MSVC)
         /Zc:__cplusplus
     )
 elseif(WIN32)
-    message(FATAL_ERROR "System Monitor requires the MSVC compiler on Windows. "
+    message(FATAL_ERROR "Verdandi requires the MSVC compiler on Windows. "
                         "Please run from a Developer PowerShell / Developer Command Prompt, "
                         "or use '.\\scripts\\build.ps1' which initializes the MSVC environment automatically.")
 else()
@@ -42,10 +42,10 @@ endif()
 # the dependencies with MSVC and its own flags, so they are not instrumented.
 # Each object names the profile runtime as a default library, which lld-link
 # finds next to clang-cl, so linking needs no options.
-option(SYSMON_COVERAGE "Instrument the project's targets for LLVM source-based coverage (clang-cl only)" OFF)
-if(SYSMON_COVERAGE)
+option(VERDANDI_COVERAGE "Instrument the project's targets for LLVM source-based coverage (clang-cl only)" OFF)
+if(VERDANDI_COVERAGE)
     if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR NOT CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-        message(FATAL_ERROR "SYSMON_COVERAGE needs clang-cl, but the compiler is ${CMAKE_CXX_COMPILER}. "
+        message(FATAL_ERROR "VERDANDI_COVERAGE needs clang-cl, but the compiler is ${CMAKE_CXX_COMPILER}. "
                             "Use '.\\scripts\\build.ps1 -Coverage', which configures the coverage preset.")
     endif()
     add_compile_options(
@@ -63,7 +63,7 @@ include(CTest)
 # qt_generate_deploy_app_script() has no deploy tool to call, and
 # VCPKG_APPLOCAL_DEPS copies only the linked DLLs. The caller must have found
 # Qt6 Widgets, which imports both plugin targets.
-function(sysmon_deploy_qt_plugins target)
+function(verdandi_deploy_qt_plugins target)
     if(NOT WIN32)
         return()
     endif()
@@ -81,21 +81,21 @@ function(sysmon_deploy_qt_plugins target)
     )
 endfunction()
 
-function(add_sysmon_module moduleDirectory)
+function(add_verdandi_module moduleDirectory)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${moduleDirectory}/CMakeLists.txt")
         add_subdirectory("${moduleDirectory}")
     endif()
 endfunction()
 
-add_sysmon_module(src/app)
-add_sysmon_module(src/domain)
-add_sysmon_module(src/monitoring)
-add_sysmon_module(src/platform/windows)
-add_sysmon_module(src/persistence)
-add_sysmon_module(src/ui)
-add_sysmon_module(src/ui/charts)
-add_sysmon_module(benchmarks)
+add_verdandi_module(src/app)
+add_verdandi_module(src/domain)
+add_verdandi_module(src/monitoring)
+add_verdandi_module(src/platform/windows)
+add_verdandi_module(src/persistence)
+add_verdandi_module(src/ui)
+add_verdandi_module(src/ui/charts)
+add_verdandi_module(benchmarks)
 
 if(BUILD_TESTING)
-    add_sysmon_module(tests)
+    add_verdandi_module(tests)
 endif()

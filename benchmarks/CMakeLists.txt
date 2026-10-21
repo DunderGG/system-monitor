@@ -5,7 +5,7 @@ find_package(spdlog CONFIG REQUIRED)
 # keep compiling, but not registered with CTest: their timings depend on the
 # machine and are not a pass/fail check. Run them with .\scripts\build.ps1 -Benchmark,
 # and record the figures in docs/performance.md.
-function(add_sysmon_benchmark name source)
+function(add_verdandi_benchmark name source)
     add_executable(${name}
         ${source}
         # Same manifest as the app, so the benchmark runs with its UTF-8 process
@@ -17,13 +17,13 @@ function(add_sysmon_benchmark name source)
         PRIVATE
             Qt6::Widgets
             spdlog::spdlog
-            sysmon_domain
-            sysmon_ui
+            verdandi_domain
+            verdandi_ui
     )
 
     # The same plugins as the app, so the benchmark paints with the app's style.
-    sysmon_deploy_qt_plugins(${name})
+    verdandi_deploy_qt_plugins(${name})
 endfunction()
 
-add_sysmon_benchmark(system_monitor_benchmark performance_tick_benchmark.cpp)
-add_sysmon_benchmark(system_monitor_process_benchmark process_table_benchmark.cpp)
+add_verdandi_benchmark(verdandi_benchmark performance_tick_benchmark.cpp)
+add_verdandi_benchmark(verdandi_process_benchmark process_table_benchmark.cpp)

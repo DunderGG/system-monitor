@@ -565,10 +565,10 @@ Test data builders, fakes and harnesses that more than one test file uses live i
 
 | Directory | Target | May include Windows headers | May call Windows APIs |
 | --- | --- | --- | --- |
-| `tests/unit/` | `system_monitor_tests` | No | No |
-| `tests/platform/` | `system_monitor_platform_tests` | Yes (SDK types and constants) | No |
-| `tests/integration/` | `system_monitor_tests` | Yes | Yes (must tolerate varying hosts) |
-| `tests/support/` | `system_monitor_tests` (headers only) | No | No |
+| `tests/unit/` | `verdandi_tests` | No | No |
+| `tests/platform/` | `verdandi_platform_tests` | Yes (SDK types and constants) | No |
+| `tests/integration/` | `verdandi_tests` | Yes | Yes (must tolerate varying hosts) |
+| `tests/support/` | `verdandi_tests` (headers only) | No | No |
 
 Put deterministic tests of `platform/windows` code in `tests/unit/` when they can use reader injection and plain types. Use `tests/platform/` only when the test needs Windows SDK types or constants, e.g. to test a Windows-to-domain mapping function.
 
