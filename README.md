@@ -53,6 +53,7 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 - **CMake 3.25+**
 - **Ninja**
 - **vcpkg** (bundled with Visual Studio or standalone) with `VCPKG_ROOT` set
+- **Git**
 
 All dependencies (Qt 6, spdlog, GoogleTest, nlohmann/json) are managed by vcpkg and downloaded automatically during project configuration.
 
