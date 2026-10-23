@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+# Every action is pinned by commit, with its release in a comment, so that a
+# tag moved to other code cannot change what a job runs (DC-121). Update an
+# action by its commit and comment together.
 jobs:
   format:
     name: Format Check
@@ -16,12 +19,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # setup-python puts its Scripts directory first on PATH, so the pinned
       # clang-format below is found before the one preinstalled on the runner.
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -33,21 +36,24 @@ jobs:
       - name: Check formatting
         run: .\scripts\build.ps1 -CheckFormat
 
+  # Builds and tests Debug, then Release, the configuration that ships
+  # (DC-139). Release's configure restores the packages that Debug's built
+  # from vcpkg's binary cache on the runner.
   build:
     name: Build and Test
     runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         with:
           arch: amd64
 
       - name: Set up vcpkg
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
         with:
           # Keep vcpkgGitCommitId in sync with the "default-registry.baseline"
           # commit in vcpkg-configuration.json; a mismatch can resolve
@@ -58,14 +64,23 @@ jobs:
           runVcpkgInstall: false
           doNotCache: false
 
-      - name: Configure
+      - name: Configure (Debug)
         run: cmake --preset default
 
-      - name: Build
+      - name: Build (Debug)
         run: cmake --build --preset default
 
-      - name: Test
+      - name: Test (Debug)
         run: ctest --preset default --output-on-failure
+
+      - name: Configure (Release)
+        run: cmake --preset release
+
+      - name: Build (Release)
+        run: cmake --build --preset release
+
+      - name: Test (Release)
+        run: ctest --preset release --output-on-failure
 
   # Builds the coverage preset and runs the tests. On a push to main it adds the
   # run to the history on the gh-pages branch and publishes the dashboard there
@@ -91,7 +106,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # The build and the tests run without the token in .git/config.
           persist-credentials: false
@@ -99,7 +114,7 @@ jobs:
       # No msvc-dev-cmd: build.ps1 imports the MSVC environment itself, from a
       # Visual Studio installation that has the C++ Clang tools.
       - name: Set up vcpkg
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
         with:
           # Keep vcpkgGitCommitId in sync with the build job's, which follows
           # vcpkg-configuration.json.
@@ -126,7 +141,7 @@ jobs:
 
       - name: Upload the dashboard
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-dashboard
           path: |

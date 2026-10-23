@@ -39,7 +39,7 @@ If `build.ps1` is missing something you need (a new option, clearer output, a fi
 ## Code style rules
 
 - **C++20.** Use `std::jthread`, `std::stop_token`, `std::format`, `std::optional`, concepts, designated initializers.
-- **Default member initializers.** A struct member that an initializer may leave out has a default member initializer (`{}` for a class type); the coverage build's clang-cl warns otherwise. Value-initialize a Windows SDK struct, then set its size member.
+- **Default member initializers.** A struct member that an initializer may leave out has a default member initializer (`{}` for a class type); the coverage build's clang-cl warns otherwise, and a warning fails the build. Value-initialize a Windows SDK struct, then set its size member.
 - **No exceptions.** Return `std::optional` or result structs for expected errors. Use assertions for programming bugs.
 - **Naming:** `PascalCase` for types, `camelCase` for functions/variables, `m_` prefix for members, `k` prefix for constants, `snake_case` for file names. Getters omit `get` prefix. Namespaces are lowercase under `verdandi::`.
 - **Formatting:** 4-space indentation, Allman braces for classes/functions, K&R braces for control flow. Always use braces. `Type* name` and `Type& name` (pointer and reference bind to the type). `.clang-format` is the source of truth; run `.\scripts\build.ps1 -Format`.

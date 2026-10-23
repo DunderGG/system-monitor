@@ -92,6 +92,11 @@ qt_add_executable(verdandi WIN32
     verdandi.rc
 )
 
+# Qt's entry-point library defines both WinMain and wWinMain. MSVC's linker and
+# lld-link both start the program through WinMain, but lld-link, which links
+# the coverage build, warns that it chose, and warnings fail the build (DC-139).
+target_link_options(verdandi PRIVATE /ENTRY:WinMainCRTStartup)
+
 target_link_libraries(verdandi
     PRIVATE
         Qt6::Widgets

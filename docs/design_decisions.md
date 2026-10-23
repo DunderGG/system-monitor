@@ -152,6 +152,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-136](#dc-136): The version comes from `project()` and the commit from git at build time, and shows in the version information, `--version`, the log and Help > About
   - [DC-137](#dc-137): Builds have Control Flow Guard and CET compatibility, Release builds a program database and the C++ runtime, and the manifest declares Windows 10 and 11 and `asInvoker`
   - [DC-138](#dc-138): `THIRD_PARTY_NOTICES.txt` is written from vcpkg's copyright files for the packages whose DLLs ship beside the executable
+  - [DC-139](#dc-139): Warnings fail every build, and CI builds and tests Release after Debug in one job
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1417,11 +1418,11 @@ How `verdandi.exe` starts, and where its log goes.
 
 **Decision:** CI's `Coverage` job runs `build.ps1 -Coverage` on each push to `main` and each pull request, with the history that `scripts/coverage_pages.ps1 -Fetch` clones from the `gh-pages` branch. After a passing run on `main`, `-Publish` pushes the dashboard, `llvm-cov`'s HTML, the extended history and the README's coverage badge ([DC-133](#dc-133)) to the branch, which GitHub Pages serves; a pull request's dashboard becomes an artifact. The job summary compares the run with the history's last, for a pull request `main`'s. Local runs keep their own history.
 
-**Rationale:** The history in `build/` was lost with it, could be seen only where it was made, and mixed machines, uncommitted changes and repeated runs of a commit. CI adds one run per commit on `main`, from a clean checkout on one runner image, so its points compare. A branch versions the data without a commit on `main` for each run, and Pages serves it free for a public repository. Rejected: the history on `main` (those commits), workflow artifacts (they expire), and Codecov or Coveralls (an outside service and token, without the test counts or times). Only this job may write, and the checkout keeps no token, so only the publishing step can push. Runs on `main` share a concurrency group, so each extends the history its predecessor published. The steps use Windows PowerShell 5.1, which the scripts are tried with.
+**Rationale:** The history in `build/` was lost with it, could be seen only where it was made, and mixed machines, uncommitted changes and repeated runs of a commit. CI adds one run per commit on `main`, from a clean checkout on one runner image, so its points compare. A branch versions the data without a commit on `main` per run, and Pages serves it free for a public repository. Rejected: the history on `main` (those commits), workflow artifacts (they expire), and Codecov or Coveralls (an outside service and token, without test counts or times). Only this job may write, and the checkout keeps no token, so only the publishing step can push. An earlier step could still change the script it runs, so every action is pinned by commit, not by a tag that can be moved ([code review F-51](code_reviews/phase_6.md#f-51-ci-never-builds-release-and-lets-warnings-through)); a publishing job of its own was rejected, because the next run could fetch the history between the two jobs. Runs on `main` share a concurrency group, so each extends the history its predecessor published. The steps use Windows PowerShell 5.1, which the scripts are tried with.
 
 **Consequences:** Pages is turned on once, for the branch. GitHub keeps only the newest of the runs waiting behind one in progress, so a commit can get no point. CI's times vary more than local ones.
 
-**History:** Maintenance, coverage and test statistics (where the history lives); maintenance (the coverage badge, for [DC-133](#dc-133)).
+**History:** Maintenance, coverage and test statistics (where the history lives); maintenance (the coverage badge, for [DC-133](#dc-133)); code review F-51 (actions pinned by commit).
 
 ---
 
@@ -1513,6 +1514,19 @@ How `verdandi.exe` starts, and where its log goes.
 **Consequences:** A package compiled in rather than shipped as a DLL has to be named in `src/app/CMakeLists.txt`. The file is about 270 KB, most of it Qt's licenses.
 
 **History:** Code review F-50.
+
+---
+
+<a id="dc-139"></a>
+### DC-139: Warnings fail every build, and CI builds and tests Release after Debug in one job
+
+**Decision:** `CMAKE_COMPILE_WARNING_AS_ERROR` makes every compiler warning an error, in every preset and with every compiler, and `/WX` makes the linker's warnings errors too, for MSVC's linker and clang-cl's `lld-link`. `verdandi.exe` names its entry point, `WinMainCRTStartup`, because Qt's entry-point library defines both `WinMain` and `wWinMain`. CI's `Build and Test` job configures, builds and tests the `default` preset and then the `release` preset, in one job.
+
+**Rationale:** A warning did not fail the build, so a new one could pass CI, and CI never built the configuration that ships, which only a developer built, with `-Release` or `-Benchmark` ([code review F-51](code_reviews/phase_6.md#f-51-ci-never-builds-release-and-lets-warnings-through)). MSVC and clang-cl compiled without warnings, so making them errors cost nothing and keeps it so. CMake prints a link's output only when the link fails, so one linker warning had gone unseen: `lld-link` said it chose `WinMain`, as MSVC's linker silently does, and naming that startup ends it. Warnings are errors in local builds too, not only in CI, so that a build that passes `build.ps1` passes CI, and a warning that only clang-cl gives fails the coverage build before a push rather than after it. Release compiles assertions out, and its optimizer can warn where Debug does not, so it needs a build and a test run of its own. In the same job, its configure restores from vcpkg's binary cache on the runner the packages that Debug's configure built; a job of its own would build every package again, which takes most of a job's time until CI caches them.
+
+**Consequences:** A warning in work in progress stops the local build until it is fixed. The `Build and Test` job takes a build and a test run longer.
+
+**History:** Code review F-51.
 
 ---
 

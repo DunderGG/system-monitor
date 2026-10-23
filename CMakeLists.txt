@@ -11,6 +11,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# A warning fails the build, in every preset and with every compiler, so a new
+# one cannot pass CI; the linker's are errors below (DC-139).
+set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+
 # The version, description, homepage and copyright, as macros in
 # verdandi_version.h, which C++ code and resource scripts include through the
 # verdandi_version target (DC-136). Raise the version here and in vcpkg.json
@@ -31,6 +35,7 @@ if(MSVC)
         /guard:cf
     )
     add_link_options(
+        /WX
         /guard:cf
         /CETCOMPAT
         $<$<CONFIG:Release>:/DEBUG>

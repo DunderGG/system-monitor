@@ -28,7 +28,8 @@ installed dependency packages ──> CMake find_package() calls and targets
 
 `CMakeLists.txt` is the build definition. The root file establishes the C++20
 standard, common warning flags, Windows preprocessor definitions, testing, and
-the module build hierarchy. Module `CMakeLists.txt` files, added as their
+the module build hierarchy. Every compiler and linker warning is an error, in
+every preset ([DC-139](design_decisions.md#dc-139)). Module `CMakeLists.txt` files, added as their
 modules are implemented, define the application, library, and test targets.
 The root file also defines `verdandi_deploy_qt_plugins()`, which the app, the
 tests, and the benchmarks call. It copies the Qt plugins that Qt loads at run
@@ -339,7 +340,9 @@ Tools supplies the compiler environment; adding only `cl.exe` to `PATH` is not
 enough because MSVC also needs its include and library environment variables.
 
 The GitHub Actions workflow's `Build and Test` job runs the same three preset
-commands. It initializes
+commands for the `default` preset and then for `release`, the configuration
+that ships, whose configure restores the packages that the first built from
+vcpkg's binary cache on the runner ([DC-139](design_decisions.md#dc-139)). It initializes
 the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
 by this repository, with GitHub Actions-backed binary caching. The checked-in
 presets, manifest, and baseline therefore keep developer and CI dependency
@@ -372,7 +375,10 @@ history.
 
 Only the `Coverage` job has `contents: write`. Its checkout keeps no
 credentials, so the build and the tests run without the token, and the
-publishing step gives it to git for that push alone. Runs on `main` share a
+publishing step gives it to git for that push alone. Every action in the
+workflow is pinned by commit, with its release in a comment, so that a tag
+moved to other code cannot run before that step; update an action's commit and
+comment together. Runs on `main` share a
 concurrency group, so that each fetches the history that the one before it
 published; a newer run of a pull request cancels the older one. The clone turns
 off `core.autocrlf`, which Git for Windows sets, so that the site's files are

@@ -264,7 +264,7 @@ Follow the project's [Coding Guidelines](docs/coding_guidelines.md). Key points:
 - **Threading**: Immutable snapshots across thread boundaries. `std::jthread` + `std::stop_token`. Never touch widgets from background threads.
 - **Windows APIs**: Isolated in `src/platform/windows/`. Convert to domain types at the boundary. Use `W` (wide) API variants.
 - **Formatting**: 4 spaces, Allman braces for classes/functions, K&R braces for control flow, always use braces.
-- **Warnings**: The project builds with high warning levels. Fix all warnings before submitting.
+- **Warnings**: The project builds at `/W4`, and any compiler or linker warning fails the build, with MSVC and with the coverage build's clang-cl, locally as in CI.
 
 ### Commit messages
 

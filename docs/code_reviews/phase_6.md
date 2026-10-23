@@ -88,7 +88,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Resolved |
 | [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Resolved |
 | [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Resolved |
-| [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Open |
+| [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Resolved |
 | [F-52](#f-52-documentation-out-of-date) | Documentation out of date | Low | Open |
 | [F-53](#f-53-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
 
@@ -272,6 +272,8 @@ The roadmap's packaging items (a portable zip, signing, winget) are post-MVP, bu
 CI's vcpkg cache, without which every job builds the dependencies, is already an open roadmap item, and `build_system.md`'s claim of "GitHub Actions-backed binary caching" is corrected there.
 
 **Recommendation:** Add the Release build to CI before the release; the rest when convenient.
+
+**Status:** Resolved (2026-10-23). All three are done. The `Build and Test` job configures, builds and tests the `release` preset after `default`, in the same job, so that Release restores the packages that Debug built from vcpkg's binary cache on the runner; `run-vcpkg@v11` sets only `VCPKG_DEFAULT_BINARY_CACHE`, so that cache is on. Every compiler warning is an error through `CMAKE_COMPILE_WARNING_AS_ERROR`, in every preset, and `/WX` makes the linker's errors too ([DC-139](../design_decisions.md#dc-139)). The compilers gave no warnings; clang-cl's one, an unused function in a test that only Release compiles, was fixed with F-50. CMake shows a link's output only when it fails, which had hidden one linker warning: in the coverage build, `lld-link` warned that Qt's entry-point library defines both `WinMain` and `wWinMain`, and chose `WinMain`, as MSVC's linker does without a warning. `verdandi.exe` now names `WinMainCRTStartup` as its entry point. A deliberately unused variable failed the Debug build with C2220. Every action in the workflow is pinned by the commit its tag pointed to, with the release in a comment ([DC-121](../design_decisions.md#dc-121)); `lukka/run-vcpkg@v11` was a branch, at `v11.6`.
 
 ---
 

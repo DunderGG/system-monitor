@@ -149,7 +149,7 @@ This project targets **C++20**. Use modern language features where they improve 
 
 ### Default member initializers
 
-A member that an initializer may leave out needs a default member initializer: `{0}` or a named value for a scalar, `{}` for a class type such as `std::string` or `std::optional`. The domain types give every member one, because they are built with designated initializers that name only the members that matter. The coverage build compiles with clang-cl ([DC-118](design_decisions.md#dc-118)), which warns about a left-out member without one (`-Wmissing-designated-field-initializers`, or `-Wmissing-field-initializers` for an initializer without designators), although it is value-initialized either way. A Windows SDK struct cannot have default member initializers, so value-initialize it and set its size member afterwards:
+A member that an initializer may leave out needs a default member initializer: `{0}` or a named value for a scalar, `{}` for a class type such as `std::string` or `std::optional`. The domain types give every member one, because they are built with designated initializers that name only the members that matter. The coverage build compiles with clang-cl ([DC-118](design_decisions.md#dc-118)), which warns about a left-out member without one (`-Wmissing-designated-field-initializers`, or `-Wmissing-field-initializers` for an initializer without designators), although it is value-initialized either way, and every warning fails the build ([DC-139](design_decisions.md#dc-139)). A Windows SDK struct cannot have default member initializers, so value-initialize it and set its size member afterwards:
 
 ```cpp
 SP_DEVINFO_DATA device{};
