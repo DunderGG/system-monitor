@@ -68,5 +68,7 @@ target_link_libraries(verdandi_ui
         Qt6::Widgets
         verdandi_domain
         verdandi_ui_charts
+    PRIVATE
+        verdandi_version
 )
 

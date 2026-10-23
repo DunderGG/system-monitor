@@ -1,5 +1,46 @@
+#include <winver.h>
+
+#include "verdandi_product_version.h"
+#include "verdandi_version.h"
+
 // The application icon, compiled into verdandi.exe, where Explorer and the
 // taskbar find it. Qt's Windows platform plugin loads the resource by this name
 // for each window class it registers, so every window has the icon too
 // (DC-132).
 IDI_ICON1 ICON "../../resources/verdandi.ico"
+
+// The version information that Explorer's Details tab shows, and the
+// description that Task Manager shows for the process (DC-136).
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION VERDANDI_VERSION_MAJOR, VERDANDI_VERSION_MINOR, VERDANDI_VERSION_PATCH, 0
+PRODUCTVERSION VERDANDI_VERSION_MAJOR, VERDANDI_VERSION_MINOR, VERDANDI_VERSION_PATCH, 0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+FILEFLAGS VS_FF_DEBUG
+#else
+FILEFLAGS 0
+#endif
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        // US English, in Unicode.
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "Verdandi"
+            VALUE "FileVersion", VERDANDI_VERSION
+            VALUE "InternalName", "verdandi"
+            VALUE "LegalCopyright", VERDANDI_COPYRIGHT
+            VALUE "OriginalFilename", "verdandi.exe"
+            VALUE "ProductName", "Verdandi"
+            VALUE "ProductVersion", VERDANDI_PRODUCT_VERSION
+            VALUE "Comments", VERDANDI_DESCRIPTION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

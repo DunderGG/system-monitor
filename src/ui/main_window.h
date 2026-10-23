@@ -25,6 +25,10 @@ class NetworkView;
  * accepted with settings that differ from settings(), the window applies them
  * as setSettings() does and emits settingsChanged(), whose receiver saves
  * them and applies the rest: the window applies only what the views show.
+ *
+ * Its Help menu has About Verdandi, which opens a window-modal box with
+ * QCoreApplication::applicationVersion(), the license and the third-party
+ * notices beside the executable, and About Qt (DC-136).
  */
 class MainWindow : public QMainWindow
 {
@@ -41,6 +45,7 @@ public:
     [[nodiscard]] NetworkView* networkView() const;
     [[nodiscard]] QAction* settingsAction() const;
     [[nodiscard]] QAction* exitAction() const;
+    [[nodiscard]] QAction* aboutAction() const;
 
     /**
      * Sets the settings that the Settings dialog opens with, and applies what
@@ -75,6 +80,7 @@ public slots:
 
 private:
     void openSettingsDialog();
+    void openAboutBox();
 
     QTabWidget* m_tabWidget{nullptr};
     DashboardView* m_dashboardView{nullptr};
@@ -83,6 +89,7 @@ private:
     NetworkView* m_networkView{nullptr};
     QAction* m_settingsAction{nullptr};
     QAction* m_exitAction{nullptr};
+    QAction* m_aboutAction{nullptr};
     domain::Settings m_settings{};
 };
 

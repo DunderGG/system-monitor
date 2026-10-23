@@ -21,6 +21,8 @@
 #include "system_collectors.h"
 #include "ui/main_window.h"
 #include "ui/processes_view.h"
+#include "verdandi_product_version.h"
+#include "verdandi_version.h"
 
 namespace
 {
@@ -81,15 +83,19 @@ int main(int argc, char* argv[])
     QApplication application(argc, argv);
 
     // With no organization name, Qt's folders for the settings and the log are
-    // %APPDATA%\Verdandi and %LOCALAPPDATA%\Verdandi (DC-131).
+    // %APPDATA%\Verdandi and %LOCALAPPDATA%\Verdandi (DC-131). --version and
+    // the About box give the version with the commit of the build (DC-136).
     QCoreApplication::setApplicationName("Verdandi");
+    QCoreApplication::setApplicationVersion(VERDANDI_PRODUCT_VERSION);
 
-    // A GUI program has no console, so Qt shows the help and these errors in a
-    // message box, unless standard output is redirected (DC-134).
+    // A GUI program has no console, so Qt shows the help, the version and
+    // these errors in a message box, unless standard output is redirected
+    // (DC-134).
     const QString logLevelNames = "trace, debug, info, warn, error, critical, or off";
     QCommandLineParser commandLineParser;
-    commandLineParser.setApplicationDescription("A lightweight Windows desktop system monitor");
+    commandLineParser.setApplicationDescription(VERDANDI_DESCRIPTION);
     commandLineParser.addHelpOption();
+    commandLineParser.addVersionOption();
     commandLineParser.addOption({
         {"l", "log-level"},
         QString("Set the log level for this run, in place of the one in the settings: %1.").arg(logLevelNames),
@@ -129,7 +135,8 @@ int main(int argc, char* argv[])
     const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "verdandi.log";
     const verdandi::domain::LogLevel logLevel = commandLineLogLevel.value_or(settings.logLevel);
     const auto logFileProblem = verdandi::app::configureLogging(logFilePath, verdandi::app::toSpdlogLevel(logLevel));
-    spdlog::info("Application started with log level '{}' from {}", verdandi::app::logLevelName(logLevel),
+    spdlog::info("Verdandi {} started with log level '{}' from {}", VERDANDI_PRODUCT_VERSION,
+                 verdandi::app::logLevelName(logLevel),
                  commandLineLogLevel ? "the --log-level option" : "the settings");
     if (logFileProblem) {
         spdlog::error("Log file {} cannot be written: {}", logFilePath.string(), *logFileProblem);

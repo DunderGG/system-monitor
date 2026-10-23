@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.25)
 project(Verdandi
     VERSION 0.1.0
     DESCRIPTION "A lightweight Windows desktop system monitor"
+    HOMEPAGE_URL "https://github.com/DunderGG/verdandi"
     LANGUAGES CXX
 )
 
@@ -10,12 +11,33 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# The version, description, homepage and copyright, as macros in
+# verdandi_version.h, which C++ code and resource scripts include through the
+# verdandi_version target (DC-136). Raise the version here and in vcpkg.json
+# together (DC-133).
+set(VERDANDI_COPYRIGHT "Copyright (C) 2026 David Bennehag")
+configure_file(cmake/verdandi_version.h.in "${PROJECT_BINARY_DIR}/generated/verdandi_version.h" @ONLY)
+add_library(verdandi_version INTERFACE)
+target_include_directories(verdandi_version INTERFACE "${PROJECT_BINARY_DIR}/generated")
+
 if(MSVC)
+    # Control Flow Guard and CET shadow-stack compatibility in every build, and
+    # a program database in Release too, linked without the identical code
+    # and unreferenced functions that /DEBUG would otherwise keep (DC-137).
     add_compile_options(
         /W4
         /permissive-
         /Zc:__cplusplus
+        /guard:cf
     )
+    add_link_options(
+        /guard:cf
+        /CETCOMPAT
+        $<$<CONFIG:Release>:/DEBUG>
+        $<$<CONFIG:Release>:/OPT:REF>
+        $<$<CONFIG:Release>:/OPT:ICF>
+    )
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
 elseif(WIN32)
     message(FATAL_ERROR "Verdandi requires the MSVC compiler on Windows. "
                         "Please run from a Developer PowerShell / Developer Command Prompt, "

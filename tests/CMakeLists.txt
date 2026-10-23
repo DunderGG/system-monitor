@@ -131,8 +131,9 @@ set_target_properties(verdandi_tests PROPERTIES
 # Shared test builders and harnesses are included as "support/<name>.h".
 target_include_directories(verdandi_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-# An integration test reads the application's executable, so it is built first.
-add_dependencies(verdandi_tests verdandi)
+# Integration tests read the application's executable and the files beside it,
+# so they are built first.
+add_dependencies(verdandi_tests verdandi verdandi_notices)
 target_compile_definitions(verdandi_tests PRIVATE VERDANDI_APPLICATION_PATH="$<TARGET_FILE:verdandi>")
 
 target_link_libraries(verdandi_tests
@@ -150,6 +151,9 @@ target_link_libraries(verdandi_tests
         Qt6::Core
         Qt6::Widgets
         spdlog::spdlog
+        verdandi_version
+        # GetFileVersionInfoW, for the application's version information.
+        version
 )
 
 # The same plugins as the app, so the tests run with the app's style.

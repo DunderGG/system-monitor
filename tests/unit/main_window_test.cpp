@@ -12,6 +12,7 @@
 #include <QPushButton>
 #include <QString>
 #include <QTabWidget>
+#include <QUrl>
 
 #include "domain/settings.h"
 #include "domain/system_snapshot.h"
@@ -246,6 +247,25 @@ TEST(MainWindow, ShowLogNotWritten_WindowModalWarningWithThePathAndTheReasonAsPl
     EXPECT_EQ(box->textFormat(), Qt::PlainText);
     EXPECT_TRUE(box->informativeText().contains(path)) << box->informativeText().toStdString();
     EXPECT_TRUE(box->informativeText().contains(reason)) << box->informativeText().toStdString();
+}
+
+TEST(MainWindow, AboutAction_WindowModalBoxWithTheVersionAndALinkToTheThirdPartyNotices)
+{
+    MainWindow mainWindow;
+    const QString previousVersion = QCoreApplication::applicationVersion();
+    QCoreApplication::setApplicationVersion("1.2.3 (abc1234)");
+
+    mainWindow.aboutAction()->trigger();
+    QCoreApplication::setApplicationVersion(previousVersion);
+
+    const auto* box = mainWindow.findChild<QMessageBox*>();
+    ASSERT_NE(box, nullptr);
+    EXPECT_TRUE(box->isVisible());
+    EXPECT_EQ(box->windowModality(), Qt::WindowModal);
+    EXPECT_TRUE(box->text().contains("1.2.3 (abc1234)")) << box->text().toStdString();
+    const QString notices =
+        QUrl::fromLocalFile(QCoreApplication::applicationDirPath() + "/THIRD_PARTY_NOTICES.txt").toString();
+    EXPECT_TRUE(box->informativeText().contains(notices)) << box->informativeText().toStdString();
 }
 
 TEST(MainWindow, ExitAction_ClosesTheWindow)

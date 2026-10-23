@@ -291,7 +291,7 @@ Shut the logger down last. `main()` destroys the window, the scheduler and the c
 
 ### Run unelevated by default
 
-Set `requestedExecutionLevel level="asInvoker"` in the application manifest. With `NtQuerySystemInformation`, standard users get complete CPU, memory, and I/O metrics for all processes without elevation. This is a significant advantage of the chosen API approach.
+The application manifest sets `requestedExecutionLevel level="asInvoker"` ([DC-137](design_decisions.md#dc-137)). With `NtQuerySystemInformation`, standard users get complete CPU, memory, and I/O metrics for all processes without elevation. This is a significant advantage of the chosen API approach.
 
 ### Unelevated process termination
 
@@ -309,6 +309,7 @@ When elevated process termination is added, launch a small helper executable via
 - **Never call `OpenProcess` on `lsass.exe` or `csrss.exe`.** This triggers credential-dumping heuristic detections in most EDR products, even with benign access masks. Use the data already returned by `NtQuerySystemInformation` for these processes. They are recognised by the image name in the process list, so a process the list gives no name, other than the System Idle Process, is not opened either ([DC-13](design_decisions.md#dc-13)).
 - Calling `NtQuerySystemInformation` from `ntdll.dll` via `GetProcAddress` is standard behavior used by legitimate system tools and does not trigger AV flags.
 - Sign the binary (even self-signed during development) to avoid SmartScreen reputation warnings.
+- Build with Control Flow Guard and CET shadow-stack compatibility (`/guard:cf`, `/CETCOMPAT`), the mitigations that Microsoft recommends and BinSkim checks; every build has them ([DC-137](design_decisions.md#dc-137)).
 - Avoid process injection, API hooking, and raw syscall stubs.
 
 ## High-DPI support

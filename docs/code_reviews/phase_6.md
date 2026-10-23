@@ -87,7 +87,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Resolved |
 | [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Resolved |
 | [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Resolved |
-| [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Open |
+| [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Resolved |
 | [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Open |
 | [F-52](#f-52-documentation-out-of-date) | Documentation out of date | Low | Open |
 | [F-53](#f-53-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
@@ -251,6 +251,8 @@ The roadmap's packaging items (a portable zip, signing, winget) are post-MVP, bu
 | No third-party notices accompany the program | The release ships Qt's DLLs (LGPL-3.0) and spdlog and fmt (MIT), whose licenses ask for their notices to go with the binaries | A `THIRD_PARTY_NOTICES` file in the release, and Qt's notice in the About box |
 
 **Recommendation:** Decide which belong to the first release. The version and the runtime matter to every user of a zip; the rest can go with the packaging items.
+
+**Status:** Resolved (2026-10-23). All six gaps are closed for the first release. `project()` gives the version, description and homepage, and the build adds the commit, so `verdandi.exe` has a `VERSIONINFO` with the product version "0.1.0 (edbcb13)", `--version` prints it, the startup log line names it, and Help > About Verdandi shows it with the license, beside About Qt ([DC-136](../design_decisions.md#dc-136)). Release builds copy the C++ runtime beside the executable and have a program database; every build has Control Flow Guard and CET compatibility, and the manifest declares Windows 10 and 11 and `asInvoker`, which closes the roadmap's item ([DC-137](../design_decisions.md#dc-137)). `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt`, written from vcpkg's copyright files for the packages whose DLLs ship, go beside the executable ([DC-138](../design_decisions.md#dc-138)). Integration tests read each from the built files; the Release-only one failed with `msvcp140_atomic_wait.dll` hidden.
 
 ---
 

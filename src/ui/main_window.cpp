@@ -1,6 +1,8 @@
 #include "ui/main_window.h"
 
 #include <QAction>
+#include <QApplication>
+#include <QCoreApplication>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -8,6 +10,7 @@
 #include <QScreen>
 #include <QSize>
 #include <QTabWidget>
+#include <QUrl>
 
 #include "ui/dashboard_view.h"
 #include "ui/network_view.h"
@@ -15,6 +18,7 @@
 #include "ui/process_model.h"
 #include "ui/processes_view.h"
 #include "ui/settings_dialog.h"
+#include "verdandi_version.h"
 
 namespace verdandi::ui
 {
@@ -39,6 +43,13 @@ void openFileWarning(QWidget* parent, const QString& title, const QString& text,
     box->setTextFormat(Qt::PlainText);
     box->setInformativeText(QString("%1\n%2\n\n%3").arg(path, reason, consequence));
     box->open();
+}
+
+// Returns a rich-text link to the file named fileName in the executable's folder.
+QString linkToFileBesideExecutable(const QString& fileName)
+{
+    const QUrl url = QUrl::fromLocalFile(QCoreApplication::applicationDirPath() + "/" + fileName);
+    return QString("<a href=\"%1\">%2</a>").arg(url.toString().toHtmlEscaped(), fileName);
 }
 
 } // namespace
@@ -72,6 +83,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     m_exitAction = fileMenu->addAction("E&xit");
     connect(m_settingsAction, &QAction::triggered, this, &MainWindow::openSettingsDialog);
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
+
+    QMenu* helpMenu = menuBar()->addMenu("&Help");
+    m_aboutAction = helpMenu->addAction("&About Verdandi");
+    QAction* aboutQtAction = helpMenu->addAction("About &Qt");
+    connect(m_aboutAction, &QAction::triggered, this, &MainWindow::openAboutBox);
+    connect(aboutQtAction, &QAction::triggered, this, &QApplication::aboutQt);
 }
 
 QTabWidget* MainWindow::tabWidget() const
@@ -107,6 +124,11 @@ QAction* MainWindow::settingsAction() const
 QAction* MainWindow::exitAction() const
 {
     return m_exitAction;
+}
+
+QAction* MainWindow::aboutAction() const
+{
+    return m_aboutAction;
 }
 
 void MainWindow::setSettings(const domain::Settings& settings)
@@ -150,6 +172,28 @@ void MainWindow::openSettingsDialog()
         }
     });
     dialog->open();
+}
+
+void MainWindow::openAboutBox()
+{
+    // Window-modal, as the other message boxes are; QMessageBox::about() is
+    // application-modal and blocks. The text is the program's own, so it is
+    // rich text, with links.
+    auto* box = new QMessageBox(QMessageBox::Information, "About Verdandi", QString(), QMessageBox::Ok, this);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    box->setTextFormat(Qt::RichText);
+    box->setText(QString("<b>Verdandi %1</b><br>%2")
+                     .arg(QCoreApplication::applicationVersion().toHtmlEscaped(), VERDANDI_DESCRIPTION));
+    const QUrl homepage(VERDANDI_HOMEPAGE_URL);
+    box->setInformativeText(
+        QString("<p>%1<br><a href=\"%2\">%3</a></p>"
+                "<p>Verdandi is free software under the GNU General Public License, version 3 (%4), and comes with "
+                "no warranty.</p>"
+                "<p>It uses Qt %5 and other open-source libraries, whose licenses are in %6.</p>")
+            .arg(VERDANDI_COPYRIGHT, homepage.toString(), homepage.host() + homepage.path(),
+                 linkToFileBesideExecutable("LICENSE.txt"), qVersion(),
+                 linkToFileBesideExecutable("THIRD_PARTY_NOTICES.txt")));
+    box->open();
 }
 
 void MainWindow::onSnapshotReady(const verdandi::domain::SystemSnapshot& snapshot)

@@ -36,6 +36,15 @@ time rather than links next to each executable: the Windows platform plugin
 into `platforms/`, and the Windows 11 and Vista styles into `styles/`. Without
 the style plugin Qt falls back to its classic Windows style.
 
+The root file writes `generated\verdandi_version.h` in the build directory from
+`cmake/verdandi_version.h.in`: the version, description and homepage that
+`project()` gives, and the copyright line beside it. Its `verdandi_version`
+target gives the header to the code that shows them
+([DC-136](design_decisions.md#dc-136)). It also compiles and links every
+target with Control Flow Guard and CET shadow-stack compatibility, and gives
+Release builds a program database, such as `verdandi.pdb` beside
+`verdandi.exe` ([DC-137](design_decisions.md#dc-137)).
+
 `CMakePresets.json` is the checked-in build entry point. Its `default`
 configure preset selects the Ninja generator, uses `build/default` for generated
 files, requests a Debug build, and sets `CMAKE_TOOLCHAIN_FILE` to:
@@ -57,7 +66,15 @@ A `release` configure, build, and test preset inherits everything from
 `default` except `CMAKE_BUILD_TYPE=Release`, and builds in `build/release`.
 Use it to measure performance: the Debug Qt libraries that `default` links are
 many times slower, especially for painting. `.\scripts\build.ps1 -Release`
-selects it. `.\scripts\build.ps1 -Benchmark` also selects it, then runs the
+selects it. Its `build\release\src\app` is what a release ships: beside
+`verdandi.exe` the build puts the Qt DLLs and plugins, the Microsoft C++
+runtime, which only Release builds may redistribute, `LICENSE.txt`, and
+`THIRD_PARTY_NOTICES.txt` ([DC-137](design_decisions.md#dc-137)).
+`cmake/write_third_party_notices.cmake` writes the notices in every build:
+for each DLL in the directory, the copyright file that vcpkg installed for the
+package that installed it, and for nlohmann/json, which is compiled in. A DLL
+that no vcpkg package installed fails the build
+([DC-138](design_decisions.md#dc-138)). `.\scripts\build.ps1 -Benchmark` also selects it, then runs the
 two executables in `benchmarks/`: `verdandi_benchmark`, which prints the
 Performance tab's cost per tick for each page and chart window and the Network
 tab's for 2 to 20 adapters, including a list with "Show all adapters" and an
@@ -200,7 +217,14 @@ script, not in the files, and commit the script with the files it writes.
 `-PngDirectory` also saves each size as a PNG, to look at. `src/app/verdandi.rc`
 compiles `verdandi.ico` into `verdandi.exe` as the resource `IDI_ICON1`, which
 Explorer and the taskbar show and Qt gives every window
-([DC-132](design_decisions.md#dc-132)).
+([DC-132](design_decisions.md#dc-132)). It also compiles in the version
+information that Explorer's Details tab shows. Its product version is the
+version followed by the commit, such as `0.1.0 (edbcb13)`, which
+`cmake/write_product_version_header.cmake` reads with git on every build and
+writes to `verdandi_product_version.h`, rewriting it only when it changes, so
+a new commit recompiles only `main.cpp` and the resource script. `--version`,
+Help > About Verdandi and the log's first line give the same
+([DC-136](design_decisions.md#dc-136)).
 
 ## Required local setup
 

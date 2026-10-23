@@ -149,6 +149,9 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-130](#dc-130): The application icon is drawn by a PowerShell script with GDI+, with the small sizes placed on the pixel grid
   - [DC-132](#dc-132): The windows get the icon from the executable's `IDI_ICON1` resource, which Qt gives each window class, not from `setWindowIcon()`
   - [DC-133](#dc-133): The README's badges read their values where they can, and the coverage badge reads a file that publishing writes to `gh-pages`
+  - [DC-136](#dc-136): The version comes from `project()` and the commit from git at build time, and shows in the version information, `--version`, the log and Help > About
+  - [DC-137](#dc-137): Builds have Control Flow Guard and CET compatibility, Release builds a program database and the C++ runtime, and the manifest declares Windows 10 and 11 and `asInvoker`
+  - [DC-138](#dc-138): `THIRD_PARTY_NOTICES.txt` is written from vcpkg's copyright files for the packages whose DLLs ship beside the executable
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1293,7 +1296,7 @@ How `verdandi.exe` starts, and where its log goes.
 
 ## Build and tooling
 
-`build.ps1`, formatting, the Qt build and its plugins, the benchmarks, and the coverage build.
+`build.ps1`, formatting, the Qt build and its plugins, the version and what ships beside the executable, the benchmarks, and the coverage build.
 
 <a id="dc-23"></a>
 ### DC-23: Formatting enforced with a pinned clang-format and the existing house style
@@ -1471,6 +1474,45 @@ How `verdandi.exe` starts, and where its log goes.
 **Consequences:** The version is raised in `CMakeLists.txt` and `vcpkg.json` together, since the badge reads only `vcpkg.json`.
 
 **History:** Maintenance (the README's badges).
+
+---
+
+<a id="dc-136"></a>
+### DC-136: The version comes from `project()` and the commit from git at build time, and shows in the version information, `--version`, the log and Help > About
+
+**Decision:** `project()` holds the version, description and homepage, beside the copyright line, and CMake writes them as macros into `verdandi_version.h`, which the `verdandi_version` target gives to `app`, `ui` and the tests. On every build, `cmake/write_product_version_header.cmake` writes the product version, the version followed by the abbreviated commit, with `-dirty` when tracked files have changes, into `verdandi_product_version.h`, and rewrites it only when it changes; only `main.cpp` and `verdandi.rc` include it. `verdandi.rc` compiles both into a `VERSIONINFO` resource. `main()` makes the product version the application's version, which `--version` prints, logs it at startup, and Help > About Verdandi shows it in a window-modal box with the copyright, the license and links to the files beside the executable ([DC-138](#dc-138)).
+
+**Rationale:** A bug report could not say which build it was about, and Explorer and Task Manager showed no version or description ([code review F-50](code_reviews/phase_6.md#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations)). One source per value keeps the resource, the command line and the box alike. The version names a release but not the builds between two, so the commit is added. Read at configure time it would go stale, since CMake configures again only when a CMake file changes; kept out of `verdandi_version.h`, a new commit recompiles two files rather than every file that shows the version. The status check passes `--no-optional-locks`, so that a build never locks the index under a git command run beside it. `QMessageBox::about()` blocks and is application-modal, unlike the other message boxes.
+
+**Consequences:** Every build runs git, and a build outside a checkout or without git gives the version alone.
+
+**History:** Code review F-50.
+
+---
+
+<a id="dc-137"></a>
+### DC-137: Builds have Control Flow Guard and CET compatibility, Release builds a program database and the C++ runtime, and the manifest declares Windows 10 and 11 and `asInvoker`
+
+**Decision:** The project's targets compile and link with `/guard:cf`, and link with `/CETCOMPAT`, in every configuration. Release also compiles with `/Zi` and links with `/DEBUG /OPT:REF /OPT:ICF`, so `verdandi.pdb` lies beside `verdandi.exe`. In Release, the Microsoft C++ runtime that CMake's `InstallRequiredSystemLibraries` names is copied beside the executable. The manifest declares Windows 10 and 11 as supported and `requestedExecutionLevel` `asInvoker`. Integration tests check each in the built files.
+
+**Rationale:** Each closes a gap that inspecting the release build found ([code review F-50](code_reviews/phase_6.md#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations)). Control Flow Guard and CET shadow stacks are mitigations that Microsoft recommends and BinSkim checks, here for a tool that opens other processes; they cost little, and in every configuration the Debug tests check them. Without a program database a user's crash dump cannot be symbolized; `/DEBUG` stops the linker removing unreferenced and identical code unless `/OPT:REF /OPT:ICF` say otherwise. A copy of `build\release` started only where a Visual C++ Redistributable as new as the build's was installed; requiring it was rejected for a monitor that needs no installation, and the debug runtime may not be redistributed. Without a compatibility section, components that look for one give the process Windows Vista's behaviour. The linker adds `asInvoker` anyway and merges the two; the manifest states the architecture's rule.
+
+**Consequences:** Windows Update does not service a runtime beside the executable, so each release ships its build's. The program databases of every published build must be kept.
+
+**History:** Code review F-50; Phase 6 (`asInvoker` in the manifest).
+
+---
+
+<a id="dc-138"></a>
+### DC-138: `THIRD_PARTY_NOTICES.txt` is written from vcpkg's copyright files for the packages whose DLLs ship beside the executable
+
+**Decision:** Once `verdandi.exe` and its DLLs are in place, `cmake/write_third_party_notices.cmake` writes `THIRD_PARTY_NOTICES.txt` beside it. It finds the vcpkg port that installed each DLL in that directory or below, from vcpkg's lists of each port's files, adds nlohmann/json, which is compiled in, and writes each port's name, version and the copyright file that vcpkg installed for it. Microsoft's runtime DLLs are named without a notice, and a DLL that no port installed fails the build. The repository's `LICENSE` is copied beside the executable as `LICENSE.txt`, and the About box links to both ([DC-136](#dc-136)).
+
+**Rationale:** The release ships Qt's DLLs under the LGPL 3.0, and spdlog, fmt and others under licenses that ask for their notices to go with the binaries; the GPL asks the same of Verdandi's own ([code review F-50](code_reviews/phase_6.md#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations)). vcpkg already installs each port's licenses, Qt's including those of the code Qt bundles, so reading them keeps the file current with every baseline, which a committed copy would not be. Finding the ports from the DLLs that are there, rather than from a list, catches a dependency that a new package or Qt feature brings. A port's tools directory is left out, because qtbase copies other ports' DLLs into it for its host tools.
+
+**Consequences:** A package compiled in rather than shipped as a DLL has to be named in `src/app/CMakeLists.txt`. The file is about 270 KB, most of it Qt's licenses.
+
+**History:** Code review F-50.
 
 ---
 

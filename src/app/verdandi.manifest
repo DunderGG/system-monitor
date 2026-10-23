@@ -12,8 +12,26 @@
   aware from its start, the awareness Qt 6 also asks for, so Qt keeps it and
   scales each window to its monitor. Windows ignores the older dpiAware element
   when dpiAwareness is present, so it is left out. See DC-128.
+
+  supportedOS declares Windows 10 and 11, which share this ID, so components
+  that look for the declaration behave as they do for current applications, not
+  as for Windows Vista. requestedExecutionLevel asInvoker runs the monitor with
+  its starter's rights and no elevation prompt, as the architecture asks; the
+  linker would add it too, and merges the two. See DC-137.
 -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
