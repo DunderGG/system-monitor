@@ -345,7 +345,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Incorrect or noisy CPU/rate readings | Normalize multi-core CPU usage consistently and use measured monotonic intervals via `std::chrono::steady_clock`. |
 | PID reuse corrupts process history | Pair PID with creation time from `NtQuerySystemInformation`. |
 | Protected processes deny access | `NtQuerySystemInformation` returns full metrics for all processes even unelevated. Only path/command-line queries may be denied; display partial data with clear indicators. |
-| PDH registry corruption | Core metrics use direct Win32 APIs, not PDH. PDH is used only for advanced counters and handles missing counters gracefully. |
+| PDH registry corruption | The monitor uses no PDH; every metric comes from a direct Win32 API. A future counter with no direct alternative, such as per-disk I/O rates, may use PDH, and must handle a missing counter gracefully. |
 | PDH process instance shifting | Per-process data comes from `NtQuerySystemInformation`, never PDH. |
 | Ambiguous connectivity status | Use `GetNetworkConnectivityHint` for structured connectivity levels (None, LocalAccess, ConstrainedInternetAccess, InternetAccess, plus an explicit Unknown when the state cannot be determined) rather than a single "online" flag. |
 | UI stutters under a large process list | Diff/update Qt item models efficiently. All collection and aggregation happens off the UI thread. Snapshots cross to UI via queued signals. |
@@ -353,7 +353,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Excessive privilege or security risk | Run unelevated by default. Only request `PROCESS_QUERY_LIMITED_INFORMATION`, except that termination adds `PROCESS_TERMINATE` for unelevated processes the current user owns. Never open `lsass.exe` or `csrss.exe` handles. |
 | Antivirus/EDR false positives | Avoid dangerous access masks, sensitive process handles, API hooking, and process injection. Sign binaries. |
 | Sleep/hibernate causes rate calculation errors | Pause sampling on `WM_POWERBROADCAST`'s suspend event. On resume, reset the rate baselines and discard the first sample. |
-| WMI service not running or repository corrupted | Use WMI only for optional startup hardware inventory. All core metrics use direct Win32 APIs. |
-| Qt event loop starvation | Keep snapshot emission at 1 Hz. Batch model updates. Profile early. |
+| WMI service not running or repository corrupted | The monitor queries no WMI; every metric comes from a direct Win32 API. A future hardware inventory may query WMI once at startup, and must work without it. |
+| Qt event loop starvation | Emit one snapshot per refresh interval, at most two a second. Batch model updates. Snapshots are queued without back-pressure, so profiling on a lower-end system checks that the UI keeps up at 0.5 s. |
 | ETW session exhaustion (future) | System has a hard 64-session limit shared with EDR. Defer ETW to post-MVP and handle `ERROR_NO_SYSTEM_RESOURCES` from `StartTrace`. |
 | 32-bit network counter rollover | Use `GetIfTable2` which provides 64-bit counters. Never use legacy `GetIfTable`. |

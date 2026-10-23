@@ -44,7 +44,7 @@ struct Readout
 /** Formats a link speed in decimal bits per second to three significant digits, e.g. "2.5 Gbps", "100 Mbps". */
 [[nodiscard]] QString formatLinkSpeed(uint64_t bitsPerSecond);
 
-/** CPU page: utilization, base speed, logical processors, processes, threads, handles, and up time. */
+/** CPU page: utilization, base speed, logical processors, processes, threads, handles, and uptime. */
 [[nodiscard]] std::vector<Readout> cpuReadouts(const std::optional<domain::CpuSample>& cpu,
                                                const std::optional<domain::SystemActivitySample>& activity,
                                                const std::optional<std::chrono::milliseconds>& uptime);
