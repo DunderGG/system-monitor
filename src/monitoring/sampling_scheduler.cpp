@@ -2,7 +2,9 @@
 
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
 #include <mutex>
+#include <stop_token>
 #include <utility>
 
 #include <QMetaType>
@@ -10,6 +12,31 @@
 
 namespace verdandi::monitoring
 {
+
+namespace
+{
+
+// Waits on condition, with lock held, until interval has passed since start,
+// a stop is requested, or isWoken() returns true. interval is the
+// scheduler's member, which its setter changes under the lock and then
+// notifies, so it is read again whenever the thread wakes: a new interval
+// applies to the wait in progress, still measured from start, and ends it at
+// once if it has already passed (code review F-46).
+template <typename Predicate>
+void waitForInterval(std::condition_variable_any& condition, std::unique_lock<std::mutex>& lock,
+                     const std::stop_token& stopToken, std::chrono::steady_clock::time_point start,
+                     const std::chrono::milliseconds& interval, Predicate isWoken)
+{
+    while (!stopToken.stop_requested() && !isWoken()) {
+        const auto deadline = start + interval;
+        if (std::chrono::steady_clock::now() >= deadline) {
+            return;
+        }
+        condition.wait_until(lock, stopToken, deadline, [&] { return isWoken() || start + interval != deadline; });
+    }
+}
+
+} // namespace
 
 SamplingScheduler::SamplingScheduler(std::chrono::milliseconds interval, QObject* parent)
     : QObject(parent), m_interval(interval)
@@ -398,8 +425,7 @@ void SamplingScheduler::run(std::stop_token stopToken)
         }
 
         std::unique_lock lock(m_sleepMutex);
-        const auto nextTick = tickStart + m_interval;
-        m_sleepCv.wait_until(lock, stopToken, nextTick, [&stopToken] { return stopToken.stop_requested(); });
+        waitForInterval(m_sleepCv, lock, stopToken, tickStart, m_interval, [] { return false; });
     }
 
     spdlog::info("SamplingScheduler background thread stopped");
@@ -417,16 +443,17 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
 
     // Waits for the next full refresh, or for an event-driven collector to
     // report a change, which collects only the event-driven collectors so the
-    // process list keeps its own cadence. The first wait ends at once, and so
-    // does the first after the system resumes, which starts a full refresh.
-    auto nextRefresh = std::chrono::steady_clock::now();
+    // process list keeps its own cadence. The first wait ends at once, since
+    // no refresh has started, and so does the first after the system
+    // resumes, which starts a full refresh.
+    auto refreshStart = std::chrono::steady_clock::time_point::min();
     while (!stopToken.stop_requested()) {
         bool isEventRefresh = false;
         bool isFirstRefreshAfterResume = false;
         {
             std::unique_lock lock(m_sleepMutex);
-            m_sleepCv.wait_until(lock, stopToken, nextRefresh,
-                                 [this] { return m_isEventRefreshPending || m_isSlowBaselineResetPending; });
+            waitForInterval(m_sleepCv, lock, stopToken, refreshStart, m_slowInterval,
+                            [this] { return m_isEventRefreshPending || m_isSlowBaselineResetPending; });
             // Nothing is collected while the system suspends, as on the tick.
             m_sleepCv.wait(lock, stopToken, [this] { return !m_isSystemSuspended; });
             if (stopToken.stop_requested()) {
@@ -435,8 +462,8 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
             isFirstRefreshAfterResume = std::exchange(m_isSlowBaselineResetPending, false);
             // A full refresh collects the event-driven collectors too, so it
             // also answers a change that is pending when it starts.
-            isEventRefresh =
-                !isFirstRefreshAfterResume && m_isEventRefreshPending && std::chrono::steady_clock::now() < nextRefresh;
+            isEventRefresh = !isFirstRefreshAfterResume && m_isEventRefreshPending &&
+                             std::chrono::steady_clock::now() < refreshStart + m_slowInterval;
             m_isEventRefreshPending = false;
         }
 
@@ -450,10 +477,8 @@ void SamplingScheduler::runSlowCollectors(std::stop_token stopToken)
         if (isFirstRefreshAfterResume) {
             resetSlowCollectorBaselines();
         }
-        const auto refreshStart = std::chrono::steady_clock::now();
+        refreshStart = std::chrono::steady_clock::now();
         collectSlowResults();
-        std::lock_guard lock(m_sleepMutex);
-        nextRefresh = refreshStart + m_slowInterval;
     }
 
     spdlog::info("SamplingScheduler slow-collector thread stopped");

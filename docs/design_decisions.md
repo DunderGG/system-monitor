@@ -38,7 +38,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-43](#dc-43): Merged into DC-12
   - [DC-44](#dc-44): Merged into DC-12
 - [Scheduler and collectors](#scheduler-and-collectors)
-  - [DC-17](#dc-17): `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
+  - [DC-17](#dc-17): `SamplingScheduler`: Responsive cancellation and interval changes via `std::condition_variable_any` with `std::stop_token`
   - [DC-18](#dc-18): `ICollector<T>`: one virtual interface for every collector, and no concept
   - [DC-19](#dc-19): `SamplingScheduler`: Pointer snapshotting during `sampleOnce()` to avoid holding `m_collectorMutex` during collections
   - [DC-37](#dc-37): Repeated collector failures logged once, with the recovery
@@ -426,13 +426,13 @@ The optional collections are described in [DC-12](#dc-12).
 `SamplingScheduler`'s threads, the collector interface, and what every collector does alike.
 
 <a id="dc-17"></a>
-### DC-17: `SamplingScheduler`: Responsive cancellation via `std::condition_variable_any` with `std::stop_token`
+### DC-17: `SamplingScheduler`: Responsive cancellation and interval changes via `std::condition_variable_any` with `std::stop_token`
 
-**Decision:** The scheduler thread tick loop uses `std::condition_variable_any::wait_until` with `std::stop_token` rather than `std::this_thread::sleep_for` or a polling sleep loop.
+**Decision:** Both scheduler threads wait for their next collection with `std::condition_variable_any::wait_until` and their `std::stop_token`, rather than `std::this_thread::sleep_for` or a polling sleep loop. Each waits until its interval has passed since its last collection started, and reads the interval again whenever it wakes. The interval setters notify the condition variable, so a new interval applies to the wait in progress, and one that has already passed ends it at once.
 
-**Rationale:** A standard `sleep_for(m_interval)` cannot be interrupted until the interval expires, delaying application shutdown by up to 1000 ms. A polling loop (e.g. sleeping 10 ms repeatedly) wastes CPU cycles and adds wake jitter. In C++20, `std::condition_variable_any` natively accepts a `std::stop_token` in `wait_until`. If a stop is requested (e.g. when `SamplingScheduler::stop()` or the destructor is called), the condition variable wakes immediately and exits the thread. Furthermore, calculating `nextTick = tickStart + m_interval` prevents interval drift across ticks when collection work takes measurable time.
+**Rationale:** A `sleep_for(m_interval)` cannot be interrupted until the interval expires, which would delay shutdown by up to the 10-second longest interval. A polling loop (e.g. sleeping 10 ms repeatedly) wastes CPU cycles and adds wake jitter. In C++20, `std::condition_variable_any` accepts a `std::stop_token` in `wait_until`, so a stop request, from `SamplingScheduler::stop()` or the destructor, wakes the thread at once. Measuring from the start of the collection prevents drift when collection takes measurable time. A deadline fixed before the wait kept the old interval for one more wait: shortened from 10 s to 0.5 s in the Settings dialog, the next snapshot came 10 seconds later, while the charts' time labels already described the new spacing ([code review F-46](code_reviews/phase_6.md#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends)).
 
-**History:** Phase 1, monitoring infrastructure.
+**History:** Phase 1, monitoring infrastructure; code review F-46 (both threads, and a new interval applies to the wait in progress).
 
 ---
 

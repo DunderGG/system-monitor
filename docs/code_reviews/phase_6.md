@@ -83,7 +83,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
 | [F-45](#f-45-verdandiexe-is-a-console-program-so-every-launch-opens-a-terminal-window) | `verdandi.exe` is a console program, so every launch opens a terminal window | High | Resolved |
-| [F-46](#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends) | A new refresh interval takes effect only when the current interval ends | Medium | Open |
+| [F-46](#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends) | A new refresh interval takes effect only when the current interval ends | Medium | Resolved |
 | [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Open |
 | [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Open |
 | [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Open |
@@ -150,6 +150,8 @@ The tests read the intervals back (`SettingsService.ApplyRefreshInterval_*`, `Sa
 2. Add unit tests: a scheduler at 10 s whose interval is set to 50 ms after its first snapshot emits the next within a second, and the same for the slow interval and a process refresh.
 
 **Recommendation:** Fix before the release. It is the main feature of this phase, and the fix is small.
+
+**Status:** Resolved (2026-10-23). Items 1 and 2 are done. Both threads wait through one helper that reads the interval again whenever the thread wakes, still measured from the start of the tick or refresh, so a shorter interval that has already passed ends the wait at once. A longer interval now applies to the wait in progress too. `SamplingScheduler.Running_IntervalShortened_AppliesToTheWaitInProgress` and `Running_SlowIntervalShortened_AppliesToTheWaitInProgress` set 50 ms after the first snapshot and the first process refresh of a scheduler at 10 s: each failed against the old waits, and passes in under 80 ms. The scheduler's tests passed 15 shuffled repetitions. [DC-17](../design_decisions.md#dc-17) describes the waits.
 
 ---
 

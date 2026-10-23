@@ -190,7 +190,7 @@ When the value is costly to read, a notification can instead mark a cache stale,
 
 ### Data flow
 
-1. The scheduler thread sleeps for the configured interval (default 1 second), then wakes and calls fast collectors for aggregate CPU, memory, disk, and network samples.
+1. The scheduler thread sleeps until the configured interval (default 1 second) has passed since its last tick started, then wakes and calls fast collectors for aggregate CPU, memory, disk, and network samples. A new interval applies to the sleep in progress ([DC-17](design_decisions.md#dc-17)).
 2. Fast collectors obtain data from the Windows integration layer and return typed results, including any access or availability errors.
 3. The scheduler merges the latest results from slow collectors (process list, connectivity, network names) with the fresh fast-collector samples into an immutable `SystemSnapshot` timestamped with `std::chrono::steady_clock`.
 4. Bounded ring buffers (`domain::RingBuffer`) retain recent samples for sparkline charts. The dashboard keeps its own short presentation history for its mini sparklines, the Network tab keeps a minute of throughput per adapter, and each Performance tab page keeps the history for its charts; histories needed outside the UI (e.g. for alert rules) may live in `monitoring`.

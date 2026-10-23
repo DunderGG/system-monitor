@@ -125,6 +125,30 @@ TEST(SamplingScheduler, FastShutdown_RespondsImmediatelyToStop)
     EXPECT_LT(stopDuration.count(), 1000);
 }
 
+TEST(SamplingScheduler, Running_IntervalShortened_AppliesToTheWaitInProgress)
+{
+    SamplingScheduler scheduler(std::chrono::seconds{10});
+    std::atomic<int> snapshotCount{0};
+    QObject::connect(&scheduler, &SamplingScheduler::snapshotReady, [&](const SystemSnapshot&) { ++snapshotCount; });
+    const auto waitForSnapshots = [&snapshotCount](int count, std::chrono::milliseconds timeout) {
+        const auto deadline = std::chrono::steady_clock::now() + timeout;
+        while (snapshotCount.load() < count && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+        return snapshotCount.load() >= count;
+    };
+
+    scheduler.start();
+    const bool isFirstEmitted = waitForSnapshots(1, std::chrono::seconds{5});
+    scheduler.setInterval(std::chrono::milliseconds{50});
+    const bool isNextEmitted = waitForSnapshots(2, std::chrono::seconds{1});
+    scheduler.stop();
+
+    EXPECT_TRUE(isFirstEmitted);
+    // Not when the 10 seconds that the tick began to wait for end (code review F-46).
+    EXPECT_TRUE(isNextEmitted);
+}
+
 namespace
 {
 

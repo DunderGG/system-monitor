@@ -227,6 +227,32 @@ TEST(SamplingScheduler, Running_SlowCollectorsRunOnTheirOwnThreadAtTheirOwnCaden
     EXPECT_NE(processPtr->lastThread(), std::this_thread::get_id());
 }
 
+TEST(SamplingScheduler, Running_SlowIntervalShortened_AppliesToTheWaitInProgress)
+{
+    SamplingScheduler scheduler(std::chrono::seconds{10});
+    scheduler.setSlowInterval(std::chrono::seconds{10});
+    auto process = std::make_unique<FakeProcessCollector>();
+    const auto* processPtr = process.get();
+    scheduler.setProcessCollector(std::move(process));
+    const auto waitForRefreshes = [processPtr](int count, std::chrono::milliseconds timeout) {
+        const auto deadline = std::chrono::steady_clock::now() + timeout;
+        while (processPtr->calls() < count && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+        return processPtr->calls() >= count;
+    };
+
+    scheduler.start();
+    const bool isFirstRefreshed = waitForRefreshes(1, std::chrono::seconds{5});
+    scheduler.setSlowInterval(std::chrono::milliseconds{50});
+    const bool isNextRefreshed = waitForRefreshes(2, std::chrono::seconds{1});
+    scheduler.stop();
+
+    EXPECT_TRUE(isFirstRefreshed);
+    // Not when the 10 seconds that the slow-collector thread began to wait for end (code review F-46).
+    EXPECT_TRUE(isNextRefreshed);
+}
+
 namespace
 {
 

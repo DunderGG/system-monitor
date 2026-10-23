@@ -71,13 +71,22 @@ public:
     /** Returns true if the background threads are currently running. */
     [[nodiscard]] bool isRunning() const;
 
-    /** Sets the sampling interval of the fast collectors. Thread-safe. */
+    /**
+     * Sets the sampling interval of the fast collectors. Thread-safe. A
+     * running tick thread applies it to the wait in progress, measured from
+     * the start of its last tick, so a shorter interval that has already
+     * passed starts the next tick at once.
+     */
     void setInterval(std::chrono::milliseconds interval);
 
     /** Returns the current sampling interval of the fast collectors. */
     [[nodiscard]] std::chrono::milliseconds interval() const;
 
-    /** Sets the interval of the slow collectors (processes, connectivity, network profiles). Thread-safe. */
+    /**
+     * Sets the interval of the slow collectors (processes, connectivity,
+     * network profiles). Thread-safe. A running slow-collector thread applies
+     * it to the wait in progress, as setInterval() does.
+     */
     void setSlowInterval(std::chrono::milliseconds interval);
 
     /** Returns the current interval of the slow collectors. */
