@@ -86,7 +86,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | [F-46](#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends) | A new refresh interval takes effect only when the current interval ends | Medium | Resolved |
 | [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Resolved |
 | [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Resolved |
-| [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Open |
+| [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Resolved |
 | [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Open |
 | [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Open |
 | [F-52](#f-52-documentation-out-of-date) | Documentation out of date | Low | Open |
@@ -227,6 +227,8 @@ With `QT_QPA_PLATFORM=nonexistent`, which makes the platform plugin fail to load
 2. Add a CTest test that runs `verdandi_tests --gtest_list_tests` with `QT_QPA_PLATFORM=nonexistent` in its environment and expects it to succeed.
 
 **Recommendation:** Fix when convenient.
+
+**Status:** Resolved (2026-10-23). Items 1 and 2 are done. Before the fix, the Debug runner did not end with exit code 3, as described above, but waited on the C runtime's error dialog for Qt's fatal error, so the CTest test, `verdandi_tests_list_without_qt_platform`, has a 30-second timeout. With the fix it passes in 0.05 s. [DC-21](../design_decisions.md#dc-21) describes the check as it now works.
 
 ---
 

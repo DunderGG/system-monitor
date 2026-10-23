@@ -237,7 +237,10 @@ run CTest after the build
 (`.\scripts\build.ps1 -Test`). Each test executable runs as GoogleTest shards,
 one CTest test per shard (about two per logical processor for
 `verdandi_tests`), and CTest runs one shard per logical processor at a
-time. A failed shard's output lists the tests that failed. To run one test,
+time. One more CTest test lists the tests of `verdandi_tests` with no Qt
+platform plugin to load, which checks that listing them creates no
+`QApplication` ([DC-21](design_decisions.md#dc-21)). A failed shard's output
+lists the tests that failed. To run one test,
 or a suite, start the executable with a filter, e.g.
 `build\default\tests\verdandi_tests.exe --gtest_filter=RingBuffer.*`.
 Each shard also writes GoogleTest's JSON report of the tests it ran to

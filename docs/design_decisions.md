@@ -1481,11 +1481,11 @@ How collectors are made testable, what integration tests assert, and how tests a
 <a id="dc-21"></a>
 ### DC-21: `test_main.cpp`: listing the tests creates no `QApplication`
 
-**Decision:** The test runner (`tests/test_main.cpp`) creates no `QApplication` when `--gtest_list_tests` is passed. It runs the tests with a `QApplication` otherwise.
+**Decision:** The test runner (`tests/test_main.cpp`) creates no `QApplication` when GoogleTest's flag to list the tests is set, which it reads with `GTEST_FLAG_GET(list_tests)` after `InitGoogleTest()`. It runs the tests with a `QApplication` otherwise. A CTest test lists the tests with `QT_QPA_PLATFORM` naming a platform plugin that does not exist, and fails after 30 seconds.
 
-**Rationale:** Creating `QApplication` loads the platform plugin, which fails when the plugins are not deployed yet and can fail without a display session, with a modal error dialog or a timeout. Listing the tests needs no plugin, so it is instant and works anywhere. The build itself no longer lists the tests: CTest runs GoogleTest shards, not tests that `gtest_discover_tests` found at build time ([DC-113](#dc-113)). The check stays, so that listing the tests by hand or from a tool starts no `QApplication` either.
+**Rationale:** Creating `QApplication` loads the platform plugin, which fails when the plugins are not deployed yet and can fail without a display session, with a modal error dialog or a timeout. Listing the tests needs no plugin, so it is instant and works anywhere. The build itself no longer lists the tests: CTest runs GoogleTest shards, not tests that `gtest_discover_tests` found at build time ([DC-113](#dc-113)). The check stays, so that listing the tests by hand or from a tool, such as a test explorer, starts no `QApplication` either. `InitGoogleTest()` removes the flags it recognizes from `argv`, so the runner's search of `argv` for the flag, after it, never found it, and every listing created a `QApplication`; with no plugin to load, a Debug runner waited on the C runtime's error dialog ([code review F-49](code_reviews/phase_6.md#f-49-listing-the-tests-still-creates-a-qapplication)). GoogleTest's own flag also covers `GTEST_LIST_TESTS`. Nothing else ran the check, so the CTest test does, and its timeout ends that dialog if the check breaks again.
 
-**History:** Phase 1, basic UI shell; maintenance (the build no longer lists the tests).
+**History:** Phase 1, basic UI shell; maintenance (the build no longer lists the tests); code review F-49 (the flag read from GoogleTest, and a test).
 
 ---
 

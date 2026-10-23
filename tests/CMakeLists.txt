@@ -157,6 +157,15 @@ verdandi_deploy_qt_plugins(verdandi_tests)
 
 verdandi_add_sharded_tests(verdandi_tests ${verdandiTestShards})
 
+# Listing the tests creates no QApplication (DC-21). With no platform plugin
+# to load, creating one ends the process, or in Debug opens the C runtime's
+# error dialog, which the timeout ends.
+add_test(NAME verdandi_tests_list_without_qt_platform COMMAND verdandi_tests --gtest_list_tests)
+set_tests_properties(verdandi_tests_list_without_qt_platform PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=nonexistent"
+    TIMEOUT 30
+)
+
 # Platform unit tests: deterministic tests of platform/windows code that need
 # Windows SDK types or constants (e.g. Windows-to-domain mapping functions).
 # They may include Windows headers but must not call Windows APIs. Kept in a
