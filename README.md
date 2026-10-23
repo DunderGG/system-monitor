@@ -1,10 +1,6 @@
 <div align="center">
 
-<img src="resources/verdandi.svg" width="128" alt="Verdandi icon">
-
-# VERDANDI
-
-**A lightweight Windows desktop system monitor**
+<img src="resources/social_preview_wordmark.png" width="512" alt="Verdandi icon">
 
 [![CI][ci-badge]][ci]
 [![Coverage][coverage-badge]][coverage]

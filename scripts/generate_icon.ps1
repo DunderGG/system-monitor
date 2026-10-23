@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Draws the application icon and writes it as verdandi.ico, verdandi.svg and
-verdandi_256.png, with a social preview image for GitHub.
+verdandi_256.png, with two social preview images for GitHub.
 
 .DESCRIPTION
 The icon is a chart line that runs flat, dips into a V and runs flat again,
@@ -23,6 +23,8 @@ social_preview.png is a 1280 x 640 px banner of the icon, the name and a line
 that says what the monitor is, on a darker indigo. GitHub shows it when a link
 to the repository is shared, once it is uploaded in the repository's settings
 (Settings, General, Social preview), which take PNG, JPG or GIF but not SVG.
+social_preview_wordmark.png is an alternative to it: the name, in bold, with
+the icon's line in place of its V, and the same line below it, with no tile.
 
 .PARAMETER OutputDirectory
 Where the files go. By default it is the repository's resources directory.
@@ -114,6 +116,44 @@ function New-RoundPen
     return $pen
 }
 
+# Draws the line: flat at Top, from LineHalfWidth left of Centre to the V, down
+# to the V's point at Bottom, up again, and flat to LineHalfWidth right of Centre.
+function Add-Trace
+{
+    param(
+        [Parameter(Mandatory)][System.Drawing.Graphics]$Graphics,
+        [Parameter(Mandatory)][double]$Centre,
+        [Parameter(Mandatory)][double]$Top,
+        [Parameter(Mandatory)][double]$Bottom,
+        [Parameter(Mandatory)][double]$VHalfWidth,
+        [Parameter(Mandatory)][double]$LineHalfWidth,
+        [Parameter(Mandatory)][double]$Stroke
+    )
+
+    $flatPen = New-RoundPen -Color ([System.Drawing.Color]::FromArgb([int][Math]::Round(255 * $flatOpacity), 255, 255, 255)) `
+        -Width $Stroke
+    $tracePen = New-RoundPen -Color ([System.Drawing.ColorTranslator]::FromHtml($traceColor)) -Width $Stroke
+    try
+    {
+        $flatTop = [single]$Top
+        $vLeft = [single]($Centre - $VHalfWidth)
+        $vRight = [single]($Centre + $VHalfWidth)
+        $Graphics.DrawLine($flatPen, [single]($Centre - $LineHalfWidth), $flatTop, $vLeft, $flatTop)
+        $Graphics.DrawLine($flatPen, $vRight, $flatTop, [single]($Centre + $LineHalfWidth), $flatTop)
+        # The V is drawn last, so that it covers the ends of the flat parts.
+        $points = [System.Drawing.PointF[]]@(
+            (New-Object System.Drawing.PointF($vLeft, $flatTop)),
+            (New-Object System.Drawing.PointF([single]$Centre, [single]$Bottom)),
+            (New-Object System.Drawing.PointF($vRight, $flatTop)))
+        $Graphics.DrawLines($tracePen, $points)
+    }
+    finally
+    {
+        $tracePen.Dispose()
+        $flatPen.Dispose()
+    }
+}
+
 function New-IconBitmap
 {
     param([Parameter(Mandatory)][int]$Size)
@@ -123,9 +163,6 @@ function New-IconBitmap
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
     $tile = New-Object System.Drawing.Drawing2D.GraphicsPath
     $tileBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml($tileColor))
-    $flatPen = New-RoundPen -Color ([System.Drawing.Color]::FromArgb([int][Math]::Round(255 * $flatOpacity), 255, 255, 255)) `
-        -Width $geometry.Stroke
-    $tracePen = New-RoundPen -Color ([System.Drawing.ColorTranslator]::FromHtml($traceColor)) -Width $geometry.Stroke
     try
     {
         $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -144,23 +181,11 @@ function New-IconBitmap
         $tile.CloseFigure()
         $graphics.FillPath($tileBrush, $tile)
 
-        $centre = $Size / 2.0
-        $top = [single]$geometry.TraceTop
-        $vLeft = [single]($centre - $geometry.VHalfWidth)
-        $vRight = [single]($centre + $geometry.VHalfWidth)
-        $graphics.DrawLine($flatPen, [single]($centre - $geometry.LineHalfWidth), $top, $vLeft, $top)
-        $graphics.DrawLine($flatPen, $vRight, $top, [single]($centre + $geometry.LineHalfWidth), $top)
-        # The V is drawn last, so that it covers the ends of the flat parts.
-        $points = [System.Drawing.PointF[]]@(
-            (New-Object System.Drawing.PointF($vLeft, $top)),
-            (New-Object System.Drawing.PointF([single]$centre, [single]$geometry.VBottom)),
-            (New-Object System.Drawing.PointF($vRight, $top)))
-        $graphics.DrawLines($tracePen, $points)
+        Add-Trace -Graphics $graphics -Centre ($Size / 2.0) -Top $geometry.TraceTop -Bottom $geometry.VBottom `
+            -VHalfWidth $geometry.VHalfWidth -LineHalfWidth $geometry.LineHalfWidth -Stroke $geometry.Stroke
     }
     finally
     {
-        $tracePen.Dispose()
-        $flatPen.Dispose()
         $tileBrush.Dispose()
         $tile.Dispose()
         $graphics.Dispose()
@@ -287,6 +312,101 @@ function New-SocialPreviewBitmap
     return $bitmap
 }
 
+# Returns the bounds of the text's glyphs, relative to the point that
+# DrawString with GenericTypographic draws it at.
+function Get-GlyphBounds
+{
+    param(
+        [Parameter(Mandatory)][string]$Text,
+        [Parameter(Mandatory)][System.Drawing.Font]$Font
+    )
+
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $format = [System.Drawing.StringFormat]::GenericTypographic
+    try
+    {
+        $path.AddString($Text, $Font.FontFamily, [int]$Font.Style, $Font.Size, [System.Drawing.PointF]::Empty, $format)
+        return $path.GetBounds()
+    }
+    finally
+    {
+        $format.Dispose()
+        $path.Dispose()
+    }
+}
+
+# The alternative social preview: the name with the icon's line in place of its
+# V, and the tagline below it, centred, with no tile. The name is bold, whose
+# stems are about as thick as the line at this size, so that the V does not
+# outweigh the other letters.
+function New-WordmarkPreviewBitmap
+{
+    $width = 1280
+    $height = 640
+    $titleSize = 220
+    $taglineSize = 36
+    $lineGap = 44
+
+    $bitmap = New-Object System.Drawing.Bitmap($width, $height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $pixel = [System.Drawing.GraphicsUnit]::Pixel
+    $titleFont = New-Object System.Drawing.Font("Segoe UI", $titleSize, [System.Drawing.FontStyle]::Bold, $pixel)
+    $taglineFont = New-Object System.Drawing.Font("Segoe UI", $taglineSize, [System.Drawing.FontStyle]::Regular, $pixel)
+    $titleBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml($previewTitleColor))
+    $taglineBrush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml($previewTaglineColor))
+    $format = [System.Drawing.StringFormat]::GenericTypographic
+    try
+    {
+        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAlias
+        $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml($previewBackground))
+
+        # The V spans the cap height, from its arms' round ends down to its
+        # point's round join, and is centred where the font's V would be. The
+        # rest of the name starts where it would after the font's V.
+        $origin = [System.Drawing.PointF]::Empty
+        $first = $previewTitle.Substring(0, 1)
+        $rest = $previewTitle.Substring(1)
+        $capBounds = Get-GlyphBounds -Text "H" -Font $titleFont
+        $firstBounds = Get-GlyphBounds -Text $first -Font $titleFont
+        $restBounds = Get-GlyphBounds -Text $rest -Font $titleFont
+        $taglineBounds = Get-GlyphBounds -Text $previewTagline -Font $taglineFont
+        $scale = $capBounds.Height / ($design.VBottom - $design.TraceTop + $design.Stroke)
+        $stroke = $design.Stroke * $scale
+        $lineHalfWidth = $design.LineHalfWidth * $scale
+        $vCentre = $firstBounds.Left + $firstBounds.Width / 2
+        $restLeft = $graphics.MeasureString($first, $titleFont, $origin, $format).Width
+
+        # The name, from the left end of the line to its last letter and from
+        # its tallest letter to the baseline, and the tagline below it are
+        # centred as one block.
+        $nameLeft = $vCentre - $lineHalfWidth - $stroke / 2
+        $nameRight = $restLeft + $restBounds.Right
+        $nameTop = [Math]::Min($capBounds.Top, $restBounds.Top)
+        $blockHeight = $capBounds.Bottom - $nameTop + $lineGap + $taglineBounds.Bottom
+        $x = ($width - ($nameRight - $nameLeft)) / 2 - $nameLeft
+        $y = ($height - $blockHeight) / 2 - $nameTop
+
+        Add-Trace -Graphics $graphics -Centre ($x + $vCentre) -Top ($y + $capBounds.Top + $stroke / 2) `
+            -Bottom ($y + $capBounds.Bottom - $stroke / 2) -VHalfWidth ($design.VHalfWidth * $scale) `
+            -LineHalfWidth $lineHalfWidth -Stroke $stroke
+        $graphics.DrawString($rest, $titleFont, $titleBrush, [single]($x + $restLeft), [single]$y, $format)
+        $taglineWidth = $graphics.MeasureString($previewTagline, $taglineFont, $origin, $format).Width
+        $graphics.DrawString($previewTagline, $taglineFont, $taglineBrush, [single](($width - $taglineWidth) / 2),
+            [single]($y + $capBounds.Bottom + $lineGap), $format)
+    }
+    finally
+    {
+        $format.Dispose()
+        $taglineBrush.Dispose()
+        $titleBrush.Dispose()
+        $taglineFont.Dispose()
+        $titleFont.Dispose()
+        $graphics.Dispose()
+    }
+    return $bitmap
+}
+
 function Get-PngBytes
 {
     param([Parameter(Mandatory)][System.Drawing.Bitmap]$Bitmap)
@@ -385,5 +505,16 @@ finally
 {
     $preview.Dispose()
 }
+$wordmarkPreview = New-WordmarkPreviewBitmap
+try
+{
+    [System.IO.File]::WriteAllBytes((Join-Path $OutputDirectory "social_preview_wordmark.png"),
+        (Get-PngBytes -Bitmap $wordmarkPreview))
+}
+finally
+{
+    $wordmarkPreview.Dispose()
+}
 
-Write-Host "Wrote $iconPath ($($sizes -join ', ') px), $svgPath, verdandi_256.png and social_preview.png."
+Write-Host ("Wrote $iconPath ($($sizes -join ', ') px), $svgPath, verdandi_256.png, social_preview.png and " +
+    "social_preview_wordmark.png.")

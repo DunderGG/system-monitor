@@ -210,7 +210,9 @@ the same design at 256 px, for pages and documents, and
 `resources/social_preview.png` is a 1280 x 640 px banner of the icon and the
 name, which GitHub shows when a link to the repository is shared; it is
 uploaded by hand in the repository's settings (Settings, General, Social
-preview), which take no SVG. All four are generated:
+preview), which take no SVG. `resources/social_preview_wordmark.png` is an
+alternative banner, with the icon's line in place of the name's V and no tile.
+All five are generated:
 `.\scripts\generate_icon.ps1` holds the icon's geometry, draws each size that
 Windows picks from (16, 20, 24, 32, 40, 48, 64, 96 and 256 px) with GDI+, and
 writes the files ([DC-130](design_decisions.md#dc-130)). Change the icon in the
