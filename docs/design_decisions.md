@@ -888,11 +888,11 @@ How snapshots reach the tabs, and how the windows scale to each monitor. The rul
 <a id="dc-54"></a>
 ### DC-54: Snapshot forwarding: every view records every snapshot, and hidden views skip repainting (code review F-4)
 
-**Decision:** `MainWindow::onSnapshotReady` forwards every snapshot to the dashboard and the performance view, whichever tab is current. Recording and display are separate steps. `PerformanceView::updateSnapshot` always appends to each page's history. It refreshes widgets only while the view is visible, and then only for the selected page and the sidebar. `showEvent` and a page change refresh from the recorded history. The Processes and Network views will follow the same pattern when they are implemented.
+**Decision:** `MainWindow::onSnapshotReady` forwards every snapshot to all four views, whichever tab is current. The Performance and Network views keep recording and display apart: each always appends to its history, refreshes its widgets only while it is visible, the Performance view only for the selected page and the sidebar, and refreshes from the recorded history in `showEvent` and, on the Performance tab, on a page change. The dashboard sets its cards from every snapshot, and the Processes view applies every process list to its model, shown or not.
 
-**Rationale:** Code review F-4 proposed updating only the visible tab. For views with history, that would leave gaps covering the time another tab was open, so the recording step must always run. Recording is only a few `RingBuffer` pushes per tick. The costs worth skipping are copying up to thousands of samples per chart into the widgets and painting them, and those are skipped while the view is hidden. Deciding visibility inside each view, rather than in `MainWindow`, keeps the rule next to the state it protects and also covers pages that are not selected within the view.
+**Rationale:** Code review F-4 proposed updating only the visible tab. For views with history, that would leave gaps covering the time another tab was open, so the recording step must always run. Recording is only a few `RingBuffer` pushes per tick. The costs worth skipping are copying up to thousands of samples per chart into the widgets and painting them, and those are skipped while the view is hidden. The dashboard's cards and the process model hold only the latest values, which cost little to set, and Qt paints no hidden widget; the model must also see every list, because a process's parent and its highlights depend on when each process was first listed and when it left the list ([DC-82](#dc-82)). Deciding visibility inside each view, rather than in `MainWindow`, keeps the rule next to the state it protects and also covers pages that are not selected within the view.
 
-**History:** Code review F-4, deferred to Phase 3, Performance tab.
+**History:** Code review F-4, deferred to Phase 3, Performance tab; code review F-52 (the four views as they are).
 
 ---
 
@@ -1229,6 +1229,8 @@ The settings file and the settings dialog: what the file holds, how it is read a
 **Consequences:** A save drops the keys this version does not know, such as a newer version's settings. Comments are rejected rather than read, because a save would drop them.
 
 **History:** Phase 6, settings file; Phase 6, settings at startup (the interval in half-second steps).
+
+---
 
 <a id="dc-124"></a>
 ### DC-124: Settings dialog: a window-modal `QDialog` from the File menu, which edits a copy and changes nothing until OK

@@ -53,7 +53,7 @@ namespace verdandi::ui
  * top level, and when a parent exits its children move there.
  *
  * Values that are missing (a rate not measured yet, or per-process network
- * usage, which is not collected) show "N/A" in the placeholder text colour,
+ * usage, which is not collected) show "N/A" in the dimmed text colour,
  * never zero. Column headers have tooltips that say what a value counts.
  *
  * The name column shows an access indicator, detailsStatusIcon(), for a
@@ -74,7 +74,7 @@ public:
         Pid,
         // Share of all logical processors used since the previous refresh.
         Cpu,
-        // Working set.
+        // Private working set.
         Memory,
         // Read plus write bytes per second, of all I/O, not only disk.
         Io,

@@ -9,7 +9,7 @@
 #   #include "domain/system_snapshot.h"
 # from outside this module, or as:
 #   #include "system_snapshot.h"
-# from within this module and from unit tests that add src/domain explicitly.
+# from within this module.
 
 add_library(verdandi_domain INTERFACE)
 

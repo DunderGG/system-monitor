@@ -16,7 +16,7 @@ These guidelines draw from the [C++ Core Guidelines](https://isocpp.github.io/Cp
 | Member variables | `m_` prefix + `camelCase` | `m_ringBuffer`, `m_scheduler`, `m_isRunning` |
 | Constants (`constexpr`, `const`) | `PascalCase` with a `k` prefix | `kMaxBufferSize`, `kDefaultInterval` |
 | Enum values | `PascalCase` | `ConnectivityLevel::InternetAccess` |
-| Macros (avoid if possible) | `UPPER_SNAKE_CASE` | `SYSTEM_MONITOR_VERSION` |
+| Macros (avoid if possible) | `UPPER_SNAKE_CASE` | `VERDANDI_VERSION` |
 | Namespaces | `lowercase` | `verdandi`, `verdandi::platform`, `verdandi::monitoring` |
 | File names | `snake_case` | `cpu_collector.h`, `ring_buffer.h`, `system_snapshot.h` |
 | Test files | `snake_case` + `_test` suffix | `ring_buffer_test.cpp`, `cpu_collector_test.cpp` |
@@ -52,7 +52,8 @@ These guidelines draw from the [C++ Core Guidelines](https://isocpp.github.io/Cp
 #include "domain/cpu_sample.h"
 #include "domain/process_identity.h"
 
-namespace verdandi::monitoring {
+namespace verdandi::monitoring
+{
 
 // ...
 
@@ -108,6 +109,7 @@ Rules:
 - Never use `using namespace` in headers.
 - `using namespace` is allowed in `.cpp` files for the file's own namespace (e.g., `using namespace verdandi::monitoring;` inside `sampling_scheduler.cpp`).
 - Test files have no namespace of their own, so they may use `using namespace` for the project namespaces under test (e.g. `using namespace verdandi::platform;` in `network_collector_test.cpp`). Standard library namespaces still use targeted `using` declarations.
+- The standard library's literal namespaces are the exception: a `.cpp` file may use them whole (e.g. `using namespace std::chrono_literals;` for `50ms`). Their operators can only be written unqualified, and the standard declares them in namespaces of their own for this use.
 - Do not use `using namespace std;` anywhere. Qualify standard library names explicitly or use targeted `using` declarations (e.g., `using std::chrono::steady_clock;`).
 
 ---
@@ -166,7 +168,7 @@ This project does **not** use C++ exceptions for error handling. Reasons:
 
 1. Qt does not use exceptions. Mixing exception-based and non-exception code leads to inconsistency.
 2. Windows API callbacks (window procedures, COM methods) cannot propagate exceptions.
-3. Error conditions in this application (process access denied, counter unavailable, network probe timeout) are expected and routine, not exceptional.
+3. Error conditions in this application (process access denied, counter unavailable, a settings file that cannot be read) are expected and routine, not exceptional.
 
 ### Patterns
 
@@ -177,18 +179,20 @@ This project does **not** use C++ exceptions for error handling. Reasons:
 std::optional<std::wstring> queryProcessPath(DWORD pid);
 
 // Use a result struct when you need error detail
-struct CollectResult {
-    CpuSample sample;
-    std::vector<CollectorError> errors;  // Partial success is normal
+struct SettingsReadResult
+{
+    domain::Settings settings{};
+    std::vector<SettingsProblem> problems{}; // Partial success is normal
 };
 
-CollectResult collectCpuSample();
+SettingsReadResult parseSettings(std::string_view text);
 ```
 
 **For programming errors (bugs), use assertions:**
 
 ```cpp
-void RingBuffer::push(const Sample& sample) {
+void RingBuffer::push(const Sample& sample)
+{
     assert(m_capacity > 0 && "RingBuffer must have non-zero capacity");
     // ...
 }
@@ -224,24 +228,39 @@ Wrap all Windows handles and resources in RAII types that release them in the de
 
 ```cpp
 // Example: RAII wrapper for a process handle
-class ProcessHandle {
+class ProcessHandle
+{
 public:
     explicit ProcessHandle(HANDLE handle) : m_handle(handle) {}
-    ~ProcessHandle() { if (m_handle) CloseHandle(m_handle); }
+    ~ProcessHandle()
+    {
+        if (m_handle) {
+            CloseHandle(m_handle);
+        }
+    }
 
     ProcessHandle(const ProcessHandle&) = delete;
     ProcessHandle& operator=(const ProcessHandle&) = delete;
     ProcessHandle(ProcessHandle&& other) noexcept : m_handle(std::exchange(other.m_handle, nullptr)) {}
-    ProcessHandle& operator=(ProcessHandle&& other) noexcept {
+    ProcessHandle& operator=(ProcessHandle&& other) noexcept
+    {
         if (this != &other) {
-            if (m_handle) CloseHandle(m_handle);
+            if (m_handle) {
+                CloseHandle(m_handle);
+            }
             m_handle = std::exchange(other.m_handle, nullptr);
         }
         return *this;
     }
 
-    HANDLE get() const { return m_handle; }
-    explicit operator bool() const { return m_handle != nullptr && m_handle != INVALID_HANDLE_VALUE; }
+    HANDLE get() const
+    {
+        return m_handle;
+    }
+    explicit operator bool() const
+    {
+        return m_handle != nullptr && m_handle != INVALID_HANDLE_VALUE;
+    }
 
 private:
     HANDLE m_handle = nullptr;

@@ -34,7 +34,7 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 ## ✨ Features
 
 - **Dashboard** — At-a-glance cards for CPU, memory, disk, network, and uptime, with an overall system status. Choose which cards to show.
-- **Performance charts** — Live charts of CPU (total and per logical processor), memory (in use and committed), disk space used per volume, and network throughput per adapter, each with detailed readouts. Keep up to 1,800 samples of history: 30 minutes at the default refresh interval.
+- **Performance charts** — Live charts of CPU (total and per logical processor), memory (used and committed), disk space used per volume, and network throughput per adapter, each with detailed readouts. Keep up to 1,800 samples of history: 30 minutes at the default refresh interval.
 - **Processes** — Sortable process list with CPU, memory, I/O rate, threads, and handles. Filter by name or PID, or show each process under its parent as a tree. New processes are highlighted, and ended ones are marked before they disappear.
 - **Network view** — Each adapter's type, status, link speed, IPv4 and IPv6 addresses, DNS servers, network name and category, with live send and receive charts. Connectivity level, metered and roaming status update as soon as Windows reports a change. "Show all adapters" also lists the adapters Windows hides.
 - **Process management** — End a process after confirming. Only your own processes that are not elevated can be ended.
@@ -42,6 +42,13 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 - **Sleep and resume** — After the PC wakes up, rates start again from fresh readings instead of averaging over the time it slept.
 
 *Screenshots coming soon — the application is under active development.*
+
+## ⚙️ Settings, log and command line
+
+- **Settings** are saved to `%APPDATA%\Verdandi\settings.json` whenever you change them in File > Settings. Without the file, Verdandi starts with the defaults.
+- **The log** is written to `%LOCALAPPDATA%\Verdandi\verdandi.log`, and rotated at 5 MB.
+- **`--log-level <level>`** logs at `trace`, `debug`, `info`, `warn`, `error`, `critical` or `off` for one run, in place of the level in the settings, without saving it.
+- **`--version`** shows the version and the commit it was built from, as Help > About Verdandi does.
 
 ## 🔨 Building from source
 

@@ -28,9 +28,8 @@ enum class ConnectivityLevel
 /**
  * Snapshot of the system's current network connectivity state.
  * Produced by GetNetworkConnectivityHint (Windows 10 2004+).
- * isMetered reflects the ConnectionCost metered flag; the UI uses this to
- * warn users before triggering network-heavy operations. std::nullopt means
- * the cost could not be determined.
+ * isMetered reflects the ConnectionCost metered flag. std::nullopt means the
+ * cost could not be determined.
  * isRoaming is true when the connection is roaming outside its provider's
  * home network, as mobile broadband can. Windows reports it as part of the
  * connection cost, so it is std::nullopt whenever isMetered is.

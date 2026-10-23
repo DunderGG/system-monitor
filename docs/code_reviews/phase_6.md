@@ -89,7 +89,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Resolved |
 | [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Resolved |
 | [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Resolved |
-| [F-52](#f-52-documentation-out-of-date) | Documentation out of date | Low | Open |
+| [F-52](#f-52-documentation-out-of-date) | Documentation out of date | Low | Resolved |
 | [F-53](#f-53-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
 
 **Open findings from earlier reviews:** none.
@@ -297,6 +297,8 @@ CI's vcpkg cache, without which every job builds the dependencies, is already an
 | `.gitkeep` files remain in two directories that have files | `src/platform/windows/`, `tests/integration/` | Remove them |
 
 **Recommendation:** Fix when convenient, together with the findings that change the same files.
+
+**Status:** Resolved (2026-10-23). Every item is done. [DC-54](../design_decisions.md#dc-54) describes the four views as they are, and why the dashboard and the Processes view apply every snapshot. The architecture marks the WMI and PDH rows as future, gives `domain` the result of ending a process in place of commands, says that a collector that cannot obtain a result returns `std::nullopt` and logs why, and warns of unavailable connectivity notifications rather than probe timeouts. The README's "apply at once" stands, since F-46 made it true; the memory charts are "used and committed", and a new section gives the settings file, the log, `--log-level` and F-50's `--version`. The comments, the guidelines' examples (with `VERDANDI_VERSION`, which F-50 added, and the settings reader's real result type), the rule for the literal namespaces, DC-123's separator, `.editorconfig` and the `.gitkeep` files are corrected as the table says. The guidelines' "network probe timeout", the same stale example, is now a settings file that cannot be read.
 
 ---
 

@@ -95,7 +95,7 @@ Windows integration layer (platform/windows)
   ├─ GetNetworkConnectivityHint                  (connectivity status)
   ├─ INetworkListManager                         (network names, lazy, on its own thread)
   ├─ WM_POWERBROADCAST                           (sleep and resume, through the UI's windows)
-  └─ WMI/CIM one-shot queries at startup only    (hardware inventory)
+  └─ Future: WMI/CIM one-shot queries at startup (hardware inventory)
 ```
 
 ### Core modules
@@ -106,7 +106,7 @@ Windows integration layer (platform/windows)
 | `ui` | Qt Widgets, custom sparkline chart widgets, tables, and view models. Contains no direct Windows API calls. |
 | `monitoring` | Collector interfaces, scheduler, snapshot aggregation, sampling policy, and health evaluation. Metric history uses `domain::RingBuffer`. |
 | `platform/windows` | Narrow wrappers around Windows APIs and conversion into application domain types. Its collectors implement the interfaces in `monitoring/collector.h` (CMake target `verdandi_collector_interfaces`), its only dependency on `monitoring`. |
-| `domain` | Typed metrics, process identity, health state, error types, commands, and the user's settings, plus the `RingBuffer<T>` container for time-series history. Free of Qt and Windows dependencies. |
+| `domain` | Typed metrics, process identity, health state, the result of ending a process, and the user's settings, plus the `RingBuffer<T>` container for time-series history. Free of Qt and Windows dependencies. |
 | `persistence` | The JSON settings file initially; a repository interface and SQLite implementation when durable history is added. Free of Qt and Windows dependencies. |
 | `tests` | Unit and integration tests. |
 
@@ -191,7 +191,7 @@ When the value is costly to read, a notification can instead mark a cache stale,
 ### Data flow
 
 1. The scheduler thread sleeps until the configured interval (default 1 second) has passed since its last tick started, then wakes and calls fast collectors for aggregate CPU, memory, disk, and network samples. A new interval applies to the sleep in progress ([DC-17](design_decisions.md#dc-17)).
-2. Fast collectors obtain data from the Windows integration layer and return typed results, including any access or availability errors.
+2. Fast collectors obtain data from the Windows integration layer and return typed results. A result they cannot obtain is `std::nullopt`, and the collector logs why ([DC-12](design_decisions.md#dc-12), [DC-37](design_decisions.md#dc-37)).
 3. The scheduler merges the latest results from slow collectors (process list, connectivity, network names) with the fresh fast-collector samples into an immutable `SystemSnapshot` timestamped with `std::chrono::steady_clock`.
 4. Bounded ring buffers (`domain::RingBuffer`) retain recent samples for sparkline charts. The dashboard keeps its own short presentation history for its mini sparklines, the Network tab keeps a minute of throughput per adapter, and each Performance tab page keeps the history for its charts; histories needed outside the UI (e.g. for alert rules) may live in `monitoring`.
 5. The scheduler emits the snapshot as a Qt signal. View models receive it via queued connection on the UI thread and update Qt item models.
@@ -230,8 +230,8 @@ When the value is costly to read, a notification can instead mark a cache stale,
 | Process termination | `TerminateProcess` (unelevated processes the current user owns only) |
 | Network profile names | `INetworkListManager` (COM, lazy: after a connectivity change, or once a minute, and at most once a second, on the collector's own thread) |
 | Sleep and resume | `WM_POWERBROADCAST` (`PBT_APMSUSPEND`, `PBT_APMRESUMEAUTOMATIC`), seen by a Qt native event filter on the UI thread |
-| Hardware inventory | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
-| Per-disk I/O rates | PDH (only where no direct Win32 alternative exists) |
+| Hardware inventory (future) | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
+| Per-disk I/O rates (future) | PDH (only where no direct Win32 alternative exists) |
 
 See [`design_decisions.md`](design_decisions.md) for the rationale behind each choice, including why `NtQuerySystemInformation` is preferred over Tool Help, why PDH is avoided for core metrics, and why ETW and WMI are restricted.
 
@@ -280,7 +280,7 @@ Use spdlog through vcpkg. Configure in the `app` module at startup. The log goes
 | `trace` | Sampling timing details, raw API return values. |
 | `debug` | Collector lifecycle, cache hits/misses, thread start/stop, a process denying a details query (routine when unelevated). |
 | `info` | Application startup, settings loaded, connectivity state changes. |
-| `warn` | Process action denied (e.g. termination), counter unavailable, connectivity probe timeout, a value in the settings file that is not used as it stands. |
+| `warn` | Process action denied (e.g. termination), counter unavailable, connectivity notifications unavailable, a value in the settings file that is not used as it stands. |
 | `error` | Collector failure, API error codes, unrecoverable configuration issues. |
 
 Rotate log files by size (5 MB × 3 files). The settings file holds the log level, which `--log-level` replaces for one run without saving it ([DC-127](design_decisions.md#dc-127)).
