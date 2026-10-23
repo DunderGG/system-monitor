@@ -82,7 +82,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 
 | ID | Summary | Severity | Status |
 | --- | --- | --- | --- |
-| [F-45](#f-45-verdandiexe-is-a-console-program-so-every-launch-opens-a-terminal-window) | `verdandi.exe` is a console program, so every launch opens a terminal window | High | Open |
+| [F-45](#f-45-verdandiexe-is-a-console-program-so-every-launch-opens-a-terminal-window) | `verdandi.exe` is a console program, so every launch opens a terminal window | High | Resolved |
 | [F-46](#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends) | A new refresh interval takes effect only when the current interval ends | Medium | Open |
 | [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Open |
 | [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Open |
@@ -121,6 +121,8 @@ No document mentions a console. The console sink dates from Phase 0, which asked
 5. Record the decision (the subsystem, and what became of the console sink) in a design decision.
 
 **Recommendation:** Fix before the release.
+
+**Status:** Resolved (2026-10-23). Items 1 to 5 are done. `dumpbin /headers` reports `2 subsystem (Windows GUI)`, and started with `Start-Process`, the monitor got no `conhost.exe` and closed with exit code 0. The standard-output sink stays and writes only where standard output is redirected; `build.ps1 -Run` pipes it, so the script prints the log and returns when the window closes. In the message box, `--help` is Qt's help, legible though its columns no longer line up; an invalid `--log-level` showed the whole help under an information icon, and now shows an error that names the value. `ApplicationExecutableIntegration.Subsystem_IsWindowsGui` reads the subsystem from the built executable, and [DC-134](../design_decisions.md#dc-134) records the decision.
 
 ---
 

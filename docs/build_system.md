@@ -231,7 +231,9 @@ environment must be initialized as well. `scripts/build.ps1` does this
 automatically (via `Enter-VsDevShell`), so it works from any terminal,
 including VS Code's built-in one. The script builds without launching the
 app; pass `-Run` to launch it after the build, and after the tests when they
-pass. Pass `-Test` to run CTest after the build
+pass. The script then prints the app's log as the app writes it, and returns
+when its window closes ([DC-134](design_decisions.md#dc-134)). Pass `-Test` to
+run CTest after the build
 (`.\scripts\build.ps1 -Test`). Each test executable runs as GoogleTest shards,
 one CTest test per shard (about two per logical processor for
 `verdandi_tests`), and CTest runs one shard per logical processor at a

@@ -27,6 +27,10 @@ inline constexpr std::string_view kApplicationLoggerName = "verdandi";
 /** Returns spdlog's level for level. */
 [[nodiscard]] spdlog::level::level_enum toSpdlogLevel(domain::LogLevel level);
 
+/**
+ * Makes the default logger write at logLevel to logFilePath, rotated at
+ * 5 MB × 3 files, and to standard output when it is redirected.
+ */
 void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::level_enum logLevel);
 
 } // namespace verdandi::app

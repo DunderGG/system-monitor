@@ -113,6 +113,7 @@ add_executable(verdandi_tests
     integration/suspended_child_process.h
     integration/current_process_elevation.h
     integration/app_logging_test.cpp
+    integration/application_executable_test.cpp
     integration/application_manifest_test.cpp
     integration/ip_address_formatting_test.cpp
     integration/settings_file_test.cpp
@@ -129,6 +130,10 @@ set_target_properties(verdandi_tests PROPERTIES
 
 # Shared test builders and harnesses are included as "support/<name>.h".
 target_include_directories(verdandi_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# An integration test reads the application's executable, so it is built first.
+add_dependencies(verdandi_tests verdandi)
+target_compile_definitions(verdandi_tests PRIVATE VERDANDI_APPLICATION_PATH="$<TARGET_FILE:verdandi>")
 
 target_link_libraries(verdandi_tests
     PRIVATE

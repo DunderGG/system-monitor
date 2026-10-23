@@ -22,7 +22,9 @@ VCPKG_ROOT environment variable.
 
 .PARAMETER Run
 Launches the application after a successful build. Without it, the script only
-configures and builds (and tests, with -Test).
+configures and builds (and tests, with -Test). The script prints the
+application's log as it is written and returns when the window closes; the log
+also goes to %LOCALAPPDATA%\Verdandi\verdandi.log.
 
 .PARAMETER Test
 Runs the test suite with CTest after a successful build. Each test executable
@@ -1252,7 +1254,20 @@ try
         throw "The application executable was not found at '$applicationPath'."
     }
 
-    & $applicationPath
+    # verdandi.exe is a GUI program, which has no console (DC-134). Piping its
+    # standard output makes PowerShell wait until the window closes and print
+    # the log as the application writes it. The log is UTF-8, which PowerShell
+    # decodes with the console's output encoding.
+    $previousOutputEncoding = [Console]::OutputEncoding
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    try
+    {
+        & $applicationPath | Out-Host
+    }
+    finally
+    {
+        [Console]::OutputEncoding = $previousOutputEncoding
+    }
 }
 finally
 {

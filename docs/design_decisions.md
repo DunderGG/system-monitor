@@ -131,6 +131,8 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-124](#dc-124): Settings dialog: a window-modal `QDialog` from the File menu, which edits a copy and changes nothing until OK
   - [DC-127](#dc-127): Settings at startup: one file in the roaming folder, read before the logger, applied by `app` and saved on each change
   - [DC-131](#dc-131): The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name
+- [Startup and logging](#startup-and-logging)
+  - [DC-134](#dc-134): `verdandi.exe` is a GUI program, and the log goes to standard output only when that is redirected
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
@@ -1258,6 +1260,23 @@ The settings file and the settings dialog: what the file holds, how it is read a
 
 ---
 
+## Startup and logging
+
+How `verdandi.exe` starts, and where its log goes.
+
+<a id="dc-134"></a>
+### DC-134: `verdandi.exe` is a GUI program, and the log goes to standard output only when that is redirected
+
+**Decision:** `verdandi.exe` is linked for the Windows GUI subsystem, so Windows starts it without a console; Qt's `WinMain` calls `main()`. The logger keeps its standard-output sink beside the file. A GUI program has a standard output only when whoever starts it redirects one, so the sink writes nothing when Explorer starts the monitor, and the whole log when a script pipes it. `build.ps1 -Run` pipes it, so it prints the log in its terminal and returns when the window closes. Qt shows `--help` and command-line errors in a message box, unless standard output is redirected. An integration test reads the subsystem from the built executable's header.
+
+**Rationale:** A console program started from Explorer, the Start menu or a shortcut gets a console window beside its own. Closing that window, or pressing Ctrl+C in it, ends the process through Windows' default handler, since Qt installs none, so the monitor ended without `main()`'s shutdown ([code review F-45](code_reviews/phase_6.md#f-45-verdandiexe-is-a-console-program-so-every-launch-opens-a-terminal-window)). A `--console` option that called `AllocConsole()` was rejected: it would give the developers it serves the same window and the same way of ending the monitor, while a pipe shows them the log in the terminal they built in. Removing the sink would leave them only the file to read. The subsystem is a property of the built file, which no unit test sees.
+
+**Consequences:** Qt lays its help out in columns for a terminal, and the message box's proportional font does not keep them aligned.
+
+**History:** Code review F-45.
+
+---
+
 ## Build and tooling
 
 `build.ps1`, formatting, the Qt build and its plugins, the benchmarks, and the coverage build.
@@ -1607,11 +1626,11 @@ How this file is organized and kept current.
 <a id="dc-116"></a>
 ### DC-116: Entries grouped by topic, in ID order within each topic
 
-**Decision:** The entries are grouped under `##` headings by what they decide, not by the phase that made them: Windows APIs, modules and dependencies, the domain model, the scheduler and collectors, each collector area, charts, the main window and shared UI, each tab and process termination, build and tooling, testing, and this log. A line under each heading says what the topic covers. Within a topic the entries are in ID order, so a new entry goes at the end of its topic. An entry that spans topics goes under the one whose code it mostly decides, and the contents list each entry once. The phase that made an entry, and each change since, are in its **History:** line ([DC-115](#dc-115)).
+**Decision:** The entries are grouped under `##` headings by what they decide, not by the phase that made them: Windows APIs, modules and dependencies, the domain model, the scheduler and collectors, each collector area, charts, the main window and shared UI, each tab and process termination, settings, startup and logging, build and tooling, testing, and this log. A line under each heading says what the topic covers. Within a topic the entries are in ID order, so a new entry goes at the end of its topic. An entry that spans topics goes under the one whose code it mostly decides, and the contents list each entry once. The phase that made an entry, and each change since, are in its **History:** line ([DC-115](#dc-115)).
 
 **Rationale:** A reader comes to this file with a question about one part of the code, not about one phase. Later phases change earlier decisions, so under phase headings one topic's entries were spread out, the connectivity collector's over Phases 2, 4 and 5, and entries made for code-review findings went under whichever heading was near. The phase still leads to the roadmap item or the review behind a decision, so the history line keeps it. ID order needs no judgement beyond the topic, and no entry moves when one is added, whereas a reading order would have to be decided again for every new entry. In one file, links name `design_decisions.md#dc-NN` ([DC-114](#dc-114)), so moving an entry breaks none, and one search covers every decision. Process termination is a topic of its own because its checks in `platform/windows` and its action on the Processes tab are one feature, with an entry each ([DC-87](#dc-87), [DC-88](#dc-88)).
 
-**History:** Maintenance, design decisions.
+**History:** Maintenance, design decisions; code review F-45 (settings, and startup and logging, in the list).
 
 ---
 

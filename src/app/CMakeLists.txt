@@ -79,11 +79,13 @@ target_link_libraries(verdandi_app_power_events
         verdandi_platform_windows
 )
 
-# The manifest sets the process code page to UTF-8 and makes the process
-# per-monitor DPI aware. MSVC merges it with the linker-generated manifest.
-# verdandi_tests and the benchmarks embed the same file. The resource
-# script compiles in the application icon (DC-132).
-qt_add_executable(verdandi
+# WIN32 links a GUI program, which Windows starts without a console window;
+# Qt supplies its WinMain, which calls main() (DC-134). The manifest sets the
+# process code page to UTF-8 and makes the process per-monitor DPI aware.
+# MSVC merges it with the linker-generated manifest. verdandi_tests and the
+# benchmarks embed the same file. The resource script compiles in the
+# application icon (DC-132).
+qt_add_executable(verdandi WIN32
     main.cpp
     verdandi.manifest
     verdandi.rc

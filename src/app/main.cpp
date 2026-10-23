@@ -78,22 +78,30 @@ int main(int argc, char* argv[])
     // %APPDATA%\Verdandi and %LOCALAPPDATA%\Verdandi (DC-131).
     QCoreApplication::setApplicationName("Verdandi");
 
+    // A GUI program has no console, so Qt shows the help and these errors in a
+    // message box, unless standard output is redirected (DC-134).
+    const QString logLevelNames = "trace, debug, info, warn, error, critical, or off";
     QCommandLineParser commandLineParser;
     commandLineParser.setApplicationDescription("A lightweight Windows desktop system monitor");
     commandLineParser.addHelpOption();
     commandLineParser.addOption({
         {"l", "log-level"},
-        "Set the log level for this run, in place of the one in the settings: trace, debug, info, warn, error, "
-        "critical, or off.",
+        QString("Set the log level for this run, in place of the one in the settings: %1.").arg(logLevelNames),
         "level",
     });
     commandLineParser.process(application);
 
     std::optional<verdandi::domain::LogLevel> commandLineLogLevel;
     if (commandLineParser.isSet("log-level")) {
-        commandLineLogLevel = verdandi::app::parseLogLevel(commandLineParser.value("log-level").toStdString());
+        const QString logLevelName = commandLineParser.value("log-level");
+        commandLineLogLevel = verdandi::app::parseLogLevel(logLevelName.toStdString());
         if (!commandLineLogLevel) {
-            commandLineParser.showHelp(EXIT_FAILURE);
+            // Worded as Qt words an unknown option.
+            QCommandLineParser::showMessageAndExit(
+                QCommandLineParser::MessageType::Error,
+                QString("%1: Unknown log level '%2'. Use %3.")
+                    .arg(QCoreApplication::applicationName(), logLevelName, logLevelNames),
+                EXIT_FAILURE);
         }
     }
 

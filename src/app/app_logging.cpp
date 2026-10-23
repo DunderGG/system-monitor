@@ -69,12 +69,15 @@ spdlog::level::level_enum toSpdlogLevel(domain::LogLevel level)
 
 void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::level_enum logLevel)
 {
-    auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    // verdandi.exe is a GUI program, so its standard output is a handle only
+    // when the starter redirects it, as build.ps1 -Run does; without one the
+    // sink writes nothing (DC-134).
+    auto standardOutputSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     auto fileSink =
         std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath.string(), kMaxLogFileSize, kMaxLogFiles);
 
     auto logger = std::make_shared<spdlog::logger>(std::string{kApplicationLoggerName},
-                                                   spdlog::sinks_init_list{consoleSink, fileSink});
+                                                   spdlog::sinks_init_list{standardOutputSink, fileSink});
     logger->set_level(logLevel);
     logger->set_pattern("[%Y-%m-%d %T.%e] [%^%l%$] %v");
     logger->flush_on(spdlog::level::warn);
