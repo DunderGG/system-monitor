@@ -535,4 +535,6 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 ### Issues found while testing
 
-- [ ] Uptime seems incorrect, not sure what it is actually showing. Code review [F-48](docs/code_reviews/phase_6.md#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) explains it: the count starts at the last full boot, and with Fast Startup a shutdown does not end it.
+- [x] Uptime seems incorrect, not sure what it is actually showing. Code review [F-48](docs/code_reviews/phase_6.md#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) explains it: the count starts at the last full boot, and with Fast Startup a shutdown does not end it.
+
+  Done: the dashboard's Uptime card says when the count started, e.g. "Since Windows started, 16 Oct 06:12", in place of "Since last boot". The card and the CPU page's Up time readout have a tooltip that says Restart starts a new count, and that sleep, hibernation and Shut down with Fast Startup on do not ([DC-42](docs/design_decisions.md#dc-42)). The time awake, which F-48 suggests as an optional second readout, is not added.

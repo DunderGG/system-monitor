@@ -74,6 +74,7 @@ DashboardView::DashboardView(QWidget* parent) : QWidget(parent)
     m_networkCard = new ResourceCard("Network", this);
     m_uptimeCard = new ResourceCard("Uptime", this);
     m_uptimeCard->setStatus(std::nullopt); // Uptime has no health dimension.
+    m_uptimeCard->setToolTip(kUptimeToolTip);
 
     m_cpuSparkline = addSparkline(m_cpuCard, charts::kPercentRange);
     m_memorySparkline = addSparkline(m_memoryCard, charts::kPercentRange);
@@ -252,7 +253,14 @@ void DashboardView::showNetworkValue()
 
 void DashboardView::updateUptimeCard(const domain::SystemSnapshot& snapshot)
 {
-    m_uptimeCard->setValue(snapshot.uptime ? formatUptime(*snapshot.uptime) : kNotAvailable, "Since last boot");
+    if (!snapshot.uptime) {
+        m_uptimeCard->setValue(kNotAvailable);
+        return;
+    }
+    // With Fast Startup, Shut down does not start a new count, so the card
+    // says when the count started (DC-42).
+    const auto start = std::chrono::system_clock::now() - *snapshot.uptime;
+    m_uptimeCard->setValue(formatUptime(*snapshot.uptime), formatUptimeStart(start));
 }
 
 ResourceCard* DashboardView::cpuCard() const

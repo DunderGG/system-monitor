@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <optional>
 #include <vector>
@@ -87,6 +88,9 @@ TEST(PerformanceReadouts, CpuReadouts_AllValues)
     EXPECT_EQ(valueOf(readouts, "Threads"), "8,350");
     EXPECT_EQ(valueOf(readouts, "Handles"), "200,157");
     EXPECT_EQ(valueOf(readouts, "Up time"), "2d 2h 3m");
+    const auto upTime = std::ranges::find(readouts, QString("Up time"), &Readout::name);
+    ASSERT_NE(upTime, readouts.end());
+    EXPECT_EQ(upTime->toolTip, kUptimeToolTip);
 }
 
 TEST(PerformanceReadouts, CpuReadouts_MissingData_SameNamesWithNotAvailable)
@@ -100,6 +104,8 @@ TEST(PerformanceReadouts, CpuReadouts_MissingData_SameNamesWithNotAvailable)
     EXPECT_EQ(namesOf(missing), namesOf(full));
     for (const auto& readout : missing) {
         EXPECT_EQ(readout.value, "N/A") << readout.name.toStdString();
+        // A tooltip qualifies a value, and there is none.
+        EXPECT_TRUE(readout.toolTip.isEmpty()) << readout.name.toStdString();
     }
     EXPECT_EQ(valueOf(noSpeed, "Base speed"), "N/A");
     EXPECT_EQ(valueOf(noSpeed, "Handles"), "N/A");

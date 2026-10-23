@@ -85,7 +85,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | [F-45](#f-45-verdandiexe-is-a-console-program-so-every-launch-opens-a-terminal-window) | `verdandi.exe` is a console program, so every launch opens a terminal window | High | Resolved |
 | [F-46](#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends) | A new refresh interval takes effect only when the current interval ends | Medium | Resolved |
 | [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Resolved |
-| [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Open |
+| [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Resolved |
 | [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Open |
 | [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Open |
 | [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Open |
@@ -205,6 +205,8 @@ The machine was shut down and powered on every day. With Fast Startup, which Win
 3. Update DC-42, and close the roadmap's item.
 
 **Recommendation:** Change the wording before the release; the second readout when convenient.
+
+**Status:** Resolved (2026-10-23). Items 1 and 3 are done; item 2, the optional time awake, is not. The dashboard's card says "Since Windows started," and the start, the current time less the uptime, to the minute in local time (`formatUptimeStart()`), and the card and the CPU page's Up time readout have the tooltip `kUptimeToolTip`, which says what starts a new count. The snapshot's comment says the same. [DC-42](../design_decisions.md#dc-42) is rewritten, and the roadmap's item is closed.
 
 ---
 

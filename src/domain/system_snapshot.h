@@ -38,7 +38,8 @@ namespace verdandi::domain
  * disks, networks, networkProfiles, and processes collections, std::nullopt
  * means no data, while an empty vector means the query succeeded and found
  * nothing. networkProfiles are the networks the system is connected to. uptime is
- * the time since the system booted, including time spent in sleep or hibernation.
+ * the time since the system booted, including time spent in sleep or hibernation;
+ * with Fast Startup, Shut down hibernates the system rather than ending the count.
  * health is evaluated by the scheduler from the other fields of this snapshot.
  */
 struct SystemSnapshot

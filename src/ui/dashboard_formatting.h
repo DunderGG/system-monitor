@@ -76,6 +76,20 @@ struct ByteUnit
  */
 [[nodiscard]] QString formatUptime(std::chrono::milliseconds uptime);
 
+/**
+ * Says when the uptime count started, to the minute in local time, e.g.
+ * "Since Windows started, 16 Oct 06:12", in English whatever the locale.
+ */
+[[nodiscard]] QString formatUptimeStart(std::chrono::system_clock::time_point start);
+
+/**
+ * Says what starts a new uptime count and what does not (DC-42), for the
+ * tooltips of the values that show uptime.
+ */
+inline const QString kUptimeToolTip = QStringLiteral(
+    "Counts from when Windows last started. Restart starts a new count. Sleep and hibernation do not, and "
+    "neither does Shut down while Fast Startup is on, because Windows then resumes rather than starts.");
+
 /** Returns the display name of a health level, e.g. "Warning". */
 [[nodiscard]] QString healthLevelText(domain::HealthLevel level);
 

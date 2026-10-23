@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <utility>
@@ -9,6 +10,7 @@
 #include <QLabel>
 #include <QLayout>
 #include <QObject>
+#include <QString>
 
 #include "domain/health_status.h"
 #include "domain/settings.h"
@@ -30,8 +32,10 @@ using verdandi::ui::formatBytes;
 using verdandi::ui::formatNetworkRate;
 using verdandi::ui::formatPercent;
 using verdandi::ui::formatUptime;
+using verdandi::ui::formatUptimeStart;
 using verdandi::ui::healthLevelText;
 using verdandi::ui::kNotAvailable;
+using verdandi::ui::kUptimeToolTip;
 using verdandi::ui::ResourceCard;
 using verdandi::ui::usedMemoryBytes;
 
@@ -174,6 +178,23 @@ TEST(DashboardView, UpdateSnapshot_PopulatesAllCards)
     EXPECT_EQ(dashboard.uptimeCard()->valueText(), formatUptime(*snapshot.uptime));
 }
 
+TEST(DashboardView, UpdateSnapshot_UptimeCardSaysWhenTheCountStarted)
+{
+    DashboardView dashboard;
+    const SystemSnapshot snapshot = populatedSnapshot();
+
+    const auto before = std::chrono::system_clock::now();
+    dashboard.updateSnapshot(snapshot);
+    const auto after = std::chrono::system_clock::now();
+
+    // The count started the uptime before the update, during which a minute may turn.
+    const QString detail = dashboard.uptimeCard()->detailText();
+    EXPECT_TRUE(detail == formatUptimeStart(before - *snapshot.uptime) ||
+                detail == formatUptimeStart(after - *snapshot.uptime))
+        << detail.toStdString();
+    EXPECT_EQ(dashboard.uptimeCard()->toolTip(), kUptimeToolTip);
+}
+
 TEST(DashboardView, UpdateSnapshot_ShowsHealthOnCardsAndOverall)
 {
     DashboardView dashboard;
@@ -197,6 +218,7 @@ TEST(DashboardView, UpdateSnapshot_MissingData_ShowsNotAvailable)
     EXPECT_EQ(dashboard.memoryCard()->valueText(), kNotAvailable);
     EXPECT_EQ(dashboard.diskCard()->valueText(), kNotAvailable);
     EXPECT_EQ(dashboard.uptimeCard()->valueText(), kNotAvailable);
+    EXPECT_TRUE(dashboard.uptimeCard()->detailText().isEmpty()); // No start to show.
     EXPECT_EQ(dashboard.cpuCard()->status(), HealthLevel::Unknown);
 }
 

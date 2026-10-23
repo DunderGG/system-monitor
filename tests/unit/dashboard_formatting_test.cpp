@@ -5,6 +5,10 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <QDate>
+#include <QDateTime>
+#include <QString>
+#include <QTime>
 
 #include "domain/connectivity_status.h"
 #include "domain/disk_sample.h"
@@ -155,6 +159,28 @@ TEST(DashboardFormatting, FormatUptime_UnderOneDay_HoursAndMinutes)
 TEST(DashboardFormatting, FormatUptime_OneDayOrMore_DaysHoursMinutes)
 {
     EXPECT_EQ(formatUptime(std::chrono::hours{3 * 24 + 4} + std::chrono::minutes{12}), "3d 4h 12m");
+}
+
+TEST(DashboardFormatting, FormatUptimeStart_LocalTimeToTheMinute)
+{
+    struct Case
+    {
+        const char* name;
+        QDateTime local;
+        QString expected;
+    };
+    // Local times away from any daylight saving change.
+    const std::vector<Case> cases{
+        {"two-digit day", QDateTime(QDate(2026, 10, 16), QTime(6, 12, 30)), "Since Windows started, 16 Oct 06:12"},
+        {"one-digit day, seconds left out", QDateTime(QDate(2026, 3, 3), QTime(21, 5, 59)),
+         "Since Windows started, 3 Mar 21:05"},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        const std::chrono::system_clock::time_point start{
+            std::chrono::milliseconds{testCase.local.toMSecsSinceEpoch()}};
+        EXPECT_EQ(formatUptimeStart(start), testCase.expected);
+    }
 }
 
 TEST(DashboardFormatting, HealthLevelText_AllLevels)

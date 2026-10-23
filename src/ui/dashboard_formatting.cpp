@@ -5,6 +5,9 @@
 #include <cstddef>
 #include <limits>
 
+#include <QDateTime>
+#include <QTimeZone>
+
 namespace verdandi::ui
 {
 
@@ -121,6 +124,14 @@ QString formatUptime(std::chrono::milliseconds uptime)
         return QString("%1h %2m").arg(hours).arg(minutes);
     }
     return QString("%1m %2s").arg(minutes).arg(secs);
+}
+
+QString formatUptimeStart(std::chrono::system_clock::time_point start)
+{
+    const auto sinceEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(start.time_since_epoch());
+    // QDateTime's own formats name the months in English whatever the locale.
+    const QDateTime local = QDateTime::fromMSecsSinceEpoch(sinceEpoch.count(), QTimeZone::LocalTime);
+    return QString("Since Windows started, %1").arg(local.toString("d MMM HH:mm"));
 }
 
 QString healthLevelText(domain::HealthLevel level)

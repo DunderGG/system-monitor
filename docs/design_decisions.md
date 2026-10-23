@@ -563,11 +563,11 @@ The fast collectors behind the dashboard and the Performance tab.
 <a id="dc-42"></a>
 ### DC-42: System uptime: `GetTickCount64` as a fast collector with an optional snapshot field
 
-**Decision:** `UptimeCollector` returns `std::chrono::milliseconds` from `GetTickCount64` and runs on the scheduler tick as a fast collector. `SystemSnapshot::uptime` is `std::optional<std::chrono::milliseconds>`, empty when no uptime collector is registered.
+**Decision:** `UptimeCollector` returns `std::chrono::milliseconds` from `GetTickCount64` and runs on the scheduler tick as a fast collector. `SystemSnapshot::uptime` is `std::optional<std::chrono::milliseconds>`, empty when no uptime collector is registered. The dashboard's card says when the count started, the current time less the uptime, in local time; the card and the CPU page's readout have a tooltip that says what starts a new count.
 
-**Rationale:** `GetTickCount64` is a trivial, non-failing call with a 64-bit counter, so unlike `GetTickCount` it does not wrap after 49.7 days. Its 10–16 ms resolution is irrelevant for displaying uptime. It counts time spent in sleep and hibernation, which is what users expect from "uptime". `QueryUnbiasedInterruptTime` was rejected because it excludes sleep time. The snapshot field is optional so a missing collector is explicit rather than a zero uptime (per the domain rules). Uptime is computed from a monotonic tick counter, not by subtracting a boot timestamp from wall-clock time, so it is unaffected by clock changes.
+**Rationale:** `GetTickCount64` is a trivial, non-failing call with a 64-bit counter, so unlike `GetTickCount` it does not wrap after 49.7 days. It counts time spent in sleep and hibernation, as Windows' own boot time and Task Manager's Up time do. With Fast Startup, which Windows turns on by default, Shut down hibernates the system and the next power-on resumes it, so the count runs from the last Restart: a user who switched the PC on that morning read "Since last boot" as that morning, and the value as wrong ([code review F-48](code_reviews/phase_6.md#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset)). The start, with its date, shows where the count begins, and the tooltip why. `QueryUnbiasedInterruptTime` was rejected because it excludes sleep time; it answers how long the system has been awake, a question of its own. The snapshot field is optional so a missing collector is explicit rather than a zero uptime. Uptime comes from a monotonic counter rather than from a boot timestamp subtracted from the wall clock, so clock changes do not affect it; only the start shown depends on the wall clock.
 
-**History:** Phase 2, dashboard view.
+**History:** Phase 2, dashboard view; code review F-48 (when the count started, and what starts a new one).
 
 ---
 
