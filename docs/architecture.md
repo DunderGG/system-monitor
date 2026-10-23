@@ -273,7 +273,7 @@ When durable metric history or an event log becomes a feature, add SQLite behind
 
 ## Logging
 
-Use spdlog through vcpkg. Configure in the `app` module at startup. The log goes to `verdandi.log` in `%LOCALAPPDATA%\Verdandi`, and to standard output when that is redirected, as `build.ps1 -Run` does. `verdandi.exe` is a GUI program, so it has no console of its own ([DC-134](design_decisions.md#dc-134)).
+Use spdlog through vcpkg. Configure in the `app` module at startup. The log goes to `verdandi.log` in `%LOCALAPPDATA%\Verdandi`, and to standard output when that is redirected, as `build.ps1 -Run` does. `verdandi.exe` is a GUI program, so it has no console of its own ([DC-134](design_decisions.md#dc-134)). If the file cannot be written, the monitor runs without it and says so once in a message box ([DC-135](design_decisions.md#dc-135)).
 
 | Level | Usage |
 | --- | --- |

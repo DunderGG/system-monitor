@@ -28,6 +28,19 @@ constexpr QSize kDefaultSize{1024, 720};
 // The largest share of the screen's available area the window opens at.
 constexpr double kMaxScreenShare = 0.9;
 
+// Opens a window-modal warning over parent that says text, then the path of
+// the file concerned and the system's reason, and then what follows from it.
+void openFileWarning(QWidget* parent, const QString& title, const QString& text, const QString& path,
+                     const QString& reason, const QString& consequence)
+{
+    auto* box = new QMessageBox(QMessageBox::Warning, title, text, QMessageBox::Ok, parent);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    // The path and the reason come from the system; neither is rich text.
+    box->setTextFormat(Qt::PlainText);
+    box->setInformativeText(QString("%1\n%2\n\n%3").arg(path, reason, consequence));
+    box->open();
+}
+
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
@@ -115,13 +128,14 @@ const domain::Settings& MainWindow::settings() const
 
 void MainWindow::showSettingsNotSaved(const QString& path, const QString& reason)
 {
-    auto* box =
-        new QMessageBox(QMessageBox::Warning, "Settings", "The settings could not be saved.", QMessageBox::Ok, this);
-    box->setAttribute(Qt::WA_DeleteOnClose);
-    // The path and the reason come from the system; neither is rich text.
-    box->setTextFormat(Qt::PlainText);
-    box->setInformativeText(QString("%1\n%2\n\nThe changed settings apply until Verdandi closes.").arg(path, reason));
-    box->open();
+    openFileWarning(this, "Settings", "The settings could not be saved.", path, reason,
+                    "The changed settings apply until Verdandi closes.");
+}
+
+void MainWindow::showLogNotWritten(const QString& path, const QString& reason)
+{
+    openFileWarning(this, "Log", "The log cannot be written.", path, reason,
+                    "Verdandi runs without its log file until it starts again.");
 }
 
 void MainWindow::openSettingsDialog()

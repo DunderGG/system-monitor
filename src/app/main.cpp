@@ -30,8 +30,10 @@ namespace
 // they are destroyed when it returns, before main() shuts the logger down:
 // their teardown can log, and spdlog's free functions dereference the default
 // logger without a check once spdlog::shutdown() has dropped it.
+// logFileProblem is why the log file at logFilePath cannot be written, if it cannot.
 int runMonitor(QApplication& application, const verdandi::domain::Settings& settings,
-               const std::filesystem::path& settingsPath)
+               const std::filesystem::path& settingsPath, const std::filesystem::path& logFilePath,
+               const std::optional<std::string>& logFileProblem)
 {
     verdandi::monitoring::SamplingScheduler scheduler;
     verdandi::app::registerSystemCollectors(scheduler);
@@ -61,6 +63,10 @@ int runMonitor(QApplication& application, const verdandi::domain::Settings& sett
 
     scheduler.start();
     mainWindow.show();
+    if (logFileProblem) {
+        mainWindow.showLogNotWritten(QString::fromStdWString(logFilePath.wstring()),
+                                     QString::fromStdString(*logFileProblem));
+    }
 
     const int exitCode = application.exec();
 
@@ -116,16 +122,21 @@ int main(int argc, char* argv[])
     const verdandi::domain::Settings settings =
         loadedSettings ? loadedSettings->settings : verdandi::domain::Settings{};
 
-    const QString logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    QDir().mkpath(logDirectory);
+    // A log file that cannot be written leaves the log to a redirected
+    // standard output alone, and the window says so once (DC-135).
+    const QString logDirectory =
+        QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
     const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "verdandi.log";
     const verdandi::domain::LogLevel logLevel = commandLineLogLevel.value_or(settings.logLevel);
-    verdandi::app::configureLogging(logFilePath, verdandi::app::toSpdlogLevel(logLevel));
+    const auto logFileProblem = verdandi::app::configureLogging(logFilePath, verdandi::app::toSpdlogLevel(logLevel));
     spdlog::info("Application started with log level '{}' from {}", verdandi::app::logLevelName(logLevel),
                  commandLineLogLevel ? "the --log-level option" : "the settings");
+    if (logFileProblem) {
+        spdlog::error("Log file {} cannot be written: {}", logFilePath.string(), *logFileProblem);
+    }
     verdandi::app::logSettingsRead(settingsPath, loadedSettings);
 
-    const int exitCode = runMonitor(application, settings, settingsPath);
+    const int exitCode = runMonitor(application, settings, settingsPath, logFilePath, logFileProblem);
 
     spdlog::info("Application exited with code {}", exitCode);
     spdlog::shutdown();

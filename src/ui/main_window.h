@@ -58,6 +58,13 @@ public:
      */
     void showSettingsNotSaved(const QString& path, const QString& reason);
 
+    /**
+     * Says in a window-modal message box that the log cannot be written to
+     * the file at path, and why (reason), and that the monitor runs without
+     * it until it starts again. Both are shown as plain text.
+     */
+    void showLogNotWritten(const QString& path, const QString& reason);
+
 signals:
     /** Emitted when the Settings dialog is accepted with settings that differ from the previous settings(). */
     void settingsChanged(const verdandi::domain::Settings& settings);

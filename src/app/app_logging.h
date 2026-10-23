@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include <spdlog/common.h>
@@ -29,8 +30,12 @@ inline constexpr std::string_view kApplicationLoggerName = "verdandi";
 
 /**
  * Makes the default logger write at logLevel to logFilePath, rotated at
- * 5 MB × 3 files, and to standard output when it is redirected.
+ * 5 MB × 3 files, and to standard output when it is redirected. Creates the
+ * file's directory. Returns std::nullopt when the file can be written, and
+ * otherwise why it cannot; the logger then writes to standard output alone
+ * (DC-135).
  */
-void configureLogging(const std::filesystem::path& logFilePath, spdlog::level::level_enum logLevel);
+[[nodiscard]] std::optional<std::string> configureLogging(const std::filesystem::path& logFilePath,
+                                                          spdlog::level::level_enum logLevel);
 
 } // namespace verdandi::app

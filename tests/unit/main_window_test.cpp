@@ -230,6 +230,24 @@ TEST(MainWindow, ShowSettingsNotSaved_WindowModalWarningWithThePathAndTheReasonA
     EXPECT_TRUE(box->informativeText().contains(reason)) << box->informativeText().toStdString();
 }
 
+TEST(MainWindow, ShowLogNotWritten_WindowModalWarningWithThePathAndTheReasonAsPlainText)
+{
+    MainWindow mainWindow;
+    const QString path = "C:\\Users\\<b>me</b>\\verdandi.log";
+    const QString reason = "Cannot open the file for writing";
+
+    mainWindow.showLogNotWritten(path, reason);
+
+    const auto* box = mainWindow.findChild<QMessageBox*>();
+    ASSERT_NE(box, nullptr);
+    EXPECT_TRUE(box->isVisible());
+    EXPECT_EQ(box->windowModality(), Qt::WindowModal);
+    EXPECT_EQ(box->icon(), QMessageBox::Warning);
+    EXPECT_EQ(box->textFormat(), Qt::PlainText);
+    EXPECT_TRUE(box->informativeText().contains(path)) << box->informativeText().toStdString();
+    EXPECT_TRUE(box->informativeText().contains(reason)) << box->informativeText().toStdString();
+}
+
 TEST(MainWindow, ExitAction_ClosesTheWindow)
 {
     MainWindow mainWindow;

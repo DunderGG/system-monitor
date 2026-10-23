@@ -84,7 +84,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | --- | --- | --- | --- |
 | [F-45](#f-45-verdandiexe-is-a-console-program-so-every-launch-opens-a-terminal-window) | `verdandi.exe` is a console program, so every launch opens a terminal window | High | Resolved |
 | [F-46](#f-46-a-new-refresh-interval-takes-effect-only-when-the-current-interval-ends) | A new refresh interval takes effect only when the current interval ends | Medium | Resolved |
-| [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Open |
+| [F-47](#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup) | A log file that cannot be opened ends the monitor at startup | Low | Resolved |
 | [F-48](#f-48-uptime-counts-from-the-last-full-boot-which-fast-startup-does-not-reset) | Uptime counts from the last full boot, which Fast Startup does not reset | Low | Open |
 | [F-49](#f-49-listing-the-tests-still-creates-a-qapplication) | Listing the tests still creates a `QApplication` (Phase 1 code) | Low | Open |
 | [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Open |
@@ -174,6 +174,8 @@ The same happens when `QDir().mkpath()` cannot create `%LOCALAPPDATA%\Verdandi`,
 4. Add an integration test with a read-only log file: `configureLogging()` reports the failure and the default logger still works.
 
 **Recommendation:** Fix before the release; it is a few lines.
+
+**Status:** Resolved (2026-10-23). Items 1 to 4 are done, with the first option of item 1: `configureLogging()` creates the directory and opens the file for appending, as the sink does, before creating the sink, so no exception is caught and no deviation is recorded. Without the file sink it returns why; `main()` logs it, and the main window shows a window-modal warning with the path and the reason, as it does for settings that could not be saved. The directory is created there, with its error checked, in place of `QDir().mkpath()`. Started with the real `verdandi.log` read-only, the monitor opened with that warning, and the file was unchanged. `AppLoggingIntegration.ConfigureLogging_ReadOnlyLogFile_ReportsItAndLogsWithoutTheFile` and `ConfigureLogging_DirectoryCannotBeCreated_ReportsWhy` cover both failures, and [DC-135](../design_decisions.md#dc-135) records the decision, with the microseconds between the check and the sink's open in which the file could still become unwritable.
 
 ---
 

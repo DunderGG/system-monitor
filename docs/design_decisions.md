@@ -133,6 +133,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-131](#dc-131): The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name
 - [Startup and logging](#startup-and-logging)
   - [DC-134](#dc-134): `verdandi.exe` is a GUI program, and the log goes to standard output only when that is redirected
+  - [DC-135](#dc-135): A log file that cannot be written is found before spdlog opens it, and the monitor runs without it
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
@@ -1274,6 +1275,19 @@ How `verdandi.exe` starts, and where its log goes.
 **Consequences:** Qt lays its help out in columns for a terminal, and the message box's proportional font does not keep them aligned.
 
 **History:** Code review F-45.
+
+---
+
+<a id="dc-135"></a>
+### DC-135: A log file that cannot be written is found before spdlog opens it, and the monitor runs without it
+
+**Decision:** `configureLogging()` creates the log's directory and opens the file for appending, as spdlog's file sink opens it, before it creates the sink. If either fails, the logger gets no file sink and writes to standard output alone, and `configureLogging()` returns why. `main()` logs the reason, and the main window says once, in a window-modal message box, that the log cannot be written, where it should be, and why.
+
+**Rationale:** spdlog's rotating file sink opens its file in its constructor and throws when it cannot. Nothing caught the exception, so a read-only `verdandi.log`, a folder that could not be created, or another program holding the file without sharing it ended the monitor in `std::terminate()` before any window appeared, leaving no message anywhere ([code review F-47](code_reviews/phase_6.md#f-47-a-log-file-that-cannot-be-opened-ends-the-monitor-at-startup)). Opening the file first keeps the code free of exceptions, as calling nlohmann/json without them does ([DC-123](#dc-123)); catching spdlog's exception around the sink would have been the code's first `catch`, and spdlog built without exceptions aborts instead. The log helps to diagnose the monitor but is not what it is for, so the monitor runs without it rather than not at all, and says so, because otherwise the log's absence would be found only when it was needed.
+
+**Consequences:** A file that becomes unwritable between the check and the sink's open, microseconds later, still throws.
+
+**History:** Code review F-47.
 
 ---
 
