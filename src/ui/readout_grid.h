@@ -54,7 +54,7 @@ public:
 private:
     void rebuild(const std::vector<Readout>& readouts);
     // Shows toolTip, plain text, on the name and the value of the readout at index.
-    void setToolTip(std::size_t index, const QString& toolTip);
+    void setReadoutToolTip(std::size_t index, const QString& toolTip);
 
     ReadoutLayout* m_layout{nullptr};
     std::vector<QLabel*> m_nameLabels;

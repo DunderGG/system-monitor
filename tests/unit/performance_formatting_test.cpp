@@ -61,12 +61,12 @@ TEST(PerformanceFormatting, ChartNetworkRateAxisTemplates_WidestTextPerUnitInThe
         QStringList expected;
     };
     const std::vector<Case> cases{
-        {"binary bytes", DisplayUnits{}, {"1023 B/s", "1024.0 KiB/s", "1024.0 MiB/s", "1024.0 GiB/s"}},
-        {"decimal bytes", {.bytes = ByteUnits::Decimal}, {"999 B/s", "1000.0 KB/s", "1000.0 MB/s", "1000.0 GB/s"}},
+        {"binary bytes", DisplayUnits{}, {"1023 B/s", "1023.9 KiB/s", "1023.9 MiB/s", "1023.9 GiB/s"}},
+        {"decimal bytes", {.bytes = ByteUnits::Decimal}, {"999 B/s", "999.9 KB/s", "999.9 MB/s", "999.9 GB/s"}},
         // A rate in bits is a multiple of eight, so the widest below 1 Kbps is 992 bps.
         {"bits",
          {.networkRates = NetworkRateUnits::BitsPerSecond},
-         {"992 bps", "1000.0 Kbps", "1000.0 Mbps", "1000.0 Gbps"}},
+         {"992 bps", "999.9 Kbps", "999.9 Mbps", "999.9 Gbps"}},
     };
     for (const auto& testCase : cases) {
         SCOPED_TRACE(testCase.name);

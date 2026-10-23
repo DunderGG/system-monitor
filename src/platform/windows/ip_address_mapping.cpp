@@ -6,6 +6,8 @@
 #include <optional>
 #include <string>
 
+#include "platform/windows/utf8_conversion.h"
+
 namespace verdandi::platform
 {
 
@@ -41,20 +43,20 @@ std::optional<std::string> formatIpAddress(const SOCKADDR* address)
         return std::nullopt;
     }
 
-    std::array<char, INET6_ADDRSTRLEN> text{};
+    std::array<wchar_t, INET6_ADDRSTRLEN> text{};
     if (address->sa_family == AF_INET) {
         const auto* ipv4 = reinterpret_cast<const sockaddr_in*>(address);
-        if (inet_ntop(AF_INET, &ipv4->sin_addr, text.data(), text.size()) == nullptr) {
+        if (InetNtopW(AF_INET, &ipv4->sin_addr, text.data(), text.size()) == nullptr) {
             return std::nullopt;
         }
-        return std::string(text.data());
+        return wideToUtf8(text.data());
     }
     if (address->sa_family == AF_INET6) {
         const auto* ipv6 = reinterpret_cast<const sockaddr_in6*>(address);
-        if (inet_ntop(AF_INET6, &ipv6->sin6_addr, text.data(), text.size()) == nullptr) {
+        if (InetNtopW(AF_INET6, &ipv6->sin6_addr, text.data(), text.size()) == nullptr) {
             return std::nullopt;
         }
-        std::string formatted(text.data());
+        std::string formatted = wideToUtf8(text.data());
         if (IN6_IS_ADDR_LINKLOCAL(&ipv6->sin6_addr) && ipv6->sin6_scope_id != 0) {
             formatted += '%' + std::to_string(ipv6->sin6_scope_id);
         }

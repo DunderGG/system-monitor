@@ -29,6 +29,7 @@ using verdandi::tests::populatedSnapshot;
 using verdandi::ui::connectivityText;
 using verdandi::ui::DashboardView;
 using verdandi::ui::formatBytes;
+using verdandi::ui::formatCoreCount;
 using verdandi::ui::formatNetworkRate;
 using verdandi::ui::formatPercent;
 using verdandi::ui::formatUptime;
@@ -168,7 +169,7 @@ TEST(DashboardView, UpdateSnapshot_PopulatesAllCards)
 
     // The details are the dashboard's own wording around formatted values.
     EXPECT_EQ(dashboard.cpuCard()->valueText(), formatPercent(snapshot.cpu->totalUsagePercent));
-    EXPECT_EQ(dashboard.cpuCard()->detailText(), "4 cores");
+    EXPECT_EQ(dashboard.cpuCard()->detailText(), formatCoreCount(snapshot.cpu->coreCount));
     EXPECT_EQ(dashboard.memoryCard()->valueText(), formatPercent(snapshot.memory->usagePercent));
     EXPECT_EQ(dashboard.memoryCard()->detailText(), "8.0 GiB of 16.0 GiB used");
     EXPECT_EQ(dashboard.diskCard()->valueText(), formatPercent(75.0f));

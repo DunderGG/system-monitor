@@ -147,30 +147,31 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failu
     failureLog.success();
     AdapterDetailsTable table;
     const auto* addresses = reinterpret_cast<const IP_ADAPTER_ADDRESSES*>(buffer.data());
-    for (const IP_ADAPTER_ADDRESSES* curr = addresses; curr != nullptr; curr = curr->Next) {
+    for (const IP_ADAPTER_ADDRESSES* adapter = addresses; adapter != nullptr; adapter = adapter->Next) {
         AdapterDetails details;
-        if (curr->AdapterName) {
-            details.adapterName = curr->AdapterName;
+        if (adapter->AdapterName) {
+            details.adapterName = adapter->AdapterName;
         }
-        if (curr->FriendlyName) {
-            details.friendlyName = wideToUtf8(curr->FriendlyName);
+        if (adapter->FriendlyName) {
+            details.friendlyName = wideToUtf8(adapter->FriendlyName);
         }
-        if (curr->Description) {
-            details.description = wideToUtf8(curr->Description);
+        if (adapter->Description) {
+            details.description = wideToUtf8(adapter->Description);
         }
 
-        for (PIP_ADAPTER_UNICAST_ADDRESS uni = curr->FirstUnicastAddress; uni != nullptr; uni = uni->Next) {
-            if (auto address = formatIpAddress(uni->Address.lpSockaddr)) {
+        for (PIP_ADAPTER_UNICAST_ADDRESS unicast = adapter->FirstUnicastAddress; unicast != nullptr;
+             unicast = unicast->Next) {
+            if (auto address = formatIpAddress(unicast->Address.lpSockaddr)) {
                 details.ipAddresses.push_back(UnicastAddress{
                     .address = std::move(*address),
-                    .state = toAddressState(uni->DadState),
-                    .isTemporary = isTemporaryAddress(uni->SuffixOrigin),
-                    .isLinkLocal = isLinkLocalAddress(uni->Address.lpSockaddr),
+                    .state = toAddressState(unicast->DadState),
+                    .isTemporary = isTemporaryAddress(unicast->SuffixOrigin),
+                    .isLinkLocal = isLinkLocalAddress(unicast->Address.lpSockaddr),
                 });
             }
         }
 
-        for (PIP_ADAPTER_DNS_SERVER_ADDRESS dns = curr->FirstDnsServerAddress; dns != nullptr; dns = dns->Next) {
+        for (PIP_ADAPTER_DNS_SERVER_ADDRESS dns = adapter->FirstDnsServerAddress; dns != nullptr; dns = dns->Next) {
             if (isPlaceholderDnsServer(dns->Address.lpSockaddr)) {
                 continue;
             }
@@ -179,13 +180,13 @@ std::optional<AdapterDetailsTable> queryAdapterDetails(RepeatedFailureLog& failu
             }
         }
 
-        const uint64_t luidKey = curr->Luid.Value;
+        const uint64_t luidKey = adapter->Luid.Value;
         if (luidKey != 0) {
             table.byLuid[luidKey] = std::move(details);
-            table.luidByIfIndex[curr->IfIndex] = luidKey;
-        } else if (curr->IfIndex != 0) {
-            table.luidByIfIndex[curr->IfIndex] = static_cast<uint64_t>(curr->IfIndex);
-            table.byLuid[static_cast<uint64_t>(curr->IfIndex)] = std::move(details);
+            table.luidByIfIndex[adapter->IfIndex] = luidKey;
+        } else if (adapter->IfIndex != 0) {
+            table.luidByIfIndex[adapter->IfIndex] = static_cast<uint64_t>(adapter->IfIndex);
+            table.byLuid[static_cast<uint64_t>(adapter->IfIndex)] = std::move(details);
         }
     }
     return table;
@@ -284,11 +285,11 @@ public:
                 m_hiddenGuids, [&row](const GUID& hidden) { return IsEqualGUID(hidden, row.InterfaceGuid) != FALSE; });
 
             const std::string alias = wideToUtf8(row.Alias);
-            const std::string desc = wideToUtf8(row.Description);
+            const std::string description = wideToUtf8(row.Description);
 
             if (const AdapterDetails* details = detailsTable.find(raw.luid, raw.ifIndex)) {
                 raw.friendlyName = !details->friendlyName.empty() ? details->friendlyName : alias;
-                raw.description = !details->description.empty() ? details->description : desc;
+                raw.description = !details->description.empty() ? details->description : description;
                 raw.adapterName = !raw.friendlyName.empty()
                                       ? raw.friendlyName
                                       : (!details->adapterName.empty() ? details->adapterName : raw.description);
@@ -297,8 +298,8 @@ public:
                 raw.hasIpInterface = true;
             } else {
                 raw.friendlyName = alias;
-                raw.description = desc;
-                raw.adapterName = !alias.empty() ? alias : desc;
+                raw.description = description;
+                raw.adapterName = !alias.empty() ? alias : description;
             }
 
             rawAdapters.push_back(std::move(raw));

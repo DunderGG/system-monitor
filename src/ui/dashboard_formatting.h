@@ -39,6 +39,9 @@ inline const QString kNotAvailable = QStringLiteral("N/A");
 /** Formats a count with comma thousands separators, e.g. "200,157", whatever the locale. */
 [[nodiscard]] QString formatCount(uint64_t count);
 
+/** Formats a number of logical processors for the dashboard's CPU card, e.g. "1 core" or "16 cores". */
+[[nodiscard]] QString formatCoreCount(int coreCount);
+
 /** A unit that byte counts are shown in, such as "KiB" or "MB", and its size in bytes. "B" is one byte. */
 struct ByteUnit
 {
@@ -48,7 +51,9 @@ struct ByteUnit
 
 /**
  * Returns the unit that formatBytes() shows bytes in: the largest of B and
- * the multiples that units names, up to PiB or PB, that is not above bytes.
+ * the multiples that units names, up to PiB or PB, that is not above bytes,
+ * or the next one when bytes rounds to a whole step of it at one decimal, so
+ * that 1,048,575 bytes are "1.0 MiB", not "1024.0 KiB".
  */
 [[nodiscard]] ByteUnit byteUnitFor(uint64_t bytes, domain::ByteUnits units);
 

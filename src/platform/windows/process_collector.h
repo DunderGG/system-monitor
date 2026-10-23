@@ -28,7 +28,7 @@ struct ProcessRateBaseline
     uint64_t cpuTimeMs{0};
     uint64_t ioReadBytes{0};
     uint64_t ioWriteBytes{0};
-    std::chrono::steady_clock::time_point timestamp;
+    std::chrono::steady_clock::time_point timestamp{};
 };
 
 using ProcessRateBaselines =

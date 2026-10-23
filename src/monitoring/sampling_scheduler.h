@@ -12,6 +12,7 @@
 
 #include <QObject>
 
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "monitoring/collector.h"
 #include "monitoring/health_evaluator.h"
@@ -53,7 +54,7 @@ class SamplingScheduler : public QObject
 public:
     static constexpr std::chrono::milliseconds kDefaultSlowInterval{2000};
 
-    explicit SamplingScheduler(std::chrono::milliseconds interval = std::chrono::milliseconds{1000},
+    explicit SamplingScheduler(std::chrono::milliseconds interval = domain::kDefaultRefreshInterval,
                                QObject* parent = nullptr);
     ~SamplingScheduler() override;
 
@@ -183,7 +184,7 @@ private:
     // non-blocking; called from OS notification threads.
     void requestEventRefresh();
 
-    std::chrono::milliseconds m_interval{1000};
+    std::chrono::milliseconds m_interval{domain::kDefaultRefreshInterval};
     std::chrono::milliseconds m_slowInterval{kDefaultSlowInterval};
     std::atomic<bool> m_isRunning{false};
 
@@ -214,8 +215,9 @@ private:
     std::unique_ptr<INetworkProfileCollector> m_networkProfileCollector;
     std::unique_ptr<IUptimeCollector> m_uptimeCollector;
     std::unique_ptr<ISystemActivityCollector> m_systemActivityCollector;
-    HealthThresholds m_healthThresholds;
     std::unique_ptr<IProcessCollector> m_processCollector;
+    // Guarded by m_collectorMutex, like the collectors.
+    HealthThresholds m_healthThresholds{};
 };
 
 } // namespace verdandi::monitoring

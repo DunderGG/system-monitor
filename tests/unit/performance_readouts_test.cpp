@@ -87,10 +87,10 @@ TEST(PerformanceReadouts, CpuReadouts_AllValues)
     EXPECT_EQ(valueOf(readouts, "Processes"), "367");
     EXPECT_EQ(valueOf(readouts, "Threads"), "8,350");
     EXPECT_EQ(valueOf(readouts, "Handles"), "200,157");
-    EXPECT_EQ(valueOf(readouts, "Up time"), "2d 2h 3m");
-    const auto upTime = std::ranges::find(readouts, QString("Up time"), &Readout::name);
-    ASSERT_NE(upTime, readouts.end());
-    EXPECT_EQ(upTime->toolTip, kUptimeToolTip);
+    EXPECT_EQ(valueOf(readouts, "Uptime"), "2d 2h 3m");
+    const auto uptime = std::ranges::find(readouts, QString("Uptime"), &Readout::name);
+    ASSERT_NE(uptime, readouts.end());
+    EXPECT_EQ(uptime->toolTip, kUptimeToolTip);
 }
 
 TEST(PerformanceReadouts, CpuReadouts_MissingData_SameNamesWithNotAvailable)

@@ -34,8 +34,7 @@ namespace verdandi::ui
 
 /**
  * Returns the widest texts formatChartNetworkRate() produces in units, in
- * each unit up to the giga multiple, e.g. "1024.0 MiB/s" or "1000.0 Mbps" (a
- * value just below the next unit rounds up), for
+ * each unit up to the giga multiple, e.g. "1023.9 MiB/s" or "999.9 Mbps", for
  * SparklineWidget::setAxisLabelTemplates(). Throughput charts that share them
  * keep a fixed plot position and line up with each other.
  */

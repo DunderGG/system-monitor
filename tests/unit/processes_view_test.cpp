@@ -22,6 +22,7 @@
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 #include "support/process_samples.h"
 #include "support/snapshots.h"
@@ -84,6 +85,17 @@ TEST(ProcessesView, UpdateSnapshot_WithProcessList_ShowsRowsAndCount)
 
     EXPECT_EQ(view.model()->rowCount(), 2);
     EXPECT_EQ(view.summaryText(), processListSummary(2, true));
+}
+
+TEST(ProcessesView, SetDisplayUnits_GivesTheModelTheByteUnits)
+{
+    ProcessesView view;
+    constexpr DisplayUnits kUnits{.bytes = ByteUnits::Decimal, .networkRates = NetworkRateUnits::BitsPerSecond};
+
+    view.setDisplayUnits(kUnits);
+
+    EXPECT_EQ(view.displayUnits(), kUnits);
+    EXPECT_EQ(view.model()->byteUnits(), ByteUnits::Decimal);
 }
 
 TEST(ProcessesView, UpdateSnapshot_WithoutProcessList_KeepsLastRows)

@@ -38,7 +38,8 @@ struct NamedValueCase
     Settings expected{};
 };
 
-// Every value of every enumeration in the settings file.
+// Every value of every enumeration in the settings file, and one log level:
+// the file gives the levels the names that Settings.LogLevelNames_* checks.
 std::vector<NamedValueCase> namedValueCases()
 {
     return {
@@ -50,13 +51,7 @@ std::vector<NamedValueCase> namedValueCases()
          Settings{.displayUnits = {.networkRates = NetworkRateUnits::BytesPerSecond}}},
         {"network rates in bits", R"({"displayUnits": {"networkRates": "bitsPerSecond"}})",
          Settings{.displayUnits = {.networkRates = NetworkRateUnits::BitsPerSecond}}},
-        {"trace", R"({"logLevel": "trace"})", Settings{.logLevel = LogLevel::Trace}},
-        {"debug", R"({"logLevel": "debug"})", Settings{.logLevel = LogLevel::Debug}},
-        {"info", R"({"logLevel": "info"})", Settings{.logLevel = LogLevel::Info}},
-        {"warn", R"({"logLevel": "warn"})", Settings{.logLevel = LogLevel::Warn}},
-        {"error", R"({"logLevel": "error"})", Settings{.logLevel = LogLevel::Error}},
-        {"critical", R"({"logLevel": "critical"})", Settings{.logLevel = LogLevel::Critical}},
-        {"off", R"({"logLevel": "off"})", Settings{.logLevel = LogLevel::Off}},
+        {"a log level", R"({"logLevel": "critical"})", Settings{.logLevel = LogLevel::Critical}},
     };
 }
 

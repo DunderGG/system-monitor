@@ -85,8 +85,8 @@ inline constexpr qsizetype kToolTipDetailLength = 2000;
  */
 struct ProcessTerminationMessage
 {
-    QString text;
-    QString informativeText;
+    QString text{};
+    QString informativeText{};
 };
 
 /**

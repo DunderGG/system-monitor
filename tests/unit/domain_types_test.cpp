@@ -1,4 +1,6 @@
 #include <chrono>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -148,5 +150,33 @@ TEST(Settings, NearestRefreshInterval_NearestHalfSecondWithinTheLimits)
     for (const auto& testCase : cases) {
         SCOPED_TRACE(testCase.name);
         EXPECT_EQ(nearestRefreshInterval(testCase.interval), testCase.expected);
+    }
+}
+
+TEST(Settings, LogLevelNames_EachLevelAndItsNameBothWays)
+{
+    struct Case
+    {
+        std::string_view name;
+        LogLevel level;
+    };
+    const std::vector<Case> cases{
+        {"trace", LogLevel::Trace}, {"debug", LogLevel::Debug}, {"info", LogLevel::Info},
+        {"warn", LogLevel::Warn},   {"error", LogLevel::Error}, {"critical", LogLevel::Critical},
+        {"off", LogLevel::Off},
+    };
+    for (const auto& testCase : cases) {
+        SCOPED_TRACE(testCase.name);
+        EXPECT_EQ(parseLogLevel(testCase.name), testCase.level);
+        EXPECT_EQ(logLevelName(testCase.level), testCase.name);
+    }
+}
+
+TEST(Settings, ParseLogLevel_OtherNames_Nullopt)
+{
+    // spdlog's own names for some levels, and a name in another case, are not the levels' names.
+    for (const std::string_view name : {"", "Info", "warning", "err", "verbose"}) {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(parseLogLevel(name), std::nullopt);
     }
 }

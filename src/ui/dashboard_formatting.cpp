@@ -32,17 +32,31 @@ const UnitScale& byteScale(domain::ByteUnits units)
     return units == domain::ByteUnits::Decimal ? kDecimalBytes : kBinaryBytes;
 }
 
-// The largest of scale's units that is not above count, and its size in the first unit.
+// The unit count is shown in, and its size in the first unit.
 struct ScaledUnit
 {
     uint64_t size{1};
     const char* name{};
 };
 
+// Returns whether count, shown in the unit of unitSize, reaches the next unit:
+// a whole number of the first unit from step, and one decimal of a larger
+// unit from step - 0.05, which rounds to step.
+bool reachesNextUnit(uint64_t count, uint64_t unitSize, uint64_t step)
+{
+    if (count / unitSize >= step) {
+        return true;
+    }
+    // count is below step units here, so neither product overflows.
+    return unitSize > 1 && 20 * count >= (20 * step - 1) * unitSize;
+}
+
+// The largest of scale's units that count reaches, so that it never shows as
+// a whole step of a smaller one, such as "1024.0 KiB" for 1,048,575 bytes.
 ScaledUnit unitFor(uint64_t count, const UnitScale& scale)
 {
     ScaledUnit unit{.size = 1, .name = scale.names.front()};
-    for (std::size_t index = 1; index < scale.names.size() && count / unit.size >= scale.step; ++index) {
+    for (std::size_t index = 1; index < scale.names.size() && reachesNextUnit(count, unit.size, scale.step); ++index) {
         unit = {.size = unit.size * scale.step, .name = scale.names[index]};
     }
     return unit;
@@ -79,6 +93,11 @@ QString formatCount(uint64_t count)
     return digits;
 }
 
+QString formatCoreCount(int coreCount)
+{
+    return coreCount == 1 ? QString("1 core") : QString("%1 cores").arg(coreCount);
+}
+
 ByteUnit byteUnitFor(uint64_t bytes, domain::ByteUnits units)
 {
     const ScaledUnit unit = unitFor(bytes, byteScale(units));
@@ -108,14 +127,11 @@ QString formatNetworkRate(uint64_t bytesPerSecond, domain::DisplayUnits units)
 
 QString formatUptime(std::chrono::milliseconds uptime)
 {
-    using std::chrono::duration_cast;
-    using std::chrono::seconds;
-
-    const auto totalSeconds = duration_cast<seconds>(uptime).count();
+    const auto totalSeconds = std::chrono::duration_cast<std::chrono::seconds>(uptime).count();
     const auto days = totalSeconds / 86'400;
     const auto hours = (totalSeconds % 86'400) / 3'600;
     const auto minutes = (totalSeconds % 3'600) / 60;
-    const auto secs = totalSeconds % 60;
+    const auto seconds = totalSeconds % 60;
 
     if (days > 0) {
         return QString("%1d %2h %3m").arg(days).arg(hours).arg(minutes);
@@ -123,7 +139,7 @@ QString formatUptime(std::chrono::milliseconds uptime)
     if (hours > 0) {
         return QString("%1h %2m").arg(hours).arg(minutes);
     }
-    return QString("%1m %2s").arg(minutes).arg(secs);
+    return QString("%1m %2s").arg(minutes).arg(seconds);
 }
 
 QString formatUptimeStart(std::chrono::system_clock::time_point start)

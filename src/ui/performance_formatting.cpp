@@ -39,18 +39,21 @@ QString formatChartNetworkRate(float bytesPerSecond, domain::DisplayUnits units)
 
 QStringList chartNetworkRateAxisTemplates(domain::DisplayUnits units)
 {
-    // One byte per second below each unit boundary: the most digits each unit
-    // shows. Bits per second step by 1,000, and 1,000^n bits are 1,000^n / 8 bytes.
+    // The most digits each unit shows: step - 1 of the first unit, and step -
+    // 0.1 of the others, e.g. "1023.9 KiB/s", since from step - 0.05 a rate
+    // shows in the next unit. Bits per second step by 1,000, and are eight per byte.
     constexpr int kUnitCount = 4;
     constexpr uint64_t kBitsPerByte = 8;
+    constexpr uint64_t kTenths = 10;
     const bool inBits = units.networkRates == domain::NetworkRateUnits::BitsPerSecond;
     const uint64_t step = inBits || units.bytes == domain::ByteUnits::Decimal ? 1000 : 1024;
 
     QStringList templates;
-    uint64_t boundary = 1;
+    uint64_t unitSize = 1;
     for (int unit = 0; unit < kUnitCount; ++unit) {
-        boundary *= step;
-        templates.push_back(formatNetworkRate((inBits ? boundary / kBitsPerByte : boundary) - 1, units));
+        const uint64_t widest = unit == 0 ? step - 1 : (kTenths * step - 1) * unitSize / kTenths;
+        templates.push_back(formatNetworkRate(inBits ? widest / kBitsPerByte : widest, units));
+        unitSize *= step;
     }
     return templates;
 }

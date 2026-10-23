@@ -9,6 +9,7 @@
 #include "domain/process_identity.h"
 #include "domain/process_info.h"
 #include "domain/process_termination.h"
+#include "domain/settings.h"
 #include "domain/system_snapshot.h"
 
 class QAction;
@@ -82,6 +83,13 @@ public:
     void setTreeMode(bool enabled);
     [[nodiscard]] bool isTreeMode() const;
 
+    /**
+     * Sets the units of the memory and I/O columns, which show bytes in the
+     * byte units whatever the network rate units (DC-126). Binary until set.
+     */
+    void setDisplayUnits(domain::DisplayUnits units);
+    [[nodiscard]] domain::DisplayUnits displayUnits() const;
+
     [[nodiscard]] ProcessModel* model() const;
     [[nodiscard]] ProcessSortFilterProxyModel* proxyModel() const;
     [[nodiscard]] QTreeView* treeView() const;
@@ -122,6 +130,7 @@ private:
     ProcessTerminator m_terminator;
     std::optional<domain::ProcessIdentity> m_monitorIdentity;
     bool m_hasProcessList{false};
+    domain::DisplayUnits m_displayUnits{};
 };
 
 } // namespace verdandi::ui

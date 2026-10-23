@@ -53,16 +53,14 @@ constexpr std::array kNetworkRateUnitsNames{
     NamedValue<domain::NetworkRateUnits>{"bitsPerSecond", domain::NetworkRateUnits::BitsPerSecond},
 };
 
-// The names that spdlog and the --log-level option give the levels.
-constexpr std::array kLogLevelNames{
-    NamedValue<domain::LogLevel>{"trace", domain::LogLevel::Trace},
-    NamedValue<domain::LogLevel>{"debug", domain::LogLevel::Debug},
-    NamedValue<domain::LogLevel>{"info", domain::LogLevel::Info},
-    NamedValue<domain::LogLevel>{"warn", domain::LogLevel::Warn},
-    NamedValue<domain::LogLevel>{"error", domain::LogLevel::Error},
-    NamedValue<domain::LogLevel>{"critical", domain::LogLevel::Critical},
-    NamedValue<domain::LogLevel>{"off", domain::LogLevel::Off},
-};
+// The levels' names, which the --log-level option gives them too.
+constexpr auto kLogLevelNames = [] {
+    std::array<NamedValue<domain::LogLevel>, domain::kLogLevelNames.size()> names{};
+    std::ranges::transform(domain::kLogLevelNames, names.begin(), [](const domain::LogLevelName& entry) {
+        return NamedValue<domain::LogLevel>{entry.name, entry.level};
+    });
+    return names;
+}();
 
 // A dashboard panel's key in the settings file, and its member of DashboardPanels.
 struct PanelKey

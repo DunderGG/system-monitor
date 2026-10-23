@@ -41,7 +41,7 @@ std::optional<std::string> SettingsService::change(const domain::Settings& setti
     }
     if (settings.logLevel != m_settings.logLevel) {
         spdlog::default_logger()->set_level(toSpdlogLevel(settings.logLevel));
-        spdlog::info("Log level set to '{}'", logLevelName(settings.logLevel));
+        spdlog::info("Log level set to '{}'", domain::logLevelName(settings.logLevel));
     }
     m_settings = settings;
 

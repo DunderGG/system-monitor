@@ -1,7 +1,10 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <optional>
+#include <string_view>
 
 namespace verdandi::domain
 {
@@ -61,6 +64,35 @@ enum class LogLevel
     Critical,
     Off,
 };
+
+/** A log level and its name, as the settings file and the --log-level option give it. */
+struct LogLevelName
+{
+    std::string_view name{};
+    LogLevel level{};
+};
+
+/** Every log level with its name, from Trace to Off. */
+inline constexpr std::array kLogLevelNames{
+    LogLevelName{"trace", LogLevel::Trace}, LogLevelName{"debug", LogLevel::Debug},
+    LogLevelName{"info", LogLevel::Info},   LogLevelName{"warn", LogLevel::Warn},
+    LogLevelName{"error", LogLevel::Error}, LogLevelName{"critical", LogLevel::Critical},
+    LogLevelName{"off", LogLevel::Off},
+};
+
+/** Returns the name of level, e.g. "warn". */
+[[nodiscard]] constexpr std::string_view logLevelName(LogLevel level)
+{
+    const auto entry = std::ranges::find(kLogLevelNames, level, &LogLevelName::level);
+    return entry != kLogLevelNames.end() ? entry->name : std::string_view{};
+}
+
+/** Returns the level that name names, or std::nullopt for any other name, including one in another case. */
+[[nodiscard]] constexpr std::optional<LogLevel> parseLogLevel(std::string_view name)
+{
+    const auto entry = std::ranges::find(kLogLevelNames, name, &LogLevelName::name);
+    return entry != kLogLevelNames.end() ? std::optional{entry->level} : std::nullopt;
+}
 
 /**
  * The shortest and the longest refresh interval a user can choose, the step

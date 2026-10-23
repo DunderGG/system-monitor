@@ -86,7 +86,7 @@ std::vector<Readout> cpuReadouts(const std::optional<domain::CpuSample>& cpu,
         {"Processes", count(&domain::SystemActivitySample::processCount)},
         {"Threads", count(&domain::SystemActivitySample::threadCount)},
         {"Handles", count(&domain::SystemActivitySample::handleCount)},
-        {"Up time", valueOr(uptime, formatUptime), uptime ? kUptimeToolTip : QString{}},
+        {"Uptime", valueOr(uptime, formatUptime), uptime ? kUptimeToolTip : QString{}},
     };
 }
 

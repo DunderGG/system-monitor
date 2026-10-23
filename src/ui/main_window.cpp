@@ -15,7 +15,6 @@
 #include "ui/dashboard_view.h"
 #include "ui/network_view.h"
 #include "ui/performance_view.h"
-#include "ui/process_model.h"
 #include "ui/processes_view.h"
 #include "ui/settings_dialog.h"
 #include "verdandi_version.h"
@@ -138,7 +137,7 @@ void MainWindow::setSettings(const domain::Settings& settings)
     m_dashboardView->setDisplayUnits(settings.displayUnits);
     m_performanceView->setSampleInterval(settings.refreshInterval);
     m_performanceView->setDisplayUnits(settings.displayUnits);
-    m_processesView->model()->setByteUnits(settings.displayUnits.bytes);
+    m_processesView->setDisplayUnits(settings.displayUnits);
     m_networkView->setSampleInterval(settings.refreshInterval);
     m_networkView->setDisplayUnits(settings.displayUnits);
 }
@@ -200,18 +199,10 @@ void MainWindow::onSnapshotReady(const verdandi::domain::SystemSnapshot& snapsho
 {
     // Every view records every snapshot so its history has no holes when it is
     // shown; each view skips repainting its own widgets while it is hidden.
-    if (m_dashboardView != nullptr) {
-        m_dashboardView->updateSnapshot(snapshot);
-    }
-    if (m_performanceView != nullptr) {
-        m_performanceView->updateSnapshot(snapshot);
-    }
-    if (m_processesView != nullptr) {
-        m_processesView->updateSnapshot(snapshot);
-    }
-    if (m_networkView != nullptr) {
-        m_networkView->updateSnapshot(snapshot);
-    }
+    m_dashboardView->updateSnapshot(snapshot);
+    m_performanceView->updateSnapshot(snapshot);
+    m_processesView->updateSnapshot(snapshot);
+    m_networkView->updateSnapshot(snapshot);
 }
 
 } // namespace verdandi::ui

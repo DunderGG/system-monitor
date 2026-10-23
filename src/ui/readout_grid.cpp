@@ -291,7 +291,7 @@ void ReadoutGrid::setReadouts(const std::vector<Readout>& readouts)
             m_valueLabels[index]->setText(readouts[index].value);
         }
         if (m_toolTips[index] != readouts[index].toolTip) {
-            setToolTip(index, readouts[index].toolTip);
+            setReadoutToolTip(index, readouts[index].toolTip);
         }
     }
 }
@@ -361,11 +361,11 @@ void ReadoutGrid::rebuild(const std::vector<Readout>& readouts)
     m_valueLabels = std::move(valueLabels);
     m_toolTips.assign(readouts.size(), QString{});
     for (std::size_t index = 0; index < readouts.size(); ++index) {
-        setToolTip(index, readouts[index].toolTip);
+        setReadoutToolTip(index, readouts[index].toolTip);
     }
 }
 
-void ReadoutGrid::setToolTip(std::size_t index, const QString& toolTip)
+void ReadoutGrid::setReadoutToolTip(std::size_t index, const QString& toolTip)
 {
     m_toolTips[index] = toolTip;
     // A tooltip is rich text when it looks like markup, so plain text is converted.

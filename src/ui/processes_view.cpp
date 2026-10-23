@@ -239,6 +239,17 @@ bool ProcessesView::isTreeMode() const
     return m_model->isTreeMode();
 }
 
+void ProcessesView::setDisplayUnits(domain::DisplayUnits units)
+{
+    m_displayUnits = units;
+    m_model->setByteUnits(units.bytes);
+}
+
+domain::DisplayUnits ProcessesView::displayUnits() const
+{
+    return m_displayUnits;
+}
+
 void ProcessesView::updateSnapshot(const domain::SystemSnapshot& snapshot)
 {
     std::optional<std::size_t> listedCount;

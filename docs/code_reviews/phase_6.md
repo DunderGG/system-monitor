@@ -90,7 +90,7 @@ The architecture needs no change for the release. Two parts of it will have to g
 | [F-50](#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations) | The release build lacks a version, its runtime, symbols and two mitigations | Low | Resolved |
 | [F-51](#f-51-ci-never-builds-release-and-lets-warnings-through) | CI never builds Release and lets warnings through | Low | Resolved |
 | [F-52](#f-52-documentation-out-of-date) | Documentation out of date | Low | Resolved |
-| [F-53](#f-53-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Open |
+| [F-53](#f-53-consistency-and-presentation-items) | Consistency and presentation items | Cosmetic | Resolved |
 
 **Open findings from earlier reviews:** none.
 
@@ -324,6 +324,8 @@ CI's vcpkg cache, without which every job builds the dependencies, is already an
 | The Processes tab's Network column always reads "N/A" until per-process network usage is collected with ETW | `src/ui/process_model.cpp` | Optional: hide the column until it has data (DC-79 chose to show it) |
 
 **Recommendation:** Fix when convenient, in the commits that touch these files for the other findings.
+
+**Status:** Resolved (2026-10-23). Every item but the optional last one is done; the Network column stays, as DC-79 chose. The byte and rate formatters choose the unit after rounding, so 1,048,575 bytes are "1.0 MiB", `byteUnitFor()` gives the same unit, and the charts' gutters are sized for "1023.9 KiB/s" ([DC-126](../design_decisions.md#dc-126)). The CPU card reads "1 core" through `formatCoreCount()`; the CPU page's readout is "Uptime"; `ReadoutGrid`'s private setter is `setReadoutToolTip()`; `formatIpAddress()` calls `InetNtopW`; both per-core queries go through one helper that takes the call; the log levels' names are `domain::kLogLevelNames`, with `domain::logLevelName()` and `parseLogLevel()`, which the settings file, `--log-level` and its help text use; `ProcessesView::setDisplayUnits()` replaces the reach into its model; the null checks, the abbreviations and the missing initializers are gone; and the scheduler takes `domain::kDefaultRefreshInterval`, with `m_healthThresholds` after the collectors that share its mutex.
 
 ---
 

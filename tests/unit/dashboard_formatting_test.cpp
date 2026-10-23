@@ -50,7 +50,14 @@ TEST(DashboardFormatting, FormatCount_GroupsThousands)
     EXPECT_EQ(formatCount(1'234'567), "1,234,567");
 }
 
-TEST(DashboardFormatting, ByteUnitFor_LargestUnitNotAboveTheCount)
+TEST(DashboardFormatting, FormatCoreCount_SingularOnlyForOne)
+{
+    EXPECT_EQ(formatCoreCount(1), "1 core");
+    EXPECT_EQ(formatCoreCount(2), "2 cores");
+    EXPECT_EQ(formatCoreCount(64), "64 cores");
+}
+
+TEST(DashboardFormatting, ByteUnitFor_LargestUnitTheCountReachesAtOneDecimal)
 {
     struct Case
     {
@@ -63,11 +70,14 @@ TEST(DashboardFormatting, ByteUnitFor_LargestUnitNotAboveTheCount)
     const std::vector<Case> cases{
         {"below a KiB", 1023, ByteUnits::Binary, 1, "B"},
         {"a KiB", 1024, ByteUnits::Binary, 1024, "KiB"},
-        {"just below a MiB", 1'048'575, ByteUnits::Binary, 1024, "KiB"},
+        {"the most a KiB shows, 1023.9", 1'048'524, ByteUnits::Binary, 1024, "KiB"},
+        {"rounds to 1024.0 KiB", 1'048'525, ByteUnits::Binary, 1ULL << 20, "MiB"},
         {"16 GiB", 16ULL << 30, ByteUnits::Binary, 1ULL << 30, "GiB"},
         {"beyond the largest", 2048ULL << 50, ByteUnits::Binary, 1ULL << 50, "PiB"},
         {"below a KB", 999, ByteUnits::Decimal, 1, "B"},
         {"a KB", 1000, ByteUnits::Decimal, 1000, "KB"},
+        {"the most a KB shows, 999.9", 999'949, ByteUnits::Decimal, 1000, "KB"},
+        {"rounds to 1000.0 KB", 999'950, ByteUnits::Decimal, 1'000'000, "MB"},
         {"16 GiB in decimal units", 16ULL << 30, ByteUnits::Decimal, 1'000'000'000, "GB"},
     };
     for (const auto& testCase : cases) {
@@ -92,7 +102,7 @@ TEST(DashboardFormatting, FormatBytes_WholeBytesOrOneDecimalOfTheUnit)
         {"below a KiB", 1023, ByteUnits::Binary, "1023 B"},
         {"a KiB", 1024, ByteUnits::Binary, "1.0 KiB"},
         {"a KiB and a half", 1536, ByteUnits::Binary, "1.5 KiB"},
-        {"just below a MiB rounds up", 1'048'575, ByteUnits::Binary, "1024.0 KiB"},
+        {"just below a MiB shows as one", 1'048'575, ByteUnits::Binary, "1.0 MiB"},
         {"16 GiB", 16ULL << 30, ByteUnits::Binary, "16.0 GiB"},
         {"2 TiB", 2ULL << 40, ByteUnits::Binary, "2.0 TiB"},
         {"beyond the largest unit", 2048ULL << 50, ByteUnits::Binary, "2048.0 PiB"},
@@ -134,6 +144,7 @@ TEST(DashboardFormatting, FormatNetworkRate_BytesInTheByteUnitsOrDecimalBits)
         {"no bits", 0, kBinaryBits, "0 bps"},
         {"bits below a Kbps", 100, kBinaryBits, "800 bps"},
         {"a Kbps", 125, kBinaryBits, "1.0 Kbps"},
+        {"just below a Mbps shows as one", 124'994, kBinaryBits, "1.0 Mbps"},
         {"bits whatever the byte units", 1'262'500, kBinaryBits, "10.1 Mbps"},
         {"bits with decimal byte units", 1'262'500, kDecimalBits, "10.1 Mbps"},
         {"a Tbps", 125'000'000'000, kBinaryBits, "1.0 Tbps"},

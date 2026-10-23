@@ -39,9 +39,9 @@ struct SampleExtremum
 struct SeriesSummary
 {
     /** The newest sample; std::nullopt when there are no samples or the newest is a gap. */
-    std::optional<float> current;
-    std::optional<SampleExtremum> minimum;
-    std::optional<SampleExtremum> maximum;
+    std::optional<float> current{};
+    std::optional<SampleExtremum> minimum{};
+    std::optional<SampleExtremum> maximum{};
 };
 
 /**
@@ -227,7 +227,7 @@ public:
     [[nodiscard]] bool areAxisLabelsVisible() const;
 
     /**
-     * Sets texts as wide as the widest Y-axis labels expected, e.g. "1024.0
+     * Sets texts as wide as the widest Y-axis labels expected, e.g. "1023.9
      * MiB/s". The label gutter is at least as wide as the widest of them, so on
      * an auto-ranged chart the plot does not move sideways as the range
      * changes, and charts that share templates line up. A label wider than

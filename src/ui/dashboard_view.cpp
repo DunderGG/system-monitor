@@ -164,8 +164,7 @@ void DashboardView::updateCpuCard(const domain::SystemSnapshot& snapshot)
         return;
     }
     recordSample(m_cpuHistory, m_cpuSparkline, snapshot.cpu->totalUsagePercent);
-    m_cpuCard->setValue(formatPercent(snapshot.cpu->totalUsagePercent),
-                        QString("%1 cores").arg(snapshot.cpu->coreCount));
+    m_cpuCard->setValue(formatPercent(snapshot.cpu->totalUsagePercent), formatCoreCount(snapshot.cpu->coreCount));
 }
 
 void DashboardView::updateMemoryCard(const domain::SystemSnapshot& snapshot)

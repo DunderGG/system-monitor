@@ -1,7 +1,5 @@
 #include "app_logging.h"
 
-#include <algorithm>
-#include <array>
 #include <cassert>
 #include <cstddef>
 #include <format>
@@ -26,31 +24,6 @@ namespace
 constexpr std::size_t kMaxLogFileSize = 5U * 1024U * 1024U;
 constexpr std::size_t kMaxLogFiles = 3U;
 
-// A level's name, as the --log-level option and the settings file give it, and spdlog's level.
-struct LevelEntry
-{
-    std::string_view name{};
-    domain::LogLevel level{};
-    spdlog::level::level_enum spdlogLevel{};
-};
-
-constexpr std::array kLevels{
-    LevelEntry{"trace", domain::LogLevel::Trace, spdlog::level::trace},
-    LevelEntry{"debug", domain::LogLevel::Debug, spdlog::level::debug},
-    LevelEntry{"info", domain::LogLevel::Info, spdlog::level::info},
-    LevelEntry{"warn", domain::LogLevel::Warn, spdlog::level::warn},
-    LevelEntry{"error", domain::LogLevel::Error, spdlog::level::err},
-    LevelEntry{"critical", domain::LogLevel::Critical, spdlog::level::critical},
-    LevelEntry{"off", domain::LogLevel::Off, spdlog::level::off},
-};
-
-const LevelEntry* entryOf(domain::LogLevel level)
-{
-    const auto entry = std::ranges::find(kLevels, level, &LevelEntry::level);
-    assert(entry != kLevels.end() && "every log level has an entry");
-    return entry != kLevels.end() ? &*entry : nullptr;
-}
-
 // Returns why the file at logFilePath cannot be written, after creating its
 // directory, or std::nullopt if it can. spdlog's file sink throws when it
 // cannot open its file, and the project uses no exceptions, so the file is
@@ -74,22 +47,26 @@ std::optional<std::string> logFileProblem(const std::filesystem::path& logFilePa
 
 } // namespace
 
-std::optional<domain::LogLevel> parseLogLevel(std::string_view name)
-{
-    const auto entry = std::ranges::find(kLevels, name, &LevelEntry::name);
-    return entry != kLevels.end() ? std::optional{entry->level} : std::nullopt;
-}
-
-std::string_view logLevelName(domain::LogLevel level)
-{
-    const LevelEntry* entry = entryOf(level);
-    return entry != nullptr ? entry->name : std::string_view{};
-}
-
 spdlog::level::level_enum toSpdlogLevel(domain::LogLevel level)
 {
-    const LevelEntry* entry = entryOf(level);
-    return entry != nullptr ? entry->spdlogLevel : spdlog::level::info;
+    switch (level) {
+        case domain::LogLevel::Trace:
+            return spdlog::level::trace;
+        case domain::LogLevel::Debug:
+            return spdlog::level::debug;
+        case domain::LogLevel::Info:
+            return spdlog::level::info;
+        case domain::LogLevel::Warn:
+            return spdlog::level::warn;
+        case domain::LogLevel::Error:
+            return spdlog::level::err;
+        case domain::LogLevel::Critical:
+            return spdlog::level::critical;
+        case domain::LogLevel::Off:
+            return spdlog::level::off;
+    }
+    assert(false && "every log level has a level in spdlog");
+    return spdlog::level::info;
 }
 
 std::optional<std::string> configureLogging(const std::filesystem::path& logFilePath,
