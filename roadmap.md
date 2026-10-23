@@ -379,6 +379,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 > **Name:** Urd (Old Norse *Urðr*). Verdandi, whose name the monitor takes, is the Norn of the present, "what is happening now"; her sisters are Urd, "what has happened", and Skuld, "what shall be". The history shows the past beside the live views, so it takes the Norn of the past's name, which keeps the feature's name within the app's own story. Urd's well, where the Norns live under the world tree, also suits the store that the history is kept in.
 
+- [ ] Move the histories that the views keep into `monitoring` or behind the store, as [architecture.md](docs/architecture.md#data-flow) allows for histories needed outside the UI, so that a history view reads the recent and the stored samples from one place. Today each view records its own from every snapshot: the dashboard 60 samples per card, the Network tab 60 per adapter, and each Performance page 1,800, the network page with the Network tab's class but a copy of its own ([DC-54](docs/design_decisions.md#dc-54), [DC-61](docs/design_decisions.md#dc-61), [DC-98](docs/design_decisions.md#dc-98)). The [Phase 6 code review](docs/code_reviews/phase_6.md#overall-assessment) noted it. Update the three entries.
 - [ ] Add SQLite via vcpkg behind the `IMetricsStore` interface.
 - [ ] Batch-insert samples every 10–30 seconds on a background thread.
 - [ ] Implement retention policies: downsample older data, expire after configurable duration.
@@ -499,6 +500,7 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 ### Code organization
 
 - [ ] Create a header-only `src/common/` module (`verdandi_common`) for dependency-free utilities shared across modules, and move `RingBuffer<T>` there from `domain`. Trigger: do this when a second general-purpose utility (e.g. a thread-safe latest-value holder for collectors, or shared RAII helpers) needs to be shared across modules, so `domain` stays limited to data types. Update the module rules and architecture module table accordingly.
+- [ ] Let a new kind of collector reach the snapshot with fewer changes. `SamplingScheduler` has a setter, a member and a `SystemSnapshot` field for each kind, so every new metric (GPU, disk activity, battery) changes the scheduler, `SystemSnapshot`, `registerSystemCollectors()` and their tests ([Phase 6 code review](docs/code_reviews/phase_6.md#overall-assessment)). Trigger: decide how before the first of those collectors, and record it in a design decision.
 
 ### DevEnv
 - [x] Add a PowerShell bootstrap script that detects or installs build prerequisites, sets up vcpkg and its binary cache, and verifies the toolchain.
