@@ -154,6 +154,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-138](#dc-138): `THIRD_PARTY_NOTICES.txt` is written from vcpkg's copyright files for the packages whose DLLs ship beside the executable
   - [DC-139](#dc-139): Warnings fail every build, and CI builds and tests Release after Debug in one job
   - [DC-140](#dc-140): CI keeps vcpkg's binary cache in GitHub's cache, pruned to the installed packages and saved only when it changes
+  - [DC-141](#dc-141): CI imports the MSVC environment with `build.ps1 -MsvcEnvironment`, not the `msvc-dev-cmd` action
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1543,6 +1544,17 @@ How `verdandi.exe` starts, and where its log goes.
 **Consequences:** GitHub evicts a cache unused for 7 days, so after a quiet week a run builds every package. After a change to the packages both jobs build them, and each saves a cache.
 
 **History:** Maintenance, CI (the vcpkg cache, after CI run 29).
+
+---
+
+<a id="dc-141"></a>
+### DC-141: CI imports the MSVC environment with `build.ps1 -MsvcEnvironment`, not the `msvc-dev-cmd` action
+
+**Decision:** The `Build and Test` job's `Set up MSVC` step runs `build.ps1 -MsvcEnvironment`, which imports the x64 developer environment as every build of the script does and passes each variable that the import set or changed to the job's later steps through `GITHUB_ENV`, so that the steps that run `cmake` and `ctest` have it. The job no longer uses `ilammy/msvc-dev-cmd`.
+
+**Rationale:** GitHub has deprecated Node.js 20, which `msvc-dev-cmd`'s newest release, v1.13.0, targets. The action has had no commit since March 2024, and two pull requests that move it to Node.js 24 have been open since May 2026. A fork, or a pull request's commit, would trust another publisher with a step that sets the `PATH` of every later step. `build.ps1` already finds an installation with the x64 tools and imports its environment, and the `Coverage` job relied on that, so both jobs and local builds now set up MSVC one way, and the option can be tried outside CI. Rejected: a workflow step that runs `vcvars64.bat` and copies its variables, which would find Visual Studio a second way and could be tried only in CI; and running `build.ps1 -Test` in the job instead of the presets' commands, which would merge configuring, building and testing into one step with one log and one time, while the vcpkg cache's effect is read from the configure steps' times ([DC-140](#dc-140)).
+
+**History:** Maintenance, CI (actions that target Node.js 20, after CI run 29).
 
 ---
 

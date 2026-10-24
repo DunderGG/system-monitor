@@ -145,6 +145,15 @@ PATH, then the Visual Studio LLVM tools, then %ProgramFiles%\LLVM. CI pins major
 version 22; other versions may format differently. In CI a different major
 version is an error; locally it is a warning.
 
+.PARAMETER MsvcEnvironment
+Imports the x64 MSVC developer environment, as every build does, and exits
+without building. In a GitHub Actions job, the script writes each environment
+variable that the import set or changed to GITHUB_ENV, so that the job's later
+steps have the environment; CI's Build and Test job runs cmake and ctest after
+it (DC-141). Elsewhere the variables stay set in the PowerShell session that
+ran the script. When that session already has an x64 developer environment,
+nothing changes. Cannot be combined with other options.
+
 .EXAMPLE
 .\scripts\build.ps1
 
@@ -171,6 +180,9 @@ version is an error; locally it is a warning.
 
 .EXAMPLE
 .\scripts\build.ps1 -CheckFormat
+
+.EXAMPLE
+.\scripts\build.ps1 -MsvcEnvironment
 #>
 [CmdletBinding()]
 param(
@@ -182,7 +194,8 @@ param(
     [switch]$Coverage,
     [string]$CoverageHistoryPath = "",
     [switch]$Format,
-    [switch]$CheckFormat
+    [switch]$CheckFormat,
+    [switch]$MsvcEnvironment
 )
 
 Set-StrictMode -Version Latest
@@ -300,6 +313,10 @@ if ($Coverage -and ($Release -or $Benchmark -or $Run))
 if ($CoverageHistoryPath -ne "" -and -not $Coverage)
 {
     throw "-CoverageHistoryPath needs -Coverage."
+}
+if ($MsvcEnvironment -and ($Run -or $Test -or $Configure -or $Release -or $Benchmark -or $Coverage -or $Format -or $CheckFormat))
+{
+    throw "-MsvcEnvironment cannot be combined with other options."
 }
 $preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark) { "release" } else { "default" }
 $runsTests = $Test -or $Coverage
@@ -775,22 +792,6 @@ if ($Format -or $CheckFormat)
     return
 }
 
-# The CMake presets read this variable to locate vcpkg's CMake toolchain.
-# Check user/machine environment variables if not yet set in the current process.
-if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
-{
-    $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
-    if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
-    {
-        $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "Machine")
-    }
-}
-
-if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
-{
-    throw "VCPKG_ROOT is not set. Run .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment, then open a new PowerShell window."
-}
-
 # Without an initialized x64 MSVC environment, CMake silently falls back to the
 # x86 toolset. vcpkg then targets x86-windows and the build can fail later with
 # confusing linker errors (e.g. LNK1104) instead of a clear message here. Import
@@ -850,6 +851,58 @@ function Import-X64DevShell
     {
         throw "Failed to initialize an x64 MSVC developer environment."
     }
+}
+
+# CI's Build and Test job runs cmake and ctest in steps of their own, which get
+# the environment through GITHUB_ENV (DC-141). It runs before run-vcpkg sets
+# VCPKG_ROOT, which only configuring needs.
+if ($MsvcEnvironment)
+{
+    # A hashtable's keys ignore case, as Windows' variable names do.
+    $previousValues = @{}
+    foreach ($variable in Get-ChildItem Env:)
+    {
+        $previousValues[$variable.Name] = $variable.Value
+    }
+    Import-X64DevShell
+    $changedVariables = @(Get-ChildItem Env: | Where-Object { $previousValues[$_.Name] -cne $_.Value } | Sort-Object Name)
+
+    if ($changedVariables.Count -eq 0)
+    {
+        Write-Host "The x64 MSVC environment was already set; nothing changed."
+    }
+    elseif ([string]::IsNullOrEmpty($env:GITHUB_ENV))
+    {
+        Write-Host "Set $($changedVariables.Count) environment variables for x64 MSVC in this PowerShell session."
+    }
+    else
+    {
+        # The delimiter form passes a value whatever characters it holds.
+        $entries = foreach ($variable in $changedVariables)
+        {
+            $delimiter = "ghadelimiter_$([guid]::NewGuid().ToString('N'))"
+            "$($variable.Name)<<$delimiter`n$($variable.Value)`n$delimiter`n"
+        }
+        [System.IO.File]::AppendAllText($env:GITHUB_ENV, ($entries -join ""), (New-Object System.Text.UTF8Encoding $false))
+        Write-Host "Passed $($changedVariables.Count) environment variables to the job's later steps: $(($changedVariables | ForEach-Object { $_.Name }) -join ', ')."
+    }
+    return
+}
+
+# The CMake presets read this variable to locate vcpkg's CMake toolchain.
+# Check user/machine environment variables if not yet set in the current process.
+if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
+{
+    $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
+    if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
+    {
+        $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "Machine")
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($env:VCPKG_ROOT))
+{
+    throw "VCPKG_ROOT is not set. Run .\scripts\bootstrap.ps1 -InstallMissing -PersistEnvironment, then open a new PowerShell window."
 }
 
 Import-X64DevShell

@@ -300,8 +300,10 @@ stops the script. The script checks native tools by exit code
 rather than stderr output, so redirecting or capturing its output (as CI and
 agents do) cannot turn a CMake warning into a failure. If you invoke `cmake`/`ctest` directly
 instead of going through `build.ps1`, use the **Developer PowerShell for VS 2022**
-or **x64 Native Tools Command Prompt**, or let VS Code's CMake Tools extension select
-an MSVC kit. The `default` preset pins `x64` and explicitly sets `CMAKE_CXX_COMPILER`
+or **x64 Native Tools Command Prompt**, let VS Code's CMake Tools extension select
+an MSVC kit, or first run `.\scripts\build.ps1 -MsvcEnvironment`, which imports
+the x64 environment into the PowerShell session that runs it and builds nothing.
+The `default` preset pins `x64` and explicitly sets `CMAKE_CXX_COMPILER`
 to `cl`, ensuring that CMake never silently falls back to an incompatible compiler
 (such as MinGW GCC) if found on `PATH`.
 
@@ -344,10 +346,14 @@ enough because MSVC also needs its include and library environment variables.
 The GitHub Actions workflow's `Build and Test` job runs the same three preset
 commands for the `default` preset and then for `release`, the configuration
 that ships, whose configure restores from vcpkg's binary cache the packages
-that the first restored or built ([DC-139](design_decisions.md#dc-139)). It initializes
-the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
-by this repository. The checked-in presets, manifest, and baseline therefore
-keep developer and CI dependency resolution aligned.
+that the first restored or built ([DC-139](design_decisions.md#dc-139)). Its
+`Set up MSVC` step runs `.\scripts\build.ps1 -MsvcEnvironment`, which imports
+the x64 MSVC environment as every build of the script does and writes each
+variable that the import set or changed to `GITHUB_ENV`, so that the steps
+that run `cmake` and `ctest` have it ([DC-141](design_decisions.md#dc-141)).
+The job then uses `run-vcpkg` to set up the vcpkg commit pinned by this
+repository. The checked-in presets, manifest, and baseline therefore keep
+developer and CI dependency resolution aligned.
 
 That job and the `Coverage` job keep vcpkg's binary cache in GitHub's cache
 ([DC-140](design_decisions.md#dc-140)). Each restores the newest cache that
@@ -369,7 +375,7 @@ A `Coverage` job runs `.\scripts\build.ps1 -Coverage` on each push to `main`
 and each pull request, and keeps the history of the runs on `main` on the
 `gh-pages` branch, which GitHub Pages serves at
 <https://dundergg.github.io/verdandi/>
-([DC-121](design_decisions.md#dc-121)). It has no `msvc-dev-cmd` step: the
+([DC-121](design_decisions.md#dc-121)). It has no `Set up MSVC` step: the
 script imports the developer environment of a Visual Studio installation with
 "C++ Clang tools for Windows", which the `windows-latest` runner's has (on
 2026-10-18, Windows Server 2025 with Visual Studio Enterprise 2026 18.10). Its

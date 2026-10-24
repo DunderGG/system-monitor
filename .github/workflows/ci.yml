@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # setup-python puts its Scripts directory first on PATH, so the pinned
       # clang-format below is found before the one preinstalled on the runner.
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -52,12 +52,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Imports the x64 MSVC environment as build.ps1's own builds do, and
+      # passes it to the steps below, which run cmake and ctest (DC-141).
       - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
-        with:
-          arch: amd64
+        shell: powershell
+        run: .\scripts\build.ps1 -MsvcEnvironment
 
       # The key never matches, so the prefix finds the newest saved cache.
       - name: Restore the vcpkg packages
@@ -145,7 +146,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The build and the tests run without the token in .git/config.
           persist-credentials: false
@@ -164,8 +165,8 @@ jobs:
         id: use-vcpkg-packages
         run: .\scripts\vcpkg_cache.ps1 -Prepare -CacheDirectory "$env:RUNNER_TEMP\vcpkg-binary-cache"
 
-      # No msvc-dev-cmd: build.ps1 imports the MSVC environment itself, from a
-      # Visual Studio installation that has the C++ Clang tools.
+      # No Set up MSVC step: build.ps1 imports the MSVC environment itself, from
+      # a Visual Studio installation that has the C++ Clang tools.
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
         with:
@@ -206,7 +207,7 @@ jobs:
 
       - name: Upload the dashboard
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-dashboard
           path: |
