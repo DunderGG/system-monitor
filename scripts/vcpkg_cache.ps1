@@ -65,15 +65,16 @@ $CacheDirectory = [System.IO.Path]::GetFullPath($ExecutionContext.SessionState.P
 # archives.
 $restoredListPath = "$CacheDirectory.restored.txt"
 
-# Returns the archives in the cache directory, where vcpkg keeps each in a
-# subdirectory named by the first two characters of its ABI hash.
+# Writes the archives in the cache directory, where vcpkg keeps each in a
+# subdirectory named by the first two characters of its ABI hash. PowerShell
+# unrolls a function's output, so that no archive comes back as $null and one
+# as that archive: call it as @(Get-Archive), whose Count strict mode allows.
 function Get-Archive
 {
-    if (-not (Test-Path -LiteralPath $CacheDirectory))
+    if (Test-Path -LiteralPath $CacheDirectory)
     {
-        return @()
+        Get-ChildItem -LiteralPath $CacheDirectory -Recurse -File -Filter "*.zip"
     }
-    return @(Get-ChildItem -LiteralPath $CacheDirectory -Recurse -File -Filter "*.zip")
 }
 
 function Format-ArchiveCount
@@ -109,7 +110,7 @@ if ($Prepare)
     }
 
     New-Item -ItemType Directory -Force -Path $CacheDirectory | Out-Null
-    $archives = Get-Archive
+    $archives = @(Get-Archive)
     [System.IO.File]::WriteAllLines($restoredListPath, [string[]]@($archives | ForEach-Object { $_.Name }), $utf8)
     if ($archives.Count -eq 0)
     {
@@ -181,7 +182,7 @@ if (Test-Path -LiteralPath $BuildDirectory)
     }
 }
 
-$archives = Get-Archive
+$archives = @(Get-Archive)
 $added = @($archives | Where-Object { -not $restored.Contains($_.Name) })
 $removed = @()
 if ($used.Count -eq 0)
@@ -200,7 +201,7 @@ $changed = $added.Count -gt 0 -or $removed.Count -gt 0
 
 Write-Host "vcpkg added $(Format-ArchiveCount $added)."
 Write-Host "Removed $(Format-ArchiveCount $removed) that no installed package uses."
-$kept = Get-Archive
+$kept = @(Get-Archive)
 if ($changed)
 {
     Write-Host "The cache now holds $(Format-ArchiveCount $kept), to be saved."
