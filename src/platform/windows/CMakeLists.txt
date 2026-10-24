@@ -17,8 +17,12 @@ add_library(verdandi_platform_windows STATIC
     current_process.h
     disk_collector.cpp
     disk_collector.h
+    foreground_window.cpp
+    foreground_window.h
     hidden_adapters.cpp
     hidden_adapters.h
+    instance_mutex.cpp
+    instance_mutex.h
     ip_address_mapping.cpp
     ip_address_mapping.h
     memory_collector.cpp
@@ -55,6 +59,8 @@ add_library(verdandi_platform_windows STATIC
     system_process_information.h
     system_process_information_reader.cpp
     system_process_information_reader.h
+    token_information.cpp
+    token_information.h
     unicast_address.h
     uptime_collector.cpp
     uptime_collector.h

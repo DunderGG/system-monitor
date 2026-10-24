@@ -70,6 +70,13 @@ public:
      */
     void showLogNotWritten(const QString& path, const QString& reason);
 
+    /**
+     * Shows the window, restores it if it is minimized, maximized again if it
+     * was, raises it and activates it, which brings it to the front if the
+     * system lets this process take the foreground (DC-142).
+     */
+    void bringToFront();
+
 signals:
     /** Emitted when the Settings dialog is accepted with settings that differ from the previous settings(). */
     void settingsChanged(const verdandi::domain::Settings& settings);

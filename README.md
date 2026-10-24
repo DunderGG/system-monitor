@@ -36,6 +36,7 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 - **Process management** — End a process after confirming. Only your own processes that are not elevated can be ended.
 - **Settings** — Set the refresh interval (0.5 to 10 seconds), byte units (KiB or KB), network throughput in bytes or bits per second, the dashboard's cards, and the log level from File > Settings. Changes apply at once and are saved.
 - **Sleep and resume** — After the PC wakes up, rates start again from fresh readings instead of averaging over the time it slept.
+- **One window** — Starting Verdandi while it runs brings its window to the front, restored if it was minimized, instead of opening a second one.
 
 *Screenshots coming soon — the application is under active development.*
 
@@ -43,7 +44,7 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 
 - **Settings** are saved to `%APPDATA%\Verdandi\settings.json` whenever you change them in File > Settings. Without the file, Verdandi starts with the defaults.
 - **The log** is written to `%LOCALAPPDATA%\Verdandi\verdandi.log`, and rotated at 5 MB.
-- **`--log-level <level>`** logs at `trace`, `debug`, `info`, `warn`, `error`, `critical` or `off` for one run, in place of the level in the settings, without saving it.
+- **`--log-level <level>`** logs at `trace`, `debug`, `info`, `warn`, `error`, `critical` or `off` for one run, in place of the level in the settings, without saving it. While Verdandi runs, a new start brings its window to the front and does not use the option.
 - **`--version`** shows the version and the commit it was built from, as Help > About Verdandi does.
 
 ## 🔨 Building from source

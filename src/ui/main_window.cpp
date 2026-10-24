@@ -159,6 +159,16 @@ void MainWindow::showLogNotWritten(const QString& path, const QString& reason)
                     "Verdandi runs without its log file until it starts again.");
 }
 
+void MainWindow::bringToFront()
+{
+    // Clearing the minimized state alone keeps a maximized window maximized,
+    // which showNormal() would not.
+    setWindowState(windowState() & ~Qt::WindowMinimized);
+    show();
+    raise();
+    activateWindow();
+}
+
 void MainWindow::openSettingsDialog()
 {
     auto* dialog = new SettingsDialog(m_settings, this);

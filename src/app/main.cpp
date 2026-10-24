@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
@@ -12,12 +13,14 @@
 
 #include "app_logging.h"
 #include "domain/settings.h"
+#include "instance_server.h"
 #include "monitoring/sampling_scheduler.h"
 #include "persistence/settings_file.h"
 #include "platform/windows/current_process.h"
 #include "platform/windows/process_terminator.h"
 #include "power_event_filter.h"
 #include "settings_service.h"
+#include "single_instance.h"
 #include "system_collectors.h"
 #include "ui/main_window.h"
 #include "ui/processes_view.h"
@@ -45,10 +48,11 @@ QString logLevelNameList()
 // they are destroyed when it returns, before main() shuts the logger down:
 // their teardown can log, and spdlog's free functions dereference the default
 // logger without a check once spdlog::shutdown() has dropped it.
-// logFileProblem is why the log file at logFilePath cannot be written, if it cannot.
+// logFileProblem is why the log file at logFilePath cannot be written, if it
+// cannot. instanceClaim holds the instance mutex, if this process created it.
 int runMonitor(QApplication& application, const verdandi::domain::Settings& settings,
                const std::filesystem::path& settingsPath, const std::filesystem::path& logFilePath,
-               const std::optional<std::string>& logFileProblem)
+               const std::optional<std::string>& logFileProblem, const verdandi::app::InstanceClaim& instanceClaim)
 {
     verdandi::monitoring::SamplingScheduler scheduler;
     verdandi::app::registerSystemCollectors(scheduler);
@@ -75,6 +79,17 @@ int runMonitor(QApplication& application, const verdandi::domain::Settings& sett
                                                              QString::fromStdString(*error));
                          }
                      });
+
+    // Later starts ask through a server named after the mutex to bring the
+    // window to the front (DC-142). Declared after the window, so that it
+    // stops listening when this function returns, before the window is
+    // destroyed; a later start then waits for the mutex.
+    verdandi::app::InstanceServer instanceServer([&mainWindow] { mainWindow.bringToFront(); });
+    if (instanceClaim.mutex) {
+        if (const auto problem = instanceServer.listen(QString::fromStdString(instanceClaim.mutex->name()))) {
+            spdlog::warn("Later starts of Verdandi cannot bring this window to the front: {}", *problem);
+        }
+    }
 
     scheduler.start();
     mainWindow.show();
@@ -130,6 +145,27 @@ int main(int argc, char* argv[])
         }
     }
 
+    // One monitor runs for each user in each logon session, since two would
+    // share the settings and the log (DC-142). A later start asks the running
+    // one to bring its window to the front and exits, before it reads the
+    // settings or opens the log, and without using its options. instanceClaim
+    // holds the mutex until main() returns, after the log has been closed.
+    const verdandi::app::InstanceClaim instanceClaim = verdandi::app::claimSingleInstance(
+        QCoreApplication::applicationName().toStdString(), verdandi::app::kRunningInstanceTimeout);
+    if (instanceClaim.result == verdandi::app::InstanceClaimResult::BroughtToFront) {
+        // The default logger writes to standard output alone, if it is redirected (DC-134).
+        spdlog::info("Verdandi is already running, and brought its window to the front");
+        return EXIT_SUCCESS;
+    }
+    if (instanceClaim.result == verdandi::app::InstanceClaimResult::NotAnswered) {
+        QCommandLineParser::showMessageAndExit(
+            QCommandLineParser::MessageType::Error,
+            QString("Verdandi is already running, but did not respond within %1 seconds. If its window does not "
+                    "appear, end Verdandi in Task Manager and start it again.")
+                .arg(std::chrono::duration_cast<std::chrono::seconds>(verdandi::app::kRunningInstanceTimeout).count()),
+            EXIT_FAILURE);
+    }
+
     // The settings are read before the logger is configured, because they hold
     // its level; what reading them found is logged once it is (DC-127). They
     // roam with the user's profile, as Windows keeps settings, and the log
@@ -155,8 +191,12 @@ int main(int argc, char* argv[])
         spdlog::error("Log file {} cannot be written: {}", logFilePath.string(), *logFileProblem);
     }
     verdandi::app::logSettingsRead(settingsPath, loadedSettings);
+    if (instanceClaim.result == verdandi::app::InstanceClaimResult::Unchecked) {
+        spdlog::warn("Cannot tell whether Verdandi is already running, so this one runs regardless: {}",
+                     instanceClaim.problem);
+    }
 
-    const int exitCode = runMonitor(application, settings, settingsPath, logFilePath, logFileProblem);
+    const int exitCode = runMonitor(application, settings, settingsPath, logFilePath, logFileProblem, instanceClaim);
 
     spdlog::info("Application exited with code {}", exitCode);
     spdlog::shutdown();

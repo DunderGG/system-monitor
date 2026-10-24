@@ -268,6 +268,19 @@ TEST(MainWindow, AboutAction_WindowModalBoxWithTheVersionAndALinkToTheThirdParty
     EXPECT_TRUE(box->informativeText().contains(notices)) << box->informativeText().toStdString();
 }
 
+TEST(MainWindow, BringToFront_HiddenMinimizedMaximizedWindow_ShowsItMaximized)
+{
+    MainWindow mainWindow;
+    mainWindow.setAttribute(Qt::WA_DontShowOnScreen);
+    mainWindow.setWindowState(Qt::WindowMinimized | Qt::WindowMaximized);
+
+    mainWindow.bringToFront();
+
+    EXPECT_TRUE(mainWindow.isVisible());
+    EXPECT_FALSE(mainWindow.isMinimized());
+    EXPECT_TRUE(mainWindow.isMaximized());
+}
+
 TEST(MainWindow, ExitAction_ClosesTheWindow)
 {
     MainWindow mainWindow;

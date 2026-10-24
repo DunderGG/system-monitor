@@ -1,5 +1,5 @@
 find_package(GTest CONFIG REQUIRED)
-find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Network Widgets)
 find_package(spdlog CONFIG REQUIRED)
 
 # Each test executable runs as GoogleTest shards, one CTest test per shard,
@@ -119,6 +119,7 @@ add_executable(verdandi_tests
     integration/settings_file_test.cpp
     integration/settings_service_test.cpp
     integration/power_event_filter_test.cpp
+    integration/single_instance_test.cpp
     # Same manifest as the app, so tests run with its UTF-8 process code page
     # and its DPI awareness.
     ${PROJECT_SOURCE_DIR}/src/app/verdandi.manifest
@@ -143,12 +144,14 @@ target_link_libraries(verdandi_tests
         verdandi_app_logging
         verdandi_app_power_events
         verdandi_app_settings
+        verdandi_app_single_instance
         verdandi_domain
         verdandi_monitoring
         verdandi_persistence
         verdandi_platform_windows
         verdandi_ui
         Qt6::Core
+        Qt6::Network
         Qt6::Widgets
         spdlog::spdlog
         verdandi_version

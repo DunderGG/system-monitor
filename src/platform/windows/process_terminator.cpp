@@ -15,6 +15,7 @@
 #include "platform/windows/process_access_policy.h"
 #include "platform/windows/process_elevation.h"
 #include "platform/windows/process_handle.h"
+#include "platform/windows/token_information.h"
 
 namespace verdandi::platform
 {
@@ -113,32 +114,6 @@ CheckedHandle openChecked(const domain::ProcessInfo& process, DWORD access)
         return {.failure = notTerminated(process, ProcessTerminationResult::AlreadyExited, "it has already exited")};
     }
     return {.handle = std::move(handle)};
-}
-
-// Reads token information whose size varies, such as TOKEN_USER, into storage
-// aligned for it. Returns std::nullopt if GetTokenInformation fails;
-// GetLastError() then says why.
-std::optional<std::vector<uint64_t>> readTokenInformation(HANDLE token, TOKEN_INFORMATION_CLASS infoClass)
-{
-    DWORD size = 0;
-    if (!::GetTokenInformation(token, infoClass, nullptr, 0, &size) && ::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-        return std::nullopt;
-    }
-
-    std::vector<uint64_t> buffer((size + sizeof(uint64_t) - 1) / sizeof(uint64_t));
-    if (!::GetTokenInformation(token, infoClass, buffer.data(), size, &size)) {
-        return std::nullopt;
-    }
-    return buffer;
-}
-
-// The user SID in a TOKEN_USER that readTokenInformation() read. It points
-// into the buffer, so it is valid as long as the buffer is.
-PSID userSid(const std::vector<uint64_t>& tokenUser)
-{
-    TOKEN_USER header{};
-    std::memcpy(&header, tokenUser.data(), sizeof(header));
-    return header.User.Sid;
 }
 
 // The integrity level in a TOKEN_MANDATORY_LABEL that readTokenInformation()

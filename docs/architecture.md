@@ -230,6 +230,7 @@ When the value is costly to read, a notification can instead mark a cache stale,
 | Process termination | `TerminateProcess` (unelevated processes the current user owns only) |
 | Network profile names | `INetworkListManager` (COM, lazy: after a connectivity change, or once a minute, and at most once a second, on the collector's own thread) |
 | Sleep and resume | `WM_POWERBROADCAST` (`PBT_APMSUSPEND`, `PBT_APMRESUMEAUTOMATIC`), seen by a Qt native event filter on the UI thread |
+| Single instance | `CreateMutexW` in the `Local\` namespace, named with `ProcessIdToSessionId` and the user's SID (`GetTokenInformation(TokenUser)`, `ConvertSidToStringSidW`); `AllowSetForegroundWindow` for the PID that `GetNamedPipeServerProcessId` returns |
 | Hardware inventory (future) | WMI `Win32_ComputerSystem` / `Win32_Processor` (startup only) |
 | Per-disk I/O rates (future) | PDH (only where no direct Win32 alternative exists) |
 
@@ -286,6 +287,12 @@ Use spdlog through vcpkg. Configure in the `app` module at startup. The log goes
 Rotate log files by size (5 MB × 3 files). The settings file holds the log level, which `--log-level` replaces for one run without saving it ([DC-127](design_decisions.md#dc-127)).
 
 Shut the logger down last. `main()` destroys the window, the scheduler and the collectors before it calls `spdlog::shutdown()`, because their teardown can log, and once the default logger has been dropped a log call dereferences a null pointer.
+
+## Single instance
+
+One monitor runs for each user in each logon session, because two would share the log and the settings file ([DC-142](design_decisions.md#dc-142)). Before `main()` reads the settings or opens the log, `app::claimSingleInstance()` creates a named mutex in the session's namespace (`platform::InstanceMutex`), named after the session and the user's SID. The process that creates it is the monitor. Once its window exists, `app::InstanceServer` listens on a `QLocalServer` of the same name, which only the user may open.
+
+A later start finds the mutex and connects to the server. It passes on its permission to take the foreground (`platform::allowPipeServerToSetForegroundWindow()`), without which Windows would only flash the window's taskbar button, and asks for the window. On the UI thread, the monitor restores and activates its window (`MainWindow::bringToFront()`) and answers, and the later start exits without writing to the log file. While the monitor is starting or closing, the later start tries again for up to 5 seconds, and runs once the mutex is gone; after that it says in a message box that Verdandi did not respond. The mutex lives until `main()` returns, after the logger has shut down.
 
 ## Elevation and security
 
@@ -352,6 +359,7 @@ Use GoogleTest and structure code so operating-system calls are behind interface
 | Unbounded memory or disk usage | Use fixed-size in-memory ring buffers and explicit persistence retention/downsampling policies. |
 | Excessive privilege or security risk | Run unelevated by default. Only request `PROCESS_QUERY_LIMITED_INFORMATION`, except that termination adds `PROCESS_TERMINATE` for unelevated processes the current user owns. Never open `lsass.exe` or `csrss.exe` handles. |
 | Antivirus/EDR false positives | Avoid dangerous access masks, sensitive process handles, API hooking, and process injection. Sign binaries. |
+| Two instances truncate the shared log and race to save the settings | Run one instance for each user in each logon session; a later start brings the running window to the front and exits. |
 | Sleep/hibernate causes rate calculation errors | Pause sampling on `WM_POWERBROADCAST`'s suspend event. On resume, reset the rate baselines and discard the first sample. |
 | WMI service not running or repository corrupted | The monitor queries no WMI; every metric comes from a direct Win32 API. A future hardware inventory may query WMI once at startup, and must work without it. |
 | Qt event loop starvation | Emit one snapshot per refresh interval, at most two a second. Batch model updates. Snapshots are queued without back-pressure, so profiling on a lower-end system checks that the UI keeps up at 0.5 s. |

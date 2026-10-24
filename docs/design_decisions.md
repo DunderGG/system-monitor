@@ -134,6 +134,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
 - [Startup and logging](#startup-and-logging)
   - [DC-134](#dc-134): `verdandi.exe` is a GUI program, and the log goes to standard output only when that is redirected
   - [DC-135](#dc-135): A log file that cannot be written is found before spdlog opens it, and the monitor runs without it
+  - [DC-142](#dc-142): One instance for each user in each logon session, decided by a named mutex, and a local server that brings the running window to the front
 - [Build and tooling](#build-and-tooling)
   - [DC-23](#dc-23): Formatting enforced with a pinned clang-format and the existing house style
   - [DC-62](#dc-62): `build.ps1`: launch only with `-Run`, configure only when needed, and parallel tests
@@ -1271,7 +1272,7 @@ The settings file and the settings dialog: what the file holds, how it is read a
 
 ## Startup and logging
 
-How `verdandi.exe` starts, and where its log goes.
+How `verdandi.exe` starts, where its log goes, and what a second start does.
 
 <a id="dc-134"></a>
 ### DC-134: `verdandi.exe` is a GUI program, and the log goes to standard output only when that is redirected
@@ -1296,6 +1297,19 @@ How `verdandi.exe` starts, and where its log goes.
 **Consequences:** A file that becomes unwritable between the check and the sink's open, microseconds later, still throws.
 
 **History:** Code review F-47.
+
+---
+
+<a id="dc-142"></a>
+### DC-142: One instance for each user in each logon session, decided by a named mutex, and a local server that brings the running window to the front
+
+**Decision:** Before it reads the settings or opens the log, `main()` creates the mutex `Local\Verdandi-<session ID>-<user SID>` (`platform::InstanceMutex`, through `app::claimSingleInstance()`). The start that creates it is the monitor, and listens on a `QLocalServer` of the same name that only the user may open (`app::InstanceServer`). A later start connects, lets the server's process take the foreground (`AllowSetForegroundWindow` for the PID that `GetNamedPipeServerProcessId` returns), and asks for the window, which the monitor restores and activates before it answers; the start then exits. Without an answer it tries again every 100 ms, and runs if the mutex goes; after 5 seconds it says that Verdandi did not respond. The mutex lives until `main()` returns, after the log has closed.
+
+**Rationale:** Two instances share `verdandi.log`, whose rotation then truncates it, and `settings.json.tmp` ([Phase 6 code review](code_reviews/phase_6.md#risks-not-reproduced)). On Windows, `QLocalServer` lets two servers listen on one name, so two quick starts would both run; a named mutex is created atomically, and goes when its process ends, however it ends. `QLockFile` checks a stale lock by opening its PID with `PROCESS_QUERY_INFORMATION`, and the PID may by then name a process the monitor never opens ([DC-13](#dc-13)). Windows lets only the foreground process, or one it started, take the foreground; without the permission, the window would only flash in the taskbar. The retries cover a monitor that is starting or closing. The SID separates users, whose files differ; the session ID keeps the machine-wide pipe name to the session that can see the window.
+
+**Consequences:** A user signed in to two sessions at once runs two instances, which share the files.
+
+**History:** Compact views and window behaviour, run a single instance.
 
 ---
 

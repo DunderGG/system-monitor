@@ -1,5 +1,5 @@
 find_package(spdlog CONFIG REQUIRED)
-find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Network Widgets)
 
 # Logging setup, in its own library so tests can exercise it.
 add_library(verdandi_app_logging STATIC
@@ -79,6 +79,28 @@ target_link_libraries(verdandi_app_power_events
         verdandi_platform_windows
 )
 
+# Keeping the monitor to one instance for each user in each logon session
+# (DC-142), in its own library so tests can exercise it.
+add_library(verdandi_app_single_instance STATIC
+    instance_server.cpp
+    instance_server.h
+    single_instance.cpp
+    single_instance.h
+)
+
+target_include_directories(verdandi_app_single_instance
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+target_link_libraries(verdandi_app_single_instance
+    PUBLIC
+        Qt6::Network
+        verdandi_platform_windows
+    PRIVATE
+        spdlog::spdlog
+)
+
 # WIN32 links a GUI program, which Windows starts without a console window;
 # Qt supplies its WinMain, which calls main() (DC-134). The manifest sets the
 # process code page to UTF-8, makes the process per-monitor DPI aware, declares
@@ -105,6 +127,7 @@ target_link_libraries(verdandi
         verdandi_app_logging
         verdandi_app_power_events
         verdandi_app_settings
+        verdandi_app_single_instance
         verdandi_domain
         verdandi_monitoring
         verdandi_persistence
