@@ -118,6 +118,7 @@ add_executable(verdandi_tests
     integration/ip_address_formatting_test.cpp
     integration/settings_file_test.cpp
     integration/settings_service_test.cpp
+    integration/file_locations_test.cpp
     integration/power_event_filter_test.cpp
     integration/single_instance_test.cpp
     # Same manifest as the app, so tests run with its UTF-8 process code page
@@ -141,6 +142,7 @@ target_link_libraries(verdandi_tests
     PRIVATE
         GTest::gtest
         verdandi_app_collectors
+        verdandi_app_file_locations
         verdandi_app_logging
         verdandi_app_power_events
         verdandi_app_settings

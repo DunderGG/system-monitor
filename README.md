@@ -44,6 +44,7 @@ Built with C++20, Qt 6, and direct Windows APIs for accurate, low-overhead monit
 
 - **Settings** are saved to `%APPDATA%\Verdandi\settings.json` whenever you change them in File > Settings. Without the file, Verdandi starts with the defaults.
 - **The log** is written to `%LOCALAPPDATA%\Verdandi\verdandi.log`, and rotated at 5 MB.
+- **In portable mode**, when a `settings.json` lies beside `verdandi.exe`, as in the portable zip, Verdandi keeps its settings and its log in that folder instead, and writes nothing to your user folders. Delete that `settings.json` to use them again, or copy yours from `%APPDATA%\Verdandi` beside `verdandi.exe` to take your settings along. When you update, unzip the new version into a folder of its own and copy your `settings.json` across.
 - **`--log-level <level>`** logs at `trace`, `debug`, `info`, `warn`, `error`, `critical` or `off` for one run, in place of the level in the settings, without saving it. While Verdandi runs, a new start brings its window to the front and does not use the option.
 - **`--version`** shows the version and the commit it was built from, as Help > About Verdandi does.
 

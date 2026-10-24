@@ -99,17 +99,23 @@ generator write it ([DC-143](design_decisions.md#dc-143)).
 come first on `PATH`. CPack writes one zip for each install component:
 `Verdandi-<version>-x64.zip` holds `verdandi.exe`, every DLL beside it in
 `build\release\src\app`, which the rule lists when the zip is made, the two
-Qt plugins in `platforms\` and `styles\`, `LICENSE.txt` and
-`THIRD_PARTY_NOTICES.txt`, and `Verdandi-<version>-x64-symbols.zip` holds
-`verdandi.pdb`. Both hold one folder, `Verdandi-<version>-x64`, so the
+Qt plugins in `platforms\` and `styles\`, `LICENSE.txt`,
+`THIRD_PARTY_NOTICES.txt` and `settings.json`, and
+`Verdandi-<version>-x64-symbols.zip` holds `verdandi.pdb`. The
+`settings.json` makes the unpacked copy portable
+([DC-131](design_decisions.md#dc-131)). `verdandi_write_default_settings`, a
+tool built in `build\release\tools`, writes it with the default settings into
+`build\release\src\app\portable` on every Release build, not beside
+`verdandi.exe`, where it would make the build portable; its own directory
+keeps the DLLs that vcpkg copies beside it out of the zip. Both hold one folder, `Verdandi-<version>-x64`, so the
 symbols unpacked beside the zip's files put the program database beside the
 executable. The script then unpacks the first zip into
 `build\release\package\unpacked` and starts `verdandi.exe --version` there,
 with that folder as its working directory, `PATH` holding only
 `%SystemRoot%\System32` and `%SystemRoot%`, and no `QT_PLUGIN_PATH`,
 `QT_QPA_PLATFORM_PLUGIN_PATH` or `QT_QPA_PLATFORM`. It fails unless the
-program prints `Verdandi` and the product version of its version information
-and exits within 30 seconds. A missing Qt DLL stops the program at once, and a
+folder holds `settings.json` and the program prints `Verdandi` and the
+product version of its version information and exits within 30 seconds. A missing Qt DLL stops the program at once, and a
 missing platform plugin makes Qt show a message box, which the timeout ends.
 A Visual C++ Redistributable in System32, as on developers' PCs and CI's,
 would hide a missing runtime DLL; the integration test

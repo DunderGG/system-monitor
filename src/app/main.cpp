@@ -13,6 +13,7 @@
 
 #include "app_logging.h"
 #include "domain/settings.h"
+#include "file_locations.h"
 #include "instance_server.h"
 #include "monitoring/sampling_scheduler.h"
 #include "persistence/settings_file.h"
@@ -41,6 +42,13 @@ QString logLevelNameList()
         list += QString::fromUtf8(entry.name.data(), static_cast<qsizetype>(entry.name.size()));
     }
     return list;
+}
+
+// Returns a path that Qt gives, with forward slashes, with the backslashes
+// that the log and the message boxes show.
+std::filesystem::path nativePath(const QString& path)
+{
+    return std::filesystem::path{QDir::toNativeSeparators(path).toStdWString()};
 }
 
 // Runs the monitor until its window closes and returns the exit code. The
@@ -111,8 +119,9 @@ int main(int argc, char* argv[])
     QApplication application(argc, argv);
 
     // With no organization name, Qt's folders for the settings and the log are
-    // %APPDATA%\Verdandi and %LOCALAPPDATA%\Verdandi (DC-131). --version and
-    // the About box give the version with the commit of the build (DC-136).
+    // %APPDATA%\Verdandi and %LOCALAPPDATA%\Verdandi, which hold them unless
+    // the monitor is portable (DC-131). --version and the About box give the
+    // version with the commit of the build (DC-136).
     QCoreApplication::setApplicationName("Verdandi");
     QCoreApplication::setApplicationVersion(VERDANDI_PRODUCT_VERSION);
 
@@ -169,24 +178,28 @@ int main(int argc, char* argv[])
     // The settings are read before the logger is configured, because they hold
     // its level; what reading them found is logged once it is (DC-127). They
     // roam with the user's profile, as Windows keeps settings, and the log
-    // stays on this machine. The first save creates the settings' directory.
-    const QString settingsDirectory =
-        QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
-    const auto settingsPath = std::filesystem::path{settingsDirectory.toStdWString()} / "settings.json";
+    // stays on this machine, unless a settings file beside verdandi.exe keeps
+    // both beside it (DC-131). The first save creates the settings' directory.
+    const verdandi::app::FileLocations fileLocations = verdandi::app::chooseFileLocations(
+        nativePath(QCoreApplication::applicationDirPath()),
+        nativePath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)),
+        nativePath(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)));
+    const std::filesystem::path& settingsPath = fileLocations.settingsPath;
     const auto loadedSettings = verdandi::persistence::loadSettingsFile(settingsPath);
     const verdandi::domain::Settings settings =
         loadedSettings ? loadedSettings->settings : verdandi::domain::Settings{};
 
     // A log file that cannot be written leaves the log to a redirected
     // standard output alone, and the window says so once (DC-135).
-    const QString logDirectory =
-        QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
-    const auto logFilePath = std::filesystem::path{logDirectory.toStdWString()} / "verdandi.log";
+    const std::filesystem::path& logFilePath = fileLocations.logFilePath;
     const verdandi::domain::LogLevel logLevel = commandLineLogLevel.value_or(settings.logLevel);
     const auto logFileProblem = verdandi::app::configureLogging(logFilePath, verdandi::app::toSpdlogLevel(logLevel));
     spdlog::info("Verdandi {} started with log level '{}' from {}", VERDANDI_PRODUCT_VERSION,
                  verdandi::domain::logLevelName(logLevel),
                  commandLineLogLevel ? "the --log-level option" : "the settings");
+    if (fileLocations.isPortable) {
+        spdlog::info("Portable: a settings file beside verdandi.exe keeps the settings and the log beside it");
+    }
     if (logFileProblem) {
         spdlog::error("Log file {} cannot be written: {}", logFilePath.string(), *logFileProblem);
     }

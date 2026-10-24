@@ -130,7 +130,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-123](#dc-123): Settings: one JSON file, read one setting at a time, with its types in `domain`
   - [DC-124](#dc-124): Settings dialog: a window-modal `QDialog` from the File menu, which edits a copy and changes nothing until OK
   - [DC-127](#dc-127): Settings at startup: one file in the roaming folder, read before the logger, applied by `app` and saved on each change
-  - [DC-131](#dc-131): The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name
+  - [DC-131](#dc-131): The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name, or the executable's when a `settings.json` lies beside it
 - [Startup and logging](#startup-and-logging)
   - [DC-134](#dc-134): `verdandi.exe` is a GUI program, and the log goes to standard output only when that is redirected
   - [DC-135](#dc-135): A log file that cannot be written is found before spdlog opens it, and the monitor runs without it
@@ -1259,15 +1259,15 @@ The settings file and the settings dialog: what the file holds, how it is read a
 ---
 
 <a id="dc-131"></a>
-### DC-131: The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name
+### DC-131: The application's folders are `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`, under no organization name, or the executable's when a `settings.json` lies beside it
 
-**Decision:** `main.cpp` names the application "Verdandi" and gives it no organization name, so Qt's `AppDataLocation` is `%APPDATA%\Verdandi`, which holds `settings.json`, and its `AppLocalDataLocation` is `%LOCALAPPDATA%\Verdandi`, which holds `verdandi.log`. Nothing reads or moves a settings file left in the folder of the old name, `%APPDATA%\System Monitor\System Monitor`.
+**Decision:** `main.cpp` names the application "Verdandi" and gives it no organization name, so Qt's `AppDataLocation` is `%APPDATA%\Verdandi`, which holds `settings.json`, and its `AppLocalDataLocation` is `%LOCALAPPDATA%\Verdandi`, which holds `verdandi.log`. When a `settings.json` lies beside `verdandi.exe`, `app::chooseFileLocations()` keeps both files beside it instead: the monitor is portable. The file's presence decides, not whether it can be read. The portable zip holds one, which a build tool writes with `persistence::saveSettingsFile()` and the default settings ([DC-143](#dc-143)). Nothing reads a settings file left in the folder of the old name, `%APPDATA%\System Monitor\System Monitor`.
 
-**Rationale:** Qt puts an organization's folder above the application's, which suits a vendor of several applications. This project has one, so a folder named after its author would hold only it, as `%APPDATA%\System Monitor\System Monitor` did. Qt has no default organization name, and on Windows leaves the level out when the name is empty. No release had shipped before the rename, so the only files in the old folders were developers' own, and code to migrate them would serve no user.
+**Rationale:** Qt puts an organization's folder above the application's, which suits a vendor of several applications; this project has one, so a folder named after its author would hold only it. Qt leaves that level out when the name is empty. A portable copy carries its settings with it, on a USB stick for instance, and leaves nothing in the user's folders, so the log goes with them. The file that portable mode keeps is its signal: a marker file would be one more, and a command-line option would be lost when Explorer starts the monitor. Written by the build, it cannot drift from the code's defaults. No release had shipped before the rename, so code to migrate the old folder would serve no user.
 
-**Consequences:** The organization name is part of where the files are: setting one later moves them, and the monitor would then need to read the old folder once.
+**Consequences:** The organization name is part of where the files are: setting one later moves them. A newer zip extracted over an older one replaces its settings, which the zip's versioned folder makes unlikely. Portable copies in different folders still run as one monitor ([DC-142](#dc-142)).
 
-**History:** General, the rename to Verdandi (the folders).
+**History:** General, the rename to Verdandi (the folders); Packaging and distribution, the portable mode.
 
 ---
 
@@ -1576,13 +1576,13 @@ How `verdandi.exe` starts, where its log goes, and what a second start does.
 <a id="dc-143"></a>
 ### DC-143: The portable zip is written by CPack from install rules that take every DLL beside `verdandi.exe`, and `build.ps1 -Package` starts the unpacked copy
 
-**Decision:** Install rules in `src/app/CMakeLists.txt`, outside Debug builds, name what a release ships: `verdandi.exe`, every DLL beside it when the zip is made, the two Qt plugins, the license and the notices; `verdandi.pdb` is a component of its own. The `release` package preset has CPack's ZIP generator write `Verdandi-<version>-x64.zip` and `Verdandi-<version>-x64-symbols.zip`, each holding one folder named like the first. `build.ps1 -Package` runs it, starts `verdandi.exe --version` from the unpacked zip with `PATH` holding only Windows' directories, and fails unless it prints the product version within 30 seconds. CI runs it after the Release tests.
+**Decision:** Install rules in `src/app/CMakeLists.txt`, outside Debug builds, name what a release ships: `verdandi.exe`, every DLL beside it when the zip is made, the two Qt plugins, the license, the notices and the default `settings.json`, which makes the copy portable ([DC-131](#dc-131)); `verdandi.pdb` is a component of its own. The `release` package preset has CPack's ZIP generator write `Verdandi-<version>-x64.zip` and `Verdandi-<version>-x64-symbols.zip`, each holding one folder named like the first. `build.ps1 -Package` runs it, starts `verdandi.exe --version` from the unpacked zip with `PATH` holding only Windows' directories, and fails unless it prints the product version within 30 seconds. CI runs it after the Release tests.
 
-**Rationale:** Zipped as it is, the build directory would ship static libraries, CMake's files and the program database; one built before the rename still held `system_monitor.exe`. A list of DLLs would go stale with each Qt or vcpkg change, and CMake's `RUNTIME_DEPENDENCY_SET`, which follows the imports, stops at a conflict: the plugins, read from vcpkg's tree, find the C++ runtime in System32, the executable its own copy. The DLLs beside the executable are those its notices cover, and one that no installed vcpkg package owns fails the build ([DC-138](#dc-138)). The folder makes a newer zip extract beside an older one, not over it. Only starting the unpacked copy shows that it needs nothing from the build tree; a missing platform plugin leaves Qt's message box open, hence the timeout.
+**Rationale:** Zipped as it is, the build directory would ship static libraries, CMake's files, the program database and, in one, `system_monitor.exe` from before the rename. A list of DLLs would go stale with each Qt or vcpkg change, and CMake's `RUNTIME_DEPENDENCY_SET`, which follows the imports, stops at a conflict: the plugins, read from vcpkg's tree, find the C++ runtime in System32, the executable its own copy. The DLLs beside the executable are those its notices cover, and one that no installed vcpkg package owns fails the build ([DC-138](#dc-138)). The folder makes a newer zip extract beside an older one, not over it. Only starting the unpacked copy shows that it needs nothing from the build tree; a missing platform plugin leaves Qt's message box open, hence the timeout.
 
 **Consequences:** Where the Visual C++ Redistributable is installed, as on developers' PCs and CI's, the check cannot see a runtime DLL missing from the zip; an integration test of the build directory does ([DC-137](#dc-137)).
 
-**History:** Packaging and distribution, the portable release.
+**History:** Packaging and distribution, the portable release (the zip); the portable mode (its `settings.json`).
 
 ---
 

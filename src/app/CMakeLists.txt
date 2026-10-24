@@ -79,6 +79,18 @@ target_link_libraries(verdandi_app_power_events
         verdandi_platform_windows
 )
 
+# Choosing where the settings and the log are kept, beside the executable when
+# the monitor is portable (DC-131), in its own library so tests can exercise it.
+add_library(verdandi_app_file_locations STATIC
+    file_locations.cpp
+    file_locations.h
+)
+
+target_include_directories(verdandi_app_file_locations
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
 # Keeping the monitor to one instance for each user in each logon session
 # (DC-142), in its own library so tests can exercise it.
 add_library(verdandi_app_single_instance STATIC
@@ -124,6 +136,7 @@ target_link_libraries(verdandi
         Qt6::Widgets
         spdlog::spdlog
         verdandi_app_collectors
+        verdandi_app_file_locations
         verdandi_app_logging
         verdandi_app_power_events
         verdandi_app_settings
@@ -212,10 +225,36 @@ add_custom_target(verdandi_notices ALL
 # What the portable zip holds, which cpack --preset release writes (DC-143):
 # verdandi.exe, the DLLs beside it, which THIRD_PARTY_NOTICES.txt accounts
 # for, the Qt plugins, the license and the notices, and nothing else of the
-# directory where it is built. The program database goes in a zip of its own.
-# Debug builds import the debug runtime, which may not be redistributed, so
-# they have no install rules.
+# directory where it is built, and the default settings. The program database
+# goes in a zip of its own. Debug builds import the debug runtime, which may
+# not be redistributed, so they have no install rules.
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    # The settings.json beside verdandi.exe in the zip, which makes the copy
+    # portable (DC-131), holds the code's defaults, which a tool writes. Beside
+    # verdandi.exe in the build directory it would make every build portable,
+    # so it is written elsewhere. The tool is built in a directory of its own,
+    # so that the DLLs that vcpkg copies beside it stay out of the zip.
+    add_executable(verdandi_write_default_settings write_default_settings.cpp)
+    set_target_properties(verdandi_write_default_settings PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/tools"
+    )
+    target_link_libraries(verdandi_write_default_settings
+        PRIVATE
+            spdlog::spdlog
+            verdandi_domain
+            verdandi_persistence
+    )
+    set(verdandiDefaultSettingsPath "${CMAKE_CURRENT_BINARY_DIR}/portable/settings.json")
+    add_custom_command(
+        OUTPUT "${verdandiDefaultSettingsPath}"
+        COMMAND verdandi_write_default_settings "${verdandiDefaultSettingsPath}"
+        DEPENDS verdandi_write_default_settings
+        COMMENT "Writing the default settings for the portable zip"
+        VERBATIM
+    )
+    add_custom_target(verdandi_default_settings ALL DEPENDS "${verdandiDefaultSettingsPath}")
+    install(FILES "${verdandiDefaultSettingsPath}" DESTINATION . COMPONENT application)
+
     install(TARGETS verdandi RUNTIME DESTINATION . COMPONENT application)
     # The DLLs are listed when the zip is made, after the build has copied them.
     install(CODE [[

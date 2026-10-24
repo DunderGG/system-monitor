@@ -69,7 +69,8 @@ Builds the Release configuration (implies -Release) and writes the portable
 zip with CPack's release package preset, after the tests when -Test is also
 supplied (DC-143). build\release\package\Verdandi-<version>-x64.zip holds,
 in a folder of the same name, verdandi.exe, the DLLs and Qt plugins beside
-it, LICENSE.txt and THIRD_PARTY_NOTICES.txt. Verdandi-<version>-x64-symbols.zip
+it, LICENSE.txt, THIRD_PARTY_NOTICES.txt and a settings.json with the default
+settings, which makes the copy portable (DC-131). Verdandi-<version>-x64-symbols.zip
 holds verdandi.pdb in that folder; keep it, to symbolize the build's crash
 dumps. The script removes the previous run's zips first.
 
@@ -77,8 +78,9 @@ Then it unpacks the zip into build\release\package\unpacked and starts
 verdandi.exe --version there, with PATH holding only the Windows directories
 and without Qt's plugin path variables, so that nothing outside the folder
 can supply a DLL or the platform plugin that the zip lacks. It fails unless
-the program prints the product version of its version information and exits
-within 30 seconds. Cannot be combined with -Coverage.
+the folder holds settings.json and the program prints the product version of
+its version information and exits within 30 seconds. Cannot be combined with
+-Coverage.
 
 .PARAMETER Coverage
 Builds the coverage preset in build\coverage, runs the tests (-Test is
@@ -1244,6 +1246,11 @@ function Invoke-Package
     if (-not (Test-Path -LiteralPath $unpackedPath -PathType Leaf))
     {
         throw "$($applicationZip.Name) holds no $folderName\verdandi.exe."
+    }
+    # The settings file beside verdandi.exe makes the copy portable (DC-131).
+    if (-not (Test-Path -LiteralPath (Join-Path $unpackedDirectory "$folderName\settings.json") -PathType Leaf))
+    {
+        throw "$($applicationZip.Name) holds no $folderName\settings.json, without which the copy is not portable."
     }
     $expectedOutput = "Verdandi $((Get-Item -LiteralPath $unpackedPath).VersionInfo.ProductVersion)"
 
