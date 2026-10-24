@@ -452,6 +452,24 @@ URL or a local path, such as a bare repository, to try the script outside CI.
 GitHub Pages has to be turned on once, in the repository's Pages settings, to
 deploy from the root of the `gh-pages` branch.
 
+The `Release` workflow, `.github/workflows/release.yml`, runs when a tag
+`v<version>` is pushed, and can be run by hand from the repository's Actions
+tab ([DC-144](design_decisions.md#dc-144)). Its one job checks that
+`project()` in `CMakeLists.txt` and `version-string` in `vcpkg.json` give the
+same version and, on a tag, that the tag is `v` followed by it. It sets up
+MSVC and vcpkg as the `Build and Test` job does and restores the newest vcpkg
+cache, which a run on `main` saved; it saves none, since only that tag's runs
+could restore a cache saved on a tag. `.\scripts\build.ps1 -Test -Package`
+then builds and tests Release and writes the zips. The job writes
+`SHA256SUMS.txt` beside them, in the format that `sha256sum -c` reads, and
+uploads the three files as the `portable-release` artifact. On a tag, its last
+step, the only one given the token, runs `gh release create` with `--draft`,
+`--verify-tag` and `--generate-notes`, which attaches them to a draft release
+named `Verdandi <version>`; publish it from the repository's Releases page.
+Run by hand on a branch, the job stops before that step, so it tries the
+workflow without drafting anything. A re-run once the draft exists fails at
+that step, until the draft is deleted.
+
 A separate `Format Check` job installs clang-format 22.1.3 from PyPI and runs
 `.\scripts\build.ps1 -CheckFormat`, which fails if any C++ source or header
 under `src/`, `tests/`, or `benchmarks/` differs from `.clang-format`

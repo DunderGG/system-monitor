@@ -308,6 +308,18 @@ directory, such as `build\default\test_results`.
 - Integration tests may call real Windows APIs. They should be tolerant of varying machine configurations (different core counts, network adapters, permissions).
 - Test edge cases: PID reuse, sleep/resume time gaps, access-denied processes, missing performance counters.
 
+## Releasing
+
+1. Raise the version in `project()` in `CMakeLists.txt` and in `version-string` in `vcpkg.json` together, and commit it to `main`.
+2. Once CI passes on that commit, tag it with the version and push the tag:
+   ```powershell
+   git tag -a v0.1.0 -m "Verdandi 0.1.0"
+   git push origin v0.1.0
+   ```
+3. The `Release` workflow builds, tests and packages Release, and drafts a GitHub release with `Verdandi-<version>-x64.zip`, `Verdandi-<version>-x64-symbols.zip` and `SHA256SUMS.txt` ([DC-144](docs/design_decisions.md#dc-144)). It fails if the tag does not name the version. Try the zip, write the notes on the repository's Releases page, and publish the draft.
+
+To try the workflow without releasing anything, run it by hand from the Actions tab on a branch: it uploads the zips as the `portable-release` artifact and drafts nothing.
+
 ## Getting help
 
 If you have questions about the codebase or architecture, open a discussion on GitHub or comment on the relevant issue. We're happy to help new contributors get oriented.

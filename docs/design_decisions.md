@@ -157,6 +157,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-140](#dc-140): CI keeps vcpkg's binary cache in GitHub's cache, pruned to the installed packages and saved only when it changes
   - [DC-141](#dc-141): CI imports the MSVC environment with `build.ps1 -MsvcEnvironment`, not the `msvc-dev-cmd` action
   - [DC-143](#dc-143): The portable zip is written by CPack from install rules that take every DLL beside `verdandi.exe`, and `build.ps1 -Package` starts the unpacked copy
+  - [DC-144](#dc-144): A `v<version>` tag drafts a GitHub release in a workflow of its own, with `gh`, and the draft is published by hand
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1583,6 +1584,19 @@ How `verdandi.exe` starts, where its log goes, and what a second start does.
 **Consequences:** Where the Visual C++ Redistributable is installed, as on developers' PCs and CI's, the check cannot see a runtime DLL missing from the zip; an integration test of the build directory does ([DC-137](#dc-137)).
 
 **History:** Packaging and distribution, the portable release (the zip); the portable mode (its `settings.json`).
+
+---
+
+<a id="dc-144"></a>
+### DC-144: A `v<version>` tag drafts a GitHub release in a workflow of its own, with `gh`, and the draft is published by hand
+
+**Decision:** `.github/workflows/release.yml` runs when a `v*` tag is pushed, and by hand. It checks that `project()` and `vcpkg.json` give one version and, on a tag, that the tag names it. It restores the vcpkg cache that CI saved on `main` and saves none, runs `build.ps1 -Test -Package`, writes `SHA256SUMS.txt` for the two zips, and uploads the three files as the `portable-release` artifact. On a tag, its last step, the only one given the token, runs `gh release create --draft --verify-tag --generate-notes` with them. Run by hand on a branch, it stops before that step.
+
+**Rationale:** A tag is how a release is asked for, and the check stops one whose zip and version information would name another version. A workflow of its own keeps `contents: write` out of the CI jobs and builds Release alone, since CI built and tested the commit on `main` in Debug too. `gh` is on GitHub's runners, so no third-party action holds the token ([DC-121](#dc-121)). A draft can be read, given notes and its zip tried before anyone can download it, whereas a published release may already have been downloaded. The sums let a user check a download, and a winget manifest will need them. Running it by hand tries the workflow without releasing anything. A cache saved on a tag could be restored only by that tag's runs, so saving one would only use up the cache's space.
+
+**Consequences:** Re-running a tag's workflow once its draft exists fails at `gh release create`, until the draft is deleted. Each release's symbols zip keeps its program database ([DC-137](#dc-137)).
+
+**History:** Packaging and distribution, the portable release (publishing it).
 
 ---
 

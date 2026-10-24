@@ -1,0 +1,121 @@
+name: Release
+
+# A tag v<version> drafts a GitHub release of that version, with the portable
+# zip, the zip of its program database and their SHA-256 sums, which is
+# published by hand once its notes are read (DC-144). Run by hand on a branch,
+# the workflow builds, tests and packages, and uploads the zips as an artifact
+# without drafting a release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Every action is pinned by commit, with its release in a comment, as in
+# ci.yml (DC-121); keep the two files' pins alike.
+jobs:
+  release:
+    name: Release
+    runs-on: windows-latest
+    # Only this job may write, and only its last step gets the token.
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: powershell
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The build and the tests run without the token in .git/config.
+          persist-credentials: false
+
+      # The tag names the version that project() holds, which vcpkg.json
+      # repeats (DC-133), so that the zip's name and the program's version
+      # information give the release's version.
+      - name: Check the version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ((Get-Content -Raw CMakeLists.txt) -notmatch 'project\(Verdandi\s+VERSION\s+(\d+\.\d+\.\d+)') {
+            throw "CMakeLists.txt's project() gives no version."
+          }
+          $version = $Matches[1]
+          $manifestVersion = (Get-Content -Raw vcpkg.json | ConvertFrom-Json).'version-string'
+          if ($manifestVersion -cne $version) {
+            throw "vcpkg.json's version-string is $manifestVersion, but project() gives $version; raise them together."
+          }
+          if ($env:REF_TYPE -eq "tag" -and $env:TAG -cne "v$version") {
+            throw "The tag $env:TAG does not name the version that project() gives, $version. Tag v$version instead."
+          }
+          Write-Host "Version $version"
+
+      # Imports the x64 MSVC environment, as the CI job does (DC-141).
+      - name: Set up MSVC
+        run: .\scripts\build.ps1 -MsvcEnvironment
+
+      # Restores the newest vcpkg cache that a CI job saved on main (DC-140).
+      # A cache saved on a tag would serve only that tag, so none is saved.
+      - name: Restore the vcpkg packages
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: vcpkg-x64-windows-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          restore-keys: vcpkg-x64-windows-
+
+      - name: Use the restored vcpkg packages
+        run: .\scripts\vcpkg_cache.ps1 -Prepare -CacheDirectory "$env:RUNNER_TEMP\vcpkg-binary-cache"
+
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
+        with:
+          # Keep vcpkgGitCommitId in sync with ci.yml's, which follows
+          # vcpkg-configuration.json.
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+          vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
+          runVcpkgInstall: false
+          doNotCache: true
+
+      # Builds and tests Release, writes the zips and starts the unpacked copy
+      # (DC-143).
+      - name: Build, test and package
+        run: .\scripts\build.ps1 -Test -Package
+
+      # In the format that sha256sum -c reads.
+      - name: Sum the zips
+        run: |
+          $lines = foreach ($zip in Get-ChildItem build\release\package\*.zip | Sort-Object Name) {
+            "$((Get-FileHash -LiteralPath $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($zip.Name)"
+          }
+          $utf8 = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllText("$PWD\build\release\package\SHA256SUMS.txt", ($lines -join "`n") + "`n", $utf8)
+          Get-Content build\release\package\SHA256SUMS.txt
+
+      - name: Upload the zips
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portable-release
+          path: |
+            build/release/package/*.zip
+            build/release/package/SHA256SUMS.txt
+          if-no-files-found: error
+
+      # gh, which the runner has, rather than a third-party action that would
+      # hold the token. A draft is seen only by those who can push.
+      - name: Draft the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          $assets = @(Get-ChildItem build\release\package\*.zip | ForEach-Object { $_.FullName }) +
+            "build\release\package\SHA256SUMS.txt"
+          gh release create $env:TAG @assets --draft --verify-tag --generate-notes --title "Verdandi $($env:TAG.Substring(1))"
+          if ($LASTEXITCODE -ne 0) {
+            throw "gh release create failed with exit code $LASTEXITCODE."
+          }

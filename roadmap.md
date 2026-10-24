@@ -509,7 +509,9 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
   - [x] Add the portable mode. A `settings.json` beside `verdandi.exe` makes the monitor keep its settings, and its log, in that folder instead of `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi`; the file's presence decides, not whether it can be read ([DC-131](docs/design_decisions.md#dc-131)). The zip holds a `settings.json` that a build tool writes with the default settings, so it cannot drift from the code. The zip's versioned folder keeps a newer zip from being extracted over an older one's settings, and the README says to copy `settings.json` across.
 
-  - [ ] Publish it: a workflow that runs on a `v*` tag, checks that the tag matches `project()`'s version, builds, tests and packages Release, and attaches both zips to a GitHub release, which keeps each published build's `verdandi.pdb` to symbolize its crash dumps.
+  - [x] Draft releases from a tag. The `Release` workflow runs on a `v*` tag, checks that the tag names the version in `project()` and `vcpkg.json`, builds, tests and packages Release, and drafts a GitHub release with both zips and `SHA256SUMS.txt`, which keeps each published build's `verdandi.pdb` to symbolize its crash dumps ([DC-144](docs/design_decisions.md#dc-144)). Run by hand on a branch, it uploads the zips as an artifact and drafts nothing. CONTRIBUTING.md says how to release.
+
+  - [ ] Publish the first release. Run the `Release` workflow by hand on `main` and try its artifact's zip on a PC without a build environment. Then tag `v0.1.0` as CONTRIBUTING.md says, check the workflow's first tag run and its draft, and publish the draft. Then record in build_system.md how long the job took, and add the release badge and the README's download section ([General](#general)).
 - [ ] 🟡 Sign the release binaries in CI, as architecture.md's antivirus section asks, and publish a winget manifest.
 - [ ] 🟢 Add an Arm64 build (Process Explorer ships one). It needs the vcpkg `arm64-windows` triplet and a check of the structures `platform/windows` declares itself.
 
