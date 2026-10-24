@@ -153,6 +153,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-137](#dc-137): Builds have Control Flow Guard and CET compatibility, Release builds a program database and the C++ runtime, and the manifest declares Windows 10 and 11 and `asInvoker`
   - [DC-138](#dc-138): `THIRD_PARTY_NOTICES.txt` is written from vcpkg's copyright files for the packages whose DLLs ship beside the executable
   - [DC-139](#dc-139): Warnings fail every build, and CI builds and tests Release after Debug in one job
+  - [DC-140](#dc-140): CI keeps vcpkg's binary cache in GitHub's cache, pruned to the installed packages and saved only when it changes
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1524,11 +1525,24 @@ How `verdandi.exe` starts, and where its log goes.
 
 **Decision:** `CMAKE_COMPILE_WARNING_AS_ERROR` makes every compiler warning an error, in every preset and with every compiler, and `/WX` makes the linker's warnings errors too, for MSVC's linker and clang-cl's `lld-link`. `verdandi.exe` names its entry point, `WinMainCRTStartup`, because Qt's entry-point library defines both `WinMain` and `wWinMain`. CI's `Build and Test` job configures, builds and tests the `default` preset and then the `release` preset, in one job.
 
-**Rationale:** A warning did not fail the build, so a new one could pass CI, and CI never built the configuration that ships, which only a developer built, with `-Release` or `-Benchmark` ([code review F-51](code_reviews/phase_6.md#f-51-ci-never-builds-release-and-lets-warnings-through)). MSVC and clang-cl compiled without warnings, so making them errors cost nothing and keeps it so. CMake prints a link's output only when the link fails, so one linker warning had gone unseen: `lld-link` said it chose `WinMain`, as MSVC's linker silently does, and naming that startup ends it. Warnings are errors in local builds too, not only in CI, so that a build that passes `build.ps1` passes CI, and a warning that only clang-cl gives fails the coverage build before a push rather than after it. Release compiles assertions out, and its optimizer can warn where Debug does not, so it needs a build and a test run of its own. In the same job, its configure restores from vcpkg's binary cache on the runner the packages that Debug's configure built; a job of its own would build every package again, which takes most of a job's time until CI caches them.
+**Rationale:** A warning did not fail the build, so a new one could pass CI, and CI never built the configuration that ships, which only a developer built, with `-Release` or `-Benchmark` ([code review F-51](code_reviews/phase_6.md#f-51-ci-never-builds-release-and-lets-warnings-through)). MSVC and clang-cl compiled without warnings, so making them errors cost nothing and keeps it so. CMake prints a link's output only when the link fails, so one linker warning had gone unseen: `lld-link` said it chose `WinMain`, as MSVC's linker silently does, and naming that startup ends it. Warnings are errors in local builds too, not only in CI, so that a build that passes `build.ps1` passes CI, and a warning that only clang-cl gives fails the coverage build before a push rather than after it. Release compiles assertions out, and its optimizer can warn where Debug does not, so it needs a build and a test run of its own. In the same job, its configure restores from vcpkg's binary cache the packages that Debug's configure restored or built ([DC-140](#dc-140)); a job of its own, running beside Debug's, would build them a second time whenever they change, which takes most of a job's time.
 
 **Consequences:** A warning in work in progress stops the local build until it is fixed. The `Build and Test` job takes a build and a test run longer.
 
-**History:** Code review F-51.
+**History:** Code review F-51; maintenance, CI (Release's configure restores Debug's packages only since CI's binary cache works, [DC-140](#dc-140)).
+
+---
+
+<a id="dc-140"></a>
+### DC-140: CI keeps vcpkg's binary cache in GitHub's cache, pruned to the installed packages and saved only when it changes
+
+**Decision:** Both build jobs restore the newest saved cache into a directory, and `scripts/vcpkg_cache.ps1 -Prepare` sets `VCPKG_BINARY_SOURCES` to read and write that directory alone, which `run-vcpkg` then keeps. After vcpkg's last run, `-Prune` removes the restored archives that no installed package uses, found from the SHA-256 of each package's `vcpkg_abi_info.txt`, which names its archive. The job saves the directory under a key of its own only if an archive was added or removed. `run-vcpkg`'s own cache is off.
+
+**Rationale:** `run-vcpkg` set `clear;x-gha,readwrite`, and vcpkg had removed `x-gha`, so nothing was cached: in CI run 29 each configure built `qtbase` for 32 minutes. NuGet on GitHub Packages, which vcpkg recommends, needs `packages: write` and a NuGet source with a token. A key made from the manifests and the compiler version, saved once per key, was rejected: an input to the ABI hashes that the key leaves out, such as the vcpkg commit that `ci.yml` pins, would make every run build the packages again without saving them. Saving when the archives change follows every input, and pruning keeps the cache to the packages in use. Pruning reads only the build directories whose configure finished, so a configure that failed removes no archive that it had yet to install. Both jobs build the same `x64-windows` packages with the runner's MSVC, so they share the cache. `run-vcpkg`'s cache of the vcpkg tool failed on every run.
+
+**Consequences:** GitHub evicts a cache unused for 7 days, so after a quiet week a run builds every package. After a change to the packages both jobs build them, and each saves a cache.
+
+**History:** Maintenance, CI (the vcpkg cache, after CI run 29).
 
 ---
 

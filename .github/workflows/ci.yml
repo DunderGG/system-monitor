@@ -37,8 +37,15 @@ jobs:
         run: .\scripts\build.ps1 -CheckFormat
 
   # Builds and tests Debug, then Release, the configuration that ships
-  # (DC-139). Release's configure restores the packages that Debug's built
-  # from vcpkg's binary cache on the runner.
+  # (DC-139). Release's configure restores from vcpkg's binary cache the
+  # packages that Debug's restored or built.
+  #
+  # Both build jobs keep vcpkg's binary cache in GitHub's cache (DC-140): they
+  # restore the newest one that either saved, vcpkg reads and writes it alone,
+  # and after vcpkg's last run the job prunes it to the packages installed and
+  # saves it under a key of its own if vcpkg built a package or one was
+  # removed. Keep the two jobs' cache steps alike: the cache's path is part of
+  # its version, so a job that gave another path would not find the other's.
   build:
     name: Build and Test
     runs-on: windows-latest
@@ -52,6 +59,22 @@ jobs:
         with:
           arch: amd64
 
+      # The key never matches, so the prefix finds the newest saved cache.
+      - name: Restore the vcpkg packages
+        id: restore-vcpkg-packages
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: vcpkg-x64-windows-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          restore-keys: vcpkg-x64-windows-
+
+      # Sets VCPKG_BINARY_SOURCES, which run-vcpkg would otherwise set to its
+      # x-gha provider, which vcpkg has removed.
+      - name: Use the restored vcpkg packages
+        id: use-vcpkg-packages
+        shell: powershell
+        run: .\scripts\vcpkg_cache.ps1 -Prepare -CacheDirectory "$env:RUNNER_TEMP\vcpkg-binary-cache"
+
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11.6
         with:
@@ -62,7 +85,9 @@ jobs:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
           vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
           runVcpkgInstall: false
-          doNotCache: false
+          # Its own cache of the vcpkg tool failed on every run, and
+          # bootstrapping vcpkg takes about 15 seconds.
+          doNotCache: true
 
       - name: Configure (Debug)
         run: cmake --preset default
@@ -81,6 +106,20 @@ jobs:
 
       - name: Test (Release)
         run: ctest --preset release --output-on-failure
+
+      # Also after a failed step, so that the packages vcpkg built are kept.
+      - name: Prune the vcpkg packages
+        id: prune-vcpkg-packages
+        if: ${{ !cancelled() && steps.use-vcpkg-packages.outcome == 'success' }}
+        shell: powershell
+        run: .\scripts\vcpkg_cache.ps1 -Prune -CacheDirectory "$env:RUNNER_TEMP\vcpkg-binary-cache"
+
+      - name: Save the vcpkg packages
+        if: ${{ !cancelled() && steps.prune-vcpkg-packages.outputs.changed == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: ${{ steps.restore-vcpkg-packages.outputs.cache-primary-key }}
 
   # Builds the coverage preset and runs the tests. On a push to main it adds the
   # run to the history on the gh-pages branch and publishes the dashboard there
@@ -111,6 +150,20 @@ jobs:
           # The build and the tests run without the token in .git/config.
           persist-credentials: false
 
+      # vcpkg builds the dependencies with MSVC here too, so the packages are
+      # those of the build job, whose cache steps these follow.
+      - name: Restore the vcpkg packages
+        id: restore-vcpkg-packages
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: vcpkg-x64-windows-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          restore-keys: vcpkg-x64-windows-
+
+      - name: Use the restored vcpkg packages
+        id: use-vcpkg-packages
+        run: .\scripts\vcpkg_cache.ps1 -Prepare -CacheDirectory "$env:RUNNER_TEMP\vcpkg-binary-cache"
+
       # No msvc-dev-cmd: build.ps1 imports the MSVC environment itself, from a
       # Visual Studio installation that has the C++ Clang tools.
       - name: Set up vcpkg
@@ -121,13 +174,25 @@ jobs:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
           vcpkgGitCommitId: e6f9e70a29a3e80a1fc510d8503304315447112f
           runVcpkgInstall: false
-          doNotCache: false
+          doNotCache: true
 
       - name: Fetch the published history
         run: .\scripts\coverage_pages.ps1 -Fetch -SiteDirectory "$env:RUNNER_TEMP\coverage-site"
 
       - name: Build, test and measure coverage
         run: .\scripts\build.ps1 -Coverage -CoverageHistoryPath "$env:RUNNER_TEMP\coverage-site\history.jsonl"
+
+      - name: Prune the vcpkg packages
+        id: prune-vcpkg-packages
+        if: ${{ !cancelled() && steps.use-vcpkg-packages.outcome == 'success' }}
+        run: .\scripts\vcpkg_cache.ps1 -Prune -CacheDirectory "$env:RUNNER_TEMP\vcpkg-binary-cache"
+
+      - name: Save the vcpkg packages
+        if: ${{ !cancelled() && steps.prune-vcpkg-packages.outputs.changed == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: ${{ steps.restore-vcpkg-packages.outputs.cache-primary-key }}
 
       - name: Summarize
         if: ${{ !cancelled() }}

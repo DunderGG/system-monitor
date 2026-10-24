@@ -343,12 +343,27 @@ enough because MSVC also needs its include and library environment variables.
 
 The GitHub Actions workflow's `Build and Test` job runs the same three preset
 commands for the `default` preset and then for `release`, the configuration
-that ships, whose configure restores the packages that the first built from
-vcpkg's binary cache on the runner ([DC-139](design_decisions.md#dc-139)). It initializes
+that ships, whose configure restores from vcpkg's binary cache the packages
+that the first restored or built ([DC-139](design_decisions.md#dc-139)). It initializes
 the x64 MSVC environment and uses `run-vcpkg` to set up the vcpkg commit pinned
-by this repository, with GitHub Actions-backed binary caching. The checked-in
-presets, manifest, and baseline therefore keep developer and CI dependency
-resolution aligned.
+by this repository. The checked-in presets, manifest, and baseline therefore
+keep developer and CI dependency resolution aligned.
+
+That job and the `Coverage` job keep vcpkg's binary cache in GitHub's cache
+([DC-140](design_decisions.md#dc-140)). Each restores the newest cache that
+either saved into `$env:RUNNER_TEMP\vcpkg-binary-cache`, and
+`scripts\vcpkg_cache.ps1 -Prepare` sets `VCPKG_BINARY_SOURCES` to
+`clear;files,<that directory>,readwrite`, so that vcpkg restores each package
+whose archive is there and writes there the archive of each package it builds.
+`run-vcpkg` keeps that value; left unset, it would set its `x-gha` provider,
+which vcpkg has removed. After the steps that run vcpkg, also when one of them
+failed, `-Prune` removes the restored archives that no package installed in a
+build directory whose configure finished uses, and sets the step output
+`changed`. Only when an archive was added or removed does the job save the
+directory, under a key of its own (`vcpkg-x64-windows-` followed by the run,
+its attempt and the job), which the next run's restore finds by that prefix.
+The cache's path is part of its version, so the two jobs give the same one.
+GitHub evicts a cache that no run has restored for 7 days.
 
 A `Coverage` job runs `.\scripts\build.ps1 -Coverage` on each push to `main`
 and each pull request, and keeps the history of the runs on `main` on the
