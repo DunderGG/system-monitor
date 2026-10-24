@@ -369,7 +369,11 @@ build directory whose configure finished uses, and sets the step output
 directory, under a key of its own (`vcpkg-x64-windows-` followed by the run,
 its attempt and the job), which the next run's restore finds by that prefix.
 The cache's path is part of its version, so the two jobs give the same one.
-GitHub evicts a cache that no run has restored for 7 days.
+GitHub evicts a cache that no run has restored for 7 days. With the cache
+restored, in CI run 35 on 2026-10-24, `Configure (Debug)` took 47 seconds and
+`Configure (Release)` 22, the `Build and Test` job 11 minutes and the
+`Coverage` job 4.5; in run 34, which found no cache, vcpkg built the packages
+in `Configure (Debug)` for 48.5 minutes, and the jobs took 59 and 38.5.
 
 A `Coverage` job runs `.\scripts\build.ps1 -Coverage` on each push to `main`
 and each pull request, and keeps the history of the runs on `main` on the
