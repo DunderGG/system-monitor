@@ -208,3 +208,27 @@ add_custom_command(
 add_custom_target(verdandi_notices ALL
     DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/THIRD_PARTY_NOTICES.txt" "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt"
 )
+
+# What the portable zip holds, which cpack --preset release writes (DC-143):
+# verdandi.exe, the DLLs beside it, which THIRD_PARTY_NOTICES.txt accounts
+# for, the Qt plugins, the license and the notices, and nothing else of the
+# directory where it is built. The program database goes in a zip of its own.
+# Debug builds import the debug runtime, which may not be redistributed, so
+# they have no install rules.
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    install(TARGETS verdandi RUNTIME DESTINATION . COMPONENT application)
+    # The DLLs are listed when the zip is made, after the build has copied them.
+    install(CODE [[
+        file(GLOB verdandiLibraries "$<TARGET_FILE_DIR:verdandi>/*.dll")
+        if(NOT verdandiLibraries)
+            message(FATAL_ERROR "No DLL lies beside $<TARGET_FILE:verdandi>.")
+        endif()
+        file(INSTALL ${verdandiLibraries} DESTINATION "${CMAKE_INSTALL_PREFIX}")
+    ]] COMPONENT application)
+    install(FILES "$<TARGET_FILE:Qt6::QWindowsIntegrationPlugin>" DESTINATION platforms COMPONENT application)
+    install(FILES "$<TARGET_FILE:Qt6::QModernWindowsStylePlugin>" DESTINATION styles COMPONENT application)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt" "${CMAKE_CURRENT_BINARY_DIR}/THIRD_PARTY_NOTICES.txt"
+        DESTINATION . COMPONENT application
+    )
+    install(FILES "$<TARGET_PDB_FILE:verdandi>" DESTINATION . COMPONENT symbols)
+endif()

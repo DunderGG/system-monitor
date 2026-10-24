@@ -67,7 +67,8 @@ A `release` configure, build, and test preset inherits everything from
 `default` except `CMAKE_BUILD_TYPE=Release`, and builds in `build/release`.
 Use it to measure performance: the Debug Qt libraries that `default` links are
 many times slower, especially for painting. `.\scripts\build.ps1 -Release`
-selects it. Its `build\release\src\app` is what a release ships: beside
+selects it. Its `build\release\src\app` is what the portable zip is made
+from, as described below: beside
 `verdandi.exe` the build puts the Qt DLLs and plugins, the Microsoft C++
 runtime, which only Release builds may redistribute, `LICENSE.txt`, and
 `THIRD_PARTY_NOTICES.txt` ([DC-137](design_decisions.md#dc-137)).
@@ -89,6 +90,33 @@ plan and the Windows 11 power mode, and each benchmark prints the compiler, Qt
 and Windows versions it runs with. [performance.md](performance.md) records
 the figures with those lines, and says how to record a new run.
 
+The install rules in `src/app/CMakeLists.txt` name what the portable zip
+holds, and the `release` package preset in `CMakePresets.json` has CPack's ZIP
+generator write it ([DC-143](design_decisions.md#dc-143)).
+`.\scripts\build.ps1 -Package` builds the Release configuration, removes
+`build\release\package`, and runs `cpack --preset release` with the
+`cpack.exe` beside the `cmake.exe` it builds with, since another `cpack` can
+come first on `PATH`. CPack writes one zip for each install component:
+`Verdandi-<version>-x64.zip` holds `verdandi.exe`, every DLL beside it in
+`build\release\src\app`, which the rule lists when the zip is made, the two
+Qt plugins in `platforms\` and `styles\`, `LICENSE.txt` and
+`THIRD_PARTY_NOTICES.txt`, and `Verdandi-<version>-x64-symbols.zip` holds
+`verdandi.pdb`. Both hold one folder, `Verdandi-<version>-x64`, so the
+symbols unpacked beside the zip's files put the program database beside the
+executable. The script then unpacks the first zip into
+`build\release\package\unpacked` and starts `verdandi.exe --version` there,
+with that folder as its working directory, `PATH` holding only
+`%SystemRoot%\System32` and `%SystemRoot%`, and no `QT_PLUGIN_PATH`,
+`QT_QPA_PLATFORM_PLUGIN_PATH` or `QT_QPA_PLATFORM`. It fails unless the
+program prints `Verdandi` and the product version of its version information
+and exits within 30 seconds. A missing Qt DLL stops the program at once, and a
+missing platform plugin makes Qt show a message box, which the timeout ends.
+A Visual C++ Redistributable in System32, as on developers' PCs and CI's,
+would hide a missing runtime DLL; the integration test
+`ReleaseBuild_CppRuntimeThatItsImagesImportIsBesideTheExecutable` checks the
+build directory for them instead. Debug builds have no install rules, since
+the debug runtime may not be redistributed.
+
 A `coverage` configure, build, and test preset inherits from `default`, so it
 is a Debug build, but builds in `build/coverage` with clang-cl instead of MSVC
 ([DC-118](design_decisions.md#dc-118)). The compiler is the `clang-cl.exe` in
@@ -108,7 +136,7 @@ compiler's own directories, so linking needs no options.
 
 `.\scripts\build.ps1 -Coverage` selects the coverage preset and runs the
 tests, so `-Test` is implied; it cannot be combined with `-Release`,
-`-Benchmark` or `-Run`. It empties `build\coverage\profiles`, then runs CTest
+`-Benchmark`, `-Package` or `-Run`. It empties `build\coverage\profiles`, then runs CTest
 with `LLVM_PROFILE_FILE` set to `build\coverage\profiles\%p_%m.profraw`, so
 each test process writes its raw profile to a file of its own, named by its
 process ID and its binary's signature. The shards run in parallel, and
@@ -346,7 +374,11 @@ enough because MSVC also needs its include and library environment variables.
 The GitHub Actions workflow's `Build and Test` job runs the same three preset
 commands for the `default` preset and then for `release`, the configuration
 that ships, whose configure restores from vcpkg's binary cache the packages
-that the first restored or built ([DC-139](design_decisions.md#dc-139)). Its
+that the first restored or built ([DC-139](design_decisions.md#dc-139)).
+After the Release tests, its `Package (Release)` step runs
+`.\scripts\build.ps1 -Package`, so that a change that breaks the portable zip
+fails the job ([DC-143](design_decisions.md#dc-143)); the script configures
+once more, because it finds no stamp of its own. Its
 `Set up MSVC` step runs `.\scripts\build.ps1 -MsvcEnvironment`, which imports
 the x64 MSVC environment as every build of the script does and writes each
 variable that the import set or changed to `GITHUB_ENV`, so that the steps

@@ -156,6 +156,7 @@ Each entry heading has an anchor of its ID alone on the line above it, `<a id="d
   - [DC-139](#dc-139): Warnings fail every build, and CI builds and tests Release after Debug in one job
   - [DC-140](#dc-140): CI keeps vcpkg's binary cache in GitHub's cache, pruned to the installed packages and saved only when it changes
   - [DC-141](#dc-141): CI imports the MSVC environment with `build.ps1 -MsvcEnvironment`, not the `msvc-dev-cmd` action
+  - [DC-143](#dc-143): The portable zip is written by CPack from install rules that take every DLL beside `verdandi.exe`, and `build.ps1 -Package` starts the unpacked copy
 - [Testing](#testing)
   - [DC-21](#dc-21): `test_main.cpp`: listing the tests creates no `QApplication`
   - [DC-27](#dc-27): Collectors take their OS calls as injected readers, beside pure calculation functions
@@ -1569,6 +1570,19 @@ How `verdandi.exe` starts, where its log goes, and what a second start does.
 **Rationale:** GitHub has deprecated Node.js 20, which `msvc-dev-cmd`'s newest release, v1.13.0, targets. The action has had no commit since March 2024, and two pull requests that move it to Node.js 24 have been open since May 2026. A fork, or a pull request's commit, would trust another publisher with a step that sets the `PATH` of every later step. `build.ps1` already finds an installation with the x64 tools and imports its environment, and the `Coverage` job relied on that, so both jobs and local builds now set up MSVC one way, and the option can be tried outside CI. Rejected: a workflow step that runs `vcvars64.bat` and copies its variables, which would find Visual Studio a second way and could be tried only in CI; and running `build.ps1 -Test` in the job instead of the presets' commands, which would merge configuring, building and testing into one step with one log and one time, while the vcpkg cache's effect is read from the configure steps' times ([DC-140](#dc-140)).
 
 **History:** Maintenance, CI (actions that target Node.js 20, after CI run 29).
+
+---
+
+<a id="dc-143"></a>
+### DC-143: The portable zip is written by CPack from install rules that take every DLL beside `verdandi.exe`, and `build.ps1 -Package` starts the unpacked copy
+
+**Decision:** Install rules in `src/app/CMakeLists.txt`, outside Debug builds, name what a release ships: `verdandi.exe`, every DLL beside it when the zip is made, the two Qt plugins, the license and the notices; `verdandi.pdb` is a component of its own. The `release` package preset has CPack's ZIP generator write `Verdandi-<version>-x64.zip` and `Verdandi-<version>-x64-symbols.zip`, each holding one folder named like the first. `build.ps1 -Package` runs it, starts `verdandi.exe --version` from the unpacked zip with `PATH` holding only Windows' directories, and fails unless it prints the product version within 30 seconds. CI runs it after the Release tests.
+
+**Rationale:** Zipped as it is, the build directory would ship static libraries, CMake's files and the program database; one built before the rename still held `system_monitor.exe`. A list of DLLs would go stale with each Qt or vcpkg change, and CMake's `RUNTIME_DEPENDENCY_SET`, which follows the imports, stops at a conflict: the plugins, read from vcpkg's tree, find the C++ runtime in System32, the executable its own copy. The DLLs beside the executable are those its notices cover, and one that no installed vcpkg package owns fails the build ([DC-138](#dc-138)). The folder makes a newer zip extract beside an older one, not over it. Only starting the unpacked copy shows that it needs nothing from the build tree; a missing platform plugin leaves Qt's message box open, hence the timeout.
+
+**Consequences:** Where the Visual C++ Redistributable is installed, as on developers' PCs and CI's, the check cannot see a runtime DLL missing from the zip; an integration test of the build directory does ([DC-137](#dc-137)).
+
+**History:** Packaging and distribution, the portable release.
 
 ---
 

@@ -126,3 +126,18 @@ add_verdandi_module(benchmarks)
 if(BUILD_TESTING)
     add_verdandi_module(tests)
 endif()
+
+# The portable zip and the zip of its program database, which
+# cpack --preset release writes from the install rules in src/app (DC-143).
+# Both hold one folder, named by CPACK_PACKAGE_FILE_NAME, so that a newer zip
+# is extracted beside an older one rather than over it.
+set(CPACK_GENERATOR ZIP)
+set(CPACK_PACKAGE_DIRECTORY "${PROJECT_BINARY_DIR}/package")
+set(CPACK_PACKAGE_FILE_NAME "Verdandi-${PROJECT_VERSION}-x64")
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENT_INCLUDE_TOPLEVEL_DIRECTORY ON)
+set(CPACK_COMPONENTS_ALL application symbols)
+set(CPACK_ARCHIVE_APPLICATION_FILE_NAME "Verdandi-${PROJECT_VERSION}-x64")
+set(CPACK_ARCHIVE_SYMBOLS_FILE_NAME "Verdandi-${PROJECT_VERSION}-x64-symbols")
+set(CPACK_VERBATIM_VARIABLES ON)
+include(CPack)

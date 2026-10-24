@@ -503,7 +503,13 @@ Each action needs an access right beyond `PROCESS_QUERY_LIMITED_INFORMATION`, so
 
 > *Seen in: Process Explorer and System Informer (portable, no installation), winget.*
 
-- [ ] 🔴 Publish a portable release: a zip with the executable and the Qt files it needs ([DC-104](docs/design_decisions.md#dc-104)) that runs without installation, and a portable mode that keeps the settings file next to the executable. Since [code review F-50](docs/code_reviews/phase_6.md#f-50-the-release-build-lacks-a-version-its-runtime-symbols-and-two-mitigations), `build\release\src\app` also holds the Microsoft C++ runtime, `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` ([DC-137](docs/design_decisions.md#dc-137), [DC-138](docs/design_decisions.md#dc-138)); leave out its `.lib` files and the program database, and keep each published build's `verdandi.pdb` to symbolize its crash dumps.
+- [ ] 🔴 Publish a portable release: a zip that runs without installation, and a portable mode that keeps the settings next to the executable.
+
+  - [x] Write the zip. `.\scripts\build.ps1 -Package` has CPack write `Verdandi-<version>-x64.zip`, which holds `verdandi.exe` with the Qt DLLs and plugins beside it ([DC-104](docs/design_decisions.md#dc-104)), the C++ runtime, `LICENSE.txt` and `THIRD_PARTY_NOTICES.txt` ([DC-137](docs/design_decisions.md#dc-137), [DC-138](docs/design_decisions.md#dc-138)) in a folder of the same name, and puts `verdandi.pdb` in a zip of its own. It then starts the unpacked copy with nothing of the build on `PATH`, and CI's `Build and Test` job runs it ([DC-143](docs/design_decisions.md#dc-143)).
+
+  - [ ] Add the portable mode. A `settings.json` beside `verdandi.exe` makes the monitor keep its settings, and its log, in that folder instead of `%APPDATA%\Verdandi` and `%LOCALAPPDATA%\Verdandi` ([DC-131](docs/design_decisions.md#dc-131)); the file's presence decides, not whether it can be read. The zip ships a `settings.json` that the build writes with `serializeSettings()`'s defaults, so it cannot drift from the code. The zip's versioned folder keeps a newer zip from being extracted over an older one's settings, and the README's download section should say to copy `settings.json` across.
+
+  - [ ] Publish it: a workflow that runs on a `v*` tag, checks that the tag matches `project()`'s version, builds, tests and packages Release, and attaches both zips to a GitHub release, which keeps each published build's `verdandi.pdb` to symbolize its crash dumps.
 - [ ] 🟡 Sign the release binaries in CI, as architecture.md's antivirus section asks, and publish a winget manifest.
 - [ ] 🟢 Add an Arm64 build (Process Explorer ships one). It needs the vcpkg `arm64-windows` triplet and a check of the structures `platform/windows` declares itself.
 

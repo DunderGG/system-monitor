@@ -76,5 +76,11 @@
       "inherits": "default",
       "configurePreset": "coverage"
     }
+  ],
+  "packagePresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
   ]
 }

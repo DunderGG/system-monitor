@@ -7,7 +7,8 @@ Runs CMake's default (Debug) preset, the release preset with -Release, or the
 coverage preset with -Coverage. They use vcpkg to resolve project dependencies
 and Ninja to build; default and release compile with MSVC, coverage with
 clang-cl. With -Run, the script launches the executable after a successful
-build (and tests, if -Test is also supplied).
+build (and tests, if -Test is also supplied). With -Package, it writes the
+portable zip of a Release build and checks that the unpacked copy starts.
 
 Builds are incremental: Ninja recompiles only what changed. The configure step
 runs only when the build directory is not configured yet or a CMake presets file
@@ -63,6 +64,22 @@ the Windows 11 power mode, and each benchmark prints the compiler, Qt and
 Windows versions it runs with; record them with the figures in
 docs\performance.md.
 
+.PARAMETER Package
+Builds the Release configuration (implies -Release) and writes the portable
+zip with CPack's release package preset, after the tests when -Test is also
+supplied (DC-143). build\release\package\Verdandi-<version>-x64.zip holds,
+in a folder of the same name, verdandi.exe, the DLLs and Qt plugins beside
+it, LICENSE.txt and THIRD_PARTY_NOTICES.txt. Verdandi-<version>-x64-symbols.zip
+holds verdandi.pdb in that folder; keep it, to symbolize the build's crash
+dumps. The script removes the previous run's zips first.
+
+Then it unpacks the zip into build\release\package\unpacked and starts
+verdandi.exe --version there, with PATH holding only the Windows directories
+and without Qt's plugin path variables, so that nothing outside the folder
+can supply a DLL or the platform plugin that the zip lacks. It fails unless
+the program prints the product version of its version information and exits
+within 30 seconds. Cannot be combined with -Coverage.
+
 .PARAMETER Coverage
 Builds the coverage preset in build\coverage, runs the tests (-Test is
 implied), and reports how much of src\ they cover. The preset compiles the
@@ -71,7 +88,7 @@ installation whose environment the script imports, and instruments them for
 LLVM source-based coverage, which counts lines and branches. vcpkg's packages
 stay as MSVC builds them. It needs Visual Studio's "C++ Clang tools for
 Windows" component, which scripts\bootstrap.ps1 -InstallMissing adds. Cannot be
-combined with -Release, -Benchmark or -Run.
+combined with -Release, -Benchmark, -Package or -Run.
 
 Each test process writes its raw profile to build\coverage\profiles. When the
 tests pass, llvm-profdata merges the profiles into
@@ -170,6 +187,9 @@ nothing changes. Cannot be combined with other options.
 .\scripts\build.ps1 -Benchmark
 
 .EXAMPLE
+.\scripts\build.ps1 -Test -Package
+
+.EXAMPLE
 .\scripts\build.ps1 -Coverage
 
 .EXAMPLE
@@ -191,6 +211,7 @@ param(
     [switch]$Configure,
     [switch]$Release,
     [switch]$Benchmark,
+    [switch]$Package,
     [switch]$Coverage,
     [string]$CoverageHistoryPath = "",
     [switch]$Format,
@@ -305,20 +326,22 @@ function Write-BenchmarkMachine
 $projectRoot = Split-Path -Parent $PSScriptRoot
 # CMakePresets.json defines each preset's build directory as build\<preset name>.
 # Benchmarks are only meaningful with optimized code, so -Benchmark implies -Release.
+# Only Release builds may ship the C++ runtime (DC-137), so -Package implies it too.
 # Coverage is measured by running the tests, so -Coverage implies -Test.
-if ($Coverage -and ($Release -or $Benchmark -or $Run))
+if ($Coverage -and ($Release -or $Benchmark -or $Package -or $Run))
 {
-    throw "-Coverage cannot be combined with -Release, -Benchmark or -Run."
+    throw "-Coverage cannot be combined with -Release, -Benchmark, -Package or -Run."
 }
 if ($CoverageHistoryPath -ne "" -and -not $Coverage)
 {
     throw "-CoverageHistoryPath needs -Coverage."
 }
-if ($MsvcEnvironment -and ($Run -or $Test -or $Configure -or $Release -or $Benchmark -or $Coverage -or $Format -or $CheckFormat))
+if ($MsvcEnvironment -and ($Run -or $Test -or $Configure -or $Release -or $Benchmark -or $Package -or $Coverage -or
+        $Format -or $CheckFormat))
 {
     throw "-MsvcEnvironment cannot be combined with other options."
 }
-$preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark) { "release" } else { "default" }
+$preset = if ($Coverage) { "coverage" } elseif ($Release -or $Benchmark -or $Package) { "release" } else { "default" }
 $runsTests = $Test -or $Coverage
 $buildDirectory = Join-Path $projectRoot "build\$preset"
 # tests\CMakeLists.txt has each test shard write its results here.
@@ -350,6 +373,8 @@ $benchmarkPaths = @(
     (Join-Path $buildDirectory "benchmarks\verdandi_benchmark.exe"),
     (Join-Path $buildDirectory "benchmarks\verdandi_process_benchmark.exe")
 )
+# CPACK_PACKAGE_DIRECTORY in CMakeLists.txt.
+$packageDirectory = Join-Path $buildDirectory "package"
 
 # Refresh process PATH from User and Machine values so that any tools installed
 # by bootstrap.ps1 (such as ninja) are visible in the current session.
@@ -1182,6 +1207,89 @@ function Write-Dashboard
     Write-Host "Dashboard: build\$preset\index.html"
 }
 
+# Writes the portable zip and the zip of its program database with CPack, from
+# the install rules in src\app\CMakeLists.txt, then unpacks the zip and starts
+# verdandi.exe --version from it (DC-143). Windows looks for a DLL in the
+# executable's directory, its own directories, the working directory and PATH,
+# so the copy runs in its own directory with PATH holding only Windows': a DLL
+# missing from the zip then stops it starting, as on a user's PC. Qt's plugin
+# path variables are removed for the platform plugin's sake.
+function Invoke-Package
+{
+    # Only this run's zips are to be found there afterwards.
+    if (Test-Path -LiteralPath $packageDirectory)
+    {
+        Remove-Item -LiteralPath $packageDirectory -Recurse -Force
+    }
+
+    # The cpack beside the cmake that wrote CPackConfig.cmake. One that comes
+    # first on PATH can be another CMake's, or Chocolatey's packaging command.
+    $cmakePath = (Get-Command "cmake" -CommandType Application | Select-Object -First 1).Source
+    $cpackPath = Join-Path (Split-Path -Parent $cmakePath) "cpack.exe"
+    Invoke-NativeCommand -Description "CPack" -FilePath $cpackPath -Arguments @("--preset", $preset)
+
+    $zips = @(Get-ChildItem -LiteralPath $packageDirectory -Filter "*.zip")
+    $applicationZips = @($zips | Where-Object { $_.Name -notlike "*-symbols.zip" })
+    $symbolZips = @($zips | Where-Object { $_.Name -like "*-symbols.zip" })
+    if ($applicationZips.Count -ne 1 -or $symbolZips.Count -ne 1)
+    {
+        throw "CPack wrote $($zips.Count) zips to build\$preset\package, not the portable zip and its symbols' zip."
+    }
+    $applicationZip = $applicationZips[0]
+    $folderName = [System.IO.Path]::GetFileNameWithoutExtension($applicationZip.Name)
+
+    $unpackedDirectory = Join-Path $packageDirectory "unpacked"
+    Expand-Archive -LiteralPath $applicationZip.FullName -DestinationPath $unpackedDirectory
+    $unpackedPath = Join-Path $unpackedDirectory "$folderName\verdandi.exe"
+    if (-not (Test-Path -LiteralPath $unpackedPath -PathType Leaf))
+    {
+        throw "$($applicationZip.Name) holds no $folderName\verdandi.exe."
+    }
+    $expectedOutput = "Verdandi $((Get-Item -LiteralPath $unpackedPath).VersionInfo.ProductVersion)"
+
+    # Standard output is redirected, so Qt prints the version there rather
+    # than in a message box (DC-134).
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $unpackedPath
+    $startInfo.Arguments = "--version"
+    $startInfo.WorkingDirectory = Split-Path -Parent $unpackedPath
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.EnvironmentVariables["PATH"] = "$env:SystemRoot\System32;$env:SystemRoot"
+    foreach ($name in @("QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH", "QT_QPA_PLATFORM"))
+    {
+        $startInfo.EnvironmentVariables.Remove($name)
+    }
+    $timeoutSeconds = 30
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    try
+    {
+        $outputTask = $process.StandardOutput.ReadToEndAsync()
+        if (-not $process.WaitForExit($timeoutSeconds * 1000))
+        {
+            # Qt shows a message box when it finds no platform plugin.
+            $process.Kill()
+            throw ("The unpacked verdandi.exe --version did not exit within $timeoutSeconds seconds. The " +
+                "Qt platform plugin may be missing from $($applicationZip.Name).")
+        }
+        $output = $outputTask.Result.Trim()
+        if ($process.ExitCode -ne 0 -or $output -cne $expectedOutput)
+        {
+            # In hex, a missing DLL's exit code reads as STATUS_DLL_NOT_FOUND, 0xC0000135.
+            throw ("The unpacked verdandi.exe --version exited with code $('0x{0:X8}' -f $process.ExitCode) and " +
+                "printed '$output', not '$expectedOutput'. A DLL may be missing from $($applicationZip.Name).")
+        }
+    }
+    finally
+    {
+        $process.Dispose()
+    }
+
+    $megabytes = "{0:0.0} MB" -f ($applicationZip.Length / 1MB)
+    Write-Host "Packaged build\$preset\package\$($applicationZip.Name) ($megabytes) and $($symbolZips[0].Name)."
+    Write-Host "Its unpacked copy, in build\$preset\package\unpacked, started alone and printed '$output'."
+}
+
 Push-Location $projectRoot
 try
 {
@@ -1280,6 +1388,11 @@ try
         {
             throw $testError
         }
+    }
+
+    if ($Package)
+    {
+        Invoke-Package
     }
 
     if ($Benchmark)

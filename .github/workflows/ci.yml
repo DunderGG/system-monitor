@@ -37,8 +37,8 @@ jobs:
         run: .\scripts\build.ps1 -CheckFormat
 
   # Builds and tests Debug, then Release, the configuration that ships
-  # (DC-139). Release's configure restores from vcpkg's binary cache the
-  # packages that Debug's restored or built.
+  # (DC-139), and packages Release (DC-143). Release's configure restores from
+  # vcpkg's binary cache the packages that Debug's restored or built.
   #
   # Both build jobs keep vcpkg's binary cache in GitHub's cache (DC-140): they
   # restore the newest one that either saved, vcpkg reads and writes it alone,
@@ -107,6 +107,13 @@ jobs:
 
       - name: Test (Release)
         run: ctest --preset release --output-on-failure
+
+      # Writes the portable zip and starts its unpacked copy, so that a change
+      # that breaks the package fails here rather than at a release (DC-143).
+      # The script configures once more, having no stamp of the configure above.
+      - name: Package (Release)
+        shell: powershell
+        run: .\scripts\build.ps1 -Package
 
       # Also after a failed step, so that the packages vcpkg built are kept.
       - name: Prune the vcpkg packages
